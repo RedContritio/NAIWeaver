@@ -2,7 +2,7 @@
 
 ## Core Generation
 - **Text-to-Image**: Full NovelAI Diffusion V4.5 generation with prompt/negative prompt, configurable dimensions, steps, scale, sampler selection
-- **Img2Img / Inpainting**: Source image transformation with strength/noise controls, client-side mask compositing for selective inpainting, canvas editor integration
+- **Img2Img / Inpainting**: Source image transformation with strength/noise controls, client-side mask compositing for selective inpainting, canvas editor integration, mask save/load (export to PNG, load pre-painted masks), and img2img presets (save/load/delete named settings)
 - **Img2Img Iterative Workflow**: "Use Result as Source" button to feed the current generation back as the img2img source for iterative refinement
 - **Img2Img Prompt Auto-Import**: Automatically extract and apply prompt from PNG metadata (tEXt + iTXt chunks) when loading a source image
 - **Custom Output Folder**: Configurable output directory for desktop platforms (Windows, Linux)
@@ -19,6 +19,9 @@
 - **Vibe Transfer (Reference Image)**: Apply the aesthetic "vibe" of reference images to influence generation style. Each vibe has independent strength (0.0–1.0) and information extraction (0.0–1.0) controls. 3 parallel API arrays. Multiple vibes can be active simultaneously, allowing layered style influence without precise character matching.
 
 ## Prompt Engineering
+- **Syntax Highlighting**: NAI prompt syntax highlighting for `{emphasis}`, `[de-emphasis]`, and `N::strength` patterns
+- **Keyboard Tag Navigation**: Tab/Shift+Tab to cycle through tag suggestions, Enter to accept
+- **Strength Prefix Suggestions**: Tag suggestions work inside strength prefixes (e.g. `2::1gi`)
 - **Danbooru Tag Library**: 300+ post-count tag database with intelligent auto-suggest and auto-completion as you type
 - **Tag Library Visual Examples**: Generate and save example images per tag with thumbnail previews for quick visual reference
 - **Tag Library Preview Settings**: Customizable generation parameters for tag test generations
@@ -30,6 +33,9 @@
 - **Style Defaults**: Mark styles as auto-selected on application launch
 - **Style Reordering**: Drag-to-reorder active styles with expandable style chips layout
 - **Artist Tag Category**: `artist:` prefix filtering in tag autocomplete for targeted artist searches
+- **Tag Alias System**: Type in Japanese, Korean, Chinese, or other languages and see alias-matched tag suggestions displayed as `alias → english_tag`, with automatic resolution to English Danbooru tags at generation time
+- **CJK-Aware Search**: Minimum query length of 1 character for CJK scripts across all tag suggestion fields
+- **Weight Syntax Preservation**: Aliased tags preserve weight syntax (e.g. `{女の子}` → `{1girl}`)
 
 ## Tools Hub (14 Tools)
 - **Wildcard Manager**: Browse, create, edit, and delete wildcard files with live preview, favorites, per-file randomization modes, and drag-to-reorder
@@ -102,7 +108,8 @@
 - **Bulk Export**: Export multiple selected images at once to device gallery (mobile) or chosen folder (desktop)
 - **Bulk Delete**: Delete multiple selected images with confirmation dialog
 - **Virtual Albums**: Folder-like organization without moving files, managed via SharedPreferences
-- **Sort Options**: Sort by date, name, or file size in ascending or descending order (6 sort modes)
+- **Sort Options**: Sort by date, name, file size, or date added in ascending or descending order (8 sort modes)
+- **Move to Album**: Move-to-album option in the "Add to album" bottom sheet
 - **Side-by-Side Comparison**: Compare two images with synced zoom, swap, and metadata chips
 - **Image Info Overlay**: Hover over gallery tiles on desktop to see prompt and filename
 
@@ -116,9 +123,10 @@
 - **PNG Metadata Injection**: Generation settings (prompt, seed, dimensions, sampler, etc.) embedded in PNG Comment and Description text chunks using isolate-based processing
 - **PNG Metadata Extraction**: Read settings back from any PNG with embedded metadata
 - **Drag-and-Drop Import**: Drag an image onto the main viewer to automatically extract and apply its generation settings
+- **Selective Metadata Import**: Choose which categories to import (Prompt, Negative Prompt, Characters, Seed, Styles, Settings) with unavailable categories auto-detected and greyed out
 
 ## Localization
-- **Multi-Language Support**: English and Japanese included out of the box
+- **Multi-Language Support**: English, Japanese, and Simplified Chinese included out of the box
 - **Extensible via ARB Files**: Add new languages by creating a new `.arb` file in `lib/l10n/` and running the Flutter localization generator
 - **Locale Persistence**: Selected language saved across sessions via SharedPreferences
 - **Full UI Coverage**: All tool names, labels, buttons, and messages are localized
@@ -167,7 +175,8 @@
 
 ## On-Device ML Processing
 - **ML Model Registry**: 8 downloadable models across 3 categories (background removal, upscaling, segmentation)
-- **Device Capability Detection**: Automatic GPU acceleration detection (DirectML, CUDA, TensorRT, CoreML, NNAPI) with RAM-aware model recommendations
+- **Device Capability Detection**: Automatic GPU acceleration detection (DirectML, CUDA, CoreML, NNAPI) with RAM-aware model recommendations
+- **Graceful GPU Fallback**: Automatic provider fallback chain (CUDA → DirectML → CPU) when DLLs are missing
 - **Background Removal**: 3 models (ISNet Anime, RMBG-2.0 Q4F16, RMBG-2.0 FP16) with binary mask and alpha matte output modes
 - **Image Upscaling**: 3 models (SPAN 2x DC, Compact 2x, RealPLKSR 2x DC) with tiled processing for large images to avoid memory issues
 - **Interactive Segmentation**: SAM 2.1-Tiny with point-based selection using separate encoder and decoder model pair

@@ -42,13 +42,16 @@ Check the [ROADMAP.md](ROADMAP.md) for planned features — your idea might alre
 
 NAIWeaver supports multiple languages via Flutter's ARB localization system. To add a new language:
 
-1. Copy `lib/l10n/app_en.arb` to `lib/l10n/app_XX.arb` (where `XX` is the language code, e.g., `ko`, `zh`, `de`)
+1. Copy `lib/l10n/app_en.arb` to `lib/l10n/app_XX.arb` (where `XX` is the language code, e.g., `ko`, `de`)
 2. Translate all string values in the new `.arb` file
-3. Add the new locale to the `supportedLocales` list in `main.dart`
-4. Run `flutter gen-l10n` (or let `flutter run` regenerate automatically)
-5. Test the new language by switching locale in **TOOLS > SETTINGS**
+3. Run `flutter gen-l10n` (or let `flutter run` regenerate automatically) to create `app_localizations_XX.dart`
+4. In `lib/l10n/app_localizations.dart`: add the import, add `Locale('XX')` to `supportedLocales`, and add the `case 'XX'` in `lookupAppLocalizations`
+5. Add a `DropdownMenuItem` for the new locale in `lib/features/tools/widgets/app_settings.dart`
+6. Add `if (lang == 'XX')` handling in `lib/core/l10n/locale_notifier.dart`
+7. Add locale matrix entries in `.github/workflows/release.yml`
+8. Test the new language by switching locale in **TOOLS > SETTINGS**
 
-Existing languages: English (`en`), Japanese (`ja`).
+Existing languages: English (`en`), Japanese (`ja`), Simplified Chinese (`zh`).
 
 ## Reporting Issues
 

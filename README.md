@@ -78,7 +78,7 @@ Sequential scene generation. Define setting, placement, actions, emotion, and st
 | **Settings** | API key, auto-save, shelf visibility, quick action buttons, upscale backend, tooltips, and locale |
 
 ### Localization
-English and Japanese out of the box. Extensible via `.arb` files — see [Contributing](#localization-1) for adding new languages.
+English, Japanese, and Simplified Chinese out of the box. Extensible via `.arb` files — see [Contributing](#localization-1) for adding new languages.
 
 ### Theme System
 Token-based theming with 8 built-in themes (OLED Dark, Soft Dark, Midnight, Pastel Purple, Rose Quartz, Emerald, Amber Terminal, Cyberpunk) and unlimited custom themes. 17 configurable color tokens including `bgRemoval` and `upscale`. All colors and fonts flow through semantic design tokens.

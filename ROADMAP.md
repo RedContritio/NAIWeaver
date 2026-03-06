@@ -42,7 +42,7 @@
 - Image info overlay on hover
 - Slideshow player with Ken Burns effect and saved configurations
 - NAIWeaver Packs (`.vpack` export/import of presets, styles, wildcards, director refs)
-- Localization (English + Japanese) with extensible `.arb` system
+- Localization (English + Japanese + Simplified Chinese) with extensible `.arb` system
 - Android/mobile support with responsive layouts, drawers, bottom sheets, and touch-friendly controls
 - PIN lock with lock-on-resume and biometric unlock support
 - Demo mode with gallery filtering, tag suppression, configurable prompt prefixes, and demo image picker
@@ -63,7 +63,7 @@
 - Release signing for APK with debug fallback
 - In-app update checker via GitHub releases API
 - Linux AppImage build and CI job
-- Japanese web build with separate `/ja/` deployment
+- Japanese and Chinese web builds with separate `/ja/` and `/zh/` deployments
 - Save original source image alongside img2img generation result with matching timestamps
 
 ### Phase 6: Character System, Custom Resolutions & Canvas Text (v0.4.0)
@@ -79,7 +79,7 @@
 - Responsive cascade navigation buttons and overflow fixes
 - Gallery canvas badge redesign (palette icon with accent color)
 - Characters section in theme builder panel ordering
-- Full EN and JA localization for all new features
+- Full EN and JA localization for all new features (ZH added in Phase 8)
 
 ### Phase 7: ML Processing, Director Tools & Gallery Rework (v0.5.0)
 - On-device ML inference via ONNX Runtime (BG removal, upscaling, segmentation)
@@ -95,6 +95,20 @@
 - Gallery, generation, and preferences refactored into domain-specific services
 - Core files consolidated into lib/core/services/
 - Tools Hub expanded from 11 to 14 tools
+
+### Phase 8: Syntax Highlighting, Img2Img Presets & Chinese Localization (v0.5.1–v0.6.1)
+- Tag alias system with CJK-aware search and automatic resolution to English Danbooru tags
+- Selective metadata import dialog (choose which categories to import)
+- Graceful GPU provider fallback (CUDA → DirectML → CPU)
+- Syntax highlighting for NAI prompt syntax ({emphasis}, [de-emphasis], N::strength)
+- Keyboard tag navigation (Tab/Shift+Tab cycle, Enter accept)
+- Mask save/load for inpainting (export to PNG, load pre-painted masks)
+- Img2img presets (save/load/delete named settings)
+- Gallery "Date Added" sort mode and move-to-album
+- Smooth karaoke animation with next-line countdown and brightness fade
+- Simplified Chinese (zh) localization (community contribution by @baisumang)
+- Chinese web build with `/zh/` deployment and zh release artifacts
+- Full EN, JA, and ZH localization for all features
 
 ## Architecture
 - **Language/Framework**: Dart 3.10.7+ / Flutter (stable channel)

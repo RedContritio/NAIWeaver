@@ -97,9 +97,11 @@ lib/
 ├── l10n/
 │   ├── app_en.arb                         # English translation strings
 │   ├── app_ja.arb                         # Japanese translation strings
+│   ├── app_zh.arb                         # Simplified Chinese translation strings
 │   ├── app_localizations.dart             # Generated localization base class
 │   ├── app_localizations_en.dart          # Generated English localizations
-│   └── app_localizations_ja.dart          # Generated Japanese localizations
+│   ├── app_localizations_ja.dart          # Generated Japanese localizations
+│   └── app_localizations_zh.dart          # Generated Chinese localizations
 └── features/
     ├── generation/                        # Main generation feature
     │   ├── models/
@@ -368,4 +370,4 @@ Context-aware floating action buttons rendered on the image viewer. Each button 
 | `prompt_styles.json` | Saved prompt style templates |
 | `output/` | Generated image output directory |
 | `ml_models/` | Downloaded ML model files (ONNX) |
-| `lib/l10n/app_*.arb` | Localization string files (en, ja) |
+| `lib/l10n/app_*.arb` | Localization string files (en, ja, zh) |
