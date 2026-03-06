@@ -1,5 +1,62 @@
 # Changelog
 
+## v0.6.0
+
+### Prompt Editor
+- Syntax highlighting for NAI prompt syntax ({emphasis}, [de-emphasis], N::strength)
+- Keyboard tag navigation (Tab/Shift+Tab cycle, Enter accept)
+- Tag suggestions work inside strength prefixes (e.g. `2::1gi`)
+- Persisted UI toggle states for character editor and style panel
+
+### Gallery
+- "Date Added" sort mode (import date vs file modification date)
+- Move-to-album option in "Add to album" bottom sheet
+- Import-to-editor snackbar shortcut after metadata import
+- Better Android image import (FileType.any bypasses SAF transcoding)
+- Smarter auto-album assignment (explicit > active > default)
+- Image detail header layout fix
+- Import metadata dialog shows style embedding hint
+
+### img2img / Inpainting
+- Mask save/load (export to PNG, load pre-painted masks)
+- Prebaked mask support (loaded masks bypass stroke rendering)
+- img2img presets (save/load/delete named settings)
+- Auto-sync prompt/UC from main generation editor
+
+### Enhance
+- Auto-sync prompt/UC from main generation editor
+- Default negative prompt extracted to constant
+
+### ML Hub
+- Mobile-only: force NovelAI backend for upscale/BG removal
+- Mobile info banner and hidden local ML model cards
+- NNAPI skip for upscale to avoid Android crashes
+
+### Style Editor
+- PopupMenuButton replaces inline action icons
+
+### Jukebox
+- Smooth karaoke syllable animation: gradual color sweep with glow instead of instant color flip
+- Next-line countdown progress bar between current and upcoming lyric lines
+- Next-line brightness fade (upcoming lyrics brighten in the last 30% of current line)
+- Frame-rate accurate lyric rendering via per-line ticker (only active on current line)
+- Persistent keyboard volume preference
+- Player volume slider in game lobby
+- Volume scaling applied to MIDI CC7 events in sequencer
+- Increased minimum falling note block height for better visibility
+- Fix RepeatMode analyzer warning
+- Game button in mobile now-playing bar
+- Remove buggy Watch mode
+
+### Slideshow
+- Fix context.read after dispose crash
+
+### Tools Hub
+- Auto-open tool drawer on mobile
+
+### Other
+- Snackbar action support with 6s duration
+
 ## v0.5.1
 
 ### Tag Alias System

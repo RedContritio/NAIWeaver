@@ -45,6 +45,7 @@ class JukeboxNotifier extends ChangeNotifier {
 
   Duration _position = Duration.zero;
   Duration get position => _position;
+  Duration get realtimePosition => _sequencer.isPlaying ? _sequencer.position : _position;
 
   Duration _duration = Duration.zero;
   Duration get duration => _duration;
@@ -143,6 +144,8 @@ class JukeboxNotifier extends ChangeNotifier {
       orElse: () => RepeatMode.off,
     );
 
+    _keyboardVolume = _prefs.jukeboxKeyboardVolume;
+
     _sequencer.onLyric = _onLyricEvent;
     _sequencer.onNoteOn = _onNoteOnEvent;
     _loadHighScores();
@@ -157,8 +160,13 @@ class JukeboxNotifier extends ChangeNotifier {
       // Apply saved volume (or mute) before loading soundfont to prevent boot pop
       final intVol = (_muted ? 0 : _volume * 127).round();
       for (int ch = 0; ch < 16; ch++) {
-        _synth.controlChange(ch, 7, intVol);
+        if (ch == keyboardChannel) {
+          _synth.controlChange(ch, 7, (_keyboardVolume * 127).round());
+        } else {
+          _synth.controlChange(ch, 7, intVol);
+        }
       }
+      _sequencer.volumeScale = _muted ? 0.0 : _volume;
       // If the persisted soundfont is no longer available, fall back to default
       _sfManager.ensureAvailable();
       await _sfManager.loadInto(_synth);
@@ -315,9 +323,11 @@ class JukeboxNotifier extends ChangeNotifier {
   void setVolume(double value) {
     _volume = value.clamp(0.0, 1.0);
     _muted = false;
-    // Volume is applied via CC7 on all channels
+    _sequencer.volumeScale = _volume;
+    // Volume is applied via CC7 on all channels (except keyboard channel)
     final intVol = (_volume * 127).round();
     for (int ch = 0; ch < 16; ch++) {
+      if (ch == keyboardChannel) continue;
       _synth.controlChange(ch, 7, intVol);
     }
     _prefs.setJukeboxVolume(_volume);
@@ -326,8 +336,10 @@ class JukeboxNotifier extends ChangeNotifier {
 
   void toggleMute() {
     _muted = !_muted;
+    _sequencer.volumeScale = _muted ? 0.0 : _volume;
     final intVol = _muted ? 0 : (_volume * 127).round();
     for (int ch = 0; ch < 16; ch++) {
+      if (ch == keyboardChannel) continue;
       _synth.controlChange(ch, 7, intVol);
     }
     notifyListeners();
@@ -363,7 +375,11 @@ class JukeboxNotifier extends ChangeNotifier {
     // 5. Restore user volume (must come AFTER seek, which replays CC 7 from the MIDI).
     final intVol = (_muted ? 0 : _volume * 127).round();
     for (int ch = 0; ch < 16; ch++) {
-      _synth.controlChange(ch, 7, intVol);
+      if (ch == keyboardChannel) {
+        _synth.controlChange(ch, 7, (_keyboardVolume * 127).round());
+      } else {
+        _synth.controlChange(ch, 7, intVol);
+      }
     }
 
     // 6. Resume if was playing.
@@ -473,6 +489,8 @@ class JukeboxNotifier extends ChangeNotifier {
         // forcibly zero it every tick to keep it silent.
         if (_gameMode && !_watchMode) {
           _synth.controlChange(_targetChannel, 7, 0);
+          // Re-apply keyboard volume on ch 15 to prevent MIDI CC7 override
+          _synth.controlChange(keyboardChannel, 7, (_keyboardVolume * 127).round());
         }
 
         notifyListeners();
@@ -593,6 +611,9 @@ class JukeboxNotifier extends ChangeNotifier {
 
   static const int keyboardChannel = 15;
 
+  double _keyboardVolume = 0.8;
+  double get keyboardVolume => _keyboardVolume;
+
   int _keyboardProgram = 0;
   int get keyboardProgram => _keyboardProgram;
 
@@ -624,6 +645,13 @@ class JukeboxNotifier extends ChangeNotifier {
   void setKeyboardInstrument(int program) {
     _keyboardProgram = program.clamp(0, 127);
     _synth.programChange(keyboardChannel, _keyboardProgram);
+    notifyListeners();
+  }
+
+  void setKeyboardVolume(double value) {
+    _keyboardVolume = value.clamp(0.0, 1.0);
+    _synth.controlChange(keyboardChannel, 7, (_keyboardVolume * 127).round());
+    _prefs.setJukeboxKeyboardVolume(_keyboardVolume);
     notifyListeners();
   }
 

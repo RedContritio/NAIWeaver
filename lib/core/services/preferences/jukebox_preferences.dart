@@ -24,6 +24,7 @@ class JukeboxPreferences {
   static const String _kVizSpeed = 'jukebox_viz_speed';
   static const String _kVizDensity = 'jukebox_viz_density';
   static const String _kHighScores = 'jukebox_high_scores';
+  static const String _kKeyboardVolume = 'jukebox_keyboard_volume';
 
   // — Volume —
 
@@ -191,5 +192,13 @@ class JukeboxPreferences {
 
   Future<void> setHighScores(String value) async {
     await _prefs.setString(_kHighScores, value);
+  }
+
+  // — Keyboard Volume —
+
+  double get keyboardVolume => _prefs.getDouble(_kKeyboardVolume) ?? 0.8;
+
+  Future<void> setKeyboardVolume(double value) async {
+    await _prefs.setDouble(_kKeyboardVolume, value);
   }
 }

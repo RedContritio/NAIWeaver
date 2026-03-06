@@ -578,7 +578,7 @@ class _FallingNotesPainter extends CustomPainter {
 
       final yTop = hitLineY - startDelta * pixelsPerMicro;
       final yBottom = hitLineY - endDelta * pixelsPerMicro;
-      final height = (yBottom - yTop).clamp(6.0, size.height * 2);
+      final height = (yBottom - yTop).clamp(14.0, size.height * 2);
 
       final rect = RRect.fromRectAndRadius(
         Rect.fromLTWH(x - noteWidth / 2, yTop, noteWidth, height),

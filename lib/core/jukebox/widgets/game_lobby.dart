@@ -470,6 +470,27 @@ class _GameSongDetailState extends State<GameSongDetail> {
                 ),
                 const SizedBox(height: 8),
                 ...channels.map((ch) => _buildChannelRow(t, ch)),
+                if (_selectedChannel != null) ...[
+                  const SizedBox(height: 16),
+                  Divider(color: t.borderSubtle),
+                  const SizedBox(height: 12),
+                  Text(
+                    'PLAYER VOLUME',
+                    style: TextStyle(
+                      color: t.textMinimal,
+                      fontSize: t.fontSize(9),
+                      letterSpacing: 2,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Slider(
+                    value: jukebox.keyboardVolume,
+                    onChanged: jukebox.setKeyboardVolume,
+                    activeColor: t.accent,
+                    inactiveColor: t.borderSubtle,
+                  ),
+                ],
               ],
             ),
           ),

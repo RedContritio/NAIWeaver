@@ -62,6 +62,7 @@ class MidiSequencer {
   Duration _duration = Duration.zero;
   Timer? _timer;
   double _tempoMultiplier = 1.0;
+  double volumeScale = 1.0;
 
   // Lyric support
   List<LyricLine> _lyrics = [];
@@ -238,7 +239,13 @@ class MidiSequencer {
       case 0xC0: // Program Change
         _synth.programChange(evt.channel, evt.data1);
       case 0xB0: // Control Change
-        _synth.controlChange(evt.channel, evt.data1, evt.data2);
+        if (evt.data1 == 7) {
+          // CC7 = Main Volume — scale by volumeScale
+          final scaled = (evt.data2 * volumeScale).round().clamp(0, 127);
+          _synth.controlChange(evt.channel, evt.data1, scaled);
+        } else {
+          _synth.controlChange(evt.channel, evt.data1, evt.data2);
+        }
       case 0xE0: // Pitch Bend
         _synth.pitchBend(evt.channel, (evt.data2 << 7) | evt.data1);
       case 0x05: // Lyric meta event
