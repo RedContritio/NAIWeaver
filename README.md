@@ -145,7 +145,7 @@ lib/
     services/                  # NovelAI API, preferences, paths, pack service, presets, styles, tags, wildcards
     utils/                     # Image utils, responsive helpers, snackbar, timestamps
     widgets/                   # Shared widgets (comparison slider, quick actions, dialogs, etc.)
-  l10n/                        # ARB translation files (en, ja)
+  l10n/                        # ARB translation files (en, ja, zh)
   features/
     generation/                # Main generation UI, character editor, services
     gallery/                   # Image gallery with albums, detail view, services
@@ -188,6 +188,10 @@ These projects were great resources and inspiration:
 - [NAI_UI_2](https://github.com/EctoplasmicNeko/NAI_UI_2) by [@EctoplasmicNeko](https://github.com/EctoplasmicNeko) — NovelAI desktop app with additional features
 - [ComfyUI_NAIDGenerator](https://github.com/bedovyy/ComfyUI_NAIDGenerator) by [@bedovyy](https://github.com/bedovyy) — NovelAI Diffusion generator for ComfyUI
 - Special thanks to Glockamoli and his TamperMonkey script for the comparison tool
+
+## Contributors
+
+- [@baisumang](https://github.com/baisumang) — Simplified Chinese translation
 
 ## License
 
