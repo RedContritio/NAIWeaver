@@ -312,6 +312,9 @@ class JukeboxMobileNowPlaying extends StatelessWidget {
   /// composition shell using the other extracted sub-widgets.
   final Widget expandedBody;
 
+  /// Optional callback to enter game mode from the compact bar.
+  final VoidCallback? onGamePressed;
+
   const JukeboxMobileNowPlaying({
     super.key,
     required this.jukebox,
@@ -319,6 +322,7 @@ class JukeboxMobileNowPlaying extends StatelessWidget {
     required this.expanded,
     required this.onExpandedChanged,
     required this.expandedBody,
+    this.onGamePressed,
   });
 
   @override
@@ -445,6 +449,13 @@ class JukeboxMobileNowPlaying extends StatelessWidget {
             constraints: const BoxConstraints(),
             padding: const EdgeInsets.all(4),
           ),
+          if (onGamePressed != null && jukebox.currentSong != null)
+            IconButton(
+              icon: Icon(Icons.sports_esports, size: 20, color: t.accent),
+              onPressed: onGamePressed,
+              constraints: const BoxConstraints(),
+              padding: const EdgeInsets.all(4),
+            ),
           if (jukebox.isPlaying)
             IconButton(
               icon: Icon(Icons.fullscreen, size: 20, color: t.accent),

@@ -121,6 +121,12 @@ class _ImportMetadataDialogState extends State<_ImportMetadataDialog> {
       case ImportCategory.seed:
         return l.importCategorySeed;
       case ImportCategory.styles:
+        // When styles are baked (empty list but category available),
+        // show hint that disabling them avoids doubling
+        final stylesBaked = widget.result.activeStyleNames?.isEmpty ?? true;
+        if (stylesBaked) {
+          return '${l.importCategoryStyles} (disable - embedded in prompt)';
+        }
         return l.importCategoryStyles;
       case ImportCategory.settings:
         return l.importCategorySettings;

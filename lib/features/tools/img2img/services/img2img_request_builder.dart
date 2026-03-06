@@ -57,10 +57,11 @@ class Img2ImgRequestBuilder {
     // Render mask if strokes exist
     String? maskBase64;
     if (session.hasMask) {
-      maskBase64 = await MaskEncoder.renderMaskBase64(
+      maskBase64 = await MaskEncoder.renderMaskBase64WithPrebaked(
         strokes: session.maskStrokes,
         width: targetWidth,
         height: targetHeight,
+        prebakedMaskBytes: session.prebakedMaskBytes,
       );
       // Save debug mask in debug mode only
       if (kDebugMode) {

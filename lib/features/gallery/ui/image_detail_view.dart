@@ -719,17 +719,21 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                     size: mobile ? 20 : 14, color: t.textSecondary),
                                 onPressed: () => Navigator.pop(context),
                               ),
-                              const Spacer(),
-                              // Position indicator
-                              Text(
-                                '${_currentIndex + 1} / ${items.length}',
-                                style: TextStyle(
-                                  color: t.textDisabled,
-                                  fontSize: t.fontSize(mobile ? 11 : 9),
-                                  letterSpacing: 1,
+                              Expanded(
+                                child: Center(
+                                  child: Text(
+                                    '${_currentIndex + 1} / ${items.length}',
+                                    style: TextStyle(
+                                      color: t.textDisabled,
+                                      fontSize: t.fontSize(mobile ? 11 : 9),
+                                      letterSpacing: 1,
+                                    ),
+                                  ),
                                 ),
                               ),
-                              const Spacer(),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
                               IconButton(
                                 icon: Icon(
                                   item.isFavorite ? Icons.star : Icons.star_outline,
@@ -786,6 +790,8 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                     _loadMetadata();
                                   }
                                 },
+                              ),
+                                ],
                               ),
                             ],
                           ),

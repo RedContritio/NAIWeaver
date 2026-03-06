@@ -1,6 +1,9 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MlPreferences {
+  static bool get _isMobile => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
   final SharedPreferences _prefs;
 
   MlPreferences(this._prefs);
@@ -40,7 +43,8 @@ class MlPreferences {
 
   // — Upscale Backend —
 
-  String get upscaleBackend => _prefs.getString(_kUpscaleBackend) ?? 'novelai';
+  String get upscaleBackend =>
+      _isMobile ? 'novelai' : (_prefs.getString(_kUpscaleBackend) ?? 'novelai');
 
   Future<void> setUpscaleBackend(String value) async {
     await _prefs.setString(_kUpscaleBackend, value);
@@ -49,7 +53,7 @@ class MlPreferences {
   // — BG Removal Backend —
 
   String get bgRemovalBackend =>
-      _prefs.getString(_kBgRemovalBackend) ?? 'novelai';
+      _isMobile ? 'novelai' : (_prefs.getString(_kBgRemovalBackend) ?? 'novelai');
 
   Future<void> setBgRemovalBackend(String value) async {
     await _prefs.setString(_kBgRemovalBackend, value);

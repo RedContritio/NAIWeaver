@@ -43,6 +43,12 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
       _activeToolId = widget.initialToolId!;
     } else {
       _activeToolId = _prefs.lastToolId ?? 'settings';
+      // On mobile, auto-open the tool drawer when no specific tool was requested
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && isMobile(context)) {
+          _scaffoldKey.currentState?.openEndDrawer();
+        }
+      });
     }
   }
 

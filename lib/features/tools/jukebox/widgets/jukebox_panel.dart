@@ -144,7 +144,7 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
                                 key: _fallingNotesKey,
                                 noteBlocks: jukebox.noteBlocks!,
                                 targetChannel: jukebox.targetChannel,
-                                gameMode: !jukebox.watchMode,
+                                gameMode: true,
                                 activeKeys: _activeKeys,
                                 onHit: jukebox.onPlayerHit,
                                 onMiss: jukebox.onPlayerMiss,
@@ -182,7 +182,7 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
                             gameMode: jukebox.gameMode,
                             gameNoteMin: range?.$1,
                             gameNoteMax: range?.$2,
-                            highlightedNotes: jukebox.watchMode ? _activeKeys : null,
+                            highlightedNotes: null,
                             onNoteOn: (note) {
                               setState(() => _activeKeys.add(note));
                               jukebox.playNote(note, 100);
@@ -218,6 +218,10 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
                     expanded: _expandedNowPlaying,
                     onExpandedChanged: (v) => setState(() => _expandedNowPlaying = v),
                     expandedBody: _buildMobileExpandedBody(jukebox, t),
+                    onGamePressed: () {
+                      if (!jukebox.keyboardMode) jukebox.toggleKeyboardMode();
+                      jukebox.openGameBrowser();
+                    },
                   )
                 else if (MediaQuery.of(context).orientation != Orientation.landscape)
                   JukeboxMobileNowPlaying(
@@ -595,7 +599,7 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
                     key: _fallingNotesKey,
                     noteBlocks: jukebox.noteBlocks!,
                     targetChannel: jukebox.targetChannel,
-                    gameMode: !jukebox.watchMode,
+                    gameMode: true,
                     activeKeys: _activeKeys,
                     onHit: jukebox.onPlayerHit,
                     onMiss: jukebox.onPlayerMiss,
@@ -627,7 +631,7 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
               gameMode: jukebox.gameMode,
               gameNoteMin: range?.$1,
               gameNoteMax: range?.$2,
-              highlightedNotes: jukebox.watchMode ? _activeKeys : null,
+              highlightedNotes: null,
               onNoteOn: (note) {
                 setState(() => _activeKeys.add(note));
                 jukebox.playNote(note, 100);

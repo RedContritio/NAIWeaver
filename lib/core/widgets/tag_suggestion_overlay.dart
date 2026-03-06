@@ -16,11 +16,15 @@ class TagSuggestionOverlay extends StatelessWidget {
   /// When false, renders inline (for Column-based layouts).
   final bool positioned;
 
+  /// Index of the keyboard-selected suggestion (-1 = none).
+  final int selectedIndex;
+
   const TagSuggestionOverlay({
     super.key,
     required this.suggestions,
     required this.onTagSelected,
     this.positioned = false,
+    this.selectedIndex = -1,
   });
 
   static Color tagColor(DanbooruTag tag) {
@@ -87,8 +91,10 @@ class TagSuggestionOverlay extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: suggestions.map((tag) {
+                children: List.generate(suggestions.length, (index) {
+                  final tag = suggestions[index];
                   final color = tagColor(tag);
+                  final isHighlighted = index == selectedIndex;
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: InkWell(
@@ -96,9 +102,16 @@ class TagSuggestionOverlay extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: color.withValues(alpha: 0.15),
+                          color: isHighlighted
+                              ? color.withValues(alpha: 0.35)
+                              : color.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(2),
-                          border: Border.all(color: color.withValues(alpha: 0.4), width: 0.5),
+                          border: Border.all(
+                            color: isHighlighted
+                                ? color.withValues(alpha: 0.8)
+                                : color.withValues(alpha: 0.4),
+                            width: isHighlighted ? 1.5 : 0.5,
+                          ),
                         ),
                         child: Row(
                           children: [
@@ -152,7 +165,7 @@ class TagSuggestionOverlay extends StatelessWidget {
                       ),
                     ),
                   );
-                }).toList(),
+                }),
               ),
             ),
           ),

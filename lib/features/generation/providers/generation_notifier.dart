@@ -13,6 +13,7 @@ import '../../../core/services/tag_service.dart';
 import '../../../core/utils/image_utils.dart';
 import '../../../core/services/wildcard_service.dart';
 import '../../../core/utils/tag_suggestion_helper.dart';
+import '../../../core/widgets/syntax_highlight_controller.dart';
 import '../../../core/services/styles.dart';
 import '../../gallery/providers/gallery_notifier.dart';
 import '../../tools/providers/tag_library_notifier.dart';
@@ -233,8 +234,8 @@ class GenerationNotifier extends ChangeNotifier {
   Timer? _tagDebounce;
   Timer? _sessionSaveDebounce;
   bool _sessionReady = false;
-  final TextEditingController promptController = TextEditingController();
-  final TextEditingController negativePromptController = TextEditingController(
+  final SyntaxHighlightController promptController = SyntaxHighlightController();
+  final SyntaxHighlightController negativePromptController = SyntaxHighlightController(
     text: ""
   );
 

@@ -220,6 +220,7 @@ class _ExpandedSettingsContentState extends State<_ExpandedSettingsContent> {
   @override
   void initState() {
     super.initState();
+    _stylesExpanded = Provider.of<PreferencesService>(context, listen: false).uiStylesExpanded;
     _negativePromptFocus.addListener(_onNegativeFocusChanged);
   }
 
@@ -587,7 +588,10 @@ class _ExpandedSettingsContentState extends State<_ExpandedSettingsContent> {
                   IconButton(
                     icon: Icon(_stylesExpanded ? Icons.unfold_less : Icons.unfold_more, size: 14, color: t.textDisabled),
                     tooltip: context.l.settingsStylesToggle,
-                    onPressed: () => setState(() => _stylesExpanded = !_stylesExpanded),
+                    onPressed: () {
+                      setState(() => _stylesExpanded = !_stylesExpanded);
+                      context.read<PreferencesService>().setUiStylesExpanded(_stylesExpanded);
+                    },
                     constraints: const BoxConstraints(),
                     padding: const EdgeInsets.only(right: 12),
                   ),

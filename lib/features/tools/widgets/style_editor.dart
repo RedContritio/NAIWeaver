@@ -237,20 +237,37 @@ class _StyleEditorContentState extends State<_StyleEditorContent> {
                             ),
                           ),
                         ),
-                        if (isSelected) ...[
-                          IconButton(
-                            icon: Icon(Icons.copy, size: 12, color: t.textDisabled),
-                            onPressed: () => notifier.duplicateStyle(style),
-                            constraints: const BoxConstraints(),
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.delete_outline, size: 12, color: t.textDisabled),
-                            onPressed: () => _showDeleteConfirm(context, notifier, style, t),
-                            constraints: const BoxConstraints(),
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                          ),
-                        ],
+                        PopupMenuButton<String>(
+                          icon: Icon(Icons.more_vert, size: 14, color: t.textDisabled),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          color: t.surfaceHigh,
+                          itemBuilder: (_) => [
+                            PopupMenuItem(
+                              value: 'edit',
+                              child: Text('EDIT', style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(10), letterSpacing: 1)),
+                            ),
+                            PopupMenuItem(
+                              value: 'duplicate',
+                              child: Text('DUPLICATE', style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(10), letterSpacing: 1)),
+                            ),
+                            PopupMenuItem(
+                              value: 'delete',
+                              child: Text('DELETE', style: TextStyle(color: t.accentDanger, fontSize: t.fontSize(10), letterSpacing: 1)),
+                            ),
+                          ],
+                          onSelected: (action) {
+                            switch (action) {
+                              case 'edit':
+                                notifier.selectStyle(style);
+                                if (isMobile(context)) setState(() => _showingEditor = true);
+                              case 'duplicate':
+                                notifier.duplicateStyle(style);
+                              case 'delete':
+                                _showDeleteConfirm(context, notifier, style, t);
+                            }
+                          },
+                        ),
                       ],
                     ),
                   ),

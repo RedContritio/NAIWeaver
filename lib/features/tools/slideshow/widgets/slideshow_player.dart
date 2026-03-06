@@ -44,6 +44,7 @@ class _SlideshowPlayerState extends State<SlideshowPlayer>
   final TransformationController _manualZoomController = TransformationController();
   bool _showKaraoke = false;
   bool _musicMuted = false;
+  JukeboxNotifier? _jukebox;
 
   @override
   void initState() {
@@ -59,16 +60,19 @@ class _SlideshowPlayerState extends State<SlideshowPlayer>
     _scheduleHideControls();
     _showKaraoke = widget.config.karaokeEnabled;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _preloadNext();
+      if (mounted) {
+        _jukebox = context.read<JukeboxNotifier>();
+        _preloadNext();
+      }
       _startMusic();
     });
   }
 
   void _startMusic() {
     if (!widget.config.musicEnabled) return;
-    if (!mounted) return;
+    if (_jukebox == null) return;
 
-    final jukebox = context.read<JukeboxNotifier>();
+    final jukebox = _jukebox!;
     if (!jukebox.synthAvailable) return;
 
     // Determine songs to play
@@ -101,9 +105,7 @@ class _SlideshowPlayerState extends State<SlideshowPlayer>
   }
 
   void _stopMusic() {
-    if (!mounted) return;
-    final jukebox = context.read<JukeboxNotifier>();
-    jukebox.stop();
+    if (widget.config.musicEnabled) _jukebox?.stop();
   }
 
   @override
@@ -235,8 +237,7 @@ class _SlideshowPlayerState extends State<SlideshowPlayer>
         // Toggle music mute
         if (widget.config.musicEnabled) {
           setState(() => _musicMuted = !_musicMuted);
-          final jukebox = context.read<JukeboxNotifier>();
-          jukebox.toggleMute();
+          _jukebox?.toggleMute();
           _showControlsAndReset();
         }
         return KeyEventResult.handled;

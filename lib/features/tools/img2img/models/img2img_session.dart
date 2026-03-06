@@ -60,6 +60,10 @@ class Img2ImgSession {
   final Uint8List? resultImageBytes;
   final String? sourceFilePath;
 
+  /// Pre-baked mask image bytes (PNG) loaded from file.
+  /// When set, the mask encoder uses this instead of rendering from strokes.
+  final Uint8List? prebakedMaskBytes;
+
   const Img2ImgSession({
     required this.sourceImageBytes,
     required this.sourceWidth,
@@ -70,6 +74,7 @@ class Img2ImgSession {
     this.negativePrompt = '',
     this.resultImageBytes,
     this.sourceFilePath,
+    this.prebakedMaskBytes,
   });
 
   Img2ImgSession copyWith({
@@ -84,6 +89,8 @@ class Img2ImgSession {
     bool clearResult = false,
     String? sourceFilePath,
     bool clearSourceFilePath = false,
+    Uint8List? prebakedMaskBytes,
+    bool clearPrebakedMask = false,
   }) {
     return Img2ImgSession(
       sourceImageBytes: sourceImageBytes ?? this.sourceImageBytes,
@@ -95,8 +102,9 @@ class Img2ImgSession {
       negativePrompt: negativePrompt ?? this.negativePrompt,
       resultImageBytes: clearResult ? null : (resultImageBytes ?? this.resultImageBytes),
       sourceFilePath: clearSourceFilePath ? null : (sourceFilePath ?? this.sourceFilePath),
+      prebakedMaskBytes: clearPrebakedMask ? null : (prebakedMaskBytes ?? this.prebakedMaskBytes),
     );
   }
 
-  bool get hasMask => maskStrokes.isNotEmpty;
+  bool get hasMask => maskStrokes.isNotEmpty || prebakedMaskBytes != null;
 }

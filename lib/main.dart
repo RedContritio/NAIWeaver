@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'l10n/app_localizations.dart';
 import 'package:desktop_drop/desktop_drop.dart';
@@ -238,6 +239,7 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
   bool _isTouchingSuggestions = false;
+  int _tagSuggestionIndex = -1;
   
   @override
   void initState() {
@@ -556,7 +558,11 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
                             duration: const Duration(milliseconds: 200),
                             child: TagSuggestionOverlay(
                               suggestions: state.tagSuggestions,
-                              onTagSelected: notifier.applyTagSuggestion,
+                              onTagSelected: (tag) {
+                                notifier.applyTagSuggestion(tag);
+                                setState(() => _tagSuggestionIndex = -1);
+                              },
+                              selectedIndex: _tagSuggestionIndex,
                             ),
                           ),
                         ),
@@ -570,14 +576,45 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
                                     Future.delayed(const Duration(milliseconds: 200), () {
                                       if (!_isTouchingSuggestions) {
                                         notifier.clearTagSuggestions();
+                                        setState(() => _tagSuggestionIndex = -1);
                                       }
                                     });
                                   }
                                 },
+                                onKeyEvent: (node, event) {
+                                  if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                                  final suggestions = state.tagSuggestions;
+                                  if (suggestions.isEmpty) return KeyEventResult.ignored;
+
+                                  if (event.logicalKey == LogicalKeyboardKey.tab) {
+                                    if (HardwareKeyboard.instance.isShiftPressed) {
+                                      setState(() {
+                                        _tagSuggestionIndex = (_tagSuggestionIndex - 1)
+                                            .clamp(-1, suggestions.length - 1);
+                                      });
+                                    } else {
+                                      setState(() {
+                                        _tagSuggestionIndex = (_tagSuggestionIndex + 1) % suggestions.length;
+                                      });
+                                    }
+                                    return KeyEventResult.handled;
+                                  }
+                                  if (event.logicalKey == LogicalKeyboardKey.enter &&
+                                      _tagSuggestionIndex >= 0 &&
+                                      _tagSuggestionIndex < suggestions.length) {
+                                    notifier.applyTagSuggestion(suggestions[_tagSuggestionIndex]);
+                                    setState(() => _tagSuggestionIndex = -1);
+                                    return KeyEventResult.handled;
+                                  }
+                                  return KeyEventResult.ignored;
+                                },
                                 child: TextField(
                                 controller: notifier.promptController,
                                 maxLines: mobile ? t.promptMaxLines + 2 : t.promptMaxLines + 1,
-                                onChanged: (val) => notifier.handleTagSuggestions(val, notifier.promptController.selection),
+                                onChanged: (val) {
+                                  notifier.handleTagSuggestions(val, notifier.promptController.selection);
+                                  setState(() => _tagSuggestionIndex = -1);
+                                },
                                 onTapOutside: (_) {
                                   Future.delayed(const Duration(milliseconds: 200), () {
                                     if (!_isTouchingSuggestions) {

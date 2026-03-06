@@ -7,11 +7,13 @@ import '../models/enhance_config.dart';
 class EnhanceNotifier extends ChangeNotifier {
   NovelAIService? _service;
 
+  static const String defaultNegativePrompt = 'lowres, {bad}, error, fewer, extra, missing, worst quality, jpeg artifacts, bad quality, watermark, unfinished, displeasing, chromatic aberration, signature, extra digits, artistic error, username, scan, [abstract]';
+
   Uint8List? _sourceImageBytes;
   int _sourceWidth = 0;
   int _sourceHeight = 0;
   String _prompt = '';
-  String _negativePrompt = 'lowres, {bad}, error, fewer, extra, missing, worst quality, jpeg artifacts, bad quality, watermark, unfinished, displeasing, chromatic aberration, signature, extra digits, artistic error, username, scan, [abstract]';
+  String _negativePrompt = defaultNegativePrompt;
   EnhanceConfig _config = const EnhanceConfig();
   Uint8List? _resultBytes;
   bool _isProcessing = false;
@@ -130,7 +132,7 @@ class EnhanceNotifier extends ChangeNotifier {
     _isProcessing = false;
     _status = '';
     _prompt = '';
-    _negativePrompt = 'lowres, {bad}, error, fewer, extra, missing, worst quality, jpeg artifacts, bad quality, watermark, unfinished, displeasing, chromatic aberration, signature, extra digits, artistic error, username, scan, [abstract]';
+    _negativePrompt = defaultNegativePrompt;
     _config = const EnhanceConfig();
     notifyListeners();
   }

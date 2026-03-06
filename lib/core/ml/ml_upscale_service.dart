@@ -78,7 +78,7 @@ class MLUpscaleService {
 
     // Step 1: Load model
     onProgress?.call('Loading model...', 0.05);
-    final loaded = await _inferenceService.loadModel(modelId);
+    final loaded = await _inferenceService.loadModel(modelId, skipNnapi: true);
     if (!loaded) return null;
 
     // Step 2: Split into tiles (isolate)

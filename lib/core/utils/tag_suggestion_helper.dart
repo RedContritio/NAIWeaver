@@ -38,9 +38,14 @@ class TagSuggestionHelper {
     final lastDelimiter = beforeCursor.lastIndexOf(RegExp(r'[,|]'));
     final currentWord = beforeCursor.substring(lastDelimiter + 1).trimLeft();
 
+    // Strip strength prefix (e.g. "2::1gi" → lookupWord = "1gi", strength prefix = "2::")
+    String lookupWord = currentWord;
+    final strengthMatch = RegExp(r'^\d+(?:\.\d+)?::(.*)').firstMatch(currentWord);
+    if (strengthMatch != null) lookupWord = strengthMatch.group(1)!;
+
     // Wildcard completion: triggered by `__`
-    if (wildcardService != null && currentWord.startsWith('__')) {
-      final query = currentWord.substring(2); // Strip leading `__`
+    if (wildcardService != null && lookupWord.startsWith('__')) {
+      final query = lookupWord.substring(2); // Strip leading `__`
       final suggestions = query.isEmpty
           ? wildcardService.getAll()
           : wildcardService.getSuggestions(query);
@@ -50,10 +55,10 @@ class TagSuggestionHelper {
       );
     }
 
-    if (supportFavorites && currentWord.startsWith('/f')) {
+    if (supportFavorites && lookupWord.startsWith('/f')) {
       String? category;
-      if (currentWord.length > 2) {
-        switch (currentWord.substring(2, 3)) {
+      if (lookupWord.length > 2) {
+        switch (lookupWord.substring(2, 3)) {
           case 'g': category = 'general'; break;
           case 'a': category = 'artist'; break;
           case 'c': category = 'character'; break;
@@ -69,14 +74,14 @@ class TagSuggestionHelper {
     }
 
     // Category prefix detection (e.g. "artist:moj" or "artist:")
-    final lowerWord = currentWord.toLowerCase();
+    final lowerWord = lookupWord.toLowerCase();
     for (final entry in _categoryPrefixes.entries) {
       final prefix = entry.key;   // e.g. "artist:"
       final category = entry.value; // e.g. "artist"
 
       // Case 1: Full prefix typed (e.g. "artist:", "artist:moj")
       if (lowerWord.startsWith(prefix)) {
-        final suffix = currentWord.substring(prefix.length);
+        final suffix = lookupWord.substring(prefix.length);
         return TagSuggestionResult(
           suggestions: tagService.getTagsByCategory(suffix, category),
           query: currentWord,
@@ -84,7 +89,7 @@ class TagSuggestionHelper {
       }
 
       // Case 2: Partial prefix typed (e.g. "ar", "art", "artist")
-      if (currentWord.length >= 2 && prefix.startsWith(lowerWord)) {
+      if (lookupWord.length >= 2 && prefix.startsWith(lowerWord)) {
         final shortcut = DanbooruTag(
           tag: prefix,
           count: 0,
@@ -92,9 +97,9 @@ class TagSuggestionHelper {
         );
         final List<DanbooruTag> results = [shortcut];
         // Also include normal suggestions if >= min length
-        final catMinLength = TagService.containsNonAscii(currentWord) ? 1 : 3;
-        if (currentWord.length >= catMinLength) {
-          results.addAll(tagService.getSuggestions(currentWord));
+        final catMinLength = TagService.containsNonAscii(lookupWord) ? 1 : 3;
+        if (lookupWord.length >= catMinLength) {
+          results.addAll(tagService.getSuggestions(lookupWord));
         }
         return TagSuggestionResult(
           suggestions: results,
@@ -103,10 +108,10 @@ class TagSuggestionHelper {
       }
     }
 
-    final minLength = TagService.containsNonAscii(currentWord) ? 1 : 3;
-    if (currentWord.length >= minLength) {
+    final minLength = TagService.containsNonAscii(lookupWord) ? 1 : 3;
+    if (lookupWord.length >= minLength) {
       return TagSuggestionResult(
-        suggestions: tagService.getSuggestions(currentWord),
+        suggestions: tagService.getSuggestions(lookupWord),
         query: currentWord,
       );
     }
@@ -140,19 +145,29 @@ class TagSuggestionHelper {
       return;
     }
 
-    // Category-prefix preservation: if the current word starts with a known
-    // prefix (e.g. "artist:"), prepend it to the inserted tag text.
-    final currentWord = currentSection.trimLeft().toLowerCase();
+    // Strength-prefix preservation: if the current word starts with a
+    // strength modifier (e.g. "2::"), prepend it to the inserted tag text.
+    final currentWord = currentSection.trimLeft();
+    final currentWordLower = currentWord.toLowerCase();
+    String strengthPrefix = '';
+    final strengthMatch = RegExp(r'^(\d+(?:\.\d+)?::)').firstMatch(currentWord);
+    if (strengthMatch != null) {
+      strengthPrefix = strengthMatch.group(1)!;
+    }
+
+    // Category-prefix preservation: if the current word (after strength prefix)
+    // starts with a known prefix (e.g. "artist:"), prepend it to the inserted tag text.
+    final afterStrength = currentWordLower.substring(strengthPrefix.length);
     String categoryPrefix = '';
     for (final entry in _categoryPrefixes.entries) {
-      if (currentWord.startsWith(entry.key)) {
+      if (afterStrength.startsWith(entry.key)) {
         categoryPrefix = entry.key;
         break;
       }
     }
 
     final insertText = tag.matchedAlias ?? tag.tag;
-    final newBeforeCursor = "$prefix$spacer$categoryPrefix$insertText, ";
+    final newBeforeCursor = "$prefix$spacer$strengthPrefix$categoryPrefix$insertText, ";
     controller.value = TextEditingValue(
       text: newBeforeCursor + afterCursor,
       selection: TextSelection.collapsed(offset: newBeforeCursor.length),

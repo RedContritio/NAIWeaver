@@ -9,6 +9,7 @@ import '../../../core/widgets/confirm_dialog.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/tag_suggestion_overlay.dart';
 import '../../../core/services/tag_service.dart';
+import '../../../core/services/preferences_service.dart';
 import '../models/nai_character.dart';
 import '../models/character_preset.dart';
 import '../providers/generation_notifier.dart';
@@ -320,6 +321,13 @@ class _CharacterCardState extends State<_CharacterCard> {
     _nameController.addListener(_onTextChanged);
     _promptController.addListener(_onPromptChanged);
     _ucController.addListener(_onUcChanged);
+
+    // Restore persisted toggle states
+    final prefs = Provider.of<PreferencesService>(context, listen: false);
+    _showTitle = prefs.uiCharShowTitle;
+    _showUc = prefs.uiCharShowUc;
+    _showPosition = prefs.uiCharShowPosition;
+    _showPresets = prefs.uiCharShowPresets;
   }
 
   @override
@@ -630,28 +638,40 @@ class _CharacterCardState extends State<_CharacterCard> {
                             _SubChip(
                               label: 'TITLE',
                               isSelected: _showTitle,
-                              onTap: () => setState(() => _showTitle = !_showTitle),
+                              onTap: () {
+                                setState(() => _showTitle = !_showTitle);
+                                context.read<PreferencesService>().setUiCharShowTitle(_showTitle);
+                              },
                               t: t,
                               mobile: mobile,
                             ),
                             _SubChip(
                               label: l.charEditorShowUc,
                               isSelected: _showUc,
-                              onTap: () => setState(() => _showUc = !_showUc),
+                              onTap: () {
+                                setState(() => _showUc = !_showUc);
+                                context.read<PreferencesService>().setUiCharShowUc(_showUc);
+                              },
                               t: t,
                               mobile: mobile,
                             ),
                             _SubChip(
                               label: l.charEditorShowPosition,
                               isSelected: _showPosition,
-                              onTap: () => setState(() => _showPosition = !_showPosition),
+                              onTap: () {
+                                setState(() => _showPosition = !_showPosition);
+                                context.read<PreferencesService>().setUiCharShowPosition(_showPosition);
+                              },
                               t: t,
                               mobile: mobile,
                             ),
                             _SubChip(
                               label: l.charEditorShowPresets,
                               isSelected: _showPresets,
-                              onTap: () => setState(() => _showPresets = !_showPresets),
+                              onTap: () {
+                                setState(() => _showPresets = !_showPresets);
+                                context.read<PreferencesService>().setUiCharShowPresets(_showPresets);
+                              },
                               t: t,
                               mobile: mobile,
                             ),

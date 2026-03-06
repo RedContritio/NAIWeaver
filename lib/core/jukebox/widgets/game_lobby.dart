@@ -480,34 +480,15 @@ class _GameSongDetailState extends State<GameSongDetail> {
           decoration: BoxDecoration(
             border: Border(top: BorderSide(color: t.borderSubtle)),
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: _buildActionButton(
-                  t,
-                  context.l.jukeboxWatch,
-                  Icons.visibility,
-                  t.accent,
-                  _selectedChannel != null
-                      ? () => jukebox.startGameFromLobby(
-                          channel: _selectedChannel!, watchOnly: true)
-                      : null,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildActionButton(
-                  t,
-                  context.l.jukeboxPlayGame,
-                  Icons.sports_esports,
-                  t.accentEdit,
-                  _selectedChannel != null
-                      ? () => jukebox.startGameWithCountdown(
-                          channel: _selectedChannel!)
-                      : null,
-                ),
-              ),
-            ],
+          child: _buildActionButton(
+            t,
+            context.l.jukeboxPlayGame,
+            Icons.sports_esports,
+            t.accentEdit,
+            _selectedChannel != null
+                ? () => jukebox.startGameWithCountdown(
+                    channel: _selectedChannel!)
+                : null,
           ),
         ),
       ],

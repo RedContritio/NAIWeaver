@@ -55,9 +55,20 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
       final session = img2imgNotifier.session!;
       if (session.prompt.isNotEmpty) {
         _promptController.text = session.prompt;
+      } else {
+        // Sync from main generation when session has empty prompt
+        _promptController.text = genNotifier.promptController.text;
+        img2imgNotifier.setPrompt(_promptController.text);
       }
       if (session.negativePrompt.isNotEmpty) {
         _negativePromptController.text = session.negativePrompt;
+      } else {
+        // Sync from main generation UC
+        final mainUC = genNotifier.negativePromptController.text;
+        if (mainUC.isNotEmpty) {
+          _negativePromptController.text = mainUC;
+          img2imgNotifier.setNegativePrompt(mainUC);
+        }
       }
     }
     _hadSession = hasSession;

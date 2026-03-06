@@ -14,6 +14,7 @@ class ImportResult {
   final int withMetadata;
   final int converted;
   final List<String> errors;
+  final List<File> filesWithMetadata;
 
   ImportResult({
     required this.total,
@@ -21,14 +22,16 @@ class ImportResult {
     required this.withMetadata,
     required this.converted,
     required this.errors,
+    this.filesWithMetadata = const [],
   });
 }
 
-enum GallerySortMode { dateDesc, dateAsc, nameAsc, nameDesc, sizeDesc, sizeAsc }
+enum GallerySortMode { dateDesc, dateAsc, nameAsc, nameDesc, sizeDesc, sizeAsc, dateAddedDesc, dateAddedAsc }
 
 class GalleryItem {
   final File file;
   DateTime date;
+  DateTime? dateAdded;
   final int fileSize;
   Map<String, String>? metadata;
   String? prompt;
@@ -39,6 +42,7 @@ class GalleryItem {
   GalleryItem({
     required this.file,
     required this.date,
+    this.dateAdded,
     this.fileSize = 0,
     this.metadata,
     this.prompt,
@@ -129,6 +133,10 @@ class GalleryNotifier extends ChangeNotifier {
         sorted.sort((a, b) => b.fileSize.compareTo(a.fileSize));
       case GallerySortMode.sizeAsc:
         sorted.sort((a, b) => a.fileSize.compareTo(b.fileSize));
+      case GallerySortMode.dateAddedDesc:
+        sorted.sort((a, b) => (b.dateAdded ?? b.date).compareTo(a.dateAdded ?? a.date));
+      case GallerySortMode.dateAddedAsc:
+        sorted.sort((a, b) => (a.dateAdded ?? a.date).compareTo(b.dateAdded ?? b.date));
     }
     return sorted;
   }
@@ -176,6 +184,7 @@ class GalleryNotifier extends ChangeNotifier {
             newItems.add(GalleryItem(
               file: entity,
               date: stat.modified,
+              dateAdded: stat.modified,
               fileSize: stat.size,
             ));
           }
@@ -264,17 +273,18 @@ class GalleryNotifier extends ChangeNotifier {
     }
   }
 
-  void addFile(File file, DateTime date) {
+  void addFile(File file, DateTime date, {String? albumId}) {
     final newItem = GalleryItem(
       file: file,
       date: date,
+      dateAdded: DateTime.now(),
     );
     _items.insert(0, newItem);
 
-    // Auto-add to default save album if set
-    final defaultAlbumId = _prefs.defaultSaveAlbumId;
-    if (defaultAlbumId != null) {
-      _albumService.addToAlbum(defaultAlbumId, [newItem.basename]);
+    // Auto-add to album: explicit > active > default save album
+    final targetAlbum = albumId ?? _activeAlbumId ?? _prefs.defaultSaveAlbumId;
+    if (targetAlbum != null) {
+      _albumService.addToAlbum(targetAlbum, [newItem.basename]);
     }
 
     notifyListeners();

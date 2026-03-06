@@ -1,11 +1,52 @@
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
+import '../models/img2img_preset.dart';
 import '../models/img2img_session.dart';
 
 class Img2ImgNotifier extends ChangeNotifier {
   Img2ImgSession? _session;
   Img2ImgSession? get session => _session;
+
+  List<Img2ImgPreset> _presets = [];
+  List<Img2ImgPreset> get presets => _presets;
+
+  void loadPresets(String jsonStr) {
+    _presets = Img2ImgPreset.listFromJson(jsonStr);
+  }
+
+  String presetsToJson() => Img2ImgPreset.listToJson(_presets);
+
+  void savePreset(String name) {
+    final s = _session?.settings ?? const Img2ImgSettings();
+    _presets.add(Img2ImgPreset(
+      name: name,
+      strength: s.strength,
+      noise: s.noise,
+      colorCorrect: s.colorCorrect,
+      maskBlur: s.maskBlur,
+    ));
+    notifyListeners();
+  }
+
+  void applyPreset(Img2ImgPreset preset) {
+    if (_session == null) return;
+    _session = _session!.copyWith(
+      settings: Img2ImgSettings(
+        strength: preset.strength,
+        noise: preset.noise,
+        colorCorrect: preset.colorCorrect,
+        maskBlur: preset.maskBlur,
+      ),
+    );
+    notifyListeners();
+  }
+
+  void deletePreset(int index) {
+    if (index < 0 || index >= _presets.length) return;
+    _presets.removeAt(index);
+    notifyListeners();
+  }
 
   /// Current in-progress stroke (built up during a pan gesture).
   List<Offset>? _currentStrokePoints;
@@ -203,6 +244,23 @@ class Img2ImgNotifier extends ChangeNotifier {
   void setNegativePrompt(String value) {
     if (_session == null) return;
     _session = _session!.copyWith(negativePrompt: value);
+  }
+
+  /// Load a pre-baked mask from PNG bytes.
+  void loadMask(Uint8List pngBytes) {
+    if (_session == null) return;
+    _session = _session!.copyWith(
+      prebakedMaskBytes: pngBytes,
+      maskStrokes: [], // Clear strokes when loading external mask
+    );
+    notifyListeners();
+  }
+
+  /// Clear the pre-baked mask.
+  void clearPrebakedMask() {
+    if (_session == null) return;
+    _session = _session!.copyWith(clearPrebakedMask: true);
+    notifyListeners();
   }
 }
 

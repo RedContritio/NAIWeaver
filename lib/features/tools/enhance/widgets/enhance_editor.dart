@@ -37,9 +37,24 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
   Widget build(BuildContext context) {
     final notifier = context.watch<EnhanceNotifier>();
 
-    // Sync negative prompt on first build
+    // Sync prompt/UC from main generation when first loading source
     if (!_initialized && notifier.hasSource) {
-      _negativePromptController.text = notifier.negativePrompt;
+      final gen = context.read<GenerationNotifier>();
+      if (_promptController.text.isEmpty) {
+        _promptController.text = gen.promptController.text;
+        notifier.setPrompt(gen.promptController.text);
+      }
+      if (notifier.negativePrompt == EnhanceNotifier.defaultNegativePrompt) {
+        final mainUC = gen.negativePromptController.text;
+        if (mainUC.isNotEmpty) {
+          _negativePromptController.text = mainUC;
+          notifier.setNegativePrompt(mainUC);
+        } else {
+          _negativePromptController.text = notifier.negativePrompt;
+        }
+      } else {
+        _negativePromptController.text = notifier.negativePrompt;
+      }
       _initialized = true;
     }
 

@@ -27,6 +27,7 @@ import '../../tools/canvas/widgets/canvas_editor.dart';
 import '../../tools/ml/widgets/segmentation_overlay.dart';
 import 'comparison_view.dart';
 import 'image_detail_view.dart';
+import 'import_metadata_dialog.dart';
 
 class GalleryScreen extends StatefulWidget {
   const GalleryScreen({super.key});
@@ -406,15 +407,21 @@ class _GalleryScreenState extends State<GalleryScreen> {
     final t = context.tRead;
     final gallery = context.read<GalleryNotifier>();
 
+    // On Android, use FileType.any to bypass SAF transcoding which strips
+    // PNG metadata chunks. We filter by extension manually instead.
+    final isAndroid = Theme.of(context).platform == TargetPlatform.android;
     final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif'],
+      type: isAndroid ? FileType.any : FileType.custom,
+      allowedExtensions: isAndroid ? null : ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif'],
       allowMultiple: true,
     );
     if (result == null || result.files.isEmpty) return;
 
+    const imageExtensions = {'.png', '.jpg', '.jpeg', '.webp', '.bmp', '.gif'};
     final filePaths = result.files
         .where((f) => f.path != null)
+        .where((f) => !isAndroid || imageExtensions.contains(
+            p.extension(f.path!).toLowerCase()))
         .map((f) => f.path!)
         .toList();
     if (filePaths.isEmpty) return;
@@ -484,13 +491,43 @@ class _GalleryScreenState extends State<GalleryScreen> {
         message = context.l.galleryImportSuccess(importResult.succeeded, importResult.withMetadata);
       }
 
-      showAppSnackBar(context, message, color: t.accent);
+      if (importResult.filesWithMetadata.isNotEmpty) {
+        showAppSnackBar(
+          context,
+          message,
+          color: t.accent,
+          action: SnackBarAction(
+            label: 'IMPORT TO EDITOR',
+            textColor: t.accent,
+            onPressed: () {
+              if (!mounted) return;
+              _importMetadataToEditor(importResult.filesWithMetadata.first);
+            },
+          ),
+        );
+      } else {
+        showAppSnackBar(context, message, color: t.accent);
+      }
     } catch (e) {
       if (showProgress && mounted) {
         Navigator.of(context).pop();
       }
       if (!mounted) return;
       showErrorSnackBar(context, context.l.galleryImportFailed(e.toString()));
+    }
+  }
+
+  Future<void> _importMetadataToEditor(File file) async {
+    try {
+      final notifier = context.read<GenerationNotifier>();
+      final result = await notifier.parseImageMetadata(file);
+      if (!mounted) return;
+      final categories = await showImportMetadataDialog(context, result: result);
+      if (categories == null || !mounted) return;
+      notifier.applyImportedMetadata(result, categories);
+      showAppSnackBar(context, 'Metadata imported to editor');
+    } catch (e) {
+      if (mounted) showErrorSnackBar(context, 'No metadata found');
     }
   }
 
@@ -502,6 +539,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
       case GallerySortMode.nameDesc: return context.l.gallerySortNameZA.toUpperCase();
       case GallerySortMode.sizeDesc: return context.l.gallerySortSizeLargest.toUpperCase();
       case GallerySortMode.sizeAsc: return context.l.gallerySortSizeSmallest.toUpperCase();
+      case GallerySortMode.dateAddedDesc: return 'DATE ADDED (NEWEST)';
+      case GallerySortMode.dateAddedAsc: return 'DATE ADDED (OLDEST)';
     }
   }
 
@@ -732,7 +771,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
   void _showAddToAlbumDialog(List<GalleryItem> selectedItems) {
     final gallery = context.read<GalleryNotifier>();
     final t = context.tRead;
-    final mobile = isMobile(context);
+    final currentAlbumId = gallery.activeAlbumId;
 
     if (gallery.albums.isEmpty) {
       // Offer to create one
@@ -743,45 +782,18 @@ class _GalleryScreenState extends State<GalleryScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: t.surfaceHigh,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Text(
-                context.l.galleryAddToAlbum.toUpperCase(),
-                style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(mobile ? 12 : 10), letterSpacing: 2, fontWeight: FontWeight.bold),
-              ),
-            ),
-            for (final album in gallery.albums)
-              ListTile(
-                leading: Icon(Icons.photo_album, size: 18, color: t.textDisabled),
-                title: Text(
-                  album.name,
-                  style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(mobile ? 13 : 11)),
-                ),
-                trailing: Text(
-                  '${gallery.albumItemCount(album.id)}',
-                  style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(mobile ? 11 : 9)),
-                ),
-                onTap: () {
-                  gallery.addToAlbum(album.id, selectedItems);
-                  Navigator.pop(ctx);
-                  _exitSelectionMode();
-                },
-              ),
-            ListTile(
-              leading: Icon(Icons.add, size: 18, color: t.accent),
-              title: Text(context.l.galleryNewAlbum.toUpperCase(), style: TextStyle(color: t.accent, fontSize: t.fontSize(mobile ? 13 : 11))),
-              onTap: () {
-                Navigator.pop(ctx);
-                _showCreateAlbumDialog(gallery);
-              },
-            ),
-          ],
-        ),
+      builder: (ctx) => _AddToAlbumSheet(
+        gallery: gallery,
+        selectedItems: selectedItems,
+        currentAlbumId: currentAlbumId,
+        onDone: () {
+          Navigator.pop(ctx);
+          _exitSelectionMode();
+        },
+        onCreateAlbum: () {
+          Navigator.pop(ctx);
+          _showCreateAlbumDialog(gallery);
+        },
       ),
     );
   }
@@ -1559,4 +1571,105 @@ class _DragRectPainter extends CustomPainter {
   @override
   bool shouldRepaint(_DragRectPainter oldDelegate) =>
       start != oldDelegate.start || end != oldDelegate.end;
+}
+
+class _AddToAlbumSheet extends StatefulWidget {
+  final GalleryNotifier gallery;
+  final List<GalleryItem> selectedItems;
+  final String? currentAlbumId;
+  final VoidCallback onDone;
+  final VoidCallback onCreateAlbum;
+
+  const _AddToAlbumSheet({
+    required this.gallery,
+    required this.selectedItems,
+    required this.currentAlbumId,
+    required this.onDone,
+    required this.onCreateAlbum,
+  });
+
+  @override
+  State<_AddToAlbumSheet> createState() => _AddToAlbumSheetState();
+}
+
+class _AddToAlbumSheetState extends State<_AddToAlbumSheet> {
+  bool _moveMode = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    final mobile = isMobile(context);
+    final showMoveToggle = widget.currentAlbumId != null;
+
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Row(
+              children: [
+                Text(
+                  (_moveMode ? 'MOVE TO ALBUM' : context.l.galleryAddToAlbum).toUpperCase(),
+                  style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(mobile ? 12 : 10), letterSpacing: 2, fontWeight: FontWeight.bold),
+                ),
+                if (showMoveToggle) ...[
+                  const Spacer(),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'MOVE',
+                        style: TextStyle(
+                          color: _moveMode ? t.accent : t.textDisabled,
+                          fontSize: t.fontSize(mobile ? 10 : 8),
+                          letterSpacing: 1,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      SizedBox(
+                        height: 24,
+                        child: Switch(
+                          value: _moveMode,
+                          onChanged: (v) => setState(() => _moveMode = v),
+                          activeTrackColor: t.accent,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          for (final album in widget.gallery.albums)
+            if (album.id != widget.currentAlbumId)
+              ListTile(
+                leading: Icon(Icons.photo_album, size: 18, color: t.textDisabled),
+                title: Text(
+                  album.name,
+                  style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(mobile ? 13 : 11)),
+                ),
+                trailing: Text(
+                  '${widget.gallery.albumItemCount(album.id)}',
+                  style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(mobile ? 11 : 9)),
+                ),
+                onTap: () {
+                  widget.gallery.addToAlbum(album.id, widget.selectedItems);
+                  if (_moveMode && widget.currentAlbumId != null) {
+                    widget.gallery.removeFromAlbum(widget.currentAlbumId!, widget.selectedItems);
+                  }
+                  widget.onDone();
+                },
+              ),
+          ListTile(
+            leading: Icon(Icons.add, size: 18, color: t.accent),
+            title: Text(context.l.galleryNewAlbum.toUpperCase(), style: TextStyle(color: t.accent, fontSize: t.fontSize(mobile ? 13 : 11))),
+            onTap: widget.onCreateAlbum,
+          ),
+        ],
+      ),
+    );
+  }
 }

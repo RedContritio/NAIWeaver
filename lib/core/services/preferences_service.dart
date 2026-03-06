@@ -35,6 +35,11 @@ class PreferencesService {
   static const String _keyCharacterEditorMode = 'character_editor_mode';
   static const String _keyCharacterPresets = 'character_presets';
   static const String _keyShowTooltips = 'show_tooltips';
+  static const String _keyUiStylesExpanded = 'ui_styles_expanded';
+  static const String _keyUiCharShowTitle = 'ui_char_show_title';
+  static const String _keyUiCharShowUc = 'ui_char_show_uc';
+  static const String _keyUiCharShowPosition = 'ui_char_show_position';
+  static const String _keyUiCharShowPresets = 'ui_char_show_presets';
 
   final SharedPreferences _prefs;
 
@@ -261,6 +266,38 @@ class PreferencesService {
   Future<void> setShowTooltips(bool value) async {
     await _prefs.setBool(_keyShowTooltips, value);
     tooltipVisibilityNotifier.value = value;
+  }
+
+  // — UI State Persistence —
+
+  bool get uiStylesExpanded => _prefs.getBool(_keyUiStylesExpanded) ?? false;
+
+  Future<void> setUiStylesExpanded(bool value) async {
+    await _prefs.setBool(_keyUiStylesExpanded, value);
+  }
+
+  bool get uiCharShowTitle => _prefs.getBool(_keyUiCharShowTitle) ?? false;
+
+  Future<void> setUiCharShowTitle(bool value) async {
+    await _prefs.setBool(_keyUiCharShowTitle, value);
+  }
+
+  bool get uiCharShowUc => _prefs.getBool(_keyUiCharShowUc) ?? false;
+
+  Future<void> setUiCharShowUc(bool value) async {
+    await _prefs.setBool(_keyUiCharShowUc, value);
+  }
+
+  bool get uiCharShowPosition => _prefs.getBool(_keyUiCharShowPosition) ?? false;
+
+  Future<void> setUiCharShowPosition(bool value) async {
+    await _prefs.setBool(_keyUiCharShowPosition, value);
+  }
+
+  bool get uiCharShowPresets => _prefs.getBool(_keyUiCharShowPresets) ?? false;
+
+  Future<void> setUiCharShowPresets(bool value) async {
+    await _prefs.setBool(_keyUiCharShowPresets, value);
   }
 
   // — Delegating getters for backward compatibility —

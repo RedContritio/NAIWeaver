@@ -22,6 +22,7 @@ class GalleryImportService {
     int withMetadata = 0;
     int converted = 0;
     final errors = <String>[];
+    final filesWithMetadata = <File>[];
 
     for (int i = 0; i < filePaths.length; i++) {
       onProgress?.call(i + 1, filePaths.length);
@@ -33,16 +34,19 @@ class GalleryImportService {
         if (isPng(bytes)) {
           pngBytes = bytes;
         } else {
-          // Check if the original file had a .png extension — Android's photo
-          // picker may have transcoded it, losing PNG metadata chunks.
+          // Check if the original file had a .png extension or if the bytes
+          // look like a JPEG transcoded from PNG — Android's SAF photo picker
+          // may transcode PNGs, stripping metadata chunks. Content URIs may
+          // also lack a proper extension, so also check for JPEG magic bytes
+          // when no extension is present.
           final ext = p.extension(filePaths[i]).toLowerCase();
-          if (ext == '.png') {
-            // Source claimed to be PNG but bytes aren't — likely transcoded.
-            // Try to recover metadata from original bytes and re-inject.
-            final result = await compute(convertToPngPreservingMetadata, {
-              'bytes': bytes,
-              'originalBytes': bytes,
-            });
+          final isJpeg = bytes.length >= 3 &&
+              bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF;
+          final likelyTranscoded = ext == '.png' ||
+              (isJpeg && (ext.isEmpty || ext == '.'));
+          if (likelyTranscoded) {
+            // Likely transcoded from PNG — convert back to PNG.
+            final result = await compute(convertToPng, bytes);
             if (result == null) {
               errors.add(p.basename(filePaths[i]));
               continue;
@@ -86,6 +90,7 @@ class GalleryImportService {
         final metadata = await compute(extractMetadata, pngBytes);
         if (metadata != null && metadata.containsKey('Comment')) {
           withMetadata++;
+          filesWithMetadata.add(destFile);
         }
 
         succeeded++;
@@ -100,6 +105,7 @@ class GalleryImportService {
       withMetadata: withMetadata,
       converted: converted,
       errors: errors,
+      filesWithMetadata: filesWithMetadata,
     );
   }
 }

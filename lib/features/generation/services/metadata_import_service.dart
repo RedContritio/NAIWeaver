@@ -53,7 +53,7 @@ class MetadataImportResult {
     if (negativePrompt.isNotEmpty) cats.add(ImportCategory.negativePrompt);
     if (characters.isNotEmpty) cats.add(ImportCategory.characters);
     if (seed != null) cats.add(ImportCategory.seed);
-    if (activeStyleNames != null && activeStyleNames!.isNotEmpty) cats.add(ImportCategory.styles);
+    if (activeStyleNames != null) cats.add(ImportCategory.styles);
     if (width != null || scale != null || steps != null || sampler != null) cats.add(ImportCategory.settings);
     return cats;
   }

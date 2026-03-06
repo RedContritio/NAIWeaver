@@ -21,6 +21,38 @@ class MaskEncoder {
     return result;
   }
 
+  /// Renders mask strokes to raw PNG bytes.
+  /// If [prebakedMaskBytes] is provided, returns those instead.
+  static Future<Uint8List?> encodeMask({
+    required List<MaskStroke> strokes,
+    required int width,
+    required int height,
+    Uint8List? prebakedMaskBytes,
+  }) async {
+    if (prebakedMaskBytes != null) return prebakedMaskBytes;
+    if (strokes.isEmpty) return null;
+    final base64Str = await renderMaskBase64(
+      strokes: strokes,
+      width: width,
+      height: height,
+    );
+    return base64Decode(base64Str);
+  }
+
+  /// Renders mask to base64, supporting prebaked mask bytes.
+  /// If [prebakedMaskBytes] is provided, encodes those as base64 PNG.
+  static Future<String> renderMaskBase64WithPrebaked({
+    required List<MaskStroke> strokes,
+    required int width,
+    required int height,
+    Uint8List? prebakedMaskBytes,
+  }) async {
+    if (prebakedMaskBytes != null) {
+      return base64Encode(prebakedMaskBytes);
+    }
+    return renderMaskBase64(strokes: strokes, width: width, height: height);
+  }
+
   /// Saves a debug copy of the mask PNG to [outputPath].
   /// Call after [renderMaskBase64] with the same base64 result.
   static Future<void> debugSaveMask(String maskBase64, String outputPath) async {

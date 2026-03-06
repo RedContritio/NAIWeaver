@@ -668,18 +668,14 @@ class JukeboxNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  void startGame({int? channel, bool watchOnly = false}) {
+  void startGame({int? channel}) {
     if (_currentSong == null) return;
     _targetChannel = channel ?? _detectMelodyChannel();
     _noteBlocks = _sequencer.buildNoteBlocks(filterChannel: _targetChannel);
-    _watchMode = watchOnly;
-    if (!watchOnly) {
-      _currentScore = GameScore();
-      // Mute the target channel so player provides it
-      _synth.controlChange(_targetChannel, 7, 0);
-    } else {
-      _currentScore = null;
-    }
+    _watchMode = false;
+    _currentScore = GameScore();
+    // Mute the target channel so player provides it
+    _synth.controlChange(_targetChannel, 7, 0);
     _gameMode = true;
     notifyListeners();
   }
@@ -817,18 +813,14 @@ class JukeboxNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  void startGameFromLobby({required int channel, bool watchOnly = false}) {
+  void startGameFromLobby({required int channel}) {
     if (_lobbySong == null) return;
     _lobbyScreen = GameLobbyScreen.hidden;
     _targetChannel = channel;
     _noteBlocks = _sequencer.buildNoteBlocks(filterChannel: _targetChannel);
-    _watchMode = watchOnly;
-    if (!watchOnly) {
-      _currentScore = GameScore();
-      _synth.controlChange(_targetChannel, 7, 0);
-    } else {
-      _currentScore = null;
-    }
+    _watchMode = false;
+    _currentScore = GameScore();
+    _synth.controlChange(_targetChannel, 7, 0);
     _gameMode = true;
 
     // Sync keyboard instrument dropdown with the game channel's instrument
@@ -842,7 +834,7 @@ class JukeboxNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  void startGameWithCountdown({required int channel, bool watchOnly = false}) {
+  void startGameWithCountdown({required int channel}) {
     if (_lobbySong == null) return;
     _countdown = 3;
     _lobbyScreen = GameLobbyScreen.hidden;
@@ -850,13 +842,9 @@ class JukeboxNotifier extends ChangeNotifier {
     // Prepare game state but don't start playback yet
     _targetChannel = channel;
     _noteBlocks = _sequencer.buildNoteBlocks(filterChannel: _targetChannel);
-    _watchMode = watchOnly;
-    if (!watchOnly) {
-      _currentScore = GameScore();
-      _synth.controlChange(_targetChannel, 7, 0);
-    } else {
-      _currentScore = null;
-    }
+    _watchMode = false;
+    _currentScore = GameScore();
+    _synth.controlChange(_targetChannel, 7, 0);
     _gameMode = true;
 
     // Sync keyboard instrument dropdown with the game channel's instrument

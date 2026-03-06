@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
@@ -182,6 +183,38 @@ class _MLModelsManagerState extends State<MLModelsManager> {
             ),
           const SizedBox(height: 24),
 
+          // Mobile-only banner: local ML not available
+          if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) ...[
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: mobile ? 14 : 10,
+                vertical: mobile ? 10 : 6,
+              ),
+              decoration: BoxDecoration(
+                color: t.accentEdit.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: t.accentEdit.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.phone_android, size: mobile ? 16 : 12, color: t.accentEdit),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'On mobile devices, upscaling and background removal use the NovelAI API. Local ML models are only available on desktop.',
+                      style: TextStyle(
+                        color: t.accentEdit,
+                        fontSize: t.fontSize(mobile ? 10 : 8),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
           // Background Removal section
           _SectionHeader(title: 'BACKGROUND REMOVAL', icon: Icons.content_cut),
           const SizedBox(height: 8),
@@ -194,28 +227,30 @@ class _MLModelsManagerState extends State<MLModelsManager> {
               if (mounted) setState(() {});
             },
           ),
-          const SizedBox(height: 8),
-          ...MLModelRegistry.backgroundRemovalModels.map((entry) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _MLModelCard(
-              entry: entry,
-              ml: ml,
-              caps: caps,
-              isSelected: ml.selectedBgRemovalModelId == entry.id &&
-                  context.watch<PreferencesService>().bgRemovalBackend == 'ml',
-              onSelect: () async {
-                ml.selectBgRemovalModel(entry.id);
-                await context.read<PreferencesService>().setBgRemovalBackend('ml');
-                if (mounted) setState(() {});
-              },
-              onDownload: () async {
-                await ml.downloadModel(entry);
-                _refreshStats();
-              },
-              onCancel: () => ml.cancelDownload(entry.id),
-              onDelete: () => _confirmDelete(entry, ml),
-            ),
-          )),
+          if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) ...[
+            const SizedBox(height: 8),
+            ...MLModelRegistry.backgroundRemovalModels.map((entry) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _MLModelCard(
+                entry: entry,
+                ml: ml,
+                caps: caps,
+                isSelected: ml.selectedBgRemovalModelId == entry.id &&
+                    context.watch<PreferencesService>().bgRemovalBackend == 'ml',
+                onSelect: () async {
+                  ml.selectBgRemovalModel(entry.id);
+                  await context.read<PreferencesService>().setBgRemovalBackend('ml');
+                  if (mounted) setState(() {});
+                },
+                onDownload: () async {
+                  await ml.downloadModel(entry);
+                  _refreshStats();
+                },
+                onCancel: () => ml.cancelDownload(entry.id),
+                onDelete: () => _confirmDelete(entry, ml),
+              ),
+            )),
+          ],
 
           const SizedBox(height: 24),
 
@@ -231,63 +266,67 @@ class _MLModelsManagerState extends State<MLModelsManager> {
               if (mounted) setState(() {});
             },
           ),
-          const SizedBox(height: 8),
-          ...MLModelRegistry.upscaleModels.map((entry) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _MLModelCard(
-              entry: entry,
-              ml: ml,
-              caps: caps,
-              isSelected: ml.selectedUpscaleModelId == entry.id &&
-                  context.watch<PreferencesService>().upscaleBackend == 'ml',
-              onSelect: () async {
-                ml.selectUpscaleModel(entry.id);
-                await context.read<PreferencesService>().setUpscaleBackend('ml');
-                if (mounted) setState(() {});
-              },
-              onDownload: () async {
-                await ml.downloadModel(entry);
-                _refreshStats();
-              },
-              onCancel: () => ml.cancelDownload(entry.id),
-              onDelete: () => _confirmDelete(entry, ml),
-            ),
-          )),
+          if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) ...[
+            const SizedBox(height: 8),
+            ...MLModelRegistry.upscaleModels.map((entry) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _MLModelCard(
+                entry: entry,
+                ml: ml,
+                caps: caps,
+                isSelected: ml.selectedUpscaleModelId == entry.id &&
+                    context.watch<PreferencesService>().upscaleBackend == 'ml',
+                onSelect: () async {
+                  ml.selectUpscaleModel(entry.id);
+                  await context.read<PreferencesService>().setUpscaleBackend('ml');
+                  if (mounted) setState(() {});
+                },
+                onDownload: () async {
+                  await ml.downloadModel(entry);
+                  _refreshStats();
+                },
+                onCancel: () => ml.cancelDownload(entry.id),
+                onDelete: () => _confirmDelete(entry, ml),
+              ),
+            )),
+          ],
 
           const SizedBox(height: 24),
 
-          // Segmentation section
-          _SectionHeader(title: 'SEGMENTATION', icon: Icons.auto_awesome),
-          const SizedBox(height: 4),
-          Text(
-            'Interactive object selection using SAM. Downloads both encoder and decoder.',
-            style: TextStyle(
-              color: t.textMinimal,
-              fontSize: t.fontSize(mobile ? 10 : 8),
-              letterSpacing: 0.5,
+          // Segmentation section (desktop only)
+          if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) ...[
+            _SectionHeader(title: 'SEGMENTATION', icon: Icons.auto_awesome),
+            const SizedBox(height: 4),
+            Text(
+              'Interactive object selection using SAM. Downloads both encoder and decoder.',
+              style: TextStyle(
+                color: t.textMinimal,
+                fontSize: t.fontSize(mobile ? 10 : 8),
+                letterSpacing: 0.5,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          ...MLModelRegistry.segmentationModels.map((entry) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _MLModelCard(
-              entry: entry,
-              ml: ml,
-              caps: caps,
-              isSelected: entry.id.contains('encoder')
-                  ? ml.selectedSegmentationModelId == entry.id
-                  : ml.selectedSegmentationModelId != null,
-              onSelect: entry.id.contains('encoder')
-                  ? () => ml.selectSegmentationModel(entry.id)
-                  : () {},  // decoder follows encoder
-              onDownload: () async {
-                await ml.downloadModel(entry);
-                _refreshStats();
-              },
-              onCancel: () => ml.cancelDownload(entry.id),
-              onDelete: () => _confirmDelete(entry, ml),
-            ),
-          )),
+            const SizedBox(height: 8),
+            ...MLModelRegistry.segmentationModels.map((entry) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _MLModelCard(
+                entry: entry,
+                ml: ml,
+                caps: caps,
+                isSelected: entry.id.contains('encoder')
+                    ? ml.selectedSegmentationModelId == entry.id
+                    : ml.selectedSegmentationModelId != null,
+                onSelect: entry.id.contains('encoder')
+                    ? () => ml.selectSegmentationModel(entry.id)
+                    : () {},  // decoder follows encoder
+                onDownload: () async {
+                  await ml.downloadModel(entry);
+                  _refreshStats();
+                },
+                onCancel: () => ml.cancelDownload(entry.id),
+                onDelete: () => _confirmDelete(entry, ml),
+              ),
+            )),
+          ],
 
           // Unknown models section
           if (_unknownModels != null && _unknownModels!.isNotEmpty) ...[
