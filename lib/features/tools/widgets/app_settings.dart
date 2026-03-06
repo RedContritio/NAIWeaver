@@ -752,6 +752,10 @@ class _AppSettingsState extends State<AppSettings> {
               value: Locale('ja'),
               child: Text('日本語'),
             ),
+            DropdownMenuItem(
+              value: Locale('zh'),
+              child: Text('中文 (简体)'),
+            ),
           ],
           onChanged: (locale) {
             if (locale != null) {

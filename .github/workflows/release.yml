@@ -20,6 +20,8 @@ jobs:
             suffix: ""
           - locale: ja
             suffix: "-ja"
+          - locale: zh
+            suffix: "-zh"
     steps:
       - uses: actions/checkout@v4
 
@@ -46,6 +48,8 @@ jobs:
             suffix: ""
           - locale: ja
             suffix: "-ja"
+          - locale: zh
+            suffix: "-zh"
     steps:
       - uses: actions/checkout@v4
 
@@ -95,6 +99,8 @@ jobs:
             suffix: ""
           - locale: ja
             suffix: "-ja"
+          - locale: zh
+            suffix: "-zh"
     steps:
       - uses: actions/checkout@v4
 
@@ -133,6 +139,9 @@ jobs:
           - locale: ja
             suffix: "-ja"
             base_href: "/NAIWeaver/ja/"
+          - locale: zh
+            suffix: "-zh"
+            base_href: "/NAIWeaver/zh/"
     steps:
       - uses: actions/checkout@v4
 
@@ -166,6 +175,11 @@ jobs:
         with:
           name: web-build-ja
           path: web-build/ja/
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-build-zh
+          path: web-build/zh/
 
       - uses: actions/configure-pages@v4
 
@@ -211,15 +225,32 @@ jobs:
           name: linux-build-ja
           path: linux-build-ja/
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-build-zh
+          path: windows-build-zh/
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-build-zh
+          path: android-build-zh/
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-build-zh
+          path: linux-build-zh/
+
       - name: Zip Windows builds
         run: |
           cd windows-build && zip -r ../NAIWeaver.zip . && cd ..
           cd windows-build-ja && zip -r ../NAIWeaver-ja.zip . && cd ..
+          cd windows-build-zh && zip -r ../NAIWeaver-zh.zip . && cd ..
 
       - name: Rename APKs
         run: |
           mv android-build/app-release.apk android-build/NAIWeaver.apk
           mv android-build-ja/app-release.apk android-build-ja/NAIWeaver-ja.apk
+          mv android-build-zh/app-release.apk android-build-zh/NAIWeaver-zh.apk
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -227,8 +258,11 @@ jobs:
           files: |
             NAIWeaver.zip
             NAIWeaver-ja.zip
+            NAIWeaver-zh.zip
             android-build/NAIWeaver.apk
             android-build-ja/NAIWeaver-ja.apk
+            android-build-zh/NAIWeaver-zh.apk
             linux-build/NAIWeaver-x86_64.AppImage
             linux-build-ja/NAIWeaver-ja-x86_64.AppImage
+            linux-build-zh/NAIWeaver-zh-x86_64.AppImage
           generate_release_notes: true
