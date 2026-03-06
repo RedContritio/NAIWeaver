@@ -54,6 +54,9 @@
 ### Tools Hub
 - Auto-open tool drawer on mobile
 
+### Localization
+- Simplified Chinese (zh) translation — thanks to [@baisumang](https://github.com/baisumang) (PR #2)
+
 ### Other
 - Snackbar action support with 6s duration
 
