@@ -72,6 +72,7 @@ class GenerationState {
   final int? anlas;
   final String characterEditorMode;
   final List<CharacterPreset> characterPresets;
+  final bool duplicateImageDetected;
 
   GenerationState({
     this.generatedImage,
@@ -112,6 +113,7 @@ class GenerationState {
     this.anlas,
     this.characterEditorMode = 'expanded',
     this.characterPresets = const [],
+    this.duplicateImageDetected = false,
   });
 
   GenerationState copyWith({
@@ -155,6 +157,7 @@ class GenerationState {
     bool clearAnlas = false,
     String? characterEditorMode,
     List<CharacterPreset>? characterPresets,
+    bool? duplicateImageDetected,
   }) {
     return GenerationState(
       generatedImage: generatedImage ?? this.generatedImage,
@@ -195,6 +198,7 @@ class GenerationState {
       anlas: clearAnlas ? null : (anlas ?? this.anlas),
       characterEditorMode: characterEditorMode ?? this.characterEditorMode,
       characterPresets: characterPresets ?? this.characterPresets,
+      duplicateImageDetected: duplicateImageDetected ?? this.duplicateImageDetected,
     );
   }
 }
@@ -230,6 +234,7 @@ class GenerationNotifier extends ChangeNotifier {
   Map<String, dynamic>? _lastMetadata;
   bool _imageSaved = false;
   bool get imageSaved => _imageSaved;
+  Uint8List? _previousImageBytes;
 
   Timer? _tagDebounce;
   Timer? _sessionSaveDebounce;
@@ -447,6 +452,11 @@ class GenerationNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
+  void clearDuplicateWarning() {
+    _state = _state.copyWith(duplicateImageDetected: false);
+    notifyListeners();
+  }
+
   void toggleSettings() {
     _state = _state.copyWith(isSettingsExpanded: !_state.isSettingsExpanded);
     notifyListeners();
@@ -584,6 +594,44 @@ class GenerationNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
+  static ({String? prefix, String? suffix, String? negative}) resolveStyles({
+    required bool isStyleEnabled,
+    required List<String> activeStyleNames,
+    required List<PromptStyle> styles,
+    bool furryMode = false,
+  }) {
+    String? combinedPrefix;
+    String? combinedSuffix;
+    String? styleNegativeContent;
+
+    if (isStyleEnabled && activeStyleNames.isNotEmpty) {
+      final List<String> prefixes = [];
+      final List<String> suffixes = [];
+      final List<String> negatives = [];
+
+      for (final styleName in activeStyleNames) {
+        try {
+          final style = styles.firstWhere((s) => s.name == styleName);
+          if (style.prefix.isNotEmpty) prefixes.add(style.prefix);
+          if (style.suffix.isNotEmpty) suffixes.add(style.suffix);
+          if (style.negativeContent.isNotEmpty) negatives.add(style.negativeContent);
+        } catch (e) {
+          debugPrint('resolveStyles: style "$styleName" not found');
+        }
+      }
+
+      if (prefixes.isNotEmpty) combinedPrefix = prefixes.join("");
+      if (suffixes.isNotEmpty) combinedSuffix = suffixes.join("");
+      if (negatives.isNotEmpty) styleNegativeContent = negatives.join("");
+    }
+
+    if (furryMode) {
+      combinedPrefix = "fur dataset, ${combinedPrefix ?? ''}";
+    }
+
+    return (prefix: combinedPrefix, suffix: combinedSuffix, negative: styleNegativeContent);
+  }
+
   void toggleStyle(String name) {
     final current = List<String>.from(_state.activeStyleNames);
     if (current.contains(name)) {
@@ -621,34 +669,15 @@ class GenerationNotifier extends ChangeNotifier {
         seed = int.tryParse(seedController.text) ?? 0;
       }
 
-      String? combinedPrefix;
-      String? combinedSuffix;
-      String? styleNegativeContent;
-
-      if (_state.isStyleEnabled && _state.activeStyleNames.isNotEmpty) {
-        final List<String> prefixes = [];
-        final List<String> suffixes = [];
-        final List<String> negatives = [];
-
-        for (final styleName in _state.activeStyleNames) {
-          try {
-            final style = _state.styles.firstWhere((s) => s.name == styleName);
-            if (style.prefix.isNotEmpty) prefixes.add(style.prefix);
-            if (style.suffix.isNotEmpty) suffixes.add(style.suffix);
-            if (style.negativeContent.isNotEmpty) negatives.add(style.negativeContent);
-          } catch (e) {
-            debugPrint('GenerationNotifier.generate: $e');
-          }
-        }
-
-        if (prefixes.isNotEmpty) combinedPrefix = prefixes.join("");
-        if (suffixes.isNotEmpty) combinedSuffix = suffixes.join("");
-        if (negatives.isNotEmpty) styleNegativeContent = negatives.join("");
-      }
-
-      if (_state.furryMode) {
-        combinedPrefix = "fur dataset, ${combinedPrefix ?? ''}";
-      }
+      final styleResult = resolveStyles(
+        isStyleEnabled: _state.isStyleEnabled,
+        activeStyleNames: _state.activeStyleNames,
+        styles: _state.styles,
+        furryMode: _state.furryMode,
+      );
+      String? combinedPrefix = styleResult.prefix;
+      String? combinedSuffix = styleResult.suffix;
+      String? styleNegativeContent = styleResult.negative;
 
       String baseNegative = _tagService.resolveAliases(negativePromptController.text);
       if (_galleryNotifier?.demoMode == true) {
@@ -700,9 +729,16 @@ class GenerationNotifier extends ChangeNotifier {
       result.metadata['is_style_enabled'] = _state.isStyleEnabled;
       result.metadata['original_negative_prompt'] = baseNegative;
 
+      final isDuplicate = _previousImageBytes != null &&
+          listEquals(result.imageBytes, _previousImageBytes);
+      _previousImageBytes = Uint8List.fromList(result.imageBytes);
+
       _lastMetadata = result.metadata;
       _imageSaved = false;
-      _state = _state.copyWith(generatedImage: result.imageBytes);
+      _state = _state.copyWith(
+        generatedImage: result.imageBytes,
+        duplicateImageDetected: isDuplicate,
+      );
       if (_state.autoSaveImages) {
         final savedFile = await _saveToDisk(result.imageBytes, result.metadata);
         if (savedFile != null) {
@@ -783,7 +819,10 @@ class GenerationNotifier extends ChangeNotifier {
   /// Parse metadata from a PNG file without applying it to state.
   Future<MetadataImportResult> parseImageMetadata(File file) async {
     return _metadataImportService.parseImageMetadata(
-      file, smartStyleImport: _prefs.smartStyleImport);
+      file,
+      smartStyleImport: _prefs.smartStyleImport,
+      availableStyles: _state.styles,
+    );
   }
 
   /// Apply a parsed metadata result, importing only the selected categories.
@@ -1026,6 +1065,11 @@ class GenerationNotifier extends ChangeNotifier {
         img2imgNoise: request.noise,
         img2imgColorCorrect: request.colorCorrect,
         maskBlur: request.maskBase64 != null ? request.maskBlur : null,
+        promptPrefix: request.promptPrefix,
+        promptSuffix: request.promptSuffix,
+        characters: request.characters,
+        interactions: request.interactions,
+        useCoords: request.useCoords,
       );
 
       Uint8List finalBytes = result.imageBytes;

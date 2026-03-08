@@ -110,6 +110,18 @@
 - Chinese web build with `/zh/` deployment and zh release artifacts
 - Full EN, JA, and ZH localization for all features
 
+### Phase 9: Style Import, Img2Img Resolution & Data Protection (v0.7.0)
+- Fuzzy matching for external image style import with auto-detection from composed prompts
+- Active styles and characters synced from main editor to Enhance and Img2Img at generation time
+- `resolveStyles()` extracted as reusable static helper
+- Custom Img2Img output resolution independent of source image dimensions with reset-to-source button
+- Duplicate generation detection with warning snackbar and "Randomize" action button
+- Android `hasFragileUserData` and `allowBackup` manifest attributes to protect user data
+- Debug builds use release signing key (when available) to prevent data loss from signing key mismatch
+- Fix infinite loop crash on unmatched `}` or `]` in prompt field
+- Fix Android generate button not raising above keyboard
+- Full EN, JA, and ZH localization for all new features
+
 ## Architecture
 - **Language/Framework**: Dart 3.10.7+ / Flutter (stable channel)
 - **Primary Target**: Windows desktop (also supports Android, iOS, Linux, macOS, Web)
@@ -134,6 +146,10 @@ Support for NovelAI's native vibe file formats:
 - **`.naiv4vibeBundle`** — Bundle of multiple pre-encoded vibes
 
 This enables sharing vibes without re-encoding costs and interoperability with other NovelAI tools. Import/export will be available through the Vibe Transfer manager and the Packs system.
+
+## Known Issues / Planned for v0.8.0
+
+*No known issues at this time. See [Community Wishlist](#community-wishlist) for planned features.*
 
 ## Community Wishlist
 

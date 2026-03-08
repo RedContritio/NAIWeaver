@@ -1055,7 +1055,7 @@ class _AppSettingsState extends State<AppSettings> {
 
   Widget _buildCreditsSection(VisionTokens t) {
     final l = context.l;
-    const names = ['Brudda', 'Uragan', 'Glockamoli', 'Perry Argoneco', 'Deadly Ham'];
+    const names = ['Brudda', 'Uragan', 'Glockamoli', 'Perry Argoneco', 'Deadly Ham', 'baisumang'];
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(

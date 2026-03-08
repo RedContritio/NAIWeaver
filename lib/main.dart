@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'core/utils/app_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -276,6 +277,21 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
     if (state.errorMessage != null) {
       _showError(context, state.errorMessage!);
       notifier.clearError();
+    }
+
+    // Show duplicate image warning
+    if (state.duplicateImageDetected) {
+      showAppSnackBar(
+        context,
+        context.l.duplicateImageWarning.toUpperCase(),
+        color: Colors.orange,
+        action: SnackBarAction(
+          label: context.l.duplicateImageRandomize.toUpperCase(),
+          textColor: Colors.orange,
+          onPressed: () => notifier.updateSettings(randomizeSeed: true),
+        ),
+      );
+      notifier.clearDuplicateWarning();
     }
   }
 

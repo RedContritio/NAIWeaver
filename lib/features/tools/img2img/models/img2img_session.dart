@@ -64,6 +64,13 @@ class Img2ImgSession {
   /// When set, the mask encoder uses this instead of rendering from strokes.
   final Uint8List? prebakedMaskBytes;
 
+  /// Custom output resolution. null = use source dimensions.
+  final int? outputWidth;
+  final int? outputHeight;
+
+  int get effectiveOutputWidth => outputWidth ?? sourceWidth;
+  int get effectiveOutputHeight => outputHeight ?? sourceHeight;
+
   const Img2ImgSession({
     required this.sourceImageBytes,
     required this.sourceWidth,
@@ -75,6 +82,8 @@ class Img2ImgSession {
     this.resultImageBytes,
     this.sourceFilePath,
     this.prebakedMaskBytes,
+    this.outputWidth,
+    this.outputHeight,
   });
 
   Img2ImgSession copyWith({
@@ -91,6 +100,9 @@ class Img2ImgSession {
     bool clearSourceFilePath = false,
     Uint8List? prebakedMaskBytes,
     bool clearPrebakedMask = false,
+    int? outputWidth,
+    int? outputHeight,
+    bool clearOutputResolution = false,
   }) {
     return Img2ImgSession(
       sourceImageBytes: sourceImageBytes ?? this.sourceImageBytes,
@@ -103,6 +115,8 @@ class Img2ImgSession {
       resultImageBytes: clearResult ? null : (resultImageBytes ?? this.resultImageBytes),
       sourceFilePath: clearSourceFilePath ? null : (sourceFilePath ?? this.sourceFilePath),
       prebakedMaskBytes: clearPrebakedMask ? null : (prebakedMaskBytes ?? this.prebakedMaskBytes),
+      outputWidth: clearOutputResolution ? null : (outputWidth ?? this.outputWidth),
+      outputHeight: clearOutputResolution ? null : (outputHeight ?? this.outputHeight),
     );
   }
 

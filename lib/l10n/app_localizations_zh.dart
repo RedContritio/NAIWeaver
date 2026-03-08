@@ -3026,6 +3026,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get importNothingAvailable => '未找到可导入的元数据';
 
   @override
+  String get importStylesAutoDetected => '从提示词自动检测';
+
+  @override
+  String get img2imgOutputRes => '输出分辨率';
+
+  @override
+  String get img2imgResetRes => '重置为原图';
+
+  @override
+  String get img2imgChangeRes => '更改';
+
+  @override
+  String get duplicateImageWarning => '生成的图像与上次完全相同——请尝试更换种子或检查氛围迁移/参考图';
+
+  @override
+  String get duplicateImageRandomize => '随机化';
+
+  @override
   String get settingsCredits => '制作人员';
 
   @override

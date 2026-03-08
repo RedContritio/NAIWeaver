@@ -121,6 +121,9 @@ class _ImportMetadataDialogState extends State<_ImportMetadataDialog> {
       case ImportCategory.seed:
         return l.importCategorySeed;
       case ImportCategory.styles:
+        if (widget.result.isFuzzyMatched) {
+          return '${l.importCategoryStyles} (${l.importStylesAutoDetected})';
+        }
         // When styles are baked (empty list but category available),
         // show hint that disabling them avoids doubling
         final stylesBaked = widget.result.activeStyleNames?.isEmpty ?? true;

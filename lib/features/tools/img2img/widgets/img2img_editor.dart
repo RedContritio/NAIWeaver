@@ -561,16 +561,30 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
     try {
       // Build the request using current generation settings for resolution
       final genState = genNotifier.state;
+
+      final styleResult = GenerationNotifier.resolveStyles(
+        isStyleEnabled: genState.isStyleEnabled,
+        activeStyleNames: genState.activeStyleNames,
+        styles: genState.styles,
+        furryMode: genState.furryMode,
+      );
+
       final request = await Img2ImgRequestBuilder.build(
         session: session.copyWith(
           prompt: _promptController.text,
           negativePrompt: _negativePromptController.text,
         ),
-        targetWidth: session.sourceWidth,
-        targetHeight: session.sourceHeight,
+        targetWidth: session.effectiveOutputWidth,
+        targetHeight: session.effectiveOutputHeight,
         scale: genState.scale,
         steps: genState.steps.toInt(),
         sampler: genState.sampler,
+        promptPrefix: styleResult.prefix,
+        promptSuffix: styleResult.suffix,
+        styleNegativeContent: styleResult.negative,
+        characters: genState.characters,
+        interactions: genState.interactions,
+        useCoords: genState.characters.isNotEmpty ? !genState.autoPositioning : false,
       );
 
       final resultBytes = await genNotifier.generateImg2Img(

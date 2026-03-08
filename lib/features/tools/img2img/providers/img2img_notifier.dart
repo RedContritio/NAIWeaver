@@ -70,6 +70,8 @@ class Img2ImgNotifier extends ChangeNotifier {
       prompt: prompt ?? '',
       negativePrompt: negativePrompt ?? '',
       sourceFilePath: filePath,
+      outputWidth: _session?.outputWidth,
+      outputHeight: _session?.outputHeight,
     );
     notifyListeners();
   }
@@ -213,6 +215,8 @@ class Img2ImgNotifier extends ChangeNotifier {
       settings: _session!.settings,
       prompt: _session!.prompt,
       negativePrompt: _session!.negativePrompt,
+      outputWidth: _session!.outputWidth,
+      outputHeight: _session!.outputHeight,
     );
     notifyListeners();
   }
@@ -231,7 +235,21 @@ class Img2ImgNotifier extends ChangeNotifier {
       prompt: _session?.prompt ?? '',
       negativePrompt: _session?.negativePrompt ?? '',
       sourceFilePath: filePath,
+      outputWidth: _session?.outputWidth,
+      outputHeight: _session?.outputHeight,
     );
+    notifyListeners();
+  }
+
+  void setOutputResolution(int width, int height) {
+    if (_session == null) return;
+    _session = _session!.copyWith(outputWidth: width, outputHeight: height);
+    notifyListeners();
+  }
+
+  void resetOutputResolution() {
+    if (_session == null) return;
+    _session = _session!.copyWith(clearOutputResolution: true);
     notifyListeners();
   }
 

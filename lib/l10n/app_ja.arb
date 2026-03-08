@@ -1010,6 +1010,15 @@
   "importActionImport": "インポート",
   "importNothingAvailable": "インポート可能なメタデータがありません",
 
+  "importStylesAutoDetected": "プロンプトから自動検出",
+
+  "img2imgOutputRes": "出力解像度",
+  "img2imgResetRes": "ソースにリセット",
+  "img2imgChangeRes": "変更",
+
+  "duplicateImageWarning": "前回と同一の画像が生成されました — シードを変更するか、バイブ/リファレンスを確認してください",
+  "duplicateImageRandomize": "ランダム化",
+
   "settingsCredits": "クレジット",
   "settingsSpecialThanks": "スペシャルサンクス",
   "settingsAnonTesters": "…そして全ての匿名バグテスターの皆さん"

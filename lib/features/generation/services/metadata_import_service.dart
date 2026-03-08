@@ -1,10 +1,26 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../../../core/utils/image_utils.dart';
+import '../../../core/services/styles.dart';
 import '../models/nai_character.dart';
 
 /// Categories of metadata that can be selectively imported.
 enum ImportCategory { prompt, negativePrompt, characters, seed, styles, settings }
+
+/// Result of fuzzy-matching styles against a composed prompt.
+class StyleMatchResult {
+  final List<String> matchedStyleNames;
+  final String cleanedPrompt;
+  final String cleanedNegativePrompt;
+  final bool anyMatched;
+
+  StyleMatchResult({
+    required this.matchedStyleNames,
+    required this.cleanedPrompt,
+    required this.cleanedNegativePrompt,
+    required this.anyMatched,
+  });
+}
 
 /// Result of parsing image metadata from a PNG file.
 class MetadataImportResult {
@@ -25,6 +41,7 @@ class MetadataImportResult {
   final List<NaiInteraction> interactions;
   final bool? autoPositioning;
   final Uint8List imageBytes;
+  final bool isFuzzyMatched;
 
   MetadataImportResult({
     required this.prompt,
@@ -44,6 +61,7 @@ class MetadataImportResult {
     this.interactions = const [],
     this.autoPositioning,
     required this.imageBytes,
+    this.isFuzzyMatched = false,
   });
 
   /// Determines which import categories have data in this result.
@@ -62,11 +80,59 @@ class MetadataImportResult {
 /// Service that extracts metadata from PNG image files and returns a
 /// structured [MetadataImportResult] without mutating any UI state.
 class MetadataImportService {
+  /// Try to match a composed prompt against available styles by checking
+  /// prefix/suffix content. Strips matched content from the prompt.
+  static StyleMatchResult tryMatchStyles({
+    required String composedPrompt,
+    required String composedNegativePrompt,
+    required List<PromptStyle> availableStyles,
+  }) {
+    final matched = <String>[];
+    var prompt = composedPrompt;
+    var negative = composedNegativePrompt;
+
+    for (final style in availableStyles) {
+      bool didMatch = false;
+
+      if (style.prefix.isNotEmpty && prompt.startsWith(style.prefix)) {
+        prompt = prompt.substring(style.prefix.length);
+        didMatch = true;
+      }
+
+      if (style.suffix.isNotEmpty && prompt.endsWith(style.suffix)) {
+        prompt = prompt.substring(0, prompt.length - style.suffix.length);
+        didMatch = true;
+      }
+
+      if (style.negativeContent.isNotEmpty && negative.contains(style.negativeContent)) {
+        negative = negative.replaceFirst(style.negativeContent, '');
+        // Clean up leading/trailing comma-space artifacts
+        negative = negative.replaceAll(RegExp(r',\s*,'), ',');
+        negative = negative.replaceAll(RegExp(r'^\s*,\s*'), '');
+        negative = negative.replaceAll(RegExp(r'\s*,\s*$'), '');
+        negative = negative.trim();
+        didMatch = true;
+      }
+
+      if (didMatch) {
+        matched.add(style.name);
+      }
+    }
+
+    return StyleMatchResult(
+      matchedStyleNames: matched,
+      cleanedPrompt: prompt,
+      cleanedNegativePrompt: negative,
+      anyMatched: matched.isNotEmpty,
+    );
+  }
+
   /// Parse metadata from a PNG image file.
   /// [smartStyleImport] controls whether to use original prompts or composed prompts.
   Future<MetadataImportResult> parseImageMetadata(
     File file, {
     required bool smartStyleImport,
+    List<PromptStyle> availableStyles = const [],
   }) async {
     final bytes = await file.readAsBytes();
     final metadata = await compute(extractMetadata, bytes);
@@ -128,6 +194,7 @@ class MetadataImportService {
     List<NaiCharacter> characters = const [];
     List<NaiInteraction> interactions = const [];
     bool? autoPositioning;
+    bool isFuzzy = false;
 
     if (settings != null) {
       width = (settings['width'] as num?)?.toDouble();
@@ -149,6 +216,23 @@ class MetadataImportService {
         // Smart: restore style selections so re-generation applies them
         activeStyleNames = savedStyleNames.cast<String>().toList();
         isStyleEnabled = savedStyleEnabled == true;
+      } else if (smartStyleImport && availableStyles.isNotEmpty) {
+        // Legacy/external: fuzzy-match prompt against available styles
+        final match = tryMatchStyles(
+          composedPrompt: prompt,
+          composedNegativePrompt: negativePrompt ?? '',
+          availableStyles: availableStyles,
+        );
+        if (match.anyMatched) {
+          activeStyleNames = match.matchedStyleNames;
+          isStyleEnabled = true;
+          prompt = match.cleanedPrompt;
+          negativePrompt = match.cleanedNegativePrompt;
+          isFuzzy = true;
+        } else {
+          activeStyleNames = <String>[];
+          isStyleEnabled = false;
+        }
       } else {
         // Raw or legacy: styles are baked into the prompt, disable to avoid doubling
         activeStyleNames = <String>[];
@@ -276,6 +360,7 @@ class MetadataImportService {
       interactions: interactions,
       autoPositioning: autoPositioning,
       imageBytes: bytes,
+      isFuzzyMatched: isFuzzy,
     );
   }
 }

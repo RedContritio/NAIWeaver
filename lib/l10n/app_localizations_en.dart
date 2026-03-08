@@ -3086,6 +3086,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get importNothingAvailable => 'No importable metadata found';
 
   @override
+  String get importStylesAutoDetected => 'auto-detected from prompt';
+
+  @override
+  String get img2imgOutputRes => 'OUTPUT RESOLUTION';
+
+  @override
+  String get img2imgResetRes => 'Reset to source';
+
+  @override
+  String get img2imgChangeRes => 'CHANGE';
+
+  @override
+  String get duplicateImageWarning =>
+      'Image identical to last generation — try a different seed or check your vibes/references';
+
+  @override
+  String get duplicateImageRandomize => 'Randomize';
+
+  @override
   String get settingsCredits => 'Credits';
 
   @override

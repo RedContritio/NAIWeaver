@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.7.0
+
+### Style Import
+- Fuzzy matching for external images: auto-detects style presets from composed prompts
+- Import dialog shows "(auto-detected from prompt)" for fuzzy-matched styles
+- Smart Style Import setting preserved as user opt-out for heuristic matching
+
+### Enhance / Img2Img
+- Active styles (prefix/suffix/negative) synced from main editor at generation time
+- Characters and interactions synced from main editor at generation time
+- `resolveStyles()` extracted as reusable static helper
+
+### Img2Img
+- Custom output resolution independent of source image dimensions
+- Resolution dropdown with built-in presets, saved custom resolutions, and source reset option
+- Resolution persists across source image changes
+- Reset button to revert to source dimensions
+
+### Generation
+- Duplicate generation detection: warning snackbar when image is byte-identical to previous generation, with "Randomize" action button
+
+### Android
+- Add `hasFragileUserData` and `allowBackup` manifest attributes to protect user data on uninstall
+- Debug builds now use release signing key (when available) to prevent data loss during development
+
+### Bug Fixes
+- Fix infinite loop crash when typing unmatched `}` or `]` in prompt field
+- Fix Android generate button not raising above keyboard
+
+### Localization
+- All new strings localized for EN, JA, ZH
+
 ## v0.6.0
 
 ### Prompt Editor

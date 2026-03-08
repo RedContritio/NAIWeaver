@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import '../../../../core/services/novel_ai_service.dart';
+import '../../../generation/models/nai_character.dart';
 import '../models/enhance_config.dart';
 
 class EnhanceNotifier extends ChangeNotifier {
@@ -19,6 +20,13 @@ class EnhanceNotifier extends ChangeNotifier {
   bool _isProcessing = false;
   String? _error;
   String _status = '';
+
+  String? _promptPrefix;
+  String? _promptSuffix;
+  String? _styleNegativeContent;
+  List<NaiCharacter> _characters = const [];
+  List<NaiInteraction> _interactions = const [];
+  bool _useCoords = false;
 
   Uint8List? get sourceImageBytes => _sourceImageBytes;
   int get sourceWidth => _sourceWidth;
@@ -71,6 +79,26 @@ class EnhanceNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setStyleData({
+    String? promptPrefix,
+    String? promptSuffix,
+    String? styleNegativeContent,
+  }) {
+    _promptPrefix = promptPrefix;
+    _promptSuffix = promptSuffix;
+    _styleNegativeContent = styleNegativeContent;
+  }
+
+  void setCharacterData({
+    List<NaiCharacter> characters = const [],
+    List<NaiInteraction> interactions = const [],
+    bool useCoords = false,
+  }) {
+    _characters = characters;
+    _interactions = interactions;
+    _useCoords = useCoords;
+  }
+
   Future<void> enhance() async {
     if (_service == null || _sourceImageBytes == null) return;
     _isProcessing = true;
@@ -92,9 +120,13 @@ class EnhanceNotifier extends ChangeNotifier {
       final outWidth = ((_sourceWidth * _config.scale) / 64).round() * 64;
       final outHeight = ((_sourceHeight * _config.scale) / 64).round() * 64;
 
+      final effectiveNegative = _styleNegativeContent != null && _styleNegativeContent!.isNotEmpty
+          ? '$_negativePrompt, $_styleNegativeContent'
+          : _negativePrompt;
+
       final result = await _service!.generateImage(
         prompt: _prompt,
-        negativePrompt: _negativePrompt,
+        negativePrompt: effectiveNegative,
         width: outWidth,
         height: outHeight,
         seed: DateTime.now().microsecondsSinceEpoch % 4294967295,
@@ -102,6 +134,11 @@ class EnhanceNotifier extends ChangeNotifier {
         sourceImageBase64: sourceBase64,
         img2imgStrength: _config.strength,
         img2imgNoise: _config.noise,
+        promptPrefix: _promptPrefix,
+        promptSuffix: _promptSuffix,
+        characters: _characters,
+        interactions: _interactions,
+        useCoords: _useCoords,
       );
 
       _resultBytes = result.imageBytes;
@@ -134,6 +171,12 @@ class EnhanceNotifier extends ChangeNotifier {
     _prompt = '';
     _negativePrompt = defaultNegativePrompt;
     _config = const EnhanceConfig();
+    _promptPrefix = null;
+    _promptSuffix = null;
+    _styleNegativeContent = null;
+    _characters = const [];
+    _interactions = const [];
+    _useCoords = false;
     notifyListeners();
   }
 }

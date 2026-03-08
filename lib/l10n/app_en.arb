@@ -1082,6 +1082,15 @@
   "importActionImport": "IMPORT",
   "importNothingAvailable": "No importable metadata found",
 
+  "importStylesAutoDetected": "auto-detected from prompt",
+
+  "img2imgOutputRes": "OUTPUT RESOLUTION",
+  "img2imgResetRes": "Reset to source",
+  "img2imgChangeRes": "CHANGE",
+
+  "duplicateImageWarning": "Image identical to last generation — try a different seed or check your vibes/references",
+  "duplicateImageRandomize": "Randomize",
+
   "settingsCredits": "Credits",
   "settingsSpecialThanks": "Special Thanks",
   "settingsAnonTesters": "...and all anonymous bug testers"

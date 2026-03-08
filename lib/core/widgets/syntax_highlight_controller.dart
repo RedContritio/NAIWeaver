@@ -92,6 +92,19 @@ class SyntaxHighlightController extends TextEditingController {
         continue;
       }
 
+      // Unmatched closing brackets at depth 0 — render as plain text
+      if (src[i] == '}') {
+        spans.add(TextSpan(text: '}', style: style));
+        i++;
+        continue;
+      }
+
+      if (src[i] == ']') {
+        spans.add(TextSpan(text: ']', style: style));
+        i++;
+        continue;
+      }
+
       // Inside emphasis brackets — color the text
       if (curlyDepth > 0) {
         // Collect run of non-bracket chars

@@ -690,8 +690,10 @@ class _ImageDetailViewState extends State<ImageDetailView>
                   duration: const Duration(milliseconds: 300),
                   child: IgnorePointer(
                     ignoring: !_showControls,
-                    child: Align(
-                      alignment: Alignment.topCenter,
+                    child: Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
                       child: Container(
                           width: double.infinity,
                           padding: EdgeInsets.only(
@@ -807,8 +809,10 @@ class _ImageDetailViewState extends State<ImageDetailView>
                   duration: const Duration(milliseconds: 300),
                   child: IgnorePointer(
                     ignoring: !_showControls,
-                    child: Align(
-                      alignment: Alignment.bottomCenter,
+                    child: Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
                       child: Container(
                         width: double.infinity,
                         padding: EdgeInsets.only(

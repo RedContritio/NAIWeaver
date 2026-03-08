@@ -281,8 +281,8 @@ class GalleryNotifier extends ChangeNotifier {
     );
     _items.insert(0, newItem);
 
-    // Auto-add to album: explicit > active > default save album
-    final targetAlbum = albumId ?? _activeAlbumId ?? _prefs.defaultSaveAlbumId;
+    // Auto-add to album: explicit > default save album > active
+    final targetAlbum = albumId ?? _prefs.defaultSaveAlbumId ?? _activeAlbumId;
     if (targetAlbum != null) {
       _albumService.addToAlbum(targetAlbum, [newItem.basename]);
     }

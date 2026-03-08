@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
+import '../../../generation/models/nai_character.dart';
 import '../models/img2img_session.dart';
 import 'mask_encoder.dart';
 
@@ -19,6 +20,11 @@ class Img2ImgRequest {
   final double noise;
   final bool colorCorrect;
   final int maskBlur;
+  final String? promptPrefix;
+  final String? promptSuffix;
+  final List<NaiCharacter> characters;
+  final List<NaiInteraction> interactions;
+  final bool useCoords;
 
   Img2ImgRequest({
     required this.prompt,
@@ -34,6 +40,11 @@ class Img2ImgRequest {
     required this.noise,
     required this.colorCorrect,
     required this.maskBlur,
+    this.promptPrefix,
+    this.promptSuffix,
+    this.characters = const [],
+    this.interactions = const [],
+    this.useCoords = false,
   });
 }
 
@@ -46,6 +57,12 @@ class Img2ImgRequestBuilder {
     double scale = 5.0,
     int steps = 28,
     String sampler = 'k_euler_ancestral',
+    String? promptPrefix,
+    String? promptSuffix,
+    String? styleNegativeContent,
+    List<NaiCharacter> characters = const [],
+    List<NaiInteraction> interactions = const [],
+    bool useCoords = false,
   }) async {
     // Resize source image to target resolution and encode as base64
     final sourceBase64 = await compute(_resizeAndEncode, _ResizeParams(
@@ -73,9 +90,13 @@ class Img2ImgRequestBuilder {
       }
     }
 
+    final effectiveNegative = styleNegativeContent != null && styleNegativeContent.isNotEmpty
+        ? '${session.negativePrompt}, $styleNegativeContent'
+        : session.negativePrompt;
+
     return Img2ImgRequest(
       prompt: session.prompt,
-      negativePrompt: session.negativePrompt,
+      negativePrompt: effectiveNegative,
       width: targetWidth,
       height: targetHeight,
       scale: scale,
@@ -87,6 +108,11 @@ class Img2ImgRequestBuilder {
       noise: session.settings.noise,
       colorCorrect: session.settings.colorCorrect,
       maskBlur: session.settings.maskBlur,
+      promptPrefix: promptPrefix,
+      promptSuffix: promptSuffix,
+      characters: characters,
+      interactions: interactions,
+      useCoords: useCoords,
     );
   }
 }

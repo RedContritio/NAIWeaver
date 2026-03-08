@@ -21,6 +21,7 @@ Check out the github page to test it out, https://ststoryweaver.github.io/NAIWea
 - In-app update checker via GitHub releases API
 - PNG metadata round-trip — settings embedded in images, re-importable via drag-and-drop
 - Seed control with randomization toggle for reproducible generations
+- Duplicate generation detection with warning snackbar and quick randomize action
 
 ### Director Reference
 Upload reference images to guide character appearance or artistic style. Supports three reference types (Character, Style, Character & Style) with per-reference strength and fidelity sliders.
@@ -57,6 +58,7 @@ Sequential scene generation. Define setting, placement, actions, emotion, and st
 - Sort by date, name, or file size
 - Image info overlay on hover
 - Demo mode with PIN lock and biometric unlock for privacy
+- Android data protection: "Keep app data?" prompt on uninstall, auto-backup to Google Drive
 
 ### Tools Hub (14 Tools)
 

@@ -4,7 +4,10 @@ import '../../../../core/l10n/l10n_extensions.dart';
 import '../../../../core/services/preferences_service.dart';
 import '../../../../core/theme/theme_extensions.dart';
 import '../../../../core/theme/vision_tokens.dart';
+import '../../../../core/widgets/custom_resolution_dialog.dart';
 import '../../../../core/widgets/vision_slider.dart';
+import '../../../generation/widgets/settings_panel.dart';
+import '../models/img2img_session.dart';
 import '../providers/img2img_notifier.dart';
 
 class Img2ImgSettingsPanel extends StatefulWidget {
@@ -192,9 +195,135 @@ class _Img2ImgSettingsPanelState extends State<Img2ImgSettingsPanel> {
                 ],
               ),
             ),
+
+            const SizedBox(height: 12),
+
+            // Output resolution
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: t.textPrimary.withValues(alpha: 0.02),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(l.img2imgOutputRes, style: _labelStyle(t)),
+                  const SizedBox(height: 4),
+                  _buildResolutionDropdown(session, notifier, t, l),
+                ],
+              ),
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildResolutionDropdown(
+    Img2ImgSession session,
+    Img2ImgNotifier notifier,
+    VisionTokens t,
+    dynamic l,
+  ) {
+    final sourceValue = '__source__';
+    final options = AdvancedSettingsPanel.resolutionOptions(context);
+    final builtInCount = 8;
+
+    // Determine current dropdown value
+    String? currentValue;
+    if (session.outputWidth == null) {
+      currentValue = sourceValue;
+    } else {
+      final w = session.effectiveOutputWidth;
+      final h = session.effectiveOutputHeight;
+      final match = options.any((opt) => opt.width == w && opt.height == h);
+      currentValue = match ? '${w}x$h' : null;
+    }
+
+    return DropdownButtonFormField<String>(
+      initialValue: currentValue,
+      dropdownColor: t.surfaceHigh,
+      isExpanded: true,
+      hint: currentValue == null && session.outputWidth != null
+          ? Text(
+              '${session.effectiveOutputWidth}x${session.effectiveOutputHeight} (${context.l.panelCustom.toUpperCase()})',
+              style: TextStyle(color: t.accent, fontSize: t.fontSize(10)),
+            )
+          : null,
+      style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(10), letterSpacing: 1),
+      decoration: InputDecoration(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        fillColor: t.background,
+        filled: true,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.borderMedium)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.borderMedium)),
+      ),
+      onChanged: (String? newValue) async {
+        if (newValue == sourceValue) {
+          notifier.resetOutputResolution();
+          return;
+        }
+        if (newValue == '__custom__') {
+          final result = await showCustomResolutionDialog(context);
+          if (result != null) {
+            notifier.setOutputResolution(result.width, result.height);
+            if (mounted) setState(() {});
+          }
+          return;
+        }
+        if (newValue != null) {
+          final parts = newValue.split('x');
+          notifier.setOutputResolution(int.parse(parts[0]), int.parse(parts[1]));
+        }
+      },
+      items: [
+        // Source resolution option
+        DropdownMenuItem<String>(
+          value: sourceValue,
+          child: Text(
+            'SOURCE ${session.sourceWidth}x${session.sourceHeight}',
+            style: TextStyle(fontSize: t.fontSize(10), color: t.textSecondary),
+          ),
+        ),
+        // Built-in + custom presets
+        ...options.asMap().entries.map<DropdownMenuItem<String>>((entry) {
+          final opt = entry.value;
+          return DropdownMenuItem<String>(
+            value: opt.value,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(child: Text(opt.displayLabel, style: TextStyle(fontSize: t.fontSize(10)), overflow: TextOverflow.ellipsis)),
+                if (opt.isCustom)
+                  GestureDetector(
+                    onTap: () {
+                      final prefs = context.read<PreferencesService>();
+                      AdvancedSettingsPanel.deleteCustomResolution(prefs, entry.key - builtInCount);
+                      setState(() {});
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Icon(Icons.close, size: 14, color: t.textMinimal),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        }),
+        // Custom entry option
+        DropdownMenuItem<String>(
+          value: '__custom__',
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.add, size: 14, color: t.accent),
+              const SizedBox(width: 8),
+              Text(context.l.resCustomEntry.toUpperCase(), style: TextStyle(fontSize: t.fontSize(10), color: t.accent)),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

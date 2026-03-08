@@ -3033,6 +3033,25 @@ class AppLocalizationsJa extends AppLocalizations {
   String get importNothingAvailable => 'インポート可能なメタデータがありません';
 
   @override
+  String get importStylesAutoDetected => 'プロンプトから自動検出';
+
+  @override
+  String get img2imgOutputRes => '出力解像度';
+
+  @override
+  String get img2imgResetRes => 'ソースにリセット';
+
+  @override
+  String get img2imgChangeRes => '変更';
+
+  @override
+  String get duplicateImageWarning =>
+      '前回と同一の画像が生成されました — シードを変更するか、バイブ/リファレンスを確認してください';
+
+  @override
+  String get duplicateImageRandomize => 'ランダム化';
+
+  @override
   String get settingsCredits => 'クレジット';
 
   @override

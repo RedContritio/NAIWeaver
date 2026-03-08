@@ -5786,6 +5786,42 @@ abstract class AppLocalizations {
   /// **'No importable metadata found'**
   String get importNothingAvailable;
 
+  /// No description provided for @importStylesAutoDetected.
+  ///
+  /// In en, this message translates to:
+  /// **'auto-detected from prompt'**
+  String get importStylesAutoDetected;
+
+  /// No description provided for @img2imgOutputRes.
+  ///
+  /// In en, this message translates to:
+  /// **'OUTPUT RESOLUTION'**
+  String get img2imgOutputRes;
+
+  /// No description provided for @img2imgResetRes.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset to source'**
+  String get img2imgResetRes;
+
+  /// No description provided for @img2imgChangeRes.
+  ///
+  /// In en, this message translates to:
+  /// **'CHANGE'**
+  String get img2imgChangeRes;
+
+  /// No description provided for @duplicateImageWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Image identical to last generation — try a different seed or check your vibes/references'**
+  String get duplicateImageWarning;
+
+  /// No description provided for @duplicateImageRandomize.
+  ///
+  /// In en, this message translates to:
+  /// **'Randomize'**
+  String get duplicateImageRandomize;
+
   /// No description provided for @settingsCredits.
   ///
   /// In en, this message translates to:

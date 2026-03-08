@@ -1082,6 +1082,15 @@
   "importActionImport": "导入",
   "importNothingAvailable": "未找到可导入的元数据",
 
+  "importStylesAutoDetected": "从提示词自动检测",
+
+  "img2imgOutputRes": "输出分辨率",
+  "img2imgResetRes": "重置为原图",
+  "img2imgChangeRes": "更改",
+
+  "duplicateImageWarning": "生成的图像与上次完全相同——请尝试更换种子或检查氛围迁移/参考图",
+  "duplicateImageRandomize": "随机化",
+
   "settingsCredits": "制作人员",
   "settingsSpecialThanks": "特别感谢",
   "settingsAnonTesters": "……以及所有匿名测试人员"

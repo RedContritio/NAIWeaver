@@ -314,6 +314,7 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
                   final gen = context.read<GenerationNotifier>();
                   notifier.setPrompt(_promptController.text);
                   notifier.setNegativePrompt(_negativePromptController.text);
+                  _syncStylesAndCharacters(notifier, gen);
                   await notifier.enhance();
                   if (notifier.hasResult && mounted) {
                     if (gen.state.autoSaveImages) {
@@ -338,6 +339,7 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
                   final gen = context.read<GenerationNotifier>();
                   notifier.setPrompt(_promptController.text);
                   notifier.setNegativePrompt(_negativePromptController.text);
+                  _syncStylesAndCharacters(notifier, gen);
                   await notifier.enhance();
                   if (notifier.hasResult && mounted) {
                     if (gen.state.autoSaveImages) {
@@ -555,6 +557,26 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
           ),
         ],
       ),
+    );
+  }
+
+  void _syncStylesAndCharacters(EnhanceNotifier notifier, GenerationNotifier gen) {
+    final genState = gen.state;
+    final styleResult = GenerationNotifier.resolveStyles(
+      isStyleEnabled: genState.isStyleEnabled,
+      activeStyleNames: genState.activeStyleNames,
+      styles: genState.styles,
+      furryMode: genState.furryMode,
+    );
+    notifier.setStyleData(
+      promptPrefix: styleResult.prefix,
+      promptSuffix: styleResult.suffix,
+      styleNegativeContent: styleResult.negative,
+    );
+    notifier.setCharacterData(
+      characters: genState.characters,
+      interactions: genState.interactions,
+      useCoords: genState.characters.isNotEmpty ? !genState.autoPositioning : false,
     );
   }
 
