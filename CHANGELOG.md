@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.7.1
+
+### Bug Fixes
+- Fix versionCode regression that prevented updating from v0.6.x (versionCode was reset from 7 to 1)
+- Revert debug builds to use default debug signing key to prevent data wipe on update
+
 ## v0.7.0
 
 ### Style Import
