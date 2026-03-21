@@ -5,6 +5,7 @@ import '../../features/gallery/models/gallery_album.dart';
 import '../../features/gallery/providers/gallery_notifier.dart';
 import '../utils/image_utils.dart';
 import 'presets.dart';
+import 'reference_library_service.dart';
 import 'styles.dart';
 
 class PackManifest {
@@ -14,6 +15,8 @@ class PackManifest {
   final int presetCount;
   final int styleCount;
   final int wildcardCount;
+  final int savedRefCount;
+  final int savedVibeCount;
 
   PackManifest({
     required this.name,
@@ -22,6 +25,8 @@ class PackManifest {
     this.presetCount = 0,
     this.styleCount = 0,
     this.wildcardCount = 0,
+    this.savedRefCount = 0,
+    this.savedVibeCount = 0,
   });
 
   Map<String, dynamic> toJson() => {
@@ -31,6 +36,8 @@ class PackManifest {
         'presetCount': presetCount,
         'styleCount': styleCount,
         'wildcardCount': wildcardCount,
+        'savedRefCount': savedRefCount,
+        'savedVibeCount': savedVibeCount,
       };
 
   factory PackManifest.fromJson(Map<String, dynamic> json) => PackManifest(
@@ -40,6 +47,8 @@ class PackManifest {
         presetCount: json['presetCount'] as int? ?? 0,
         styleCount: json['styleCount'] as int? ?? 0,
         wildcardCount: json['wildcardCount'] as int? ?? 0,
+        savedRefCount: json['savedRefCount'] as int? ?? 0,
+        savedVibeCount: json['savedVibeCount'] as int? ?? 0,
       );
 }
 
@@ -48,12 +57,16 @@ class PackContents {
   final List<GenerationPreset> presets;
   final List<PromptStyle> styles;
   final Map<String, String> wildcards; // filename → content
+  final List<SavedDirectorRef> savedRefs;
+  final List<SavedVibeTransfer> savedVibes;
 
   PackContents({
     required this.manifest,
     this.presets = const [],
     this.styles = const [],
     this.wildcards = const {},
+    this.savedRefs = const [],
+    this.savedVibes = const [],
   });
 }
 
@@ -65,6 +78,8 @@ class PackService {
     List<GenerationPreset> presets = const [],
     List<PromptStyle> styles = const [],
     Map<String, String> wildcards = const {},
+    List<SavedDirectorRef> savedRefs = const [],
+    List<SavedVibeTransfer> savedVibes = const [],
   }) {
     final archive = Archive();
     int refIndex = 0;
@@ -115,6 +130,18 @@ class PackService {
       archive.addFile(ArchiveFile('wildcards/${entry.key}', content.length, content));
     }
 
+    // Add saved references
+    for (int i = 0; i < savedRefs.length; i++) {
+      final content = utf8.encode(const JsonEncoder.withIndent('  ').convert(savedRefs[i].toJson()));
+      archive.addFile(ArchiveFile('saved_refs/${_sanitize(savedRefs[i].name)}_$i.json', content.length, content));
+    }
+
+    // Add saved vibes
+    for (int i = 0; i < savedVibes.length; i++) {
+      final content = utf8.encode(const JsonEncoder.withIndent('  ').convert(savedVibes[i].toJson()));
+      archive.addFile(ArchiveFile('saved_vibes/${_sanitize(savedVibes[i].name)}_$i.json', content.length, content));
+    }
+
     // Generate manifest
     final manifest = PackManifest(
       name: name,
@@ -122,6 +149,8 @@ class PackService {
       presetCount: presets.length,
       styleCount: styles.length,
       wildcardCount: wildcards.length,
+      savedRefCount: savedRefs.length,
+      savedVibeCount: savedVibes.length,
     );
     final manifestContent = utf8.encode(const JsonEncoder.withIndent('  ').convert(manifest.toJson()));
     archive.addFile(ArchiveFile('pack.json', manifestContent.length, manifestContent));
@@ -209,11 +238,39 @@ class PackService {
       }
     }
 
+    // Load saved references
+    final savedRefs = <SavedDirectorRef>[];
+    for (final file in archive) {
+      if (file.name.startsWith('saved_refs/') && file.name.endsWith('.json') && file.isFile) {
+        final filename = file.name.replaceFirst('saved_refs/', '');
+        if (filename.contains('..') || filename.startsWith('/')) continue;
+        try {
+          final json = jsonDecode(utf8.decode(file.content as List<int>)) as Map<String, dynamic>;
+          savedRefs.add(SavedDirectorRef.fromJson(json));
+        } catch (_) {}
+      }
+    }
+
+    // Load saved vibes
+    final savedVibes = <SavedVibeTransfer>[];
+    for (final file in archive) {
+      if (file.name.startsWith('saved_vibes/') && file.name.endsWith('.json') && file.isFile) {
+        final filename = file.name.replaceFirst('saved_vibes/', '');
+        if (filename.contains('..') || filename.startsWith('/')) continue;
+        try {
+          final json = jsonDecode(utf8.decode(file.content as List<int>)) as Map<String, dynamic>;
+          savedVibes.add(SavedVibeTransfer.fromJson(json));
+        } catch (_) {}
+      }
+    }
+
     return PackContents(
       manifest: manifest,
       presets: presets,
       styles: styles,
       wildcards: wildcards,
+      savedRefs: savedRefs,
+      savedVibes: savedVibes,
     );
   }
 

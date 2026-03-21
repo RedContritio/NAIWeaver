@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:file_picker/file_picker.dart';
+import '../../../core/utils/file_picker_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/services/path_service.dart';
@@ -116,10 +116,7 @@ class _VibeTransferManagerState extends State<VibeTransferManager> {
   }
 
   Future<void> _pickAndAdd(BuildContext context) async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      allowMultiple: true,
-    );
+    final result = await pickImageFiles(allowMultiple: true);
     if (result != null && context.mounted) {
       final notifier = context.read<VibeTransferNotifier>();
       for (final file in result.files) {

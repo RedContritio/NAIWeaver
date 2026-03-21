@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:file_picker/file_picker.dart';
+import '../../../core/utils/file_picker_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/theme_extensions.dart';
@@ -14,10 +14,7 @@ class VibeTransferShelf extends StatelessWidget {
   const VibeTransferShelf({super.key});
 
   Future<void> _pickAndAdd(BuildContext context) async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      allowMultiple: true,
-    );
+    final result = await pickImageFiles(allowMultiple: true);
     if (result != null && context.mounted) {
       final notifier = context.read<VibeTransferNotifier>();
       for (final file in result.files) {

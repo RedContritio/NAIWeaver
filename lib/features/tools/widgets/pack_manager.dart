@@ -1,12 +1,16 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
+import '../../../core/utils/file_picker_helper.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/services/pack_service.dart';
+import '../../../core/services/path_service.dart';
 import '../../../core/services/preferences_service.dart';
+import '../../../core/services/reference_library_service.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../../core/theme/vision_tokens.dart';
 import '../../../core/utils/app_snackbar.dart';
@@ -107,10 +111,12 @@ class _PackManagerState extends State<PackManager> {
   Future<void> _showExportDialog(BuildContext context) async {
     final gen = context.read<GenerationNotifier>();
     final wildcard = context.read<WildcardNotifier>();
+    final libPath = context.read<PathService>().referenceLibraryFilePath;
 
     // Load current data
     final presets = await PresetStorage.loadPresets(gen.presetsFilePath);
     final styles = await StyleStorage.loadStyles(gen.stylesFilePath);
+    final library = await ReferenceLibraryService.load(libPath);
 
     // Load wildcard files
     final wcDir = Directory(wildcard.wildcardDir);
@@ -131,6 +137,8 @@ class _PackManagerState extends State<PackManager> {
         presets: presets,
         styles: styles,
         wildcardFiles: wcFiles,
+        savedRefs: library.directorRefs,
+        savedVibes: library.vibeTransfers,
       ),
     );
   }
@@ -143,16 +151,21 @@ class _PackManagerState extends State<PackManager> {
   }
 
   Future<void> _importPack(BuildContext context) async {
-    final l = context.l;
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
+    final result = await pickCustomFiles(
       allowedExtensions: ['vpack'],
-      dialogTitle: l.packImportDialogTitle,
+      withData: true,
     );
     if (result == null || result.files.isEmpty) return;
 
-    final file = File(result.files.single.path!);
-    final bytes = await file.readAsBytes();
+    final fileBytes = result.files.single.bytes;
+    Uint8List bytes;
+    if (fileBytes != null) {
+      bytes = fileBytes;
+    } else {
+      final path = result.files.single.path;
+      if (path == null) return;
+      bytes = await File(path).readAsBytes();
+    }
 
     PackContents contents;
     try {
@@ -233,11 +246,15 @@ class _ExportDialog extends StatefulWidget {
   final List<GenerationPreset> presets;
   final List<PromptStyle> styles;
   final List<File> wildcardFiles;
+  final List<SavedDirectorRef> savedRefs;
+  final List<SavedVibeTransfer> savedVibes;
 
   const _ExportDialog({
     required this.presets,
     required this.styles,
     required this.wildcardFiles,
+    this.savedRefs = const [],
+    this.savedVibes = const [],
   });
 
   @override
@@ -250,6 +267,8 @@ class _ExportDialogState extends State<_ExportDialog> {
   late Set<int> _selectedPresets;
   late Set<int> _selectedStyles;
   late Set<int> _selectedWildcards;
+  late Set<int> _selectedSavedRefs;
+  late Set<int> _selectedSavedVibes;
   bool _exporting = false;
 
   @override
@@ -258,6 +277,8 @@ class _ExportDialogState extends State<_ExportDialog> {
     _selectedPresets = Set.from(List.generate(widget.presets.length, (i) => i));
     _selectedStyles = Set.from(List.generate(widget.styles.length, (i) => i));
     _selectedWildcards = Set.from(List.generate(widget.wildcardFiles.length, (i) => i));
+    _selectedSavedRefs = Set.from(List.generate(widget.savedRefs.length, (i) => i));
+    _selectedSavedVibes = Set.from(List.generate(widget.savedVibes.length, (i) => i));
   }
 
   @override
@@ -325,6 +346,22 @@ class _ExportDialogState extends State<_ExportDialog> {
                   _checkTile(p.basenameWithoutExtension(widget.wildcardFiles[i].path), _selectedWildcards.contains(i), (v) {
                     setState(() => v! ? _selectedWildcards.add(i) : _selectedWildcards.remove(i));
                   }, t, mobile),
+                const SizedBox(height: 12),
+              ],
+              if (widget.savedRefs.isNotEmpty) ...[
+                _sectionHeader(l.packSavedRefsSection(_selectedSavedRefs.length, widget.savedRefs.length), t),
+                for (int i = 0; i < widget.savedRefs.length; i++)
+                  _checkTile(widget.savedRefs[i].name, _selectedSavedRefs.contains(i), (v) {
+                    setState(() => v! ? _selectedSavedRefs.add(i) : _selectedSavedRefs.remove(i));
+                  }, t, mobile),
+                const SizedBox(height: 12),
+              ],
+              if (widget.savedVibes.isNotEmpty) ...[
+                _sectionHeader(l.packSavedVibesSection(_selectedSavedVibes.length, widget.savedVibes.length), t),
+                for (int i = 0; i < widget.savedVibes.length; i++)
+                  _checkTile(widget.savedVibes[i].name, _selectedSavedVibes.contains(i), (v) {
+                    setState(() => v! ? _selectedSavedVibes.add(i) : _selectedSavedVibes.remove(i));
+                  }, t, mobile),
               ],
             ],
           ),
@@ -384,12 +421,17 @@ class _ExportDialogState extends State<_ExportDialog> {
         wildcards[p.basename(file.path)] = await file.readAsString();
       }
 
+      final selectedSavedRefs = _selectedSavedRefs.map((i) => widget.savedRefs[i]).toList();
+      final selectedSavedVibes = _selectedSavedVibes.map((i) => widget.savedVibes[i]).toList();
+
       final packBytes = PackService.exportPack(
         name: _nameController.text.trim(),
         description: _descController.text.trim(),
         presets: selectedPresets,
         styles: selectedStyles,
         wildcards: wildcards,
+        savedRefs: selectedSavedRefs,
+        savedVibes: selectedSavedVibes,
       );
 
       final savePath = await FilePicker.platform.saveFile(
@@ -432,6 +474,8 @@ class _ImportDialogState extends State<_ImportDialog> {
   late Set<int> _selectedPresets;
   late Set<int> _selectedStyles;
   late Set<String> _selectedWildcards;
+  late Set<int> _selectedSavedRefs;
+  late Set<int> _selectedSavedVibes;
   bool _importing = false;
 
   @override
@@ -440,6 +484,8 @@ class _ImportDialogState extends State<_ImportDialog> {
     _selectedPresets = Set.from(List.generate(widget.contents.presets.length, (i) => i));
     _selectedStyles = Set.from(List.generate(widget.contents.styles.length, (i) => i));
     _selectedWildcards = Set.from(widget.contents.wildcards.keys);
+    _selectedSavedRefs = Set.from(List.generate(widget.contents.savedRefs.length, (i) => i));
+    _selectedSavedVibes = Set.from(List.generate(widget.contents.savedVibes.length, (i) => i));
   }
 
   @override
@@ -448,7 +494,7 @@ class _ImportDialogState extends State<_ImportDialog> {
     final l = context.l;
     final mobile = isMobile(context);
     final m = widget.contents.manifest;
-    final total = _selectedPresets.length + _selectedStyles.length + _selectedWildcards.length;
+    final total = _selectedPresets.length + _selectedStyles.length + _selectedWildcards.length + _selectedSavedRefs.length + _selectedSavedVibes.length;
 
     return AlertDialog(
       backgroundColor: t.surfaceHigh,
@@ -488,6 +534,22 @@ class _ImportDialogState extends State<_ImportDialog> {
                 for (final key in widget.contents.wildcards.keys)
                   _checkTile(p.basenameWithoutExtension(key), _selectedWildcards.contains(key), (v) {
                     setState(() => v! ? _selectedWildcards.add(key) : _selectedWildcards.remove(key));
+                  }, t, mobile),
+                const SizedBox(height: 12),
+              ],
+              if (widget.contents.savedRefs.isNotEmpty) ...[
+                _sectionHeader(l.packSavedRefsSection(_selectedSavedRefs.length, widget.contents.savedRefs.length), t),
+                for (int i = 0; i < widget.contents.savedRefs.length; i++)
+                  _checkTile(widget.contents.savedRefs[i].name, _selectedSavedRefs.contains(i), (v) {
+                    setState(() => v! ? _selectedSavedRefs.add(i) : _selectedSavedRefs.remove(i));
+                  }, t, mobile),
+                const SizedBox(height: 12),
+              ],
+              if (widget.contents.savedVibes.isNotEmpty) ...[
+                _sectionHeader(l.packSavedVibesSection(_selectedSavedVibes.length, widget.contents.savedVibes.length), t),
+                for (int i = 0; i < widget.contents.savedVibes.length; i++)
+                  _checkTile(widget.contents.savedVibes[i].name, _selectedSavedVibes.contains(i), (v) {
+                    setState(() => v! ? _selectedSavedVibes.add(i) : _selectedSavedVibes.remove(i));
                   }, t, mobile),
               ],
             ],
@@ -537,6 +599,7 @@ class _ImportDialogState extends State<_ImportDialog> {
     try {
       final gen = context.read<GenerationNotifier>();
       final wildcard = context.read<WildcardNotifier>();
+      final pathService = context.read<PathService>();
 
       // Import presets
       if (_selectedPresets.isNotEmpty) {
@@ -613,6 +676,44 @@ class _ImportDialogState extends State<_ImportDialog> {
           await File(targetPath).writeAsString(content);
         }
         wildcard.refreshFiles();
+      }
+
+      // Import saved references
+      if (_selectedSavedRefs.isNotEmpty || _selectedSavedVibes.isNotEmpty) {
+        final libPath = pathService.referenceLibraryFilePath;
+        final library = await ReferenceLibraryService.load(libPath);
+        final existingRefNames = library.directorRefs.map((r) => r.name).toSet();
+        final existingVibeNames = library.vibeTransfers.map((v) => v.name).toSet();
+
+        for (final i in _selectedSavedRefs) {
+          final ref = widget.contents.savedRefs[i];
+          var name = ref.name;
+          while (existingRefNames.contains(name)) {
+            name = '$name (imported)';
+          }
+          library.directorRefs.add(SavedDirectorRef(
+            name: name,
+            reference: ref.reference,
+            savedAt: ref.savedAt,
+          ));
+          existingRefNames.add(name);
+        }
+
+        for (final i in _selectedSavedVibes) {
+          final vibe = widget.contents.savedVibes[i];
+          var name = vibe.name;
+          while (existingVibeNames.contains(name)) {
+            name = '$name (imported)';
+          }
+          library.vibeTransfers.add(SavedVibeTransfer(
+            name: name,
+            vibe: vibe.vibe,
+            savedAt: vibe.savedAt,
+          ));
+          existingVibeNames.add(name);
+        }
+
+        await ReferenceLibraryService.save(libPath, library);
       }
 
       // Refresh generation notifier to pick up new presets/styles

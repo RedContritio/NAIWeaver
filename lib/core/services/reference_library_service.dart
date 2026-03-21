@@ -60,9 +60,10 @@ class ReferenceLibrary {
   List<SavedVibeTransfer> vibeTransfers;
 
   ReferenceLibrary({
-    this.directorRefs = const [],
-    this.vibeTransfers = const [],
-  });
+    List<SavedDirectorRef>? directorRefs,
+    List<SavedVibeTransfer>? vibeTransfers,
+  })  : directorRefs = directorRefs ?? [],
+        vibeTransfers = vibeTransfers ?? [];
 
   Map<String, dynamic> toJson() => {
         'directorRefs': directorRefs.map((r) => r.toJson()).toList(),
