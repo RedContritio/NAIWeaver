@@ -1,9 +1,10 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
-import 'package:file_picker/file_picker.dart';
+import '../../../../core/utils/file_picker_helper.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
@@ -37,6 +38,96 @@ class CanvasEditor extends StatefulWidget {
 
 class _CanvasEditorState extends State<CanvasEditor> {
   bool _isFlattening = false;
+  final FocusNode _editorFocusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _editorFocusNode.dispose();
+    super.dispose();
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final notifier = context.read<CanvasNotifier>();
+
+    // Don't intercept shortcuts when text tool editor is active
+    if (notifier.hasPendingText) return KeyEventResult.ignored;
+
+    final ctrl = HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isMetaPressed;
+    final shift = HardwareKeyboard.instance.isShiftPressed;
+
+    // Undo / Redo
+    if (ctrl && event.logicalKey == LogicalKeyboardKey.keyZ) {
+      if (shift) {
+        notifier.redo();
+      } else {
+        notifier.undo();
+      }
+      return KeyEventResult.handled;
+    }
+    if (ctrl && event.logicalKey == LogicalKeyboardKey.keyY) {
+      notifier.redo();
+      return KeyEventResult.handled;
+    }
+
+    // Don't intercept single-key shortcuts when a modifier is held
+    if (ctrl || HardwareKeyboard.instance.isAltPressed) {
+      return KeyEventResult.ignored;
+    }
+
+    // Tool switching
+    switch (event.logicalKey) {
+      case LogicalKeyboardKey.keyB:
+        notifier.setTool(CanvasTool.paint);
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.keyE:
+        notifier.setTool(CanvasTool.erase);
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.keyG:
+        notifier.setTool(CanvasTool.fill);
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.keyT:
+        notifier.setTool(CanvasTool.text);
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.keyC:
+        notifier.setTool(CanvasTool.eyedropper);
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.keyV:
+        notifier.setTool(CanvasTool.transform);
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.keyL:
+        notifier.setTool(CanvasTool.line);
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.keyR:
+        notifier.setTool(CanvasTool.rectangle);
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.keyO:
+        notifier.setTool(CanvasTool.circle);
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.keyS:
+        notifier.setTool(CanvasTool.select);
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.keyA:
+        notifier.setTool(CanvasTool.lasso);
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.escape:
+        if (notifier.hasSelection) {
+          notifier.cancelSelection();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      // Brush size
+      case LogicalKeyboardKey.bracketLeft:
+        notifier.setBrushRadius(notifier.brushRadius - 0.005);
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.bracketRight:
+        notifier.setBrushRadius(notifier.brushRadius + 0.005);
+        return KeyEventResult.handled;
+      default:
+        return KeyEventResult.ignored;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +136,11 @@ class _CanvasEditorState extends State<CanvasEditor> {
     final l = context.l;
     final mobile = isMobile(context);
 
-    return Scaffold(
+    return Focus(
+      focusNode: _editorFocusNode,
+      autofocus: true,
+      onKeyEvent: _handleKeyEvent,
+      child: Scaffold(
       resizeToAvoidBottomInset: false,
       backgroundColor: t.background,
       body: SafeArea(
@@ -68,6 +163,7 @@ class _CanvasEditorState extends State<CanvasEditor> {
         ),
       ),
       floatingActionButton: null,
+    ),
     );
   }
 
@@ -82,7 +178,7 @@ class _CanvasEditorState extends State<CanvasEditor> {
         ),
         SizedBox(
           width: 200,
-          child: const LayerPanel(),
+          child: const RepaintBoundary(child: LayerPanel()),
         ),
       ],
     );
@@ -263,10 +359,7 @@ class _CanvasEditorState extends State<CanvasEditor> {
     if (notifier.session == null) return;
 
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        allowMultiple: false,
-      );
+      final result = await pickImageFiles();
       if (result == null || result.files.isEmpty) return;
 
       final filePath = result.files.single.path;

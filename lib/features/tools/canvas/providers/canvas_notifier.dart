@@ -4,11 +4,12 @@ import 'package:flutter/foundation.dart';
 
 import '../models/canvas_action.dart';
 import '../models/canvas_layer.dart';
+import '../models/canvas_selection.dart';
 import '../models/canvas_session.dart';
 import '../models/paint_stroke.dart';
 
 /// Tool mode for the canvas editor.
-enum CanvasTool { paint, erase, line, rectangle, circle, fill, text, eyedropper, transform }
+enum CanvasTool { paint, erase, line, rectangle, circle, fill, text, eyedropper, transform, select, lasso, blur, cloneStamp }
 
 /// Manages a canvas editing session: layer CRUD, stroke lifecycle,
 /// action-based undo/redo, brush settings.
@@ -101,6 +102,22 @@ class CanvasNotifier extends ChangeNotifier {
 
   // --- Eyedropper state ---
   CanvasTool? _previousToolBeforeEyedropper;
+
+  // --- Blur tool ---
+  double _blurSigma = 5.0;
+  double get blurSigma => _blurSigma;
+  void setBlurSigma(double sigma) {
+    _blurSigma = sigma.clamp(1.0, 30.0);
+    notifyListeners();
+  }
+
+  // --- Clone stamp ---
+  Offset? _cloneSourcePoint;
+  Offset? get cloneSourcePoint => _cloneSourcePoint;
+  void setCloneSource(Offset normalizedPoint) {
+    _cloneSourcePoint = normalizedPoint;
+    notifyListeners();
+  }
 
   // --- Active stroke (in-progress) ---
   List<Offset>? _currentStrokePoints;
@@ -217,6 +234,8 @@ class CanvasNotifier extends ChangeNotifier {
       CanvasTool.rectangle => StrokeType.rectangle,
       CanvasTool.circle => StrokeType.circle,
       CanvasTool.fill => StrokeType.fill,
+      CanvasTool.blur => StrokeType.blur,
+      CanvasTool.cloneStamp => StrokeType.cloneStamp,
       _ => StrokeType.freehand,
     };
   }
@@ -244,6 +263,13 @@ class CanvasNotifier extends ChangeNotifier {
       isErase: _tool == CanvasTool.erase,
       strokeType: strokeType,
       smooth: strokeType == StrokeType.freehand && _smoothStrokes,
+      blurSigma: _tool == CanvasTool.blur ? _blurSigma : null,
+      cloneSourceOffset: _tool == CanvasTool.cloneStamp && _cloneSourcePoint != null
+          ? Offset(
+              _currentStrokePoints!.first.dx - _cloneSourcePoint!.dx,
+              _currentStrokePoints!.first.dy - _cloneSourcePoint!.dy,
+            )
+          : null,
     );
 
     _currentStrokePoints = null;
@@ -307,6 +333,13 @@ class CanvasNotifier extends ChangeNotifier {
       isErase: _tool == CanvasTool.erase,
       strokeType: strokeType,
       smooth: strokeType == StrokeType.freehand && _smoothStrokes,
+      blurSigma: _tool == CanvasTool.blur ? _blurSigma : null,
+      cloneSourceOffset: _tool == CanvasTool.cloneStamp && _cloneSourcePoint != null
+          ? Offset(
+              _currentStrokePoints!.first.dx - _cloneSourcePoint!.dx,
+              _currentStrokePoints!.first.dy - _cloneSourcePoint!.dy,
+            )
+          : null,
     );
   }
 
@@ -530,6 +563,139 @@ class CanvasNotifier extends ChangeNotifier {
     _transformStartY = null;
     _transformStartScale = null;
     _transformStartRotation = null;
+  }
+
+  // --- Selection tool state ---
+  CanvasSelection? _activeSelection;
+  SelectionHandle? _dragHandle;
+  Offset? _dragStartPoint;
+
+  CanvasSelection? get activeSelection => _activeSelection;
+  bool get hasSelection => _activeSelection != null;
+
+  /// Start drawing a selection rectangle.
+  void beginSelection(Offset normalizedStart) {
+    _activeSelection = CanvasSelection(
+      normalizedRect: Rect.fromPoints(normalizedStart, normalizedStart),
+    );
+    _dragStartPoint = normalizedStart;
+    notifyListeners();
+  }
+
+  /// Update the selection rectangle while drawing.
+  void updateSelectionRect(Offset normalizedCurrent) {
+    if (_dragStartPoint == null) return;
+    _activeSelection = CanvasSelection(
+      normalizedRect: Rect.fromPoints(_dragStartPoint!, normalizedCurrent),
+    );
+    notifyListeners();
+  }
+
+  /// Finalize the selection rectangle.
+  void endSelectionRect() {
+    if (_activeSelection == null) return;
+    final r = _activeSelection!.normalizedRect;
+    // Discard if too small
+    if (r.width < 0.005 || r.height < 0.005) {
+      _activeSelection = null;
+    }
+    _dragStartPoint = null;
+    notifyListeners();
+  }
+
+  /// Begin lasso selection with freehand path.
+  void beginLassoSelection(Offset normalizedStart) {
+    _activeSelection = CanvasSelection(
+      normalizedRect: Rect.fromPoints(normalizedStart, normalizedStart),
+      clipPath: [normalizedStart],
+    );
+    notifyListeners();
+  }
+
+  /// Add a point to the lasso path.
+  void addLassoPoint(Offset normalizedPoint) {
+    if (_activeSelection?.clipPath == null) return;
+    final pts = [..._activeSelection!.clipPath!, normalizedPoint];
+    // Compute bounding rect
+    double minX = double.infinity, minY = double.infinity;
+    double maxX = double.negativeInfinity, maxY = double.negativeInfinity;
+    for (final p in pts) {
+      if (p.dx < minX) minX = p.dx;
+      if (p.dy < minY) minY = p.dy;
+      if (p.dx > maxX) maxX = p.dx;
+      if (p.dy > maxY) maxY = p.dy;
+    }
+    _activeSelection = CanvasSelection(
+      normalizedRect: Rect.fromLTRB(minX, minY, maxX, maxY),
+      clipPath: pts,
+    );
+    notifyListeners();
+  }
+
+  /// Finalize the lasso selection.
+  void endLassoSelection() {
+    if (_activeSelection?.clipPath == null) return;
+    final r = _activeSelection!.normalizedRect;
+    if (r.width < 0.005 || r.height < 0.005) {
+      _activeSelection = null;
+    }
+    notifyListeners();
+  }
+
+  /// Begin dragging a selection handle.
+  void beginSelectionDrag(SelectionHandle handle, Offset normalizedPoint) {
+    _dragHandle = handle;
+    _dragStartPoint = normalizedPoint;
+  }
+
+  /// Update dragging a selection handle.
+  void updateSelectionDrag(Offset normalizedPoint) {
+    if (_activeSelection == null || _dragHandle == null || _dragStartPoint == null) return;
+
+    final delta = normalizedPoint - _dragStartPoint!;
+
+    if (_dragHandle == SelectionHandle.body) {
+      _activeSelection = _activeSelection!.copyWith(
+        offsetX: _activeSelection!.offsetX + delta.dx,
+        offsetY: _activeSelection!.offsetY + delta.dy,
+      );
+    } else if (_dragHandle == SelectionHandle.rotate) {
+      final center = _activeSelection!.transformedRect.center;
+      final angle = (normalizedPoint - center).direction -
+          (_dragStartPoint! - center).direction;
+      _activeSelection = _activeSelection!.copyWith(
+        rotation: _activeSelection!.rotation + angle,
+      );
+    } else {
+      // Scale from corner handles
+      final rect = _activeSelection!.transformedRect;
+      final center = rect.center;
+      final oldDist = (_dragStartPoint! - center).distance;
+      final newDist = (normalizedPoint - center).distance;
+      if (oldDist > 0.001) {
+        final scaleFactor = newDist / oldDist;
+        _activeSelection = _activeSelection!.copyWith(
+          scale: (_activeSelection!.scale * scaleFactor).clamp(0.1, 10.0),
+        );
+      }
+    }
+
+    _dragStartPoint = normalizedPoint;
+    notifyListeners();
+  }
+
+  /// End dragging a selection handle.
+  void endSelectionDrag() {
+    _dragHandle = null;
+    _dragStartPoint = null;
+  }
+
+  /// Cancel and clear the active selection.
+  void cancelSelection() {
+    _activeSelection = null;
+    _dragHandle = null;
+    _dragStartPoint = null;
+    notifyListeners();
   }
 
   // --- Undo / Redo ---

@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 /// Shape type for a paint stroke.
-enum StrokeType { freehand, line, rectangle, circle, fill, text }
+enum StrokeType { freehand, line, rectangle, circle, fill, text, blur, cloneStamp }
 
 /// A single paint or erase stroke on the canvas.
 /// Points use normalized 0-1 coordinates (same system as MaskStroke).
@@ -17,6 +17,8 @@ class PaintStroke {
   final double? fontSize; // normalized 0-1 relative to image height
   final String? fontFamily; // Google Fonts family name (null = default)
   final double? letterSpacing; // normalized relative to image height
+  final double? blurSigma; // blur intensity for blur strokes
+  final Offset? cloneSourceOffset; // normalized offset from source for clone stamp
 
   const PaintStroke({
     required this.points,
@@ -30,6 +32,8 @@ class PaintStroke {
     this.fontSize,
     this.fontFamily,
     this.letterSpacing,
+    this.blurSigma,
+    this.cloneSourceOffset,
   });
 
   Color get color => Color(colorValue);
@@ -46,6 +50,9 @@ class PaintStroke {
         if (fontSize != null) 'fontSize': fontSize,
         if (fontFamily != null) 'fontFamily': fontFamily,
         if (letterSpacing != null) 'letterSpacing': letterSpacing,
+        if (blurSigma != null) 'blurSigma': blurSigma,
+        if (cloneSourceOffset != null)
+          'cloneSourceOffset': [cloneSourceOffset!.dx, cloneSourceOffset!.dy],
       };
 
   factory PaintStroke.fromJson(Map<String, dynamic> json) {
@@ -66,6 +73,13 @@ class PaintStroke {
       fontSize: (json['fontSize'] as num?)?.toDouble(),
       fontFamily: json['fontFamily'] as String?,
       letterSpacing: (json['letterSpacing'] as num?)?.toDouble(),
+      blurSigma: (json['blurSigma'] as num?)?.toDouble(),
+      cloneSourceOffset: json['cloneSourceOffset'] != null
+          ? Offset(
+              (json['cloneSourceOffset'] as List)[0] as double,
+              (json['cloneSourceOffset'] as List)[1] as double,
+            )
+          : null,
     );
   }
 }

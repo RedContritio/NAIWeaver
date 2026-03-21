@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/l10n/l10n_extensions.dart';
 import '../../../../core/theme/theme_extensions.dart';
 import '../models/canvas_layer.dart';
+import '../models/canvas_selection.dart';
 import '../models/paint_stroke.dart';
 import '../providers/canvas_notifier.dart';
 
@@ -46,9 +47,113 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
   final TextEditingController _textController = TextEditingController();
   final FocusNode _textFocusNode = FocusNode();
 
+  // Zoom & pan
+  final TransformationController _zoomController = TransformationController();
+  bool _spaceHeld = false;
+
   // Image layer cache
   final Map<String, ui.Image> _imageLayerCache = {};
   final Set<String> _decodingImages = {};
+
+  // Layer raster cache: caches rendered layer content as ui.Image to avoid
+  // re-drawing all strokes every frame for unchanged layers.
+  final Map<String, ui.Image> _layerRasterCache = {};
+  final Map<String, String> _layerRasterKeys = {}; // layerId -> cache key
+
+  /// Build a cache key for a layer based on its mutable properties.
+  String _layerCacheKey(CanvasLayer layer) =>
+      '${layer.id}:${layer.strokes.length}:${layer.visible}:${layer.opacity}:${layer.blendMode}:${layer.imageScale}:${layer.imageX}:${layer.imageY}:${layer.imageRotation}';
+
+  /// Update the layer raster cache, invalidating stale entries and scheduling
+  /// rasterization for non-active layers that have changed.
+  void _updateLayerRasterCache(List<CanvasLayer> layers, String activeLayerId) {
+    // Remove cache entries for layers that no longer exist
+    final layerIds = layers.map((l) => l.id).toSet();
+    _layerRasterCache.keys.where((id) => !layerIds.contains(id)).toList().forEach((id) {
+      _layerRasterCache[id]?.dispose();
+      _layerRasterCache.remove(id);
+      _layerRasterKeys.remove(id);
+    });
+
+    // Invalidate entries where the cache key has changed
+    for (final layer in layers) {
+      if (layer.id == activeLayerId) continue; // don't cache active layer
+      final key = _layerCacheKey(layer);
+      if (_layerRasterKeys[layer.id] != key) {
+        _layerRasterCache[layer.id]?.dispose();
+        _layerRasterCache.remove(layer.id);
+        _layerRasterKeys.remove(layer.id);
+      }
+    }
+
+    // Schedule rasterization for uncached non-active layers in a post-frame callback
+    for (final layer in layers) {
+      if (layer.id == activeLayerId) continue;
+      if (!layer.visible) continue;
+      if (layer.strokes.isEmpty && !layer.isImageLayer) continue;
+      if (_layerRasterCache.containsKey(layer.id)) continue;
+
+      final key = _layerCacheKey(layer);
+      // Rasterize this layer
+      _rasterizeLayer(layer, key);
+    }
+  }
+
+  /// Rasterize a single layer to a ui.Image and cache it.
+  void _rasterizeLayer(CanvasLayer layer, String cacheKey) {
+    if (_imageRect.isEmpty) return;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder, Offset.zero & Size(_imageRect.right + _imageRect.left, _imageRect.bottom + _imageRect.top));
+
+    // Draw image layer content
+    if (layer.isImageLayer) {
+      final cached = _imageLayerCache[layer.id];
+      if (cached != null) {
+        canvas.save();
+        final imgW = cached.width.toDouble();
+        final imgH = cached.height.toDouble();
+        final scale = layer.imageScale * _imageRect.width / imgW;
+        final dx = _imageRect.left + layer.imageX * _imageRect.width;
+        final dy = _imageRect.top + layer.imageY * _imageRect.height;
+        canvas.translate(dx + imgW * scale / 2, dy + imgH * scale / 2);
+        canvas.rotate(layer.imageRotation);
+        canvas.translate(-imgW * scale / 2, -imgH * scale / 2);
+        canvas.drawImageRect(
+          cached,
+          Rect.fromLTWH(0, 0, imgW, imgH),
+          Rect.fromLTWH(0, 0, imgW * scale, imgH * scale),
+          Paint(),
+        );
+        canvas.restore();
+      }
+    }
+
+    // We can't easily draw strokes here since the painter methods are private.
+    // Instead, we use a lighter approach: only cache layers that have an image
+    // and no strokes, which is the common case for imported image layers.
+    // For stroke-heavy layers, the painter will draw them directly.
+    if (layer.strokes.isNotEmpty) {
+      // Can't rasterize stroke-only layers without duplicating painter logic.
+      // The shouldRepaint optimization handles this case instead.
+      return;
+    }
+
+    final picture = recorder.endRecording();
+    final width = (_imageRect.right + _imageRect.left).ceil();
+    final height = (_imageRect.bottom + _imageRect.top).ceil();
+    if (width <= 0 || height <= 0) return;
+
+    picture.toImage(width, height).then((image) {
+      if (mounted) {
+        setState(() {
+          _layerRasterCache[layer.id] = image;
+          _layerRasterKeys[layer.id] = cacheKey;
+        });
+      }
+      picture.dispose();
+    });
+  }
 
   void _ensureImageCached(CanvasLayer layer) {
     if (!layer.isImageLayer || layer.imageBytes == null) return;
@@ -70,7 +175,11 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
   void dispose() {
     _textController.dispose();
     _textFocusNode.dispose();
+    _zoomController.dispose();
     for (final img in _imageLayerCache.values) {
+      img.dispose();
+    }
+    for (final img in _layerRasterCache.values) {
       img.dispose();
     }
     super.dispose();
@@ -106,6 +215,9 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
           _ensureImageCached(layer);
         }
 
+        // Build/invalidate layer raster cache
+        _updateLayerRasterCache(session.layers, session.activeLayerId);
+
         // Build pending text stroke for live preview
         PaintStroke? pendingTextStroke;
         if (notifier.hasPendingText && notifier.pendingTextContent.isNotEmpty) {
@@ -122,83 +234,131 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
           );
         }
 
-        return Stack(
-          children: [
-            Listener(
-              onPointerSignal: (event) {
-                if (event is PointerScrollEvent) {
-                  _onPointerSignal(event, notifier);
-                }
-              },
-              child: MouseRegion(
-                cursor: SystemMouseCursors.none,
-                child: GestureDetector(
-                  onTapUp: (details) => _onTapUp(details, notifier),
-                  onPanStart: (details) => _onPanStart(details, notifier),
-                  onPanUpdate: (details) => _onPanUpdate(details, notifier),
-                  onPanEnd: (_) => notifier.endStroke(),
-                  child: Stack(
-                    children: [
-                      // Source image
-                      Positioned.fill(
-                        child: FittedBox(
-                          fit: BoxFit.contain,
-                          child: Image.memory(
-                            session.sourceImageBytes,
-                            width: session.sourceWidth.toDouble(),
-                            height: session.sourceHeight.toDouble(),
-                            gaplessPlayback: true,
-                            filterQuality: FilterQuality.medium,
-                          ),
+        // Whether pan mode is active (Space held or middle-mouse)
+        final isPanMode = _spaceHeld;
+
+        return KeyboardListener(
+          focusNode: FocusNode(),
+          onKeyEvent: (event) {
+            if (event.logicalKey == LogicalKeyboardKey.space) {
+              setState(() => _spaceHeld = event is KeyDownEvent);
+            }
+          },
+          child: Stack(
+            children: [
+              Listener(
+                onPointerSignal: (event) {
+                  if (event is PointerScrollEvent) {
+                    _onPointerSignal(event, notifier);
+                  }
+                },
+                child: MouseRegion(
+                  cursor: isPanMode
+                      ? SystemMouseCursors.grab
+                      : SystemMouseCursors.none,
+                  child: InteractiveViewer(
+                    transformationController: _zoomController,
+                    panEnabled: isPanMode,
+                    scaleEnabled: false, // we handle zoom via scroll wheel
+                    boundaryMargin: const EdgeInsets.all(double.infinity),
+                    minScale: 0.25,
+                    maxScale: 16.0,
+                    child: GestureDetector(
+                      onTapUp: isPanMode
+                          ? null
+                          : (details) => _onTapUp(details, notifier),
+                      onPanStart: isPanMode
+                          ? null
+                          : (details) => _onPanStart(details, notifier),
+                      onPanUpdate: isPanMode
+                          ? null
+                          : (details) => _onPanUpdate(details, notifier),
+                      onPanEnd: isPanMode
+                          ? null
+                          : (_) => _onPanEnd(notifier),
+                      onScaleStart: !isPanMode ? null : (_) {},
+                      child: SizedBox(
+                        width: containerSize.width,
+                        height: containerSize.height,
+                        child: Stack(
+                          children: [
+                            // Source image
+                            Positioned.fill(
+                              child: RepaintBoundary(
+                                child: FittedBox(
+                                  fit: BoxFit.contain,
+                                  child: Image.memory(
+                                    session.sourceImageBytes,
+                                    width: session.sourceWidth.toDouble(),
+                                    height: session.sourceHeight.toDouble(),
+                                    gaplessPlayback: true,
+                                    filterQuality: FilterQuality.medium,
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // Paint overlay — per-layer compositing + pending text preview
+                            Positioned.fill(
+                              child: CustomPaint(
+                                painter: _CanvasPaintOverlayPainter(
+                                  layers: session.layers,
+                                  activeLayerId: session.activeLayerId,
+                                  activeStroke: notifier.activeStroke,
+                                  pendingTextStroke: pendingTextStroke,
+                                  imageRect: _imageRect,
+                                  imageCache: _imageLayerCache,
+                                  layerRasterCache: _layerRasterCache,
+                                ),
+                              ),
+                            ),
+
+                            // Selection overlay (marching ants + handles)
+                            if (notifier.hasSelection)
+                              Positioned.fill(
+                                child: CustomPaint(
+                                  painter: _SelectionOverlayPainter(
+                                    selection: notifier.activeSelection!,
+                                    imageRect: _imageRect,
+                                  ),
+                                ),
+                              ),
+
+                            // Blinking text cursor
+                            if (notifier.hasPendingText)
+                              _BlinkingTextCursor(
+                                normalizedPosition: notifier.pendingTextPosition!,
+                                currentText: notifier.pendingTextContent,
+                                fontSizeNormalized: notifier.pendingTextFontSize,
+                                fontFamily: notifier.pendingTextFontFamily,
+                                letterSpacing: notifier.pendingTextLetterSpacing,
+                                imageRect: _imageRect,
+                                color: notifier.brushColorAsColor,
+                              ),
+
+                            // Cursor preview
+                            Positioned.fill(
+                              child: _CanvasCursorPreview(
+                                brushRadius: notifier.brushRadius,
+                                tool: notifier.tool,
+                                brushColor: notifier.brushColorAsColor,
+                                imageRect: _imageRect,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-
-                      // Paint overlay — per-layer compositing + pending text preview
-                      Positioned.fill(
-                        child: CustomPaint(
-                          painter: _CanvasPaintOverlayPainter(
-                            layers: session.layers,
-                            activeLayerId: session.activeLayerId,
-                            activeStroke: notifier.activeStroke,
-                            pendingTextStroke: pendingTextStroke,
-                            imageRect: _imageRect,
-                            imageCache: _imageLayerCache,
-                          ),
-                        ),
-                      ),
-
-                      // Blinking text cursor
-                      if (notifier.hasPendingText)
-                        _BlinkingTextCursor(
-                          normalizedPosition: notifier.pendingTextPosition!,
-                          currentText: notifier.pendingTextContent,
-                          fontSizeNormalized: notifier.pendingTextFontSize,
-                          fontFamily: notifier.pendingTextFontFamily,
-                          letterSpacing: notifier.pendingTextLetterSpacing,
-                          imageRect: _imageRect,
-                          color: notifier.brushColorAsColor,
-                        ),
-
-                      // Cursor preview
-                      Positioned.fill(
-                        child: _CanvasCursorPreview(
-                          brushRadius: notifier.brushRadius,
-                          tool: notifier.tool,
-                          brushColor: notifier.brushColorAsColor,
-                          imageRect: _imageRect,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
 
-            // Inline text editor — outside the canvas GestureDetector so
-            // button taps are not stolen by the pan recognizer.
-            if (notifier.hasPendingText)
-              _buildInlineTextEditor(notifier),
-          ],
+              // Inline text editor — outside the canvas GestureDetector so
+              // button taps are not stolen by the pan recognizer.
+              if (notifier.hasPendingText)
+                _buildInlineTextEditor(notifier),
+            ],
+          ),
         );
       },
     );
@@ -308,6 +468,19 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
       // Alt + scroll: adjust opacity
       final delta = event.scrollDelta.dy > 0 ? -0.05 : 0.05;
       notifier.setBrushOpacity(notifier.brushOpacity + delta);
+    } else {
+      // Plain scroll: zoom in/out centered on cursor
+      final zoomFactor = event.scrollDelta.dy > 0 ? 0.9 : 1.1;
+      final focalPoint = event.localPosition;
+      final matrix = _zoomController.value.clone();
+      // Translate to focal point, scale, translate back
+      // ignore: deprecated_member_use
+      matrix.translate(focalPoint.dx, focalPoint.dy);
+      // ignore: deprecated_member_use
+      matrix.scale(zoomFactor, zoomFactor);
+      // ignore: deprecated_member_use
+      matrix.translate(-focalPoint.dx, -focalPoint.dy);
+      _zoomController.value = matrix;
     }
   }
 
@@ -320,6 +493,12 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
       _samplePixel(normalized, notifier);
     } else if (notifier.tool == CanvasTool.fill) {
       notifier.applyFill(normalized);
+    } else if (notifier.tool == CanvasTool.cloneStamp) {
+      // Alt+tap or first tap sets clone source
+      final altHeld = HardwareKeyboard.instance.isAltPressed;
+      if (altHeld || notifier.cloneSourcePoint == null) {
+        notifier.setCloneSource(normalized);
+      }
     } else if (notifier.tool == CanvasTool.text) {
       if (notifier.hasPendingText) {
         notifier.commitPendingText();
@@ -354,6 +533,32 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _textFocusNode.requestFocus();
       });
+    } else if (notifier.tool == CanvasTool.select) {
+      if (notifier.hasSelection) {
+        // Hit test handles on existing selection
+        final handleRadius = 0.02;
+        final handle = notifier.activeSelection!.hitTestHandle(normalized, handleRadius);
+        if (handle != null) {
+          notifier.beginSelectionDrag(handle, normalized);
+        } else {
+          // Start new selection
+          notifier.beginSelection(normalized);
+        }
+      } else {
+        notifier.beginSelection(normalized);
+      }
+    } else if (notifier.tool == CanvasTool.lasso) {
+      if (notifier.hasSelection) {
+        final handleRadius = 0.02;
+        final handle = notifier.activeSelection!.hitTestHandle(normalized, handleRadius);
+        if (handle != null) {
+          notifier.beginSelectionDrag(handle, normalized);
+        } else {
+          notifier.beginLassoSelection(normalized);
+        }
+      } else {
+        notifier.beginLassoSelection(normalized);
+      }
     } else {
       notifier.beginStroke(normalized);
     }
@@ -361,15 +566,50 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
 
   void _onPanUpdate(DragUpdateDetails details, CanvasNotifier notifier) {
     final normalized = _toNormalized(details.localPosition);
-    if (normalized != null) {
+    if (normalized == null) return;
+
+    if (notifier.tool == CanvasTool.select) {
+      if (notifier.activeSelection != null && notifier.activeSelection!.normalizedRect.width > 0.005) {
+        notifier.updateSelectionDrag(normalized);
+      } else {
+        notifier.updateSelectionRect(normalized);
+      }
+    } else if (notifier.tool == CanvasTool.lasso) {
+      if (notifier.activeSelection?.clipPath != null &&
+          notifier.activeSelection!.normalizedRect.width > 0.005 &&
+          notifier.activeSelection!.clipPath!.length > 2) {
+        notifier.updateSelectionDrag(normalized);
+      } else {
+        notifier.addLassoPoint(normalized);
+      }
+    } else {
       notifier.addStrokePoint(normalized);
+    }
+  }
+
+  void _onPanEnd(CanvasNotifier notifier) {
+    if (notifier.tool == CanvasTool.select) {
+      if (notifier.hasSelection) {
+        notifier.endSelectionDrag();
+        notifier.endSelectionRect();
+      }
+    } else if (notifier.tool == CanvasTool.lasso) {
+      if (notifier.hasSelection) {
+        notifier.endSelectionDrag();
+        notifier.endLassoSelection();
+      }
+    } else {
+      notifier.endStroke();
     }
   }
 
   Offset? _toNormalized(Offset localPosition) {
     if (_imageRect.width <= 0 || _imageRect.height <= 0) return null;
-    final x = (localPosition.dx - _imageRect.left) / _imageRect.width;
-    final y = (localPosition.dy - _imageRect.top) / _imageRect.height;
+    // Invert the zoom/pan transform to get coordinates in the unzoomed canvas space
+    final inverseMatrix = Matrix4.inverted(_zoomController.value);
+    final transformed = MatrixUtils.transformPoint(inverseMatrix, localPosition);
+    final x = (transformed.dx - _imageRect.left) / _imageRect.width;
+    final y = (transformed.dy - _imageRect.top) / _imageRect.height;
     return Offset(x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
   }
 
@@ -406,6 +646,7 @@ class _CanvasPaintOverlayPainter extends CustomPainter {
   final PaintStroke? pendingTextStroke;
   final Rect imageRect;
   final Map<String, ui.Image> imageCache;
+  final Map<String, ui.Image> layerRasterCache;
 
   _CanvasPaintOverlayPainter({
     required this.layers,
@@ -414,6 +655,7 @@ class _CanvasPaintOverlayPainter extends CustomPainter {
     this.pendingTextStroke,
     required this.imageRect,
     this.imageCache = const {},
+    this.layerRasterCache = const {},
   });
 
   @override
@@ -427,6 +669,22 @@ class _CanvasPaintOverlayPainter extends CustomPainter {
     // Iterate layers bottom-to-top
     for (final layer in layers) {
       if (!layer.visible) continue;
+
+      // Check raster cache for non-active layers
+      final cachedRaster = layerRasterCache[layer.id];
+      if (cachedRaster != null && layer.id != activeLayerId) {
+        // Draw cached layer as a pre-rendered image with blend mode + opacity
+        canvas.saveLayer(
+          null,
+          Paint()
+            ..blendMode = layer.blendMode.toFlutterBlendMode()
+            ..color = Color.fromARGB(
+                (layer.opacity * 255).round(), 255, 255, 255),
+        );
+        canvas.drawImage(cachedRaster, Offset.zero, Paint());
+        canvas.restore();
+        continue;
+      }
 
       final layerStrokes = [
         ...layer.strokes,
@@ -557,6 +815,34 @@ class _CanvasPaintOverlayPainter extends CustomPainter {
             textPainter.paint(canvas, pos);
           }
 
+        case StrokeType.blur:
+          // Render blur path as a semi-transparent highlight to show the blurred region
+          final blurPath = stroke.smooth ? _buildSmoothPath(stroke) : _buildPath(stroke);
+          final blurPaint = Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeCap = StrokeCap.round
+            ..strokeJoin = StrokeJoin.round
+            ..strokeWidth = stroke.radius * 2 * imageRect.width
+            ..isAntiAlias = true
+            ..color = const Color(0x30FFFFFF)
+            ..imageFilter = ui.ImageFilter.blur(
+              sigmaX: stroke.blurSigma ?? 5.0,
+              sigmaY: stroke.blurSigma ?? 5.0,
+            );
+          canvas.drawPath(blurPath, blurPaint);
+
+        case StrokeType.cloneStamp:
+          // Render clone stamp path as a semi-transparent indicator
+          final clonePath = stroke.smooth ? _buildSmoothPath(stroke) : _buildPath(stroke);
+          final clonePaint = Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeCap = StrokeCap.round
+            ..strokeJoin = StrokeJoin.round
+            ..strokeWidth = stroke.radius * 2 * imageRect.width
+            ..isAntiAlias = true
+            ..color = const Color(0x4000BCD4);
+          canvas.drawPath(clonePath, clonePaint);
+
         case StrokeType.freehand:
           final path = stroke.smooth ? _buildSmoothPath(stroke) : _buildPath(stroke);
           canvas.drawPath(path, paintBrush);
@@ -623,7 +909,13 @@ class _CanvasPaintOverlayPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_CanvasPaintOverlayPainter oldDelegate) => true;
+  bool shouldRepaint(_CanvasPaintOverlayPainter oldDelegate) =>
+      layers != oldDelegate.layers ||
+      activeLayerId != oldDelegate.activeLayerId ||
+      activeStroke != oldDelegate.activeStroke ||
+      pendingTextStroke != oldDelegate.pendingTextStroke ||
+      imageRect != oldDelegate.imageRect ||
+      imageCache != oldDelegate.imageCache;
 }
 
 /// Shows a circular brush outline following the mouse position.
@@ -682,7 +974,8 @@ class _CanvasCursorPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (position == null) return;
 
-    if (tool == CanvasTool.eyedropper || tool == CanvasTool.fill || tool == CanvasTool.text) {
+    if (tool == CanvasTool.eyedropper || tool == CanvasTool.fill || tool == CanvasTool.text ||
+        tool == CanvasTool.select || tool == CanvasTool.lasso) {
       // Eyedropper / Fill / Text: crosshair only (no circle outline)
       final crossPaint = Paint()
         ..color = Colors.white
@@ -840,4 +1133,106 @@ class _BlinkingTextCursorState extends State<_BlinkingTextCursor>
       ),
     );
   }
+}
+
+/// Draws the selection overlay: dashed rectangle (or lasso path),
+/// corner handles, and rotation handle.
+class _SelectionOverlayPainter extends CustomPainter {
+  final CanvasSelection selection;
+  final Rect imageRect;
+
+  _SelectionOverlayPainter({required this.selection, required this.imageRect});
+
+  Offset _toScreen(Offset normalized) => Offset(
+    imageRect.left + normalized.dx * imageRect.width,
+    imageRect.top + normalized.dy * imageRect.height,
+  );
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (imageRect.isEmpty) return;
+
+    final r = selection.transformedRect;
+    final screenRect = Rect.fromLTRB(
+      _toScreen(r.topLeft).dx, _toScreen(r.topLeft).dy,
+      _toScreen(r.bottomRight).dx, _toScreen(r.bottomRight).dy,
+    );
+
+    // Dashed border (marching ants effect)
+    final dashPaintWhite = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    final dashPaintBlack = Paint()
+      ..color = Colors.black
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+
+    // Draw lasso path if available
+    if (selection.clipPath != null && selection.clipPath!.length > 2) {
+      final path = Path();
+      final first = _toScreen(selection.clipPath!.first);
+      path.moveTo(first.dx, first.dy);
+      for (int i = 1; i < selection.clipPath!.length; i++) {
+        final p = _toScreen(selection.clipPath![i]);
+        path.lineTo(p.dx, p.dy);
+      }
+      path.close();
+      canvas.drawPath(path, dashPaintBlack);
+      canvas.drawPath(path, dashPaintWhite);
+    } else {
+      // Draw rectangle
+      canvas.drawRect(screenRect, dashPaintBlack);
+      canvas.drawRect(screenRect, dashPaintWhite);
+    }
+
+    // Semi-transparent fill
+    final fillPaint = Paint()
+      ..color = Colors.blue.withValues(alpha: 0.08)
+      ..style = PaintingStyle.fill;
+    canvas.drawRect(screenRect, fillPaint);
+
+    // Corner handles
+    const handleSize = 6.0;
+    final handlePaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+    final handleBorder = Paint()
+      ..color = Colors.black
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    for (final corner in [
+      screenRect.topLeft,
+      screenRect.topRight,
+      screenRect.bottomLeft,
+      screenRect.bottomRight,
+    ]) {
+      canvas.drawRect(
+        Rect.fromCenter(center: corner, width: handleSize * 2, height: handleSize * 2),
+        handlePaint,
+      );
+      canvas.drawRect(
+        Rect.fromCenter(center: corner, width: handleSize * 2, height: handleSize * 2),
+        handleBorder,
+      );
+    }
+
+    // Rotation handle (circle above top center)
+    final rotCenter = Offset(screenRect.center.dx, screenRect.top - 20);
+    canvas.drawCircle(rotCenter, 5, handlePaint);
+    canvas.drawCircle(rotCenter, 5, handleBorder);
+    // Line connecting to top center
+    canvas.drawLine(
+      Offset(screenRect.center.dx, screenRect.top),
+      rotCenter,
+      Paint()..color = Colors.black..strokeWidth = 1.0,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_SelectionOverlayPainter oldDelegate) =>
+      selection != oldDelegate.selection ||
+      imageRect != oldDelegate.imageRect;
 }

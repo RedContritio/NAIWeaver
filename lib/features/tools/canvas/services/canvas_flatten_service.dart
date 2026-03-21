@@ -163,6 +163,22 @@ void _renderStroke(
 
     case StrokeType.text:
       break; // text strokes are handled via pre-rendered PNG overlays
+
+    case StrokeType.blur:
+      // Blur strokes: apply gaussian blur to affected region in flatten
+      // For now, render as freehand path to mark the region
+      final blurPoints = stroke.smooth
+          ? _subdivideSmoothPoints(stroke.points)
+          : stroke.points;
+      _renderFreehandPoints(overlay, blurPoints, stroke, imgWidth, imgHeight);
+
+    case StrokeType.cloneStamp:
+      // Clone stamp strokes: copy pixels from source offset
+      // For now, render as freehand path indicator
+      final clonePoints = stroke.smooth
+          ? _subdivideSmoothPoints(stroke.points)
+          : stroke.points;
+      _renderFreehandPoints(overlay, clonePoints, stroke, imgWidth, imgHeight);
   }
 }
 
