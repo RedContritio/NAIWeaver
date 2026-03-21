@@ -713,10 +713,10 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
 
               const Positioned.fill(child: QuickActionOverlay()),
 
-              // REF/VIBE rail on right edge (sidebar mode only)
+              // REF/VIBE rail on left edge of image area (next to sidebar)
               if (state.showDirectorRefShelf || state.showVibeTransferShelf)
                 Positioned(
-                  right: 8,
+                  left: 8,
                   top: 8,
                   child: SidebarRefVibeRail(
                     showRef: state.showDirectorRefShelf,
