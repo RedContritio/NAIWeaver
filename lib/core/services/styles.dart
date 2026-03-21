@@ -71,4 +71,25 @@ class StyleStorage {
       debugPrint('Error saving styles: $e');
     }
   }
+
+  /// Resets styles to bundled defaults by overwriting the local file.
+  static Future<List<PromptStyle>> resetToDefaults(String filePath) async {
+    try {
+      final content = await rootBundle.loadString('prompt_styles.json');
+      if (!kIsWeb) {
+        final file = File(filePath);
+        await file.writeAsString(content);
+      }
+      final List<dynamic> jsonList = jsonDecode(content);
+      return jsonList.map((j) => PromptStyle.fromJson(j)).toList();
+    } catch (e) {
+      debugPrint('Error resetting styles: $e');
+      return [
+        PromptStyle(
+          name: "Quality (NAI Default)",
+          prefix: "best quality, amazing quality, very aesthetic, absurdres, ",
+        ),
+      ];
+    }
+  }
 }

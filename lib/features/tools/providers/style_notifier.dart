@@ -205,6 +205,14 @@ class StyleNotifier extends ChangeNotifier {
     return _state.styles.any((s) => s.name == currentName && s.name != _state.originalName);
   }
 
+  Future<void> resetToDefaults() async {
+    final defaults = await StyleStorage.resetToDefaults(_stylesFilePath);
+    _state = _state.copyWith(styles: defaults, isModified: false);
+    selectStyle(null);
+    onStylesChanged();
+    notifyListeners();
+  }
+
   void createNewStyle() {
     final newStyle = PromptStyle(
       name: "NEW STYLE",

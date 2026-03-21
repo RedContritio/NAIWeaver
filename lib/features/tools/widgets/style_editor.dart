@@ -171,15 +171,38 @@ class _StyleEditorContentState extends State<_StyleEditorContent> {
                   context.l.styleList,
                   style: TextStyle(color: t.secondaryText, fontSize: t.fontSize(8), letterSpacing: 2, fontWeight: FontWeight.bold),
                 ),
-                IconButton(
-                  icon: Icon(Icons.add, size: 14, color: t.secondaryText),
-                  onPressed: () {
-                    notifier.createNewStyle();
-                    if (isMobile(context)) setState(() => _showingEditor = true);
-                  },
-                  tooltip: context.l.styleNew,
-                  constraints: const BoxConstraints(),
-                  padding: EdgeInsets.zero,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.restore, size: 14, color: t.secondaryText),
+                      onPressed: () async {
+                        final confirmed = await showConfirmDialog(
+                          context,
+                          title: context.l.commonConfirm,
+                          message: context.l.styleResetDefaults,
+                          confirmLabel: context.l.commonConfirm,
+                        );
+                        if (confirmed == true) {
+                          await notifier.resetToDefaults();
+                        }
+                      },
+                      tooltip: context.l.styleResetDefaults,
+                      constraints: const BoxConstraints(),
+                      padding: EdgeInsets.zero,
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: Icon(Icons.add, size: 14, color: t.secondaryText),
+                      onPressed: () {
+                        notifier.createNewStyle();
+                        if (isMobile(context)) setState(() => _showingEditor = true);
+                      },
+                      tooltip: context.l.styleNew,
+                      constraints: const BoxConstraints(),
+                      padding: EdgeInsets.zero,
+                    ),
+                  ],
                 ),
               ],
             ),
