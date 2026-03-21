@@ -190,6 +190,12 @@ abstract class AppLocalizations {
   /// **'Save'**
   String get mainSave;
 
+  /// No description provided for @mainExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Export'**
+  String get mainExport;
+
   /// No description provided for @mainEdit.
   ///
   /// In en, this message translates to:
@@ -243,6 +249,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Advanced Settings'**
   String get mainAdvancedSettings;
+
+  /// No description provided for @mainExitConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to exit?'**
+  String get mainExitConfirmation;
 
   /// No description provided for @settingsApiSettings.
   ///
@@ -2092,6 +2104,12 @@ abstract class AppLocalizations {
   /// **'NEW STYLE'**
   String get styleNew;
 
+  /// No description provided for @styleResetDefaults.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset styles to defaults'**
+  String get styleResetDefaults;
+
   /// No description provided for @styleSelectToEdit.
   ///
   /// In en, this message translates to:
@@ -2392,6 +2410,24 @@ abstract class AppLocalizations {
   /// **'Failed to encode vibe: {error}'**
   String refVibeEncodeFailed(String error);
 
+  /// No description provided for @refLoadSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'LOAD SAVED'**
+  String get refLoadSaved;
+
+  /// No description provided for @refPickImage.
+  ///
+  /// In en, this message translates to:
+  /// **'PICK IMAGE'**
+  String get refPickImage;
+
+  /// No description provided for @refNoSavedRefs.
+  ///
+  /// In en, this message translates to:
+  /// **'NO SAVED REFERENCES'**
+  String get refNoSavedRefs;
+
   /// No description provided for @packTitle.
   ///
   /// In en, this message translates to:
@@ -2499,6 +2535,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'WILDCARDS ({selected}/{total})'**
   String packWildcardsSection(int selected, int total);
+
+  /// No description provided for @packSavedRefsSection.
+  ///
+  /// In en, this message translates to:
+  /// **'SAVED REFERENCES ({selected}/{total})'**
+  String packSavedRefsSection(int selected, int total);
+
+  /// No description provided for @packSavedVibesSection.
+  ///
+  /// In en, this message translates to:
+  /// **'SAVED VIBES ({selected}/{total})'**
+  String packSavedVibesSection(int selected, int total);
 
   /// No description provided for @packExportSuccess.
   ///
@@ -5126,6 +5174,42 @@ abstract class AppLocalizations {
   /// **'Show the director tools button on the image viewer'**
   String get settingsDirectorToolsButtonDesc;
 
+  /// No description provided for @settingsExportButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Export to Device Button'**
+  String get settingsExportButton;
+
+  /// No description provided for @settingsExportButtonDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Show an export button to save images directly to your photo gallery'**
+  String get settingsExportButtonDesc;
+
+  /// No description provided for @settingsAutoExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Export to Device'**
+  String get settingsAutoExport;
+
+  /// No description provided for @settingsAutoExportDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically save generated images to your device photo gallery'**
+  String get settingsAutoExportDesc;
+
+  /// No description provided for @settingsExportAlbum.
+  ///
+  /// In en, this message translates to:
+  /// **'Export Album Name'**
+  String get settingsExportAlbum;
+
+  /// No description provided for @settingsExportAlbumDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Device folder/album where exported images are saved'**
+  String get settingsExportAlbumDesc;
+
   /// No description provided for @settingsUpscaleBackend.
   ///
   /// In en, this message translates to:
@@ -5839,6 +5923,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'...and all anonymous bug testers'**
   String get settingsAnonTesters;
+
+  /// No description provided for @settingsLayoutMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Layout Mode'**
+  String get settingsLayoutMode;
+
+  /// No description provided for @settingsLayoutModeDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Control how settings are displayed on wide screens'**
+  String get settingsLayoutModeDesc;
+
+  /// No description provided for @settingsLayoutAuto.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto'**
+  String get settingsLayoutAuto;
+
+  /// No description provided for @settingsLayoutSidebar.
+  ///
+  /// In en, this message translates to:
+  /// **'Sidebar'**
+  String get settingsLayoutSidebar;
+
+  /// No description provided for @settingsLayoutClassic.
+  ///
+  /// In en, this message translates to:
+  /// **'Classic'**
+  String get settingsLayoutClassic;
+
+  /// No description provided for @settingsPromptPosition.
+  ///
+  /// In en, this message translates to:
+  /// **'Prompt Position'**
+  String get settingsPromptPosition;
+
+  /// No description provided for @settingsPromptPositionDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Where the prompt input appears in sidebar mode'**
+  String get settingsPromptPositionDesc;
+
+  /// No description provided for @settingsPromptLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'Left'**
+  String get settingsPromptLeft;
+
+  /// No description provided for @settingsPromptRight.
+  ///
+  /// In en, this message translates to:
+  /// **'Right'**
+  String get settingsPromptRight;
+
+  /// No description provided for @settingsSidebarWidth.
+  ///
+  /// In en, this message translates to:
+  /// **'Sidebar Width'**
+  String get settingsSidebarWidth;
+
+  /// No description provided for @settingsSidebarWidthDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose compact for a narrower sidebar panel'**
+  String get settingsSidebarWidthDesc;
+
+  /// No description provided for @settingsSidebarCompact.
+  ///
+  /// In en, this message translates to:
+  /// **'Compact'**
+  String get settingsSidebarCompact;
+
+  /// No description provided for @settingsSidebarNormal.
+  ///
+  /// In en, this message translates to:
+  /// **'Normal'**
+  String get settingsSidebarNormal;
 }
 
 class _AppLocalizationsDelegate

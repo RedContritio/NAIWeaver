@@ -17,6 +17,7 @@
   "mainGallery": "ギャラリー",
   "mainTools": "ツール",
   "mainSave": "保存",
+  "mainExport": "エクスポート",
   "mainEdit": "編集",
   "mainEnterPrompt": "プロンプトを入力",
   "mainHelp": "ヘルプ",
@@ -26,6 +27,7 @@
   "mainSavePreset": "プリセットを保存",
   "mainPresetName": "プリセット名",
   "mainAdvancedSettings": "詳細設定",
+  "mainExitConfirmation": "アプリを終了しますか？",
 
   "settingsApiSettings": "API設定",
   "settingsGeneralSettings": "一般設定",
@@ -344,6 +346,7 @@
   "styleManageDesc": "プロンプトスニペットとスタイルタグの管理",
   "styleList": "スタイル",
   "styleNew": "新規スタイル",
+  "styleResetDefaults": "スタイルをデフォルトにリセット",
   "styleSelectToEdit": "編集するスタイルを選択",
   "styleIdentity": "基本情報",
   "styleName": "名前",
@@ -396,6 +399,10 @@
   "refApiKeyMissing": "APIキーが未設定または無効です",
   "refVibeEncodeFailed": "バイブのエンコードに失敗: {error}",
 
+  "refLoadSaved": "保存済みを読込",
+  "refPickImage": "画像を選択",
+  "refNoSavedRefs": "保存されたリファレンスがありません",
+
   "packTitle": "NAIWEAVERパック",
   "packDesc": "プリセット、スタイル、ワイルドカードを.vpackファイルとしてエクスポート/インポートします。",
   "packExportLabel": "パックをエクスポート",
@@ -414,6 +421,8 @@
   "packPresetsSection": "プリセット ({selected}/{total})",
   "packStylesSection": "スタイル ({selected}/{total})",
   "packWildcardsSection": "ワイルドカード ({selected}/{total})",
+  "packSavedRefsSection": "保存済みリファレンス ({selected}/{total})",
+  "packSavedVibesSection": "保存済みバイブ ({selected}/{total})",
   "packExportSuccess": "パックをエクスポートしました",
   "packExportFailed": "エクスポートに失敗しました: {error}",
   "packImportDialogTitle2": "パックをインポート",
@@ -880,6 +889,12 @@
   "settingsEnhanceButtonDesc": "画像ビューアにエンハンスボタンを表示します",
   "settingsDirectorToolsButton": "ディレクターツールボタン",
   "settingsDirectorToolsButtonDesc": "画像ビューアにディレクターツールボタンを表示します",
+  "settingsExportButton": "デバイスへエクスポートボタン",
+  "settingsExportButtonDesc": "フォトギャラリーに直接保存するエクスポートボタンを表示",
+  "settingsAutoExport": "自動エクスポート",
+  "settingsAutoExportDesc": "生成画像を自動的にデバイスのフォトギャラリーに保存",
+  "settingsExportAlbum": "エクスポートアルバム名",
+  "settingsExportAlbumDesc": "エクスポートされた画像が保存されるデバイスフォルダ/アルバム",
   "settingsUpscaleBackend": "アップスケールバックエンド",
   "settingsUpscaleBackendDesc": "ローカルMLモデルまたはNovelAI APIからアップスケール方法を選択",
   "settingsUpscaleBackendMl": "ML（ローカル）",
@@ -1021,5 +1036,19 @@
 
   "settingsCredits": "クレジット",
   "settingsSpecialThanks": "スペシャルサンクス",
-  "settingsAnonTesters": "…そして全ての匿名バグテスターの皆さん"
+  "settingsAnonTesters": "…そして全ての匿名バグテスターの皆さん",
+
+  "settingsLayoutMode": "レイアウトモード",
+  "settingsLayoutModeDesc": "ワイドスクリーンでの設定の表示方法",
+  "settingsLayoutAuto": "自動",
+  "settingsLayoutSidebar": "サイドバー",
+  "settingsLayoutClassic": "クラシック",
+  "settingsPromptPosition": "プロンプト位置",
+  "settingsPromptPositionDesc": "サイドバーモードでのプロンプト入力の位置",
+  "settingsPromptLeft": "左",
+  "settingsPromptRight": "右",
+  "settingsSidebarWidth": "サイドバー幅",
+  "settingsSidebarWidthDesc": "コンパクトでより狭いサイドバーパネルにします",
+  "settingsSidebarCompact": "コンパクト",
+  "settingsSidebarNormal": "通常"
 }

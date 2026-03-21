@@ -54,6 +54,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mainSave => '保存';
 
   @override
+  String get mainExport => '导出';
+
+  @override
   String get mainEdit => '编辑';
 
   @override
@@ -81,6 +84,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get mainAdvancedSettings => '高级设置';
+
+  @override
+  String get mainExitConfirmation => '确定要退出吗？';
 
   @override
   String get settingsApiSettings => 'API 设置';
@@ -1067,6 +1073,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get styleNew => '新建风格';
 
   @override
+  String get styleResetDefaults => '重置风格为默认值';
+
+  @override
   String get styleSelectToEdit => '选择要编辑的风格';
 
   @override
@@ -1227,6 +1236,15 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get refLoadSaved => '加载已保存';
+
+  @override
+  String get refPickImage => '选择图片';
+
+  @override
+  String get refNoSavedRefs => '暂无已保存的参考';
+
+  @override
   String get packTitle => 'NAIWeaver 资源包';
 
   @override
@@ -1286,6 +1304,16 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String packWildcardsSection(int selected, int total) {
     return '随机提示词（$selected/$total）';
+  }
+
+  @override
+  String packSavedRefsSection(int selected, int total) {
+    return '已保存的参考 ($selected/$total)';
+  }
+
+  @override
+  String packSavedVibesSection(int selected, int total) {
+    return '已保存的氛围 ($selected/$total)';
   }
 
   @override
@@ -2680,6 +2708,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsDirectorToolsButtonDesc => '在图像查看器中显示导演工具按钮';
 
   @override
+  String get settingsExportButton => '导出到设备按钮';
+
+  @override
+  String get settingsExportButtonDesc => '显示导出按钮以直接保存图片到相册';
+
+  @override
+  String get settingsAutoExport => '自动导出到设备';
+
+  @override
+  String get settingsAutoExportDesc => '自动将生成的图片保存到设备相册';
+
+  @override
+  String get settingsExportAlbum => '导出相册名称';
+
+  @override
+  String get settingsExportAlbumDesc => '导出的图片保存到的设备文件夹/相册';
+
+  @override
   String get settingsUpscaleBackend => '放大后端';
 
   @override
@@ -3051,4 +3097,43 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsAnonTesters => '……以及所有匿名测试人员';
+
+  @override
+  String get settingsLayoutMode => '布局模式';
+
+  @override
+  String get settingsLayoutModeDesc => '控制宽屏上设置面板的显示方式';
+
+  @override
+  String get settingsLayoutAuto => '自动';
+
+  @override
+  String get settingsLayoutSidebar => '侧边栏';
+
+  @override
+  String get settingsLayoutClassic => '经典';
+
+  @override
+  String get settingsPromptPosition => '提示词位置';
+
+  @override
+  String get settingsPromptPositionDesc => '侧边栏模式下提示词输入的位置';
+
+  @override
+  String get settingsPromptLeft => '左侧';
+
+  @override
+  String get settingsPromptRight => '右侧';
+
+  @override
+  String get settingsSidebarWidth => '侧栏宽度';
+
+  @override
+  String get settingsSidebarWidthDesc => '选择紧凑模式以获得更窄的侧栏面板';
+
+  @override
+  String get settingsSidebarCompact => '紧凑';
+
+  @override
+  String get settingsSidebarNormal => '标准';
 }

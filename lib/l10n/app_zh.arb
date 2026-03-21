@@ -17,6 +17,7 @@
   "mainGallery": "图库",
   "mainTools": "工具",
   "mainSave": "保存",
+  "mainExport": "导出",
   "mainEdit": "编辑",
   "mainEnterPrompt": "输入提示词",
   "mainHelp": "帮助",
@@ -27,6 +28,7 @@
   "mainSavePreset": "保存预设",
   "mainPresetName": "预设名称",
   "mainAdvancedSettings": "高级设置",
+  "mainExitConfirmation": "确定要退出吗？",
 
   "settingsApiSettings": "API 设置",
   "settingsGeneralSettings": "通用设置",
@@ -375,6 +377,7 @@
   "styleManageDesc": "管理提示词片段和风格标签",
   "styleList": "风格",
   "styleNew": "新建风格",
+  "styleResetDefaults": "重置风格为默认值",
   "styleSelectToEdit": "选择要编辑的风格",
   "styleIdentity": "标识",
   "styleName": "名称",
@@ -432,6 +435,10 @@
   "refVibeEncodeFailed": "氛围编码失败：{error}",
   "@refVibeEncodeFailed": { "placeholders": { "error": { "type": "String" } } },
 
+  "refLoadSaved": "加载已保存",
+  "refPickImage": "选择图片",
+  "refNoSavedRefs": "暂无已保存的参考",
+
   "packTitle": "NAIWeaver 资源包",
   "packDesc": "将预设、风格、随机提示词导出/导入为 .vpack 文件。",
   "packExportLabel": "导出包",
@@ -454,6 +461,8 @@
   "@packStylesSection": { "placeholders": { "selected": { "type": "int" }, "total": { "type": "int" } } },
   "packWildcardsSection": "随机提示词（{selected}/{total}）",
   "@packWildcardsSection": { "placeholders": { "selected": { "type": "int" }, "total": { "type": "int" } } },
+  "packSavedRefsSection": "已保存的参考 ({selected}/{total})",
+  "packSavedVibesSection": "已保存的氛围 ({selected}/{total})",
   "packExportSuccess": "包导出成功",
   "packExportFailed": "导出失败：{error}",
   "@packExportFailed": { "placeholders": { "error": { "type": "String" } } },
@@ -952,6 +961,12 @@
   "settingsEnhanceButtonDesc": "在图像查看器中显示增强按钮",
   "settingsDirectorToolsButton": "导演工具按钮",
   "settingsDirectorToolsButtonDesc": "在图像查看器中显示导演工具按钮",
+  "settingsExportButton": "导出到设备按钮",
+  "settingsExportButtonDesc": "显示导出按钮以直接保存图片到相册",
+  "settingsAutoExport": "自动导出到设备",
+  "settingsAutoExportDesc": "自动将生成的图片保存到设备相册",
+  "settingsExportAlbum": "导出相册名称",
+  "settingsExportAlbumDesc": "导出的图片保存到的设备文件夹/相册",
   "settingsUpscaleBackend": "放大后端",
   "settingsUpscaleBackendDesc": "选择本地机器学习模型或 NovelAI API 进行放大",
   "settingsUpscaleBackendMl": "机器学习（本地）",
@@ -1093,5 +1108,19 @@
 
   "settingsCredits": "制作人员",
   "settingsSpecialThanks": "特别感谢",
-  "settingsAnonTesters": "……以及所有匿名测试人员"
+  "settingsAnonTesters": "……以及所有匿名测试人员",
+
+  "settingsLayoutMode": "布局模式",
+  "settingsLayoutModeDesc": "控制宽屏上设置面板的显示方式",
+  "settingsLayoutAuto": "自动",
+  "settingsLayoutSidebar": "侧边栏",
+  "settingsLayoutClassic": "经典",
+  "settingsPromptPosition": "提示词位置",
+  "settingsPromptPositionDesc": "侧边栏模式下提示词输入的位置",
+  "settingsPromptLeft": "左侧",
+  "settingsPromptRight": "右侧",
+  "settingsSidebarWidth": "侧栏宽度",
+  "settingsSidebarWidthDesc": "选择紧凑模式以获得更窄的侧栏面板",
+  "settingsSidebarCompact": "紧凑",
+  "settingsSidebarNormal": "标准"
 }

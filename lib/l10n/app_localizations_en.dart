@@ -54,6 +54,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mainSave => 'Save';
 
   @override
+  String get mainExport => 'Export';
+
+  @override
   String get mainEdit => 'Edit';
 
   @override
@@ -81,6 +84,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mainAdvancedSettings => 'Advanced Settings';
+
+  @override
+  String get mainExitConfirmation => 'Are you sure you want to exit?';
 
   @override
   String get settingsApiSettings => 'API Settings';
@@ -1099,6 +1105,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get styleNew => 'NEW STYLE';
 
   @override
+  String get styleResetDefaults => 'Reset styles to defaults';
+
+  @override
   String get styleSelectToEdit => 'SELECT A STYLE TO EDIT';
 
   @override
@@ -1261,6 +1270,15 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get refLoadSaved => 'LOAD SAVED';
+
+  @override
+  String get refPickImage => 'PICK IMAGE';
+
+  @override
+  String get refNoSavedRefs => 'NO SAVED REFERENCES';
+
+  @override
   String get packTitle => 'NAIWEAVER PACKS';
 
   @override
@@ -1322,6 +1340,16 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String packWildcardsSection(int selected, int total) {
     return 'WILDCARDS ($selected/$total)';
+  }
+
+  @override
+  String packSavedRefsSection(int selected, int total) {
+    return 'SAVED REFERENCES ($selected/$total)';
+  }
+
+  @override
+  String packSavedVibesSection(int selected, int total) {
+    return 'SAVED VIBES ($selected/$total)';
   }
 
   @override
@@ -2737,6 +2765,27 @@ class AppLocalizationsEn extends AppLocalizations {
       'Show the director tools button on the image viewer';
 
   @override
+  String get settingsExportButton => 'Export to Device Button';
+
+  @override
+  String get settingsExportButtonDesc =>
+      'Show an export button to save images directly to your photo gallery';
+
+  @override
+  String get settingsAutoExport => 'Auto-Export to Device';
+
+  @override
+  String get settingsAutoExportDesc =>
+      'Automatically save generated images to your device photo gallery';
+
+  @override
+  String get settingsExportAlbum => 'Export Album Name';
+
+  @override
+  String get settingsExportAlbumDesc =>
+      'Device folder/album where exported images are saved';
+
+  @override
   String get settingsUpscaleBackend => 'Upscale Backend';
 
   @override
@@ -3112,4 +3161,46 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsAnonTesters => '...and all anonymous bug testers';
+
+  @override
+  String get settingsLayoutMode => 'Layout Mode';
+
+  @override
+  String get settingsLayoutModeDesc =>
+      'Control how settings are displayed on wide screens';
+
+  @override
+  String get settingsLayoutAuto => 'Auto';
+
+  @override
+  String get settingsLayoutSidebar => 'Sidebar';
+
+  @override
+  String get settingsLayoutClassic => 'Classic';
+
+  @override
+  String get settingsPromptPosition => 'Prompt Position';
+
+  @override
+  String get settingsPromptPositionDesc =>
+      'Where the prompt input appears in sidebar mode';
+
+  @override
+  String get settingsPromptLeft => 'Left';
+
+  @override
+  String get settingsPromptRight => 'Right';
+
+  @override
+  String get settingsSidebarWidth => 'Sidebar Width';
+
+  @override
+  String get settingsSidebarWidthDesc =>
+      'Choose compact for a narrower sidebar panel';
+
+  @override
+  String get settingsSidebarCompact => 'Compact';
+
+  @override
+  String get settingsSidebarNormal => 'Normal';
 }

@@ -54,6 +54,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mainSave => '保存';
 
   @override
+  String get mainExport => 'エクスポート';
+
+  @override
   String get mainEdit => '編集';
 
   @override
@@ -81,6 +84,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get mainAdvancedSettings => '詳細設定';
+
+  @override
+  String get mainExitConfirmation => 'アプリを終了しますか？';
 
   @override
   String get settingsApiSettings => 'API設定';
@@ -1070,6 +1076,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get styleNew => '新規スタイル';
 
   @override
+  String get styleResetDefaults => 'スタイルをデフォルトにリセット';
+
+  @override
   String get styleSelectToEdit => '編集するスタイルを選択';
 
   @override
@@ -1232,6 +1241,15 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get refLoadSaved => '保存済みを読込';
+
+  @override
+  String get refPickImage => '画像を選択';
+
+  @override
+  String get refNoSavedRefs => '保存されたリファレンスがありません';
+
+  @override
   String get packTitle => 'NAIWEAVERパック';
 
   @override
@@ -1291,6 +1309,16 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String packWildcardsSection(int selected, int total) {
     return 'ワイルドカード ($selected/$total)';
+  }
+
+  @override
+  String packSavedRefsSection(int selected, int total) {
+    return '保存済みリファレンス ($selected/$total)';
+  }
+
+  @override
+  String packSavedVibesSection(int selected, int total) {
+    return '保存済みバイブ ($selected/$total)';
   }
 
   @override
@@ -2685,6 +2713,24 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsDirectorToolsButtonDesc => '画像ビューアにディレクターツールボタンを表示します';
 
   @override
+  String get settingsExportButton => 'デバイスへエクスポートボタン';
+
+  @override
+  String get settingsExportButtonDesc => 'フォトギャラリーに直接保存するエクスポートボタンを表示';
+
+  @override
+  String get settingsAutoExport => '自動エクスポート';
+
+  @override
+  String get settingsAutoExportDesc => '生成画像を自動的にデバイスのフォトギャラリーに保存';
+
+  @override
+  String get settingsExportAlbum => 'エクスポートアルバム名';
+
+  @override
+  String get settingsExportAlbumDesc => 'エクスポートされた画像が保存されるデバイスフォルダ/アルバム';
+
+  @override
   String get settingsUpscaleBackend => 'アップスケールバックエンド';
 
   @override
@@ -3059,4 +3105,43 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsAnonTesters => '…そして全ての匿名バグテスターの皆さん';
+
+  @override
+  String get settingsLayoutMode => 'レイアウトモード';
+
+  @override
+  String get settingsLayoutModeDesc => 'ワイドスクリーンでの設定の表示方法';
+
+  @override
+  String get settingsLayoutAuto => '自動';
+
+  @override
+  String get settingsLayoutSidebar => 'サイドバー';
+
+  @override
+  String get settingsLayoutClassic => 'クラシック';
+
+  @override
+  String get settingsPromptPosition => 'プロンプト位置';
+
+  @override
+  String get settingsPromptPositionDesc => 'サイドバーモードでのプロンプト入力の位置';
+
+  @override
+  String get settingsPromptLeft => '左';
+
+  @override
+  String get settingsPromptRight => '右';
+
+  @override
+  String get settingsSidebarWidth => 'サイドバー幅';
+
+  @override
+  String get settingsSidebarWidthDesc => 'コンパクトでより狭いサイドバーパネルにします';
+
+  @override
+  String get settingsSidebarCompact => 'コンパクト';
+
+  @override
+  String get settingsSidebarNormal => '通常';
 }
