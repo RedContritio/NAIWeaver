@@ -4,6 +4,9 @@ import 'package:image/image.dart' as img;
 import '../models/img2img_preset.dart';
 import '../models/img2img_session.dart';
 
+/// Visual pattern applied to the mask overlay.
+enum MaskPattern { solid, stripe, crosshatch }
+
 class Img2ImgNotifier extends ChangeNotifier {
   Img2ImgSession? _session;
   Img2ImgSession? get session => _session;
@@ -55,6 +58,37 @@ class Img2ImgNotifier extends ChangeNotifier {
 
   double get brushRadius => _brushRadius;
   bool get isEraseMode => _isEraseMode;
+
+  // --- Mask display settings ---
+  int _maskColor = 0xFFFF0066;
+  double _maskOpacity = 0.19; // ~48/255
+  bool _maskShowBorder = false;
+  MaskPattern _maskPattern = MaskPattern.solid;
+
+  int get maskColor => _maskColor;
+  double get maskOpacity => _maskOpacity;
+  bool get maskShowBorder => _maskShowBorder;
+  MaskPattern get maskPattern => _maskPattern;
+
+  void setMaskColor(int color) {
+    _maskColor = color;
+    notifyListeners();
+  }
+
+  void setMaskOpacity(double opacity) {
+    _maskOpacity = opacity.clamp(0.05, 1.0);
+    notifyListeners();
+  }
+
+  void setMaskShowBorder(bool show) {
+    _maskShowBorder = show;
+    notifyListeners();
+  }
+
+  void setMaskPattern(MaskPattern pattern) {
+    _maskPattern = pattern;
+    notifyListeners();
+  }
   bool get hasSession => _session != null;
   bool get hasMask => _session?.hasMask ?? false;
 

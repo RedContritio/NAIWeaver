@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:file_picker/file_picker.dart';
+import '../../../../core/utils/file_picker_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
@@ -83,9 +83,7 @@ class SourceImagePicker extends StatelessWidget {
               accentColor: t.accentEdit,
               onTap: () async {
                 final prefs = context.read<PreferencesService>();
-                final result = await FilePicker.platform.pickFiles(
-                  type: FileType.image,
-                );
+                final result = await pickImageFiles();
                 if (result != null && result.files.single.path != null) {
                   final bytes = await File(result.files.single.path!).readAsBytes();
                   String? prompt;
