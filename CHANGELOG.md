@@ -1,5 +1,70 @@
 # Changelog
 
+## v0.8.0
+
+### Canvas Editor
+- Four new tools: Select (S), Lasso (A), Blur, and Clone Stamp
+- Select tool with rectangular selection, corner handles, and rotation handle
+- Lasso tool for freehand selection with bounding box handles
+- Blur tool with configurable sigma (1.0–30.0)
+- Clone stamp tool with Alt+tap source selection and offset tracking
+- Zoom/pan system: Space to pan, scroll to zoom (0.25x–16x), Ctrl+Scroll to adjust brush size
+- Full keyboard shortcuts for all tools (B/E/G/T/C/V/S/A/L/R/O, [/] for brush size, Ctrl+Z/Y undo/redo, Escape to cancel)
+- Layer raster caching for non-active layers for better performance
+- Proper coordinate transform inversion for accurate cursor positioning when zoomed
+
+### Img2Img / Inpainting
+- Mask overlay customization: 8-color palette, opacity slider (0.05–1.0), three display patterns (solid, stripe, crosshatch), toggleable border outline
+- Expandable settings row in mask toolbar with color/pattern/opacity controls
+- Zoom/pan system matching canvas editor (Space to pan, Ctrl+Scroll for brush, scroll to zoom)
+- Cursor preview color matches selected mask color
+
+### Layout
+- Widescreen sidebar layout with three modes: auto (desktop 1200px+), always, never
+- Configurable sidebar width (compact/normal) and prompt position (left/right)
+- Settings panel renders inline in sidebar with compact spacing
+- SidebarRefVibeRail for compact director/vibe reference display in sidebar mode
+- Exit confirmation dialog on back button press (collapses settings first)
+
+### Generation
+- Mobile device gallery export with manual export button in quick action overlay
+- Auto-export to device gallery after generation with configurable album name (defaults to "NAIWeaver")
+- Wakelock during generation on mobile to prevent network drops
+- API connection timeout (30s) and receive timeout (5min)
+
+### Reference System
+- REF button split into popup menu: "Load Saved" (bottom sheet of saved references) and "Pick Image" (file picker)
+- Loading a saved reference restores original type, strength, and fidelity settings
+- Saved director references and vibe transfers included in .vpack export/import
+- New `saved_refs/` and `saved_vibes/` directories in pack ZIP format
+- Selective import with duplicate detection by name
+
+### Keyboard Shortcuts
+- Ctrl+Enter to trigger generation from prompt field
+- Ctrl+Left/Right to cycle through styles with snackbar indicator
+
+### Style Editor
+- Reset to defaults with confirmation dialog
+- Restore icon button in style list header
+
+### Security
+- API key backup fallback: base64-encoded backup in SharedPreferences when secure storage fails
+- Biometric enrollment check before attempting authentication (prevents failures on devices without enrolled biometrics)
+
+### Bug Fixes
+- Fix gallery image detail view showing grey screen instead of image (Positioned→Align revert) — Closes #4
+- Fix pack import on Android and Web (use withData: true and bytes instead of file path) — Closes #3
+- Fix Android SAF metadata stripping across file pickers (centralized pickImageFiles() helper)
+- Path service validates existing files before re-seeding (prevents overwriting valid data)
+
+### Other
+- Centralized file picker helper (pickImageFiles, pickCustomFiles) for cross-platform compatibility
+- wakelock_plus dependency for screen/CPU wake during generation
+- App settings UI for layout mode, sidebar width, prompt position, and export preferences
+
+### Localization
+- All new strings localized for EN, JA, ZH
+
 ## v0.7.1
 
 ### Bug Fixes

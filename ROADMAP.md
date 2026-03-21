@@ -122,6 +122,20 @@
 - Fix Android generate button not raising above keyboard
 - Full EN, JA, and ZH localization for all new features
 
+### Phase 10: Canvas Tools, Sidebar Layout & Reference Improvements (v0.8.0)
+- Canvas editor: selection tools (rectangular select, lasso), blur tool, clone stamp, zoom/pan system, full keyboard shortcuts, layer raster caching
+- Img2img mask customization: color palette, opacity, display patterns (solid/stripe/crosshatch), zoom/pan
+- Widescreen sidebar layout with auto/always/never modes, configurable width and prompt position
+- Mobile device gallery export with auto-export and custom album naming
+- REF button popup menu for quick-loading saved references
+- Saved director refs and vibe transfers in `.vpack` pack format
+- Keyboard shortcuts: Ctrl+Enter generate, Ctrl+Arrow cycle styles
+- Style reset to defaults
+- API key backup fallback and biometric enrollment check
+- Gallery grey screen fix, pack import fix for Android/Web
+- Centralized file picker helper for cross-platform compatibility
+- Full EN, JA, ZH localization
+
 ## Architecture
 - **Language/Framework**: Dart 3.10.7+ / Flutter (stable channel)
 - **Primary Target**: Windows desktop (also supports Android, iOS, Linux, macOS, Web)
@@ -147,7 +161,7 @@ Support for NovelAI's native vibe file formats:
 
 This enables sharing vibes without re-encoding costs and interoperability with other NovelAI tools. Import/export will be available through the Vibe Transfer manager and the Packs system.
 
-## Known Issues / Planned for v0.8.0
+## Known Issues / Planned for v0.9.0
 
 *No known issues at this time. See [Community Wishlist](#community-wishlist) for planned features.*
 
@@ -157,7 +171,7 @@ Have an idea? Feature requests are welcome — please open a [GitHub Issue](../.
 
 - **Prompt history with undo/redo**: Navigate recent prompts with back/forward controls
 - **Batch generation**: Queue N generations with seed increment or wildcard variance
-- **Keyboard shortcuts**: Hotkeys for common actions (generate, randomize seed, toggle settings)
+- ~~**Keyboard shortcuts**: Hotkeys for common actions (generate, randomize seed, toggle settings)~~ *(Done — Ctrl+Enter generate, Ctrl+Arrow cycle styles in Phase 10)*
 - **Prompt weight visualization**: Highlight tags with `{}` or `[]` weighting inline in the prompt field
 - ~~**Resolution presets**: Named resolution presets per use-case~~ *(Done — custom resolution dialog with save-for-reuse in Phase 6)*
 - **Cloud sync**: Sync presets, wildcards, and styles across devices

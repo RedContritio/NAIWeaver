@@ -14,7 +14,7 @@ Check out the github page to test it out, https://ststoryweaver.github.io/NAIWea
 - NovelAI V4.5 API integration (txt2img, img2img, inpainting, precise reference, vibe transfer, multiple characters)
 - Multi-character generation with pixel-level positioning and multi-participant interactions
 - Expanded inline character editor with tag suggestions, UC editing, position grid, and character presets (save/load)
-- Multi-layer canvas editor for img2img source creation (paint, erase, shapes, text with Google Fonts, layers)
+- Multi-layer canvas editor for img2img source creation (paint, erase, shapes, text with Google Fonts, layers, selection tools, blur, clone stamp, zoom/pan)
 - Custom resolution dialog with 64-snap validation and save-for-reuse
 - Anlas balance tracker in app bar with auto-refresh after generation
 - Furry mode toggle for fur dataset prefix in txt2img and Cascade
@@ -22,9 +22,11 @@ Check out the github page to test it out, https://ststoryweaver.github.io/NAIWea
 - PNG metadata round-trip — settings embedded in images, re-importable via drag-and-drop
 - Seed control with randomization toggle for reproducible generations
 - Duplicate generation detection with warning snackbar and quick randomize action
+- Widescreen sidebar layout mode for ultrawide and multi-monitor setups
+- Keyboard shortcuts: Ctrl+Enter to generate, Ctrl+Arrow to cycle styles, canvas tool shortcuts
 
 ### Director Reference
-Upload reference images to guide character appearance or artistic style. Supports three reference types (Character, Style, Character & Style) with per-reference strength and fidelity sliders.
+Upload reference images to guide character appearance or artistic style. Supports three reference types (Character, Style, Character & Style) with per-reference strength and fidelity sliders. The REF button provides quick access to saved references via a popup menu for instant loading.
 
 ### Vibe Transfer
 Apply the aesthetic "vibe" of reference images to generations. Each vibe has independent strength and information extraction controls, allowing fine-tuned style influence without precise character matching.
@@ -46,11 +48,11 @@ Sequential scene generation. Define setting, placement, actions, emotion, and st
 - Quick img2img refinement with strength, noise, and scale controls
 
 ### Quick Action Overlay
-- Floating action buttons on generated images (Save, Edit, Remove BG, Upscale, Enhance, Director Tools)
+- Floating action buttons on generated images (Save, Edit, Remove BG, Upscale, Enhance, Director Tools, Export to Device)
 - Each button individually toggleable; context-aware based on downloaded models
 
 ### Gallery
-- Full-screen image detail view with swipe navigation, zoom, and metadata display
+- Full-screen image detail view with swipe navigation, zoom, and metadata display (grey screen bug fixed)
 - Bottom action bar with integrated ML, Director Tools, Enhance, and reference actions
 - Gallery import preserves original creation dates from EXIF metadata
 - Favorites, search, multi-select with drag-to-select
@@ -70,14 +72,14 @@ Sequential scene generation. Define setting, placement, actions, emotion, and st
 | **Style Editor** | Prompt style templates with prefix, suffix, and negative content |
 | **Reference Manager** | Director Reference management with type, strength, and fidelity controls |
 | **Cascade Editor** | Multi-beat sequential scene generation with character slots and prompt stitching |
-| **Img2Img Editor** | Source image loading, canvas editor, custom resolutions, brush-based mask painting, and inpainting |
+| **Img2Img Editor** | Source image loading, canvas editor, custom resolutions, brush-based mask painting with customizable mask color, opacity, and patterns, and inpainting |
 | **Director Tools** | 6 server-side image augmentation tools (Remove BG, Line Art, Sketch, Colorize, Emotion, Declutter) |
 | **Enhance** | Quick img2img refinement with strength, noise, and scale controls |
 | **ML Models** | Download and manage on-device ML models for BG removal, upscaling, and segmentation |
 | **Slideshow** | Configurable image slideshow with transitions and Ken Burns effect from gallery or album sources |
-| **Packs** | Export/import presets, styles, wildcards, and director refs as `.vpack` files |
+| **Packs** | Export/import presets, styles, wildcards, director refs, saved references, and vibe transfers as `.vpack` files |
 | **Theme Builder** | 8 built-in themes + full custom theme editor with 17 configurable colors |
-| **Settings** | API key, auto-save, shelf visibility, quick action buttons, upscale backend, tooltips, and locale |
+| **Settings** | API key, auto-save, shelf visibility, quick action buttons, upscale backend, tooltips, locale, layout mode (widescreen sidebar), device export, and sidebar options |
 
 ### Localization
 English, Japanese, and Simplified Chinese out of the box. Extensible via `.arb` files — see [Contributing](#localization-1) for adding new languages.

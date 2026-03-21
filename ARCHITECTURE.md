@@ -67,7 +67,7 @@ lib/
 │   │   │   ├── ml_preferences.dart        # ML model and processing preferences
 │   │   │   └── jukebox_preferences.dart   # Easter egg preferences
 │   │   ├── path_service.dart              # Platform-aware directory resolution
-│   │   ├── pack_service.dart              # ZIP-based .vpack export/import for presets, styles, wildcards, director refs
+│   │   ├── pack_service.dart              # ZIP-based .vpack export/import for presets, styles, wildcards, director refs, saved refs, vibes
 │   │   ├── wildcard_service.dart          # Wildcard file I/O and indexing
 │   │   ├── wildcard_processor.dart        # __wildcard__ pattern replacement (recursive, 5 levels)
 │   │   ├── presets.dart                   # GenerationPreset model + JSON persistence
@@ -81,6 +81,7 @@ lib/
 │   │   ├── responsive.dart                # Shared utilities: isMobile(), isDesktopPlatform(), responsiveFont(), touchTarget()
 │   │   ├── tag_suggestion_helper.dart     # Tag auto-complete logic shared across features
 │   │   ├── app_snackbar.dart              # Reusable snackbar helper
+│   │   ├── file_picker_helper.dart        # Centralized cross-platform file picker (pickImageFiles, pickCustomFiles)
 │   │   └── timestamp_utils.dart           # EXIF date extraction and timestamp utilities
 │   └── widgets/
 │       ├── tag_suggestion_overlay.dart    # Reusable tag suggestion dropdown
@@ -121,6 +122,7 @@ lib/
     │       ├── inline_character_editor.dart # Expanded inline character editor with presets, tag suggestions, position grid
     │       ├── character_editor_sheet.dart # Character editing bottom sheet
     │       ├── action_interaction_sheet.dart # Multi-participant interaction editor
+    │       ├── sidebar_ref_vibe_rail.dart  # Compact director/vibe reference rail for sidebar layout
     │       └── vibe_transfer_shelf.dart    # Horizontal vibe transfer chip shelf
     ├── gallery/                           # Image vault / gallery
     │   ├── models/
@@ -186,6 +188,7 @@ lib/
         │   ├── models/
         │   │   ├── canvas_action.dart      # Undo/redo action models
         │   │   ├── canvas_layer.dart       # Layer model (visibility, opacity)
+        │   │   ├── canvas_selection.dart    # Selection model for rectangular and lasso selections
         │   │   ├── canvas_session.dart     # Canvas session state
         │   │   └── paint_stroke.dart       # Paint stroke data model (fontFamily, letterSpacing)
         │   ├── providers/
@@ -281,7 +284,7 @@ Generation settings are embedded in PNG text chunks as JSON. Drag-and-drop impor
 Both Director Reference and Vibe Transfer share `ReferenceImageProcessor` which resizes/pads images to NAI-compatible target dimensions (1024x1536, 1536x1024, or 1472x1472) via `compute()` isolate.
 
 ### Theme System
-All UI styling flows through `VisionTokens`, a semantic token layer derived from `AppThemeConfig`. Widgets access tokens via `context.t` (a `BuildContext` extension). `ThemeNotifier` manages theme state with persistence to SharedPreferences, supports 8 built-in themes and unlimited user-created themes, and provides live preview during editing. The `ThemeBuilder` widget in Tools Hub exposes all theme properties (17 colors including `bgRemoval` and `upscale`, font family, font scale, bright mode) with a color picker dialog and real-time preview card.
+All UI styling flows through `VisionTokens`, a semantic token layer derived from `AppThemeConfig`. Widgets access tokens via `context.t` (a `BuildContext` extension). `ThemeNotifier` manages theme state with persistence to SharedPreferences, supports 8 built-in themes and unlimited user-created themes, and provides live preview during editing. The `ThemeBuilder` widget in Tools Hub exposes all theme properties (17 colors including `bgRemoval` and `upscale`, font family, font scale, bright mode) with a color picker dialog and real-time preview card. Widescreen sidebar layout is available with three modes (auto/always/never), configurable width, and configurable prompt position.
 
 ### Localization System
 All UI strings flow through Flutter's `AppLocalizations` generated from `.arb` files. Widgets access strings via `context.l` (a `BuildContext` extension). `LocaleNotifier` manages the active locale and persists the selection to SharedPreferences. New languages are added by creating an `.arb` file and regenerating.
@@ -357,8 +360,9 @@ Context-aware floating action buttons rendered on the image viewer. Each button 
 ### Pack Export/Import
 1. `PackService.exportPack()` bundles selected presets, styles, wildcards, and director ref images into a ZIP archive (`.vpack`)
 2. Director reference images extracted to `references/` directory in the ZIP, referenced via `@ref:filename` pointers in preset JSON
-3. `PackService.importPack()` opens a `.vpack`, extracts contents, and restores items with reference image re-embedding
-4. `GenerationNotifier.reloadPresetsAndStyles()` refreshes state after import
+3. Saved director references and vibe transfers are included in packs via `saved_refs/` and `saved_vibes/` directories
+4. `PackService.importPack()` opens a `.vpack`, extracts contents, and restores items with reference image re-embedding
+5. `GenerationNotifier.reloadPresetsAndStyles()` refreshes state after import
 
 ## Data Files
 

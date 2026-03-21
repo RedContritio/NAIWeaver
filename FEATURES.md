@@ -2,7 +2,7 @@
 
 ## Core Generation
 - **Text-to-Image**: Full NovelAI Diffusion V4.5 generation with prompt/negative prompt, configurable dimensions, steps, scale, sampler selection
-- **Img2Img / Inpainting**: Source image transformation with strength/noise controls, client-side mask compositing for selective inpainting, canvas editor integration, mask save/load (export to PNG, load pre-painted masks), and img2img presets (save/load/delete named settings)
+- **Img2Img / Inpainting**: Source image transformation with strength/noise controls, client-side mask compositing for selective inpainting, canvas editor integration, mask save/load (export to PNG, load pre-painted masks), img2img presets (save/load/delete named settings), and mask customization (adjustable mask color, opacity, and overlay patterns with zoom/pan support)
 - **Img2Img Iterative Workflow**: "Use Result as Source" button to feed the current generation back as the img2img source for iterative refinement
 - **Img2Img Prompt Auto-Import**: Automatically extract and apply prompt from PNG metadata (tEXt + iTXt chunks) when loading a source image
 - **Custom Output Folder**: Configurable output directory for desktop platforms (Windows, Linux)
@@ -13,9 +13,11 @@
 - **Character Editor Mode**: Toggle between expanded (settings panel) and compact (shelf below prompt) modes via Settings
 - **Custom Resolution Dialog**: Enter arbitrary resolutions with automatic 64-snap validation; optionally save custom resolutions for reuse across sessions
 - **Seed Control**: Manual seed input with randomization toggle for reproducible or varied generations
+- **Widescreen Sidebar Layout**: Alternative layout mode that places the settings panel in a persistent sidebar, optimized for ultrawide and multi-monitor displays
 
 ## Reference Systems
-- **Director Reference (Precise Reference)**: Upload reference images to guide character appearance or artistic style. Supports 3 reference types (Character, Style, Character & Style) with per-reference strength and fidelity sliders. 5 parallel API arrays. Shelf visibility toggleable via Settings.
+- **Director Reference (Precise Reference)**: Upload reference images to guide character appearance or artistic style. Supports 3 reference types (Character, Style, Character & Style) with per-reference strength and fidelity sliders. 5 parallel API arrays. Shelf visibility toggleable via Settings. REF button provides quick-load popup for saved references.
+- **Saved Reference Quick-Load**: Saved director references accessible directly from the REF button via a popup menu for instant loading without navigating to the Reference Manager
 - **Vibe Transfer (Reference Image)**: Apply the aesthetic "vibe" of reference images to influence generation style. Each vibe has independent strength (0.0–1.0) and information extraction (0.0–1.0) controls. 3 parallel API arrays. Multiple vibes can be active simultaneously, allowing layered style influence without precise character matching.
 
 ## Prompt Engineering
@@ -51,7 +53,7 @@
 - **Slideshow**: Configurable image slideshow player with transition timing, Ken Burns (pan/zoom) effect, and source selection from gallery or specific albums
 - **Packs**: Export and import NAIWeaver Packs (`.vpack` files) containing presets, styles, wildcards, and director reference images as portable ZIP archives
 - **Theme Builder**: Full theme customization with 8 built-in themes, custom user themes, color picker, font selector, text scale slider, bright mode toggle, and live preview
-- **Settings**: API key management, auto-save toggle, shelf visibility, quick action button toggles, upscale backend (ML Local vs NovelAI API), tooltip visibility, character editor mode, custom output folder (desktop), locale selection
+- **Settings**: API key management, auto-save toggle, shelf visibility, quick action button toggles, upscale backend (ML Local vs NovelAI API), tooltip visibility, character editor mode, custom output folder (desktop), locale selection, layout mode (widescreen sidebar), device export options, and sidebar configuration
 
 ## Cascade System
 - **Multi-Beat Scenes**: Define sequential beats with character slots, environment tags, per-beat prompts, and custom resolutions per beat
@@ -74,6 +76,11 @@
 - **Android Touch Support**: Tap-based tools (text, fill, eyedropper) work correctly on touch devices via `onTapUp` gesture handling
 - **Keyboard-Safe Canvas**: Canvas does not resize when the soft keyboard opens for text editing
 - **Flatten-to-PNG**: Merge all visible layers into a single PNG for seamless img2img pipeline integration, with Google Fonts and letter spacing rendered correctly
+- **Selection Tools**: Select (rectangular) and lasso (freeform) selection tools for precise area manipulation on the canvas
+- **Blur Tool**: Gaussian blur brush for softening or obscuring regions of the canvas
+- **Clone Stamp**: Sample from one area of the canvas and paint that content elsewhere for seamless duplication and touch-ups
+- **Canvas Zoom & Pan**: Zoom in/out and pan across the canvas for detailed editing at any scale
+- **Canvas Keyboard Shortcuts**: Keyboard shortcuts for switching between canvas tools, adjusting brush size, undo/redo, and other common operations
 - **Blank Canvas Option**: Start from a blank canvas in the img2img source picker with standard or custom resolutions
 - **Img2Img Source Image Save**: Automatically save the source drawing (`Src_*.png`) alongside the generated result (`Gen_*.png`) with matching timestamps
 
@@ -95,7 +102,7 @@
 
 ## Gallery
 - **Image Vault**: Browse all generated images with search and filtering
-- **Full-Screen Detail View**: PageView swipe navigation with keyboard support, per-page zoom with double-tap (2.5x) and pinch-to-zoom, auto-hiding controls with tap/hover to reveal
+- **Full-Screen Detail View**: PageView swipe navigation with keyboard support, per-page zoom with double-tap (2.5x) and pinch-to-zoom, auto-hiding controls with tap/hover to reveal (grey screen rendering bug fixed)
 - **Detail View Action Bar**: Bottom action bar with Prompt Import, Img2Img, Enhance, Director Tools, Remove BG, Upscale, NAI Upscale, Char Ref, Vibe, and Slideshow actions
 - **Metadata Display**: Prompt text, resolution, scale, steps, sampler, and seed shown as chips in the detail view
 - **Post-Processing Badge Detection**: Filename prefix-based badges for processed images
@@ -114,9 +121,11 @@
 - **Image Info Overlay**: Hover over gallery tiles on desktop to see prompt and filename
 
 ## NAIWeaver Packs
-- **Pack Export**: Select presets, styles, and wildcards to bundle into a `.vpack` ZIP archive
+- **Pack Export**: Select presets, styles, wildcards, saved references, and vibe transfers to bundle into a `.vpack` ZIP archive
 - **Pack Import**: Open `.vpack` files, preview contents, and selectively import items
 - **Director Reference Bundling**: Reference images extracted to `references/` in the ZIP and restored on import via `@ref:filename` pointers
+- **Saved References in Packs**: Saved director references included in pack export/import for portable reference sharing
+- **Vibe Transfers in Packs**: Vibe transfer configurations included in pack export/import for sharing aesthetic styles
 - **Pack Manager UI**: Full management interface in the Tools Hub for creating, browsing, and importing packs
 
 ## Metadata System
@@ -157,7 +166,8 @@
 ## Security & Demo Mode
 - **PIN Lock**: 4-digit PIN to lock the app on launch, with set/verify dialogs and SHA-256 + salt hashing
 - **Lock on Resume**: Re-lock the app when returning from background (configurable)
-- **Biometric Unlock**: Fingerprint or face unlock support via `local_auth` (configurable)
+- **Biometric Unlock**: Fingerprint or face unlock support via `local_auth` (configurable), with enrollment availability check before enabling
+- **API Key Backup Fallback**: Automatic fallback to backed-up API key when primary key storage fails or is corrupted
 - **Demo Mode**: Toggle to filter the gallery to only show demo-safe images; persisted via SharedPreferences
 - **Demo Image Picker**: Full-screen grid picker to mark images as demo-safe, with ALL/CLEAR bulk actions and toggleable grid columns (cycles 2–3 on mobile, 3–5 on desktop)
 - **Tag Suggestion Suppression**: Tag auto-suggest is automatically hidden while demo mode is active
@@ -171,7 +181,9 @@
 - **Director Reference Shelf**: Horizontal shelf with type-colored chips for reference images (toggleable via Settings)
 - **Vibe Transfer Shelf**: Horizontal shelf with green-accented chips for vibe references (toggleable via Settings)
 - **Quick Edit Button**: One-tap access to send the current generation into the Img2Img editor
-- **Quick Action Overlay**: Floating action buttons on the image viewer for Save, Edit, Remove BG, Upscale, Enhance, and Director Tools (individually configurable)
+- **Sidebar Layout Modes**: Configurable layout modes including default (bottom panel) and widescreen sidebar for ultrawide displays, selectable in Settings
+- **Device Export**: Export images directly to device storage from the quick action overlay and gallery views
+- **Quick Action Overlay**: Floating action buttons on the image viewer for Save, Edit, Remove BG, Upscale, Enhance, Director Tools, and Export to Device (individually configurable)
 
 ## On-Device ML Processing
 - **ML Model Registry**: 8 downloadable models across 3 categories (background removal, upscaling, segmentation)
@@ -197,9 +209,14 @@
 - **Multi-Access Points**: Accessible from Tools Hub, image viewer quick actions, and gallery detail view action bar
 
 ## Quick Action Overlay
-- **Floating Action Buttons**: 6 buttons on the generated image viewer — Save, Edit, Remove BG, Upscale, Enhance, Director Tools
+- **Floating Action Buttons**: 7 buttons on the generated image viewer — Save, Edit, Remove BG, Upscale, Enhance, Director Tools, Export to Device
 - **Individually Configurable**: Each button can be shown or hidden via Settings
 - **Context-Aware**: BG Removal and Upscale buttons only appear when at least one corresponding ML model is downloaded
+
+## Keyboard Shortcuts
+- **Ctrl+Enter**: Generate image from any focused field without clicking the Generate button
+- **Ctrl+Arrow**: Cycle through active prompt styles with Ctrl+Left/Right arrow keys
+- **Canvas Tool Shortcuts**: Single-key shortcuts for switching between paint, erase, select, lasso, blur, clone stamp, and other canvas tools
 
 ## NovelAI API Upscaling
 - **Server-Side 4x Upscale**: High-quality image upscaling via NovelAI's API as an alternative to local ML models
