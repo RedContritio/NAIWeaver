@@ -180,8 +180,8 @@ class CanvasNotifier extends ChangeNotifier {
     extractDominantColors(sourceBytes, count: 8).then((colors) {
       _sourceImageColors = colors;
       notifyListeners();
-    }).catchError((_) {
-      // Silently fail — just use default palette
+    }).catchError((e) {
+      debugPrint('Color extraction failed: $e');
     });
   }
 

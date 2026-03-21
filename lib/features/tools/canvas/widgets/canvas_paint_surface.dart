@@ -49,6 +49,8 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
 
   // Zoom & pan
   final TransformationController _zoomController = TransformationController();
+  final FocusNode _keyboardFocusNode = FocusNode();
+  final FocusNode _textKeyboardFocusNode = FocusNode();
   bool _spaceHeld = false;
 
   // Image layer cache
@@ -176,6 +178,8 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
     _textController.dispose();
     _textFocusNode.dispose();
     _zoomController.dispose();
+    _keyboardFocusNode.dispose();
+    _textKeyboardFocusNode.dispose();
     for (final img in _imageLayerCache.values) {
       img.dispose();
     }
@@ -238,7 +242,7 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
         final isPanMode = _spaceHeld;
 
         return KeyboardListener(
-          focusNode: FocusNode(),
+          focusNode: _keyboardFocusNode,
           onKeyEvent: (event) {
             if (event.logicalKey == LogicalKeyboardKey.space) {
               setState(() => _spaceHeld = event is KeyDownEvent);
@@ -399,7 +403,7 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
             children: [
               Expanded(
                 child: KeyboardListener(
-                  focusNode: FocusNode(),
+                  focusNode: _textKeyboardFocusNode,
                   onKeyEvent: (event) {
                     if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
                       notifier.cancelPendingText();
@@ -606,11 +610,18 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
   Offset? _toNormalized(Offset localPosition) {
     if (_imageRect.width <= 0 || _imageRect.height <= 0) return null;
     // Invert the zoom/pan transform to get coordinates in the unzoomed canvas space
-    final inverseMatrix = Matrix4.inverted(_zoomController.value);
-    final transformed = MatrixUtils.transformPoint(inverseMatrix, localPosition);
-    final x = (transformed.dx - _imageRect.left) / _imageRect.width;
-    final y = (transformed.dy - _imageRect.top) / _imageRect.height;
-    return Offset(x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
+    try {
+      final inverseMatrix = Matrix4.inverted(_zoomController.value);
+      final transformed = MatrixUtils.transformPoint(inverseMatrix, localPosition);
+      final x = (transformed.dx - _imageRect.left) / _imageRect.width;
+      final y = (transformed.dy - _imageRect.top) / _imageRect.height;
+      return Offset(x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
+    } catch (_) {
+      // Matrix non-invertible (e.g. zoomed to 0) — fall back to identity
+      final x = (localPosition.dx - _imageRect.left) / _imageRect.width;
+      final y = (localPosition.dy - _imageRect.top) / _imageRect.height;
+      return Offset(x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
+    }
   }
 
   void _samplePixel(Offset normalized, CanvasNotifier notifier) {

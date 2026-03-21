@@ -21,11 +21,13 @@ class _MaskCanvasState extends State<MaskCanvas> {
 
   // Zoom & pan
   final TransformationController _zoomController = TransformationController();
+  final FocusNode _keyboardFocusNode = FocusNode();
   bool _spaceHeld = false;
 
   @override
   void dispose() {
     _zoomController.dispose();
+    _keyboardFocusNode.dispose();
     super.dispose();
   }
 
@@ -58,7 +60,7 @@ class _MaskCanvasState extends State<MaskCanvas> {
         final isPanMode = _spaceHeld;
 
         return KeyboardListener(
-          focusNode: FocusNode(),
+          focusNode: _keyboardFocusNode,
           onKeyEvent: (event) {
             if (event.logicalKey == LogicalKeyboardKey.space) {
               setState(() => _spaceHeld = event is KeyDownEvent);
@@ -192,11 +194,17 @@ class _MaskCanvasState extends State<MaskCanvas> {
   Offset? _toNormalized(Offset localPosition) {
     if (_imageRect.width <= 0 || _imageRect.height <= 0) return null;
     // Invert zoom/pan transform
-    final inverseMatrix = Matrix4.inverted(_zoomController.value);
-    final transformed = MatrixUtils.transformPoint(inverseMatrix, localPosition);
-    final x = (transformed.dx - _imageRect.left) / _imageRect.width;
-    final y = (transformed.dy - _imageRect.top) / _imageRect.height;
-    return Offset(x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
+    try {
+      final inverseMatrix = Matrix4.inverted(_zoomController.value);
+      final transformed = MatrixUtils.transformPoint(inverseMatrix, localPosition);
+      final x = (transformed.dx - _imageRect.left) / _imageRect.width;
+      final y = (transformed.dy - _imageRect.top) / _imageRect.height;
+      return Offset(x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
+    } catch (_) {
+      final x = (localPosition.dx - _imageRect.left) / _imageRect.width;
+      final y = (localPosition.dy - _imageRect.top) / _imageRect.height;
+      return Offset(x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
+    }
   }
 }
 

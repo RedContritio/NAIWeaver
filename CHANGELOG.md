@@ -14,9 +14,6 @@
 - Quick palette shows up to 10 colors (source image colors first, then defaults); long-press any swatch to replace with current color
 - Expanded color picker now has separate "Quick" (customizable) and "Palette" (default) sections with reset button
 - Help dialog with keyboard shortcut reference
-- Layer raster caching for non-active layers for better performance
-- shouldRepaint optimizations: canvas and mask painters compare by reference instead of always repainting
-- RepaintBoundary on source image and layer panel for compositing isolation
 
 ### Img2Img / Inpainting
 - Mask overlay customization: 8-color palette, opacity slider (0.05–1.0), three display patterns (solid, stripe, crosshatch), toggleable border outline
@@ -57,11 +54,19 @@
 - API key backup fallback: base64-encoded backup in SharedPreferences when secure storage fails
 - Biometric enrollment check before attempting authentication (prevents failures on devices without enrolled biometrics)
 
+### Performance
+- Layer raster caching for image-only layers (skip per-frame stroke re-rendering)
+- shouldRepaint optimizations: canvas overlay and mask painters compare by reference instead of always repainting
+- RepaintBoundary on source image and layer panel for compositing isolation
+- Dominant color extraction runs in background isolate via `compute()` to avoid blocking UI
+
 ### Bug Fixes
 - Fix gallery image detail view showing grey screen instead of image (Positioned→Align revert) — Closes #4
 - Fix pack import on Android and Web (use withData: true and bytes instead of file path) — Closes #3
 - Fix Android SAF metadata stripping across file pickers (centralized pickImageFiles() helper)
 - Path service validates existing files before re-seeding (prevents overwriting valid data)
+- Fix FocusNode memory leaks in canvas and mask keyboard listeners (moved to State fields with proper disposal)
+- Fix potential crash from Matrix4 inversion on singular zoom transforms (graceful fallback to identity)
 
 ### Other
 - Centralized file picker helper (pickImageFiles, pickCustomFiles) for cross-platform compatibility
