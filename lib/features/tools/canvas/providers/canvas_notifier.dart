@@ -7,6 +7,7 @@ import '../models/canvas_layer.dart';
 import '../models/canvas_selection.dart';
 import '../models/canvas_session.dart';
 import '../models/paint_stroke.dart';
+import '../widgets/canvas_color_picker.dart';
 
 /// Tool mode for the canvas editor.
 enum CanvasTool { paint, erase, line, rectangle, circle, fill, text, eyedropper, transform, select, lasso, blur, cloneStamp }
@@ -17,6 +18,10 @@ class CanvasNotifier extends ChangeNotifier {
   CanvasSession? _session;
   CanvasSession? get session => _session;
   bool get hasSession => _session != null;
+
+  // --- Source image dominant colors ---
+  List<Color> _sourceImageColors = [];
+  List<Color> get sourceImageColors => _sourceImageColors;
 
   // --- Brush settings ---
   CanvasTool _tool = CanvasTool.paint;
@@ -140,6 +145,7 @@ class CanvasNotifier extends ChangeNotifier {
       activeLayerId: defaultLayerId,
       sessionId: DateTime.now().millisecondsSinceEpoch.toString(),
     );
+    _extractSourceColors(sourceBytes);
     notifyListeners();
   }
 
@@ -155,6 +161,7 @@ class CanvasNotifier extends ChangeNotifier {
         if (num >= _nextLayerNumber) _nextLayerNumber = num + 1;
       }
     }
+    _extractSourceColors(session.sourceImageBytes);
     notifyListeners();
   }
 
@@ -163,7 +170,19 @@ class CanvasNotifier extends ChangeNotifier {
     _currentStrokePoints = null;
     _pendingTextPosition = null;
     _pendingTextContent = '';
+    _sourceImageColors = [];
     notifyListeners();
+  }
+
+  /// Extract dominant colors from the source image in a background isolate.
+  void _extractSourceColors(Uint8List sourceBytes) {
+    _sourceImageColors = [];
+    extractDominantColors(sourceBytes, count: 8).then((colors) {
+      _sourceImageColors = colors;
+      notifyListeners();
+    }).catchError((_) {
+      // Silently fail — just use default palette
+    });
   }
 
   // --- Tool selection ---

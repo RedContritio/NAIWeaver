@@ -2166,6 +2166,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get canvasImportImage => '导入图片';
 
   @override
+  String get canvasHelp => '画布帮助';
+
+  @override
   String get canvasSmooth => '平滑';
 
   @override

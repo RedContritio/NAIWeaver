@@ -4126,6 +4126,12 @@ abstract class AppLocalizations {
   /// **'Import Image'**
   String get canvasImportImage;
 
+  /// No description provided for @canvasHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'CANVAS HELP'**
+  String get canvasHelp;
+
   /// No description provided for @canvasSmooth.
   ///
   /// In en, this message translates to:

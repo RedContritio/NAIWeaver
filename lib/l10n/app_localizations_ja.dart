@@ -2171,6 +2171,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get canvasImportImage => '画像を読み込む';
 
   @override
+  String get canvasHelp => 'キャンバスヘルプ';
+
+  @override
   String get canvasSmooth => 'スムーズ';
 
   @override

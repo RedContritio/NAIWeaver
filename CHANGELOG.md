@@ -10,8 +10,13 @@
 - Clone stamp tool with Alt+tap source selection and offset tracking
 - Zoom/pan system: Space to pan, scroll to zoom (0.25x–16x), Ctrl+Scroll to adjust brush size
 - Full keyboard shortcuts for all tools (B/E/G/T/C/V/S/A/L/R/O, [/] for brush size, Ctrl+Z/Y undo/redo, Escape to cancel)
+- Smart color palette: auto-extracts dominant colors from source image via k-means clustering in CIE Lab color space
+- Quick palette shows up to 10 colors (source image colors first, then defaults); long-press any swatch to replace with current color
+- Expanded color picker now has separate "Quick" (customizable) and "Palette" (default) sections with reset button
+- Help dialog with keyboard shortcut reference
 - Layer raster caching for non-active layers for better performance
-- Proper coordinate transform inversion for accurate cursor positioning when zoomed
+- shouldRepaint optimizations: canvas and mask painters compare by reference instead of always repainting
+- RepaintBoundary on source image and layer panel for compositing isolation
 
 ### Img2Img / Inpainting
 - Mask overlay customization: 8-color palette, opacity slider (0.05–1.0), three display patterns (solid, stripe, crosshatch), toggleable border outline
@@ -27,6 +32,7 @@
 - Exit confirmation dialog on back button press (collapses settings first)
 
 ### Generation
+- Reference inpainting: director references and vibe transfers now apply during img2img/infill generation
 - Mobile device gallery export with manual export button in quick action overlay
 - Auto-export to device gallery after generation with configurable album name (defaults to "NAIWeaver")
 - Wakelock during generation on mobile to prevent network drops

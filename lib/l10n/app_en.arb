@@ -768,6 +768,7 @@
   "canvasEyedropper": "PICK",
   "canvasTransform": "MOVE",
   "canvasImportImage": "Import Image",
+  "canvasHelp": "CANVAS HELP",
   "canvasSmooth": "SMOOTH",
   "canvasFill": "FILL",
   "canvasText": "TEXT",

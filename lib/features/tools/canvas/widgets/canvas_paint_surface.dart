@@ -374,7 +374,7 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
     final screenY = _imageRect.top + pos.dy * _imageRect.height;
 
     // Clamp so the editor doesn't overflow outside the image rect
-    const editorWidth = 220.0;
+    final editorWidth = 220.0.clamp(0.0, _imageRect.width - 16);
     const editorHeight = 40.0;
     final clampedX = screenX.clamp(_imageRect.left, _imageRect.right - editorWidth);
     final keyboardTop = MediaQuery.of(context).size.height - MediaQuery.of(context).viewInsets.bottom;

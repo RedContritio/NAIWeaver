@@ -766,6 +766,7 @@
   "canvasEyedropper": "取色",
   "canvasTransform": "移动",
   "canvasImportImage": "导入图片",
+  "canvasHelp": "画布帮助",
   "canvasSmooth": "平滑",
   "canvasFill": "填充",
   "canvasText": "文字",

@@ -104,7 +104,9 @@ NAIWeaver supports multi-participant interactions where multiple characters can 
 | `extra_noise_seed` | int | Seed for extra noise (usually same as main seed) |
 | `add_original_image` | bool | Whether to blend with original |
 
-Set `action: "img2img"` in the request body.
+Set `action: "img2img"` in the request body. For inpainting, set `action: "infill"` and use the model `nai-diffusion-4-5-full-inpainting`.
+
+**Reference Inpainting:** Director Reference and Vibe Transfer parameters are supported during `infill` actions, allowing character/style references to guide what the AI infills into masked regions. The same reference parameters used for `generate` are passed alongside `image`, `mask`, and other inpainting parameters.
 
 ### Director Reference (Precise Reference) Parameters
 

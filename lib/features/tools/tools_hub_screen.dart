@@ -128,29 +128,32 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
                     ),
                     Divider(height: 1, color: t.borderMedium),
                     Expanded(
-                      child: ListView(
-                        padding: EdgeInsets.zero,
-                        children: tools.map((tool) {
-                          final isActive = _activeToolId == tool.id;
-                          return ListTile(
-                            leading: Icon(tool.icon, size: 20, color: isActive ? t.accent : t.secondaryText),
-                            title: Text(
-                              tool.name,
-                              style: TextStyle(
-                                fontSize: t.fontSize(12),
-                                letterSpacing: 2,
-                                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                                color: isActive ? t.accent : t.secondaryText,
+                      child: Scrollbar(
+                        thumbVisibility: true,
+                        child: ListView(
+                          padding: EdgeInsets.zero,
+                          children: tools.map((tool) {
+                            final isActive = _activeToolId == tool.id;
+                            return ListTile(
+                              leading: Icon(tool.icon, size: 20, color: isActive ? t.accent : t.secondaryText),
+                              title: Text(
+                                tool.name,
+                                style: TextStyle(
+                                  fontSize: t.fontSize(12),
+                                  letterSpacing: 2,
+                                  fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                                  color: isActive ? t.accent : t.secondaryText,
+                                ),
                               ),
-                            ),
-                            selected: isActive,
-                            selectedTileColor: t.borderSubtle,
-                            onTap: () {
-                              _selectTool(tool.id);
-                              Navigator.pop(context); // close drawer
-                            },
-                          );
-                        }).toList(),
+                              selected: isActive,
+                              selectedTileColor: t.borderSubtle,
+                              onTap: () {
+                                _selectTool(tool.id);
+                                Navigator.pop(context); // close drawer
+                              },
+                            );
+                          }).toList(),
+                        ),
                       ),
                     ),
                   ],
@@ -173,9 +176,13 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
   }
 
   Widget _buildSidebar(VisionTokens t, List<ToolItem> tools) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    // Expand sidebar width on wider screens: 180px base, up to 240px on very wide screens
+    final double expandedWidth = screenWidth >= 1600 ? 240 : (screenWidth >= 1200 ? 210 : 180);
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      width: _isSidebarExpanded ? 180 : 56,
+      width: _isSidebarExpanded ? expandedWidth : 56,
       color: t.surfaceMid,
       child: Column(
         children: [
@@ -191,9 +198,12 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
           ),
           const SizedBox(height: 16),
           Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: tools.map((tool) => _buildSidebarItem(tool, t)).toList(),
+            child: Scrollbar(
+              thumbVisibility: false,
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: tools.map((tool) => _buildSidebarItem(tool, t)).toList(),
+              ),
             ),
           ),
         ],

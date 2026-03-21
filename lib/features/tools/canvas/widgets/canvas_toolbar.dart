@@ -120,135 +120,131 @@ class _CanvasToolbarState extends State<CanvasToolbar> {
           // Row 1: tools + color swatch + undo/redo + layer indicator + flatten
           Row(
             children: [
-              // Paint tool
-              _ToolButton(
-                icon: Icons.brush,
-                label: l.canvasPaint,
-                isActive: notifier.tool == CanvasTool.paint,
-                onTap: () => notifier.setTool(CanvasTool.paint),
-                t: t,
-              ),
-              const SizedBox(width: 4),
-              // Erase tool
-              _ToolButton(
-                icon: Icons.auto_fix_high,
-                label: l.canvasErase,
-                isActive: notifier.tool == CanvasTool.erase,
-                onTap: () => notifier.setTool(CanvasTool.erase),
-                t: t,
-              ),
-              const SizedBox(width: 4),
-              // Line tool
-              _ToolButton(
-                icon: Icons.horizontal_rule,
-                label: l.canvasLine,
-                isActive: notifier.tool == CanvasTool.line,
-                onTap: () => notifier.setTool(CanvasTool.line),
-                t: t,
-              ),
-              const SizedBox(width: 4),
-              // Rectangle tool
-              _ToolButton(
-                icon: Icons.crop_square,
-                label: l.canvasRectangle,
-                isActive: notifier.tool == CanvasTool.rectangle,
-                onTap: () => notifier.setTool(CanvasTool.rectangle),
-                t: t,
-              ),
-              const SizedBox(width: 4),
-              // Circle tool
-              _ToolButton(
-                icon: Icons.circle_outlined,
-                label: l.canvasCircle,
-                isActive: notifier.tool == CanvasTool.circle,
-                onTap: () => notifier.setTool(CanvasTool.circle),
-                t: t,
-              ),
-              const SizedBox(width: 4),
-              // Fill tool
-              _ToolButton(
-                icon: Icons.format_color_fill,
-                label: l.canvasFill,
-                isActive: notifier.tool == CanvasTool.fill,
-                onTap: () => notifier.setTool(CanvasTool.fill),
-                t: t,
-              ),
-              const SizedBox(width: 4),
-              // Text tool
-              _ToolButton(
-                icon: Icons.text_fields,
-                label: l.canvasText,
-                isActive: notifier.tool == CanvasTool.text,
-                onTap: () => notifier.setTool(CanvasTool.text),
-                t: t,
-              ),
-              const SizedBox(width: 4),
-              // Eyedropper tool
-              _ToolButton(
-                icon: Icons.colorize,
-                label: l.canvasEyedropper,
-                isActive: notifier.tool == CanvasTool.eyedropper,
-                onTap: () => notifier.setTool(CanvasTool.eyedropper),
-                t: t,
-              ),
-              const SizedBox(width: 4),
-              // Transform tool
-              _ToolButton(
-                icon: Icons.open_with,
-                label: l.canvasTransform,
-                isActive: notifier.tool == CanvasTool.transform,
-                onTap: () => notifier.setTool(CanvasTool.transform),
-                t: t,
-              ),
-              const SizedBox(width: 4),
-              // Select tool
-              _ToolButton(
-                icon: Icons.crop_free,
-                label: 'SELECT',
-                isActive: notifier.tool == CanvasTool.select,
-                onTap: () => notifier.setTool(CanvasTool.select),
-                t: t,
-              ),
-              const SizedBox(width: 4),
-              // Lasso tool
-              _ToolButton(
-                icon: Icons.draw,
-                label: 'LASSO',
-                isActive: notifier.tool == CanvasTool.lasso,
-                onTap: () => notifier.setTool(CanvasTool.lasso),
-                t: t,
-              ),
-              const SizedBox(width: 4),
-              // Blur tool
-              _ToolButton(
-                icon: Icons.blur_on,
-                label: 'BLUR',
-                isActive: notifier.tool == CanvasTool.blur,
-                onTap: () => notifier.setTool(CanvasTool.blur),
-                t: t,
-              ),
-              const SizedBox(width: 4),
-              // Clone stamp
-              _ToolButton(
-                icon: Icons.content_copy,
-                label: 'CLONE',
-                isActive: notifier.tool == CanvasTool.cloneStamp,
-                onTap: () => notifier.setTool(CanvasTool.cloneStamp),
-                t: t,
-              ),
-              const SizedBox(width: 4),
-              // Smooth toggle
-              _ToolButton(
-                icon: Icons.gesture,
-                label: l.canvasSmooth,
-                isActive: notifier.smoothStrokes,
-                onTap: notifier.toggleSmoothStrokes,
-                t: t,
+              // Scrollable tool buttons
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _ToolButton(
+                        icon: Icons.brush,
+                        label: l.canvasPaint,
+                        isActive: notifier.tool == CanvasTool.paint,
+                        onTap: () => notifier.setTool(CanvasTool.paint),
+                        t: t,
+                      ),
+                      const SizedBox(width: 4),
+                      _ToolButton(
+                        icon: Icons.auto_fix_high,
+                        label: l.canvasErase,
+                        isActive: notifier.tool == CanvasTool.erase,
+                        onTap: () => notifier.setTool(CanvasTool.erase),
+                        t: t,
+                      ),
+                      const SizedBox(width: 4),
+                      _ToolButton(
+                        icon: Icons.horizontal_rule,
+                        label: l.canvasLine,
+                        isActive: notifier.tool == CanvasTool.line,
+                        onTap: () => notifier.setTool(CanvasTool.line),
+                        t: t,
+                      ),
+                      const SizedBox(width: 4),
+                      _ToolButton(
+                        icon: Icons.crop_square,
+                        label: l.canvasRectangle,
+                        isActive: notifier.tool == CanvasTool.rectangle,
+                        onTap: () => notifier.setTool(CanvasTool.rectangle),
+                        t: t,
+                      ),
+                      const SizedBox(width: 4),
+                      _ToolButton(
+                        icon: Icons.circle_outlined,
+                        label: l.canvasCircle,
+                        isActive: notifier.tool == CanvasTool.circle,
+                        onTap: () => notifier.setTool(CanvasTool.circle),
+                        t: t,
+                      ),
+                      const SizedBox(width: 4),
+                      _ToolButton(
+                        icon: Icons.format_color_fill,
+                        label: l.canvasFill,
+                        isActive: notifier.tool == CanvasTool.fill,
+                        onTap: () => notifier.setTool(CanvasTool.fill),
+                        t: t,
+                      ),
+                      const SizedBox(width: 4),
+                      _ToolButton(
+                        icon: Icons.text_fields,
+                        label: l.canvasText,
+                        isActive: notifier.tool == CanvasTool.text,
+                        onTap: () => notifier.setTool(CanvasTool.text),
+                        t: t,
+                      ),
+                      const SizedBox(width: 4),
+                      _ToolButton(
+                        icon: Icons.colorize,
+                        label: l.canvasEyedropper,
+                        isActive: notifier.tool == CanvasTool.eyedropper,
+                        onTap: () => notifier.setTool(CanvasTool.eyedropper),
+                        t: t,
+                      ),
+                      const SizedBox(width: 4),
+                      _ToolButton(
+                        icon: Icons.open_with,
+                        label: l.canvasTransform,
+                        isActive: notifier.tool == CanvasTool.transform,
+                        onTap: () => notifier.setTool(CanvasTool.transform),
+                        t: t,
+                      ),
+                      const SizedBox(width: 4),
+                      _ToolButton(
+                        icon: Icons.crop_free,
+                        label: 'SELECT',
+                        isActive: notifier.tool == CanvasTool.select,
+                        onTap: () => notifier.setTool(CanvasTool.select),
+                        t: t,
+                      ),
+                      const SizedBox(width: 4),
+                      _ToolButton(
+                        icon: Icons.draw,
+                        label: 'LASSO',
+                        isActive: notifier.tool == CanvasTool.lasso,
+                        onTap: () => notifier.setTool(CanvasTool.lasso),
+                        t: t,
+                      ),
+                      const SizedBox(width: 4),
+                      _ToolButton(
+                        icon: Icons.blur_on,
+                        label: 'BLUR',
+                        isActive: notifier.tool == CanvasTool.blur,
+                        onTap: () => notifier.setTool(CanvasTool.blur),
+                        t: t,
+                      ),
+                      const SizedBox(width: 4),
+                      _ToolButton(
+                        icon: Icons.content_copy,
+                        label: 'CLONE',
+                        isActive: notifier.tool == CanvasTool.cloneStamp,
+                        onTap: () => notifier.setTool(CanvasTool.cloneStamp),
+                        t: t,
+                      ),
+                      const SizedBox(width: 4),
+                      _ToolButton(
+                        icon: Icons.gesture,
+                        label: l.canvasSmooth,
+                        isActive: notifier.smoothStrokes,
+                        onTap: notifier.toggleSmoothStrokes,
+                        t: t,
+                      ),
+                    ],
+                  ),
+                ),
               ),
 
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Container(width: 1, height: 24, color: t.borderSubtle),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
 
               // Color swatch (tap to toggle picker)
               Tooltip(
@@ -367,7 +363,7 @@ class _CanvasToolbarState extends State<CanvasToolbar> {
                   style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(8)),
                   decoration: InputDecoration(
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                     suffixText: '%',
                     suffixStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(7)),
                     border: OutlineInputBorder(
@@ -419,7 +415,7 @@ class _CanvasToolbarState extends State<CanvasToolbar> {
                   style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(8)),
                   decoration: InputDecoration(
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                     suffixText: '%',
                     suffixStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(7)),
                     border: OutlineInputBorder(
@@ -459,6 +455,7 @@ class _CanvasToolbarState extends State<CanvasToolbar> {
               opacity: notifier.brushOpacity,
               onColorChanged: (c) => notifier.setBrushColor(c.toARGB32()),
               onOpacityChanged: notifier.setBrushOpacity,
+              sourceImageColors: notifier.sourceImageColors,
             ),
           ],
         ],
@@ -475,14 +472,18 @@ class _CanvasToolbarState extends State<CanvasToolbar> {
           style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(8), letterSpacing: 1),
         ),
         const SizedBox(width: 8),
-        SizedBox(
-          width: 160,
-          height: 28,
-          child: _FontDropdown(
+        Flexible(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 200),
+            child: SizedBox(
+              height: 28,
+              child: _FontDropdown(
             value: notifier.pendingTextFontFamily,
             defaultLabel: l.canvasTextDefault,
             onChanged: notifier.setPendingTextFontFamily,
             t: t,
+          ),
+            ),
           ),
         ),
         const SizedBox(width: 16),
@@ -557,7 +558,7 @@ class _CanvasToolbarState extends State<CanvasToolbar> {
     final session = notifier.session!;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: t.surfaceHigh,
         border: Border(top: BorderSide(color: t.borderSubtle)),
@@ -770,6 +771,7 @@ class _CanvasToolbarState extends State<CanvasToolbar> {
                 l.canvasSize,
                 style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(7), letterSpacing: 1),
               ),
+              const SizedBox(width: 4),
               Expanded(
                 child: VisionSlider.subtle(
                   value: _radiusToSlider(notifier.brushRadius),
@@ -787,11 +789,12 @@ class _CanvasToolbarState extends State<CanvasToolbar> {
                   textAlign: TextAlign.right,
                 ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 10),
               Text(
                 l.canvasOpacity,
                 style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(7), letterSpacing: 1),
               ),
+              const SizedBox(width: 4),
               Expanded(
                 child: VisionSlider.subtle(
                   value: notifier.brushOpacity,
@@ -853,6 +856,7 @@ class _CanvasToolbarState extends State<CanvasToolbar> {
               opacity: notifier.brushOpacity,
               onColorChanged: (c) => notifier.setBrushColor(c.toARGB32()),
               onOpacityChanged: notifier.setBrushOpacity,
+              sourceImageColors: notifier.sourceImageColors,
               compact: false,
             ),
           ],

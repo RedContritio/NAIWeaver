@@ -15,6 +15,7 @@ import '../../../../core/theme/vision_tokens.dart';
 import '../../../../core/utils/app_snackbar.dart';
 import '../../../../core/widgets/confirm_dialog.dart';
 import '../../../../core/utils/responsive.dart';
+import 'canvas_help_dialog.dart';
 import '../../../gallery/providers/gallery_notifier.dart';
 import '../../img2img/providers/img2img_notifier.dart';
 import '../models/canvas_layer.dart';
@@ -312,6 +313,12 @@ class _CanvasEditorState extends State<CanvasEditor> {
               ),
               ),
             ),
+          // Help
+          IconButton(
+            icon: Icon(Icons.help_outline, size: 16, color: t.textTertiary),
+            onPressed: () => showCanvasHelpDialog(context),
+            tooltip: l.canvasHelp,
+          ),
           // Import image as layer
           if (session != null)
             IconButton(

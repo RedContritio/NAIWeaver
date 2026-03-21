@@ -2214,6 +2214,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get canvasImportImage => 'Import Image';
 
   @override
+  String get canvasHelp => 'CANVAS HELP';
+
+  @override
   String get canvasSmooth => 'SMOOTH';
 
   @override
