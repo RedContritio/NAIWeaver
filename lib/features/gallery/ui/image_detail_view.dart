@@ -677,7 +677,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
                         onInteractionStart: _onInteractionStart,
                         onInteractionEnd: (_) => _onInteractionEnd(zoomController),
                         child: Center(
-                          child: Image.file(pageItem.file),
+                          child: Image.file(pageItem.file, fit: BoxFit.contain),
                         ),
                       ),
                     );
@@ -690,10 +690,8 @@ class _ImageDetailViewState extends State<ImageDetailView>
                   duration: const Duration(milliseconds: 300),
                   child: IgnorePointer(
                     ignoring: !_showControls,
-                    child: Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
+                    child: Align(
+                      alignment: Alignment.topCenter,
                       child: Container(
                           width: double.infinity,
                           padding: EdgeInsets.only(
@@ -809,10 +807,8 @@ class _ImageDetailViewState extends State<ImageDetailView>
                   duration: const Duration(milliseconds: 300),
                   child: IgnorePointer(
                     ignoring: !_showControls,
-                    child: Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
                       child: Container(
                         width: double.infinity,
                         padding: EdgeInsets.only(
