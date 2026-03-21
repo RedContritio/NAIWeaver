@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:ui' show Offset;
 import 'canvas_layer.dart';
 import 'paint_stroke.dart';
 
@@ -29,6 +30,7 @@ sealed class CanvasAction {
       'addImageLayer' => AddImageLayerAction._fromJson(json),
       'transformImageLayer' => TransformImageLayerAction._fromJson(json),
       'replaceImageBytes' => ReplaceImageBytesAction._fromJson(json),
+      'resizeCanvas' => ResizeCanvasAction._fromJson(json),
       _ => throw ArgumentError('Unknown action type: ${json['type']}'),
     };
   }
@@ -517,5 +519,118 @@ class ReplaceImageBytesAction extends CanvasAction {
   void revert(List<CanvasLayer> layers) {
     final idx = layers.indexWhere((l) => l.id == layerId);
     if (idx >= 0) layers[idx] = layers[idx].copyWith(imageBytes: oldBytes);
+  }
+}
+
+/// Resize the canvas, remapping all normalized stroke/image-layer coordinates.
+class ResizeCanvasAction extends CanvasAction {
+  final int oldWidth;
+  final int oldHeight;
+  final int newWidth;
+  final int newHeight;
+  final int anchorOffsetX;
+  final int anchorOffsetY;
+
+  const ResizeCanvasAction({
+    required this.oldWidth,
+    required this.oldHeight,
+    required this.newWidth,
+    required this.newHeight,
+    required this.anchorOffsetX,
+    required this.anchorOffsetY,
+  });
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'type': 'resizeCanvas',
+        'oldWidth': oldWidth,
+        'oldHeight': oldHeight,
+        'newWidth': newWidth,
+        'newHeight': newHeight,
+        'anchorOffsetX': anchorOffsetX,
+        'anchorOffsetY': anchorOffsetY,
+      };
+
+  static ResizeCanvasAction _fromJson(Map<String, dynamic> json) =>
+      ResizeCanvasAction(
+        oldWidth: json['oldWidth'] as int,
+        oldHeight: json['oldHeight'] as int,
+        newWidth: json['newWidth'] as int,
+        newHeight: json['newHeight'] as int,
+        anchorOffsetX: json['anchorOffsetX'] as int,
+        anchorOffsetY: json['anchorOffsetY'] as int,
+      );
+
+  @override
+  void apply(List<CanvasLayer> layers, {required String activeLayerId}) {
+    _remapLayers(layers, oldWidth, oldHeight, newWidth, newHeight, anchorOffsetX, anchorOffsetY);
+  }
+
+  @override
+  void revert(List<CanvasLayer> layers) {
+    // Inverse: remap back from new→old
+    _remapLayers(layers, newWidth, newHeight, oldWidth, oldHeight, -anchorOffsetX, -anchorOffsetY);
+  }
+
+  static void _remapLayers(List<CanvasLayer> layers,
+      int fromW, int fromH, int toW, int toH, int offX, int offY) {
+    for (int i = 0; i < layers.length; i++) {
+      final layer = layers[i];
+
+      // Remap strokes
+      final remappedStrokes = layer.strokes.map((stroke) {
+        final remappedPoints = stroke.points.map((p) {
+          final newX = (p.dx * fromW + offX) / toW;
+          final newY = (p.dy * fromH + offY) / toH;
+          return Offset(newX, newY);
+        }).toList();
+
+        // Remap radius (normalized to width)
+        final newRadius = stroke.radius * fromW / toW;
+
+        // Remap font size (normalized to height)
+        final newFontSize = stroke.fontSize != null
+            ? stroke.fontSize! * fromH / toH
+            : null;
+
+        // Remap letter spacing (normalized to height)
+        final newLetterSpacing = stroke.letterSpacing != null
+            ? stroke.letterSpacing! * fromH / toH
+            : null;
+
+        return PaintStroke(
+          points: remappedPoints,
+          radius: newRadius,
+          colorValue: stroke.colorValue,
+          opacity: stroke.opacity,
+          isErase: stroke.isErase,
+          strokeType: stroke.strokeType,
+          smooth: stroke.smooth,
+          text: stroke.text,
+          fontSize: newFontSize,
+          fontFamily: stroke.fontFamily,
+          letterSpacing: newLetterSpacing,
+          blurSigma: stroke.blurSigma,
+          cloneSourceOffset: stroke.cloneSourceOffset,
+        );
+      }).toList();
+
+      // Remap image layer position
+      double newImgX = layer.imageX;
+      double newImgY = layer.imageY;
+      double newImgScale = layer.imageScale;
+      if (layer.isImageLayer) {
+        newImgX = (layer.imageX * fromW + offX) / toW;
+        newImgY = (layer.imageY * fromH + offY) / toH;
+        newImgScale = layer.imageScale * fromW / toW;
+      }
+
+      layers[i] = layer.copyWith(
+        strokes: remappedStrokes,
+        imageX: newImgX,
+        imageY: newImgY,
+        imageScale: newImgScale,
+      );
+    }
   }
 }

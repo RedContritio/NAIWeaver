@@ -52,6 +52,7 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
   final FocusNode _keyboardFocusNode = FocusNode();
   final FocusNode _textKeyboardFocusNode = FocusNode();
   bool _spaceHeld = false;
+  bool _middleMouseHeld = false;
 
   // Image layer cache
   final Map<String, ui.Image> _imageLayerCache = {};
@@ -239,7 +240,7 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
         }
 
         // Whether pan mode is active (Space held or middle-mouse)
-        final isPanMode = _spaceHeld;
+        final isPanMode = _spaceHeld || _middleMouseHeld;
 
         return KeyboardListener(
           focusNode: _keyboardFocusNode,
@@ -251,6 +252,17 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
           child: Stack(
             children: [
               Listener(
+                onPointerDown: (event) {
+                  if (event.buttons & kMiddleMouseButton != 0) {
+                    setState(() => _middleMouseHeld = true);
+                  }
+                },
+                onPointerUp: (event) {
+                  if (_middleMouseHeld) setState(() => _middleMouseHeld = false);
+                },
+                onPointerCancel: (event) {
+                  if (_middleMouseHeld) setState(() => _middleMouseHeld = false);
+                },
                 onPointerSignal: (event) {
                   if (event is PointerScrollEvent) {
                     _onPointerSignal(event, notifier);

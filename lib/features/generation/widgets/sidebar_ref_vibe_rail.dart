@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../../core/theme/vision_tokens.dart';
 import '../../../core/utils/app_snackbar.dart';
@@ -9,6 +10,7 @@ import '../../../core/services/novel_ai_service.dart';
 import '../../director_ref/models/director_reference.dart';
 import '../../director_ref/providers/director_ref_notifier.dart';
 import '../../director_ref/widgets/director_ref_editor_sheet.dart';
+import '../../director_ref/widgets/director_ref_shelf.dart' show SavedRefsSheet;
 import '../../vibe_transfer/providers/vibe_transfer_notifier.dart';
 import '../../vibe_transfer/widgets/vibe_transfer_editor_sheet.dart';
 
@@ -60,6 +62,88 @@ class _RefSection extends StatelessWidget {
     }
   }
 
+  void _showRefMenu(BuildContext context) {
+    final menuT = context.t;
+    final l = context.l;
+    final RenderBox button = context.findRenderObject() as RenderBox;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        button.localToGlobal(Offset.zero, ancestor: overlay),
+        button.localToGlobal(button.size.bottomRight(Offset.zero), ancestor: overlay),
+      ),
+      Offset.zero & overlay.size,
+    );
+
+    showMenu<String>(
+      context: context,
+      position: position,
+      color: menuT.surfaceHigh,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      items: [
+        PopupMenuItem(
+          value: 'library',
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.bookmark_outline, size: 14, color: menuT.accentRefCharacter),
+              const SizedBox(width: 8),
+              Text(l.refLoadSaved, style: TextStyle(
+                fontSize: menuT.fontSize(9),
+                letterSpacing: 1,
+                fontWeight: FontWeight.bold,
+                color: menuT.textPrimary,
+              )),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'pick',
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.add_photo_alternate_outlined, size: 14, color: menuT.accentRefCharacter),
+              const SizedBox(width: 8),
+              Text(l.refPickImage, style: TextStyle(
+                fontSize: menuT.fontSize(9),
+                letterSpacing: 1,
+                fontWeight: FontWeight.bold,
+                color: menuT.textPrimary,
+              )),
+            ],
+          ),
+        ),
+      ],
+    ).then((value) {
+      if (value == 'library') {
+        _showSavedRefsSheet(context);
+      } else if (value == 'pick') {
+        _pickAndAdd(context);
+      }
+    });
+  }
+
+  void _showSavedRefsSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => SavedRefsSheet(
+        onLoad: (saved) async {
+          final notifier = context.read<DirectorRefNotifier>();
+          await notifier.addReference(saved.reference.originalImageBytes);
+          final refs = notifier.references;
+          if (refs.isNotEmpty) {
+            final last = refs.last;
+            notifier.updateType(last.id, saved.reference.type);
+            notifier.updateStrength(last.id, saved.reference.strength);
+            notifier.updateFidelity(last.id, saved.reference.fidelity);
+          }
+        },
+      ),
+    );
+  }
+
   void _openEditor(BuildContext context, DirectorRefNotifier notifier, DirectorReference ref) {
     showModalBottomSheet(
       context: context,
@@ -97,7 +181,7 @@ class _RefSection extends StatelessWidget {
               label: 'REF',
               color: t.accentRefCharacter,
               isProcessing: notifier.isProcessing,
-              onTap: () => _pickAndAdd(context),
+              onTap: () => _showRefMenu(context),
             ),
           ],
         );

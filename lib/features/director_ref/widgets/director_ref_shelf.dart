@@ -107,7 +107,7 @@ class DirectorRefShelf extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _SavedRefsSheet(
+      builder: (_) => SavedRefsSheet(
         onLoad: (saved) async {
           final notifier = context.read<DirectorRefNotifier>();
           await notifier.addReference(saved.reference.originalImageBytes);
@@ -190,16 +190,16 @@ class _AddRefButton extends StatelessWidget {
   }
 }
 
-class _SavedRefsSheet extends StatefulWidget {
+class SavedRefsSheet extends StatefulWidget {
   final Future<void> Function(SavedDirectorRef) onLoad;
 
-  const _SavedRefsSheet({required this.onLoad});
+  const SavedRefsSheet({super.key, required this.onLoad});
 
   @override
-  State<_SavedRefsSheet> createState() => _SavedRefsSheetState();
+  State<SavedRefsSheet> createState() => _SavedRefsSheetState();
 }
 
-class _SavedRefsSheetState extends State<_SavedRefsSheet> {
+class _SavedRefsSheetState extends State<SavedRefsSheet> {
   List<SavedDirectorRef> _savedRefs = [];
   bool _loading = true;
 

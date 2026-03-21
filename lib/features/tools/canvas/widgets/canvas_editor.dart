@@ -319,6 +319,13 @@ class _CanvasEditorState extends State<CanvasEditor> {
             onPressed: () => showCanvasHelpDialog(context),
             tooltip: l.canvasHelp,
           ),
+          // Resize canvas
+          if (session != null)
+            IconButton(
+              icon: Icon(Icons.aspect_ratio, size: 16, color: t.textTertiary),
+              onPressed: () => _showResizeDialog(context, notifier, t),
+              tooltip: 'Resize Canvas',
+            ),
           // Import image as layer
           if (session != null)
             IconButton(
@@ -359,6 +366,21 @@ class _CanvasEditorState extends State<CanvasEditor> {
       notifier.clearSession();
       Navigator.pop(context);
     }
+  }
+
+  void _showResizeDialog(BuildContext context, CanvasNotifier notifier, VisionTokens t) {
+    final session = notifier.session;
+    if (session == null) return;
+    showDialog(
+      context: context,
+      builder: (_) => _CanvasResizeDialog(
+        currentWidth: session.sourceWidth,
+        currentHeight: session.sourceHeight,
+        onApply: (newWidth, newHeight, anchorX, anchorY) {
+          notifier.resizeCanvas(newWidth, newHeight, anchorX, anchorY);
+        },
+      ),
+    );
   }
 
   Future<void> _importImage() async {
@@ -487,5 +509,210 @@ class _CanvasEditorState extends State<CanvasEditor> {
         showErrorSnackBar(context, context.l.canvasFlattenFailed(e.toString()));
       }
     }
+  }
+}
+
+/// Dialog for resizing the canvas with an anchor grid.
+class _CanvasResizeDialog extends StatefulWidget {
+  final int currentWidth;
+  final int currentHeight;
+  final void Function(int newWidth, int newHeight, int anchorX, int anchorY) onApply;
+
+  const _CanvasResizeDialog({
+    required this.currentWidth,
+    required this.currentHeight,
+    required this.onApply,
+  });
+
+  @override
+  State<_CanvasResizeDialog> createState() => _CanvasResizeDialogState();
+}
+
+class _CanvasResizeDialogState extends State<_CanvasResizeDialog> {
+  late TextEditingController _widthController;
+  late TextEditingController _heightController;
+  int _anchorRow = 1; // 0=top, 1=center, 2=bottom
+  int _anchorCol = 1; // 0=left, 1=center, 2=right
+
+  @override
+  void initState() {
+    super.initState();
+    _widthController = TextEditingController(text: widget.currentWidth.toString());
+    _heightController = TextEditingController(text: widget.currentHeight.toString());
+  }
+
+  @override
+  void dispose() {
+    _widthController.dispose();
+    _heightController.dispose();
+    super.dispose();
+  }
+
+  void _addToWidth(int amount) {
+    final current = int.tryParse(_widthController.text) ?? widget.currentWidth;
+    _widthController.text = (current + amount).clamp(64, 9999).toString();
+  }
+
+  void _addToHeight(int amount) {
+    final current = int.tryParse(_heightController.text) ?? widget.currentHeight;
+    _heightController.text = (current + amount).clamp(64, 9999).toString();
+  }
+
+  void _apply() {
+    final newW = int.tryParse(_widthController.text) ?? widget.currentWidth;
+    final newH = int.tryParse(_heightController.text) ?? widget.currentHeight;
+    if (newW == widget.currentWidth && newH == widget.currentHeight) {
+      Navigator.pop(context);
+      return;
+    }
+
+    final dw = newW - widget.currentWidth;
+    final dh = newH - widget.currentHeight;
+
+    // Compute anchor offset based on grid position
+    final anchorX = (_anchorCol * dw / 2).round();
+    final anchorY = (_anchorRow * dh / 2).round();
+
+    widget.onApply(newW, newH, anchorX, anchorY);
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    return AlertDialog(
+      backgroundColor: t.surfaceHigh,
+      title: Text(
+        'RESIZE CANVAS',
+        style: TextStyle(
+          fontSize: t.fontSize(10),
+          letterSpacing: 2,
+          color: t.textSecondary,
+        ),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Dimension inputs
+          Row(
+            children: [
+              Expanded(child: _buildDimInput('WIDTH', _widthController, t)),
+              const SizedBox(width: 16),
+              Expanded(child: _buildDimInput('HEIGHT', _heightController, t)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Quick-add buttons
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _quickButton('+480 W', () => _addToWidth(480), t),
+              _quickButton('+480 H', () => _addToHeight(480), t),
+              _quickButton('+256 W', () => _addToWidth(256), t),
+              _quickButton('+256 H', () => _addToHeight(256), t),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Anchor label
+          Text(
+            'ANCHOR',
+            style: TextStyle(
+              fontSize: t.fontSize(8),
+              letterSpacing: 2,
+              color: t.textDisabled,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          // 3x3 anchor grid
+          _buildAnchorGrid(t),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('CANCEL', style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9))),
+        ),
+        TextButton(
+          onPressed: _apply,
+          child: Text('APPLY', style: TextStyle(color: t.accentEdit, fontSize: t.fontSize(9))),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDimInput(String label, TextEditingController controller, VisionTokens t) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: t.fontSize(8), letterSpacing: 1, color: t.textDisabled, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          style: TextStyle(fontSize: t.fontSize(11), color: t.textPrimary),
+          decoration: InputDecoration(
+            fillColor: t.borderSubtle.withValues(alpha: 0.5),
+            filled: true,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _quickButton(String label, VoidCallback onTap, VisionTokens t) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: t.borderMedium),
+        ),
+        child: Text(label, style: TextStyle(fontSize: t.fontSize(8), color: t.textSecondary, letterSpacing: 1)),
+      ),
+    );
+  }
+
+  Widget _buildAnchorGrid(VisionTokens t) {
+    return SizedBox(
+      width: 90,
+      height: 90,
+      child: GridView.count(
+        crossAxisCount: 3,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        mainAxisSpacing: 4,
+        crossAxisSpacing: 4,
+        children: List.generate(9, (index) {
+          final row = index ~/ 3;
+          final col = index % 3;
+          final isSelected = row == _anchorRow && col == _anchorCol;
+          return GestureDetector(
+            onTap: () => setState(() {
+              _anchorRow = row;
+              _anchorCol = col;
+            }),
+            child: Container(
+              decoration: BoxDecoration(
+                color: isSelected ? t.accentEdit : t.borderSubtle,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: isSelected ? t.accentEdit : t.borderMedium,
+                  width: isSelected ? 2 : 1,
+                ),
+              ),
+              child: isSelected
+                  ? Icon(Icons.circle, size: 8, color: t.background)
+                  : null,
+            ),
+          );
+        }),
+      ),
+    );
   }
 }

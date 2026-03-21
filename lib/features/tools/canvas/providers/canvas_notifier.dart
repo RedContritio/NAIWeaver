@@ -723,6 +723,14 @@ class CanvasNotifier extends ChangeNotifier {
     if (_session == null || !_session!.canUndo) return;
     final action = _session!.history[_session!.historyIndex - 1];
     _revertAction(action);
+    // Handle dimension changes for resize actions
+    if (action is ResizeCanvasAction) {
+      _session = _session!.copyWith(
+        sourceWidth: action.oldWidth,
+        sourceHeight: action.oldHeight,
+      );
+
+    }
     _session = _session!.copyWith(historyIndex: _session!.historyIndex - 1);
     notifyListeners();
   }
@@ -731,7 +739,41 @@ class CanvasNotifier extends ChangeNotifier {
     if (_session == null || !_session!.canRedo) return;
     final action = _session!.history[_session!.historyIndex];
     _applyAction(action);
+    // Handle dimension changes for resize actions
+    if (action is ResizeCanvasAction) {
+      _session = _session!.copyWith(
+        sourceWidth: action.newWidth,
+        sourceHeight: action.newHeight,
+      );
+
+    }
     _session = _session!.copyWith(historyIndex: _session!.historyIndex + 1);
+    notifyListeners();
+  }
+
+  /// Resize the canvas with the existing content anchored at the given offset.
+  void resizeCanvas(int newWidth, int newHeight, int anchorOffsetX, int anchorOffsetY) {
+    if (_session == null) return;
+    final action = ResizeCanvasAction(
+      oldWidth: _session!.sourceWidth,
+      oldHeight: _session!.sourceHeight,
+      newWidth: newWidth,
+      newHeight: newHeight,
+      anchorOffsetX: anchorOffsetX,
+      anchorOffsetY: anchorOffsetY,
+    );
+
+    // Discard future branch
+    final trimmedHistory = _session!.history.sublist(0, _session!.historyIndex);
+    _session = _session!.copyWith(
+      history: [...trimmedHistory, action],
+      historyIndex: trimmedHistory.length + 1,
+    );
+    _applyAction(action);
+    _session = _session!.copyWith(
+      sourceWidth: newWidth,
+      sourceHeight: newHeight,
+    );
     notifyListeners();
   }
 
