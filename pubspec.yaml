@@ -58,6 +58,7 @@ dependencies:
   flutter_midi_pro: ^3.1.6
   ffi: ^2.1.0
   audio_service: ^0.18.15
+  wakelock_plus: ^1.2.8
 
 dev_dependencies:
   flutter_test:

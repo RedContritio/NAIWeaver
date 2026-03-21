@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -53,6 +54,11 @@ class QuickActionOverlay extends StatelessWidget {
     final double saveTop = nextTop;
     if (showSave) nextTop += step;
 
+    final bool showExport = prefs.showExportButton &&
+        !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+    final double exportTop = nextTop;
+    if (showExport) nextTop += step;
+
     final bool showEdit = state.showEditButton;
     final double editTop = nextTop;
     if (showEdit) nextTop += step;
@@ -86,6 +92,20 @@ class QuickActionOverlay extends StatelessWidget {
               icon: Icons.save_alt,
               label: l.mainSave.toUpperCase(),
               color: t.accentSuccess,
+              mobile: mobile,
+            ),
+          ),
+
+        // EXPORT to device
+        if (showExport)
+          Positioned(
+            top: exportTop,
+            right: 20,
+            child: _ActionButton(
+              onTap: () => notifier.exportToDevice(context),
+              icon: Icons.download,
+              label: l.mainExport,
+              color: t.accent,
               mobile: mobile,
             ),
           ),

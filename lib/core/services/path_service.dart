@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -63,7 +64,20 @@ class PathService {
 
   Future<void> _copyAssetIfMissing(String assetPath, String targetPath) async {
     final file = File(targetPath);
-    if (!await file.exists()) {
+    bool shouldSeed = !await file.exists();
+    if (!shouldSeed) {
+      try {
+        final content = await file.readAsString();
+        if (content.trim().isEmpty) {
+          shouldSeed = true;
+        } else {
+          jsonDecode(content); // validate JSON
+        }
+      } catch (_) {
+        shouldSeed = true;
+      }
+    }
+    if (shouldSeed) {
       try {
         final data = await rootBundle.loadString(assetPath);
         await file.writeAsString(data);

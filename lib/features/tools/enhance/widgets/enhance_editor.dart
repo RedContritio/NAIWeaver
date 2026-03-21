@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:file_picker/file_picker.dart';
+import '../../../../core/utils/file_picker_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/l10n/l10n_extensions.dart';
@@ -120,7 +120,7 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
               description: l.img2imgUploadFromDeviceDesc,
               accentColor: t.accentEdit,
               onTap: () async {
-                final result = await FilePicker.platform.pickFiles(type: FileType.image);
+                final result = await pickImageFiles();
                 if (result != null && result.files.single.path != null) {
                   final bytes = await File(result.files.single.path!).readAsBytes();
                   notifier.setSourceImage(bytes);

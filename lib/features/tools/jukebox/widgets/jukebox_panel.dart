@@ -1,4 +1,4 @@
-import 'package:file_picker/file_picker.dart';
+import '../../../../core/utils/file_picker_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/jukebox/models/game_score.dart';
@@ -886,8 +886,7 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
   // ─────────────────────────────────────────
 
   Future<void> _importSong(JukeboxNotifier jukebox) async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
+    final result = await pickCustomFiles(
       allowedExtensions: ['kar', 'mid', 'midi'],
     );
     if (result == null || result.files.isEmpty) return;

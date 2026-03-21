@@ -62,18 +62,26 @@ class _PinLockGateState extends State<PinLockGate> with WidgetsBindingObserver {
       final auth = LocalAuthentication();
       final canCheck = await auth.canCheckBiometrics || await auth.isDeviceSupported();
       if (!canCheck) return;
+
+      // Check if biometrics are actually enrolled on the device
+      final available = await auth.getAvailableBiometrics();
+      final hasBiometric = available.contains(BiometricType.fingerprint) ||
+          available.contains(BiometricType.face) ||
+          available.contains(BiometricType.strong) ||
+          available.contains(BiometricType.weak);
+
       final didAuth = await auth.authenticate(
         localizedReason: 'Unlock NAIWeaver',
-        options: const AuthenticationOptions(
+        options: AuthenticationOptions(
           stickyAuth: true,
-          biometricOnly: false,
+          biometricOnly: hasBiometric,
         ),
       );
       if (didAuth && mounted) {
         setState(() => _isLocked = false);
       }
-    } catch (_) {
-      // Biometric failed or unavailable — fall back to PIN keypad
+    } catch (e) {
+      debugPrint('Biometric auth failed: $e');
     }
   }
 

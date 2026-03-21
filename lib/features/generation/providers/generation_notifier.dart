@@ -3,8 +3,12 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:gal/gal.dart';
 import 'package:path/path.dart' as p;
 import 'package:intl/intl.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
+import '../../../core/l10n/l10n_extensions.dart';
+import '../../../core/utils/app_snackbar.dart';
 import '../../../core/services/preferences_service.dart';
 import '../../../core/services/novel_ai_service.dart';
 import '../../../core/services/wildcard_processor.dart';
@@ -545,6 +549,43 @@ class GenerationNotifier extends ChangeNotifier {
       _galleryNotifier?.addFile(savedFile, DateTime.now());
       _imageSaved = true;
       notifyListeners();
+
+      await _autoExportIfEnabled(_state.generatedImage!);
+    }
+  }
+
+  /// Exports the current generated image to the device photo gallery.
+  Future<void> exportToDevice(BuildContext context) async {
+    if (_state.generatedImage == null) return;
+    try {
+      await _exportBytesToDevice(_state.generatedImage!);
+      if (context.mounted) {
+        showAppSnackBar(context, context.l.gallerySavedToDevice, color: const Color(0xFF4CAF50));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        showAppSnackBar(context, 'Export failed: $e', color: const Color(0xFFF44336));
+      }
+    }
+  }
+
+  Future<void> _exportBytesToDevice(Uint8List bytes) async {
+    final hasAccess = await Gal.hasAccess();
+    if (!hasAccess) {
+      final granted = await Gal.requestAccess();
+      if (!granted) return;
+    }
+    final timestamp = DateFormat('yyyyMMdd_HHmmssSSS').format(DateTime.now());
+    final album = _prefs.exportAlbumName;
+    await Gal.putImageBytes(bytes, name: 'Gen_$timestamp', album: album);
+  }
+
+  Future<void> _autoExportIfEnabled(Uint8List bytes) async {
+    if (!_prefs.autoExportToDevice || kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return;
+    try {
+      await _exportBytesToDevice(bytes);
+    } catch (e) {
+      debugPrint('Auto-export failed: $e');
     }
   }
 
@@ -649,6 +690,11 @@ class GenerationNotifier extends ChangeNotifier {
     _state = _state.copyWith(isLoading: true, hasAuthError: false);
     notifyListeners();
 
+    // Keep screen/CPU awake during generation to prevent network drops
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      try { WakelockPlus.enable(); } catch (_) {}
+    }
+
     try {
       final processedPrompt = await _wildcardProcessor.process(promptController.text);
       final resolvedPrompt = _tagService.resolveAliases(processedPrompt);
@@ -744,6 +790,7 @@ class GenerationNotifier extends ChangeNotifier {
         if (savedFile != null) {
           _galleryNotifier?.addFile(savedFile, DateTime.now());
           _imageSaved = true;
+          await _autoExportIfEnabled(result.imageBytes);
         }
       }
     } on UnauthorizedException {
@@ -755,6 +802,9 @@ class GenerationNotifier extends ChangeNotifier {
       _state = _state.copyWith(isLoading: false);
       notifyListeners();
       fetchAnlas();
+      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+        try { WakelockPlus.disable(); } catch (_) {}
+      }
     }
   }
 
@@ -975,6 +1025,7 @@ class GenerationNotifier extends ChangeNotifier {
         final savedFile = await _saveToDisk(result.imageBytes, result.metadata);
         if (savedFile != null) {
           _galleryNotifier?.addFile(savedFile, DateTime.now());
+          await _autoExportIfEnabled(result.imageBytes);
         }
       }
 
@@ -1021,6 +1072,7 @@ class GenerationNotifier extends ChangeNotifier {
         if (savedFile != null) {
           _galleryNotifier?.addFile(savedFile, DateTime.now());
           _imageSaved = true;
+          await _autoExportIfEnabled(result.imageBytes);
         }
       }
 
@@ -1049,6 +1101,9 @@ class GenerationNotifier extends ChangeNotifier {
           : (int.tryParse(seedController.text) ?? math.Random().nextInt(4294967295));
       if (_state.randomizeSeed) seedController.text = seed.toString();
 
+      final dirPayload = _directorRefNotifier?.buildPayload();
+      final vibePayload = _vibeTransferNotifier?.buildPayload();
+
       final result = await _service.generateImage(
         prompt: request.prompt,
         negativePrompt: request.negativePrompt,
@@ -1070,6 +1125,14 @@ class GenerationNotifier extends ChangeNotifier {
         characters: request.characters,
         interactions: request.interactions,
         useCoords: request.useCoords,
+        directorRefImages: dirPayload?.images,
+        directorRefDescriptions: dirPayload?.descriptions,
+        directorRefStrengths: dirPayload?.strengths,
+        directorRefSecondaryStrengths: dirPayload?.secondaryStrengths,
+        directorRefInfoExtracted: dirPayload?.infoExtracted,
+        vibeTransferImages: vibePayload?.vibeVectors,
+        vibeTransferStrengths: vibePayload?.strengths,
+        vibeTransferInfoExtracted: vibePayload?.infoExtracted,
       );
 
       Uint8List finalBytes = result.imageBytes;
@@ -1096,6 +1159,7 @@ class GenerationNotifier extends ChangeNotifier {
         if (savedFile != null) {
           _galleryNotifier?.addFile(savedFile, DateTime.now());
           _imageSaved = true;
+          await _autoExportIfEnabled(finalBytes);
         }
       }
 

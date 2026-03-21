@@ -24,6 +24,9 @@ class ThemeNotifier extends ChangeNotifier {
   late VisionTokens _tokens;
   List<AppThemeConfig> _userThemes = [];
   List<String> _sectionOrder = List.of(defaultSectionOrder);
+  String _sidebarLayoutMode = 'auto';
+  String _sidebarPromptPosition = 'left';
+  String _sidebarWidthMode = 'normal';
 
   /// Temporary preview config (non-null while user is previewing edits).
   AppThemeConfig? _previewConfig;
@@ -41,6 +44,9 @@ class ThemeNotifier extends ChangeNotifier {
   String get activeThemeId => _activeConfig.id;
   bool get isPreviewing => _previewConfig != null;
   List<String> get sectionOrder => List.unmodifiable(_sectionOrder);
+  String get sidebarLayoutMode => _sidebarLayoutMode;
+  String get sidebarPromptPosition => _sidebarPromptPosition;
+  String get sidebarWidthMode => _sidebarWidthMode;
 
   ThemeData get themeData => _buildThemeData(activeConfig);
 
@@ -88,6 +94,11 @@ class ThemeNotifier extends ChangeNotifier {
       // Remove any IDs no longer in defaults
       _sectionOrder.removeWhere((id) => !defaultSectionOrder.contains(id));
     }
+
+    // Load sidebar layout preferences
+    _sidebarLayoutMode = _prefs.sidebarLayoutMode;
+    _sidebarPromptPosition = _prefs.sidebarPromptPosition;
+    _sidebarWidthMode = _prefs.sidebarWidthMode;
 
     _tokens = VisionTokens(_activeConfig);
     notifyListeners();
@@ -198,6 +209,25 @@ class ThemeNotifier extends ChangeNotifier {
     }
     _previewConfig = null;
     await _persist();
+    notifyListeners();
+  }
+
+  // — Sidebar layout —
+  Future<void> setSidebarLayoutMode(String value) async {
+    _sidebarLayoutMode = value;
+    await _prefs.setSidebarLayoutMode(value);
+    notifyListeners();
+  }
+
+  Future<void> setSidebarPromptPosition(String value) async {
+    _sidebarPromptPosition = value;
+    await _prefs.setSidebarPromptPosition(value);
+    notifyListeners();
+  }
+
+  Future<void> setSidebarWidthMode(String value) async {
+    _sidebarWidthMode = value;
+    await _prefs.setSidebarWidthMode(value);
     notifyListeners();
   }
 

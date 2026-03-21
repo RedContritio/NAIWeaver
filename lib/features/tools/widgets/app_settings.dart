@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import '../../../core/services/path_service.dart';
 import '../../../core/services/preferences_service.dart';
 import '../../../core/services/update_service.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/theme_notifier.dart';
 import '../../../core/theme/vision_tokens.dart';
 import '../../../core/utils/app_snackbar.dart';
 import '../../../core/utils/responsive.dart';
@@ -57,6 +59,7 @@ class _AppSettingsState extends State<AppSettings> {
   Widget build(BuildContext context) {
     final notifier = context.watch<GenerationNotifier>();
     final state = notifier.state;
+    final prefs = context.read<PreferencesService>();
     final t = context.t;
     final l = context.l;
 
@@ -89,6 +92,10 @@ class _AppSettingsState extends State<AppSettings> {
           const SizedBox(height: 32),
           _buildHeader(l.settingsUiSettings.toUpperCase(), t),
           const SizedBox(height: 16),
+          _buildLayoutModeSelector(t),
+          _buildPromptPositionSelector(t),
+          _buildSidebarWidthSelector(t),
+          const SizedBox(height: 12),
           _buildAnlasTrackerToggle(t),
           const SizedBox(height: 12),
           _buildShowTooltipsToggle(t),
@@ -132,6 +139,38 @@ class _AppSettingsState extends State<AppSettings> {
             onChanged: (_) => notifier.toggleShowDirectorToolsButton(),
             t: t,
           ),
+          if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) ...[
+            const SizedBox(height: 12),
+            _buildShelfToggle(
+              label: l.settingsExportButton.toUpperCase(),
+              description: l.settingsExportButtonDesc,
+              value: prefs.showExportButton,
+              onChanged: (_) async {
+                await prefs.setShowExportButton(!prefs.showExportButton);
+                setState(() {});
+              },
+              t: t,
+            ),
+            const SizedBox(height: 12),
+            _buildShelfToggle(
+              label: l.settingsAutoExport.toUpperCase(),
+              description: l.settingsAutoExportDesc,
+              value: prefs.autoExportToDevice,
+              onChanged: (_) async {
+                await prefs.setAutoExportToDevice(!prefs.autoExportToDevice);
+                setState(() {});
+              },
+              t: t,
+            ),
+            const SizedBox(height: 12),
+            _buildTextFieldSetting(
+              label: l.settingsExportAlbum.toUpperCase(),
+              description: l.settingsExportAlbumDesc,
+              value: prefs.exportAlbumName,
+              onChanged: (value) => prefs.setExportAlbumName(value),
+              t: t,
+            ),
+          ],
           const SizedBox(height: 12),
           _buildShelfToggle(
             label: l.settingsDirectorRefShelf.toUpperCase(),
@@ -450,6 +489,45 @@ class _AppSettingsState extends State<AppSettings> {
     );
   }
 
+  Widget _buildTextFieldSetting({
+    required String label,
+    required String description,
+    required String value,
+    required Function(String) onChanged,
+    required VisionTokens t,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(color: t.headerText, fontSize: t.fontSize(11), fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          description,
+          style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 36,
+          child: TextField(
+            controller: TextEditingController(text: value),
+            style: TextStyle(fontSize: t.fontSize(11), color: t.textSecondary),
+            decoration: InputDecoration(
+              fillColor: t.borderSubtle.withValues(alpha: 0.5),
+              filled: true,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+            onSubmitted: onChanged,
+            onTapOutside: (_) => FocusScope.of(context).unfocus(),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildAnlasTrackerToggle(VisionTokens t) {
     final prefs = context.read<PreferencesService>();
     final l = context.l;
@@ -541,6 +619,128 @@ class _AppSettingsState extends State<AppSettings> {
         notifier.setCharacterEditorMode(newMode);
       },
       t: t,
+    );
+  }
+
+  Widget _buildLayoutModeSelector(VisionTokens t) {
+    final themeNotifier = context.watch<ThemeNotifier>();
+    final l = context.l;
+    final current = themeNotifier.sidebarLayoutMode;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l.settingsLayoutMode.toUpperCase(),
+          style: TextStyle(color: t.headerText, fontSize: t.fontSize(11), fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          l.settingsLayoutModeDesc,
+          style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _layoutChip(l.settingsLayoutAuto.toUpperCase(), 'auto', current, (v) => themeNotifier.setSidebarLayoutMode(v), t),
+            const SizedBox(width: 8),
+            _layoutChip(l.settingsLayoutSidebar.toUpperCase(), 'always', current, (v) => themeNotifier.setSidebarLayoutMode(v), t),
+            const SizedBox(width: 8),
+            _layoutChip(l.settingsLayoutClassic.toUpperCase(), 'never', current, (v) => themeNotifier.setSidebarLayoutMode(v), t),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSidebarWidthSelector(VisionTokens t) {
+    final themeNotifier = context.watch<ThemeNotifier>();
+    final l = context.l;
+    final current = themeNotifier.sidebarWidthMode;
+    final layoutMode = themeNotifier.sidebarLayoutMode;
+    if (layoutMode == 'never') return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l.settingsSidebarWidth.toUpperCase(),
+            style: TextStyle(color: t.headerText, fontSize: t.fontSize(11), fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            l.settingsSidebarWidthDesc,
+            style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _layoutChip(l.settingsSidebarCompact.toUpperCase(), 'compact', current, (v) => themeNotifier.setSidebarWidthMode(v), t),
+              const SizedBox(width: 8),
+              _layoutChip(l.settingsSidebarNormal.toUpperCase(), 'normal', current, (v) => themeNotifier.setSidebarWidthMode(v), t),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPromptPositionSelector(VisionTokens t) {
+    final themeNotifier = context.watch<ThemeNotifier>();
+    final l = context.l;
+    final current = themeNotifier.sidebarPromptPosition;
+    final layoutMode = themeNotifier.sidebarLayoutMode;
+    // Only show when sidebar mode is possible
+    if (layoutMode == 'never') return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l.settingsPromptPosition.toUpperCase(),
+          style: TextStyle(color: t.headerText, fontSize: t.fontSize(11), fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          l.settingsPromptPositionDesc,
+          style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _layoutChip(l.settingsPromptLeft.toUpperCase(), 'left', current, (v) => themeNotifier.setSidebarPromptPosition(v), t),
+            const SizedBox(width: 8),
+            _layoutChip(l.settingsPromptRight.toUpperCase(), 'right', current, (v) => themeNotifier.setSidebarPromptPosition(v), t),
+          ],
+        ),
+      ],
+      ),
+    );
+  }
+
+  Widget _layoutChip(String label, String value, String current, Function(String) onSelect, VisionTokens t) {
+    final selected = value == current;
+    return InkWell(
+      onTap: () => onSelect(value),
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: selected ? t.accent : t.borderMedium),
+          color: selected ? t.accent.withValues(alpha: 0.15) : Colors.transparent,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? t.accent : t.textTertiary,
+            fontSize: t.fontSize(9),
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1,
+          ),
+        ),
+      ),
     );
   }
 
@@ -864,6 +1064,14 @@ class _AppSettingsState extends State<AppSettings> {
                     final auth = LocalAuthentication();
                     final canCheck = await auth.canCheckBiometrics || await auth.isDeviceSupported();
                     if (!canCheck) {
+                      if (context.mounted) {
+                        showErrorSnackBar(context, l.settingsBiometricsUnavailable);
+                      }
+                      return;
+                    }
+                    // Verify biometrics are actually enrolled
+                    final available = await auth.getAvailableBiometrics();
+                    if (available.isEmpty) {
                       if (context.mounted) {
                         showErrorSnackBar(context, l.settingsBiometricsUnavailable);
                       }

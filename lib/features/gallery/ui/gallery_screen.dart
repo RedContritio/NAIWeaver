@@ -4,6 +4,7 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:file_picker/file_picker.dart';
+import '../../../core/utils/file_picker_helper.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
@@ -407,21 +408,11 @@ class _GalleryScreenState extends State<GalleryScreen> {
     final t = context.tRead;
     final gallery = context.read<GalleryNotifier>();
 
-    // On Android, use FileType.any to bypass SAF transcoding which strips
-    // PNG metadata chunks. We filter by extension manually instead.
-    final isAndroid = Theme.of(context).platform == TargetPlatform.android;
-    final result = await FilePicker.platform.pickFiles(
-      type: isAndroid ? FileType.any : FileType.custom,
-      allowedExtensions: isAndroid ? null : ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif'],
-      allowMultiple: true,
-    );
+    final result = await pickImageFiles(allowMultiple: true);
     if (result == null || result.files.isEmpty) return;
 
-    const imageExtensions = {'.png', '.jpg', '.jpeg', '.webp', '.bmp', '.gif'};
     final filePaths = result.files
         .where((f) => f.path != null)
-        .where((f) => !isAndroid || imageExtensions.contains(
-            p.extension(f.path!).toLowerCase()))
         .map((f) => f.path!)
         .toList();
     if (filePaths.isEmpty) return;

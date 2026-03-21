@@ -1,5 +1,5 @@
 import 'dart:typed_data';
-import 'package:file_picker/file_picker.dart';
+import '../../../core/utils/file_picker_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/l10n/l10n_extensions.dart';
@@ -864,10 +864,7 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
   }
 
   Future<void> _addReference(PresetNotifier notifier) async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      withData: true,
-    );
+    final result = await pickImageFiles(withData: true);
     if (result == null || result.files.single.bytes == null) return;
 
     setState(() => _isProcessingRef = true);

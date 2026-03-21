@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'core/utils/app_snackbar.dart';
+import 'core/widgets/confirm_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -22,6 +23,7 @@ import 'core/widgets/pin_lock_gate.dart';
 import 'core/widgets/quick_action_overlay.dart';
 import 'core/theme/theme_notifier.dart';
 import 'core/theme/theme_extensions.dart';
+import 'core/theme/vision_tokens.dart';
 import 'features/generation/providers/generation_notifier.dart';
 import 'features/generation/widgets/image_viewer.dart';
 import 'features/generation/widgets/settings_panel.dart';
@@ -40,6 +42,7 @@ import 'features/director_ref/providers/director_ref_notifier.dart';
 import 'features/director_ref/widgets/director_ref_shelf.dart';
 import 'features/vibe_transfer/providers/vibe_transfer_notifier.dart';
 import 'features/generation/widgets/vibe_transfer_shelf.dart';
+import 'features/generation/widgets/sidebar_ref_vibe_rail.dart';
 import 'features/tools/slideshow/providers/slideshow_notifier.dart';
 import 'features/tools/director_tools/providers/director_tools_notifier.dart';
 import 'features/tools/enhance/providers/enhance_notifier.dart';
@@ -57,7 +60,9 @@ void main() {
   await paths.ensureDirectories();
   await paths.seedAssets();
   final prefs = await SharedPreferences.getInstance();
-  const secureStorage = FlutterSecureStorage();
+  final secureStorage = FlutterSecureStorage(
+    aOptions: const AndroidOptions(encryptedSharedPreferences: true),
+  );
   final preferencesService = PreferencesService(prefs, secureStorage);
   await preferencesService.migrateApiKey();
 
@@ -239,9 +244,10 @@ class SimpleGeneratorApp extends StatefulWidget {
 class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
+  late VoidCallback _generationListener;
   bool _isTouchingSuggestions = false;
   int _tagSuggestionIndex = -1;
-  
+
   @override
   void initState() {
     super.initState();
@@ -252,7 +258,8 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
     _pulseAnimation = Tween<double>(begin: 0.2, end: 1.0).animate(_pulseController);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final notifier = context.read<GenerationNotifier>();
-      notifier.addListener(() => _onGenerationStateChanged(notifier));
+      _generationListener = () => _onGenerationStateChanged(notifier);
+      notifier.addListener(_generationListener);
     });
   }
 
@@ -375,8 +382,31 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
     );
   }
 
+  void _cycleStyle(GenerationNotifier notifier, bool forward) {
+    final styles = notifier.state.styles;
+    if (styles.isEmpty) return;
+
+    final active = notifier.state.activeStyleNames;
+    final currentIndex = active.isNotEmpty
+        ? styles.indexWhere((s) => s.name == active.last)
+        : -1;
+
+    final nextIndex = forward
+        ? (currentIndex + 1) % styles.length
+        : (currentIndex - 1 + styles.length) % styles.length;
+
+    // Clear current styles and activate the next one
+    for (final name in [...active]) {
+      notifier.toggleStyle(name);
+    }
+    notifier.toggleStyle(styles[nextIndex].name);
+
+    showAppSnackBar(context, styles[nextIndex].name.toUpperCase());
+  }
+
   @override
   void dispose() {
+    context.read<GenerationNotifier>().removeListener(_generationListener);
     _pulseController.dispose();
     super.dispose();
   }
@@ -395,8 +425,31 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
 
     final mobile = isMobile(context);
     final t = context.t;
+    final themeNotifier = context.watch<ThemeNotifier>();
+    final useSidebar = isWidescreenLayout(context, themeNotifier.sidebarLayoutMode);
+    final promptOnLeft = themeNotifier.sidebarPromptPosition == 'left';
 
-    Widget scaffold = Scaffold(
+    Widget scaffold = PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) async {
+          if (didPop) return;
+          // First: collapse settings panel if expanded
+          if (notifier.state.isSettingsExpanded) {
+            notifier.toggleSettings();
+            return;
+          }
+          // Second: show exit confirmation
+          final confirmed = await showConfirmDialog(
+            context,
+            title: context.l.commonConfirm,
+            message: context.l.mainExitConfirmation,
+            confirmLabel: context.l.commonConfirm,
+          );
+          if (confirmed == true && context.mounted) {
+            SystemNavigator.pop();
+          }
+        },
+        child: Scaffold(
           resizeToAvoidBottomInset: false,
           backgroundColor: t.background,
           appBar: AppBar(
@@ -492,216 +545,15 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
             ],
           ),
           body: SafeArea(
-            bottom: false, // settings panel handles its own bottom safe area
+            bottom: false,
             left: false,
             right: false,
-            child: Stack(
-            children: [
-              ImagePreviewViewer(
-                generatedImage: state.generatedImage,
-                isLoading: state.isLoading,
-                isDragging: state.isDragging,
-                pulseAnimation: _pulseAnimation,
-              ),
-
-              const Positioned.fill(child: QuickActionOverlay()),
-
-              // Cascade Mode Overlay
-              if (isCascadeMode)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: mobile
-                      ? (MediaQuery.of(context).viewInsets.bottom > 0
-                          ? MediaQuery.of(context).viewInsets.bottom
-                          : (48.0 + MediaQuery.of(context).viewPadding.bottom))
-                      : (MediaQuery.of(context).viewInsets.bottom > 0
-                        ? MediaQuery.of(context).viewInsets.bottom
-                        : 40.0 + MediaQuery.of(context).viewPadding.bottom),
-                  child: const CascadePlaybackView(),
-                ),
-
-              // Prompt Area (Standard Mode)
-              if (!isCascadeMode)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: mobile
-                      ? (MediaQuery.of(context).viewInsets.bottom > 0
-                          ? MediaQuery.of(context).viewInsets.bottom
-                          : (48.0 + MediaQuery.of(context).viewPadding.bottom))
-                      : (MediaQuery.of(context).viewInsets.bottom > 0
-                        ? MediaQuery.of(context).viewInsets.bottom
-                        : 40.0 + MediaQuery.of(context).viewPadding.bottom),
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12), // Increased bottom padding for clearance
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          t.background.withValues(alpha: 0.8),
-                          t.background,
-                        ],
-                        stops: const [0.4, 0.7, 1.0],
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (state.showDirectorRefShelf)
-                          const DirectorRefShelf(),
-                        if (state.showVibeTransferShelf)
-                          const VibeTransferShelf(),
-                        Selector<GenerationNotifier, String>(
-                          selector: (_, n) => n.state.characterEditorMode,
-                          builder: (context, mode, _) {
-                            if (mode == 'compact') return const CharacterShelf();
-                            return const SizedBox.shrink();
-                          },
-                        ),
-                        // Tag suggestion row — dedicated row with opaque backdrop
-                        Listener(
-                          behavior: HitTestBehavior.translucent,
-                          onPointerDown: (_) => _isTouchingSuggestions = true,
-                          onPointerUp: (_) => Future.delayed(
-                            const Duration(milliseconds: 300),
-                            () => _isTouchingSuggestions = false,
-                          ),
-                          onPointerCancel: (_) => _isTouchingSuggestions = false,
-                          child: AnimatedSize(
-                            duration: const Duration(milliseconds: 200),
-                            child: TagSuggestionOverlay(
-                              suggestions: state.tagSuggestions,
-                              onTagSelected: (tag) {
-                                notifier.applyTagSuggestion(tag);
-                                setState(() => _tagSuggestionIndex = -1);
-                              },
-                              selectedIndex: _tagSuggestionIndex,
-                            ),
-                          ),
-                        ),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Expanded(
-                              child: Focus(
-                                onFocusChange: (hasFocus) {
-                                  if (!hasFocus) {
-                                    Future.delayed(const Duration(milliseconds: 200), () {
-                                      if (!_isTouchingSuggestions) {
-                                        notifier.clearTagSuggestions();
-                                        setState(() => _tagSuggestionIndex = -1);
-                                      }
-                                    });
-                                  }
-                                },
-                                onKeyEvent: (node, event) {
-                                  if (event is! KeyDownEvent) return KeyEventResult.ignored;
-                                  final suggestions = state.tagSuggestions;
-                                  if (suggestions.isEmpty) return KeyEventResult.ignored;
-
-                                  if (event.logicalKey == LogicalKeyboardKey.tab) {
-                                    if (HardwareKeyboard.instance.isShiftPressed) {
-                                      setState(() {
-                                        _tagSuggestionIndex = (_tagSuggestionIndex - 1)
-                                            .clamp(-1, suggestions.length - 1);
-                                      });
-                                    } else {
-                                      setState(() {
-                                        _tagSuggestionIndex = (_tagSuggestionIndex + 1) % suggestions.length;
-                                      });
-                                    }
-                                    return KeyEventResult.handled;
-                                  }
-                                  if (event.logicalKey == LogicalKeyboardKey.enter &&
-                                      _tagSuggestionIndex >= 0 &&
-                                      _tagSuggestionIndex < suggestions.length) {
-                                    notifier.applyTagSuggestion(suggestions[_tagSuggestionIndex]);
-                                    setState(() => _tagSuggestionIndex = -1);
-                                    return KeyEventResult.handled;
-                                  }
-                                  return KeyEventResult.ignored;
-                                },
-                                child: TextField(
-                                controller: notifier.promptController,
-                                maxLines: mobile ? t.promptMaxLines + 2 : t.promptMaxLines + 1,
-                                onChanged: (val) {
-                                  notifier.handleTagSuggestions(val, notifier.promptController.selection);
-                                  setState(() => _tagSuggestionIndex = -1);
-                                },
-                                onTapOutside: (_) {
-                                  Future.delayed(const Duration(milliseconds: 200), () {
-                                    if (!_isTouchingSuggestions) {
-                                      notifier.clearTagSuggestions();
-                                    }
-                                  });
-                                },
-                                onSubmitted: (_) {
-                                  if (state.tagSuggestions.isNotEmpty) {
-                                    notifier.applyTagSuggestion(state.tagSuggestions.first);
-                                  } else {
-                                    notifier.generate();
-                                  }
-                                },
-                                style: TextStyle(fontSize: t.promptFontSize - 1, letterSpacing: 0.5),
-                                decoration: InputDecoration(
-                                  hintText: context.l.mainEnterPrompt.toUpperCase(),
-                                  hintStyle: TextStyle(fontSize: t.fontSize(mobile ? 12 : 9), letterSpacing: 2, color: t.hintText),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                  fillColor: t.background.withValues(alpha: 0.8),
-                                  filled: true,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(4),
-                                    borderSide: BorderSide(color: t.borderMedium),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(4),
-                                    borderSide: BorderSide(color: t.borderMedium),
-                                  ),
-                                ),
-                              ),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            SizedBox(
-                              height: mobile ? 64 : 58,
-                              width: mobile ? 64 : 58,
-                              child: ElevatedButton(
-                                onPressed: state.isLoading ? null : notifier.generate,
-                                style: ElevatedButton.styleFrom(
-                                  padding: EdgeInsets.zero,
-                                  backgroundColor: t.accent,
-                                  foregroundColor: t.background,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                                  elevation: 0,
-                                ),
-                                child: state.isLoading
-                                  ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: t.background))
-                                  : const Icon(Icons.arrow_forward_ios, size: 16),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-              AdvancedSettingsPanel(
-                onManageStyles: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const ToolsHubScreen(initialToolId: 'styles')),
-                  );
-                },
-                onSavePreset: () => _showSavePresetDialog(context, notifier),
-              ),
-            ],
+            child: useSidebar
+                ? _buildSidebarBody(context, notifier, state, isCascadeMode, mobile, t, promptOnLeft)
+                : _buildDefaultBody(context, notifier, state, isCascadeMode, mobile, t),
           ),
-          ),
-        );
+        ),
+      );
 
     return isDesktopPlatform()
           ? DropTarget(
@@ -722,6 +574,363 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
               child: scaffold,
             )
           : scaffold;
+  }
+
+  // — Default body (classic bottom-sheet layout) —
+  Widget _buildDefaultBody(
+    BuildContext context,
+    GenerationNotifier notifier,
+    GenerationState state,
+    bool isCascadeMode,
+    bool mobile,
+    VisionTokens t,
+  ) {
+    return Stack(
+      children: [
+        Positioned.fill(
+          bottom: mobile ? 140 : 115,
+          child: ImagePreviewViewer(
+            generatedImage: state.generatedImage,
+            isLoading: state.isLoading,
+            isDragging: state.isDragging,
+            pulseAnimation: _pulseAnimation,
+          ),
+        ),
+
+        const Positioned.fill(child: QuickActionOverlay()),
+
+        if (isCascadeMode)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: mobile
+                ? (MediaQuery.of(context).viewInsets.bottom > 0
+                    ? MediaQuery.of(context).viewInsets.bottom
+                    : (48.0 + MediaQuery.of(context).viewPadding.bottom))
+                : (MediaQuery.of(context).viewInsets.bottom > 0
+                  ? MediaQuery.of(context).viewInsets.bottom
+                  : 40.0 + MediaQuery.of(context).viewPadding.bottom),
+            child: const CascadePlaybackView(),
+          ),
+
+        if (!isCascadeMode)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: mobile
+                ? (MediaQuery.of(context).viewInsets.bottom > 0
+                    ? MediaQuery.of(context).viewInsets.bottom
+                    : (48.0 + MediaQuery.of(context).viewPadding.bottom))
+                : (MediaQuery.of(context).viewInsets.bottom > 0
+                  ? MediaQuery.of(context).viewInsets.bottom
+                  : 40.0 + MediaQuery.of(context).viewPadding.bottom),
+            child: _buildPromptArea(context, notifier, state, mobile, t),
+          ),
+
+        AdvancedSettingsPanel(
+          onManageStyles: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ToolsHubScreen(initialToolId: 'styles')),
+            );
+          },
+          onSavePreset: () => _showSavePresetDialog(context, notifier),
+        ),
+      ],
+    );
+  }
+
+  // — Sidebar body (widescreen layout) —
+  Widget _buildSidebarBody(
+    BuildContext context,
+    GenerationNotifier notifier,
+    GenerationState state,
+    bool isCascadeMode,
+    bool mobile,
+    VisionTokens t,
+    bool promptOnLeft,
+  ) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final widthMode = context.watch<ThemeNotifier>().sidebarWidthMode;
+    final double sidebarWidth;
+    if (widthMode == 'compact') {
+      sidebarWidth = (screenWidth * 0.28).clamp(300.0, 380.0);
+    } else {
+      sidebarWidth = (screenWidth * 0.38).clamp(420.0, 560.0);
+    }
+
+    return Row(
+      children: [
+        // Left sidebar
+        SizedBox(
+          width: sidebarWidth,
+          child: Container(
+            decoration: BoxDecoration(
+              color: t.surfaceHigh,
+              border: Border(right: BorderSide(color: t.borderStrong)),
+            ),
+            child: Column(
+              children: [
+                Expanded(
+                  child: ExpandedSettingsContent(
+                    inSidebar: true,
+                    onManageStyles: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const ToolsHubScreen(initialToolId: 'styles')),
+                      );
+                    },
+                    onSavePreset: () => _showSavePresetDialog(context, notifier),
+                  ),
+                ),
+                if (promptOnLeft && !isCascadeMode)
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                    decoration: BoxDecoration(
+                      color: t.surfaceHigh,
+                      border: Border(top: BorderSide(color: t.borderMedium)),
+                    ),
+                    child: _buildPromptArea(context, notifier, state, mobile, t, useSidebarStyle: true),
+                  ),
+              ],
+            ),
+          ),
+        ),
+
+        // Right content area
+        Expanded(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                bottom: (!promptOnLeft && !isCascadeMode) ? 115 : 0,
+                child: ImagePreviewViewer(
+                  generatedImage: state.generatedImage,
+                  isLoading: state.isLoading,
+                  isDragging: state.isDragging,
+                  pulseAnimation: _pulseAnimation,
+                ),
+              ),
+
+              const Positioned.fill(child: QuickActionOverlay()),
+
+              // REF/VIBE rail on right edge (sidebar mode only)
+              if (state.showDirectorRefShelf || state.showVibeTransferShelf)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: SidebarRefVibeRail(
+                    showRef: state.showDirectorRefShelf,
+                    showVibe: state.showVibeTransferShelf,
+                  ),
+                ),
+
+              if (isCascadeMode)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: MediaQuery.of(context).viewInsets.bottom > 0
+                      ? MediaQuery.of(context).viewInsets.bottom
+                      : 40.0 + MediaQuery.of(context).viewPadding.bottom,
+                  child: const CascadePlaybackView(),
+                ),
+
+              if (!promptOnLeft && !isCascadeMode)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: MediaQuery.of(context).viewInsets.bottom > 0
+                      ? MediaQuery.of(context).viewInsets.bottom
+                      : 40.0 + MediaQuery.of(context).viewPadding.bottom,
+                  child: _buildPromptArea(context, notifier, state, mobile, t),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // — Shared prompt area widget —
+  Widget _buildPromptArea(
+    BuildContext context,
+    GenerationNotifier notifier,
+    GenerationState state,
+    bool mobile,
+    VisionTokens t, {
+    bool useSidebarStyle = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      decoration: useSidebarStyle
+          ? null
+          : BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.transparent,
+                  t.background.withValues(alpha: 0.8),
+                  t.background,
+                ],
+                stops: const [0.4, 0.7, 1.0],
+              ),
+            ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (state.showDirectorRefShelf && !useSidebarStyle)
+            const DirectorRefShelf(),
+          if (state.showVibeTransferShelf && !useSidebarStyle)
+            const VibeTransferShelf(),
+          Selector<GenerationNotifier, String>(
+            selector: (_, n) => n.state.characterEditorMode,
+            builder: (context, mode, _) {
+              if (mode == 'compact') return const CharacterShelf();
+              return const SizedBox.shrink();
+            },
+          ),
+          Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (_) => _isTouchingSuggestions = true,
+            onPointerUp: (_) => Future.delayed(
+              const Duration(milliseconds: 300),
+              () => _isTouchingSuggestions = false,
+            ),
+            onPointerCancel: (_) => _isTouchingSuggestions = false,
+            child: AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              child: TagSuggestionOverlay(
+                suggestions: state.tagSuggestions,
+                onTagSelected: (tag) {
+                  notifier.applyTagSuggestion(tag);
+                  setState(() => _tagSuggestionIndex = -1);
+                },
+                selectedIndex: _tagSuggestionIndex,
+              ),
+            ),
+          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: Focus(
+                  onFocusChange: (hasFocus) {
+                    if (!hasFocus) {
+                      Future.delayed(const Duration(milliseconds: 200), () {
+                        if (!_isTouchingSuggestions) {
+                          notifier.clearTagSuggestions();
+                          setState(() => _tagSuggestionIndex = -1);
+                        }
+                      });
+                    }
+                  },
+                  onKeyEvent: (node, event) {
+                    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                    final currentState = notifier.state;
+
+                    // Ctrl+Enter → generate
+                    if (event.logicalKey == LogicalKeyboardKey.enter &&
+                        HardwareKeyboard.instance.isControlPressed) {
+                      if (!currentState.isLoading) notifier.generate();
+                      return KeyEventResult.handled;
+                    }
+
+                    // Ctrl+Left/Right → cycle style
+                    if (HardwareKeyboard.instance.isControlPressed &&
+                        (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+                         event.logicalKey == LogicalKeyboardKey.arrowRight)) {
+                      _cycleStyle(notifier, event.logicalKey == LogicalKeyboardKey.arrowRight);
+                      return KeyEventResult.handled;
+                    }
+
+                    final suggestions = currentState.tagSuggestions;
+                    if (suggestions.isEmpty) return KeyEventResult.ignored;
+
+                    if (event.logicalKey == LogicalKeyboardKey.tab) {
+                      if (HardwareKeyboard.instance.isShiftPressed) {
+                        setState(() {
+                          _tagSuggestionIndex = (_tagSuggestionIndex - 1)
+                              .clamp(-1, suggestions.length - 1);
+                        });
+                      } else {
+                        setState(() {
+                          _tagSuggestionIndex = (_tagSuggestionIndex + 1) % suggestions.length;
+                        });
+                      }
+                      return KeyEventResult.handled;
+                    }
+                    if (event.logicalKey == LogicalKeyboardKey.enter &&
+                        _tagSuggestionIndex >= 0 &&
+                        _tagSuggestionIndex < suggestions.length) {
+                      notifier.applyTagSuggestion(suggestions[_tagSuggestionIndex]);
+                      setState(() => _tagSuggestionIndex = -1);
+                      return KeyEventResult.handled;
+                    }
+                    return KeyEventResult.ignored;
+                  },
+                  child: TextField(
+                    controller: notifier.promptController,
+                    maxLines: useSidebarStyle ? 5 : (mobile ? t.promptMaxLines + 2 : t.promptMaxLines + 1),
+                    onChanged: (val) {
+                      notifier.handleTagSuggestions(val, notifier.promptController.selection);
+                      setState(() => _tagSuggestionIndex = -1);
+                    },
+                    onTapOutside: (_) {
+                      Future.delayed(const Duration(milliseconds: 200), () {
+                        if (!_isTouchingSuggestions) {
+                          notifier.clearTagSuggestions();
+                        }
+                      });
+                    },
+                    onSubmitted: (_) {
+                      if (state.tagSuggestions.isNotEmpty) {
+                        notifier.applyTagSuggestion(state.tagSuggestions.first);
+                      } else {
+                        notifier.generate();
+                      }
+                    },
+                    style: TextStyle(fontSize: t.promptFontSize - 1, letterSpacing: 0.5),
+                    decoration: InputDecoration(
+                      hintText: context.l.mainEnterPrompt.toUpperCase(),
+                      hintStyle: TextStyle(fontSize: t.fontSize(mobile ? 12 : 9), letterSpacing: 2, color: t.hintText),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      fillColor: t.background.withValues(alpha: 0.8),
+                      filled: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(4),
+                        borderSide: BorderSide(color: t.borderMedium),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(4),
+                        borderSide: BorderSide(color: t.borderMedium),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              SizedBox(
+                height: mobile ? 64 : 58,
+                width: mobile ? 64 : 58,
+                child: ElevatedButton(
+                  onPressed: state.isLoading ? null : notifier.generate,
+                  style: ElevatedButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    backgroundColor: t.accent,
+                    foregroundColor: t.background,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    elevation: 0,
+                  ),
+                  child: state.isLoading
+                    ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: t.background))
+                    : const Icon(Icons.arrow_forward_ios, size: 16),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   void _showSavePresetDialog(BuildContext context, GenerationNotifier notifier) {

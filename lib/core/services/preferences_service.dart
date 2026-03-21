@@ -22,6 +22,9 @@ class PreferencesService {
   static const String _keyShowUpscaleButton = 'show_upscale_button';
   static const String _keyShowEnhanceButton = 'show_enhance_button';
   static const String _keyShowDirectorToolsButton = 'show_director_tools_button';
+  static const String _keyShowExportButton = 'show_export_button';
+  static const String _keyAutoExportToDevice = 'auto_export_to_device';
+  static const String _keyExportAlbumName = 'export_album_name';
   static const String _keySettingsSectionOrder = 'settings_section_order';
   static const String _keySmartStyleImport = 'smart_style_import';
   static const String _keyRememberSession = 'remember_session';
@@ -40,6 +43,9 @@ class PreferencesService {
   static const String _keyUiCharShowUc = 'ui_char_show_uc';
   static const String _keyUiCharShowPosition = 'ui_char_show_position';
   static const String _keyUiCharShowPresets = 'ui_char_show_presets';
+  static const String _keySidebarLayoutMode = 'sidebar_layout_mode';
+  static const String _keySidebarPromptPosition = 'sidebar_prompt_position';
+  static const String _keySidebarWidthMode = 'sidebar_width_mode';
 
   final SharedPreferences _prefs;
 
@@ -154,6 +160,30 @@ class PreferencesService {
 
   Future<void> setShowDirectorToolsButton(bool value) async {
     await _prefs.setBool(_keyShowDirectorToolsButton, value);
+  }
+
+  // — Export Button —
+
+  bool get showExportButton => _prefs.getBool(_keyShowExportButton) ?? false;
+
+  Future<void> setShowExportButton(bool value) async {
+    await _prefs.setBool(_keyShowExportButton, value);
+  }
+
+  // — Auto Export to Device —
+
+  bool get autoExportToDevice => _prefs.getBool(_keyAutoExportToDevice) ?? false;
+
+  Future<void> setAutoExportToDevice(bool value) async {
+    await _prefs.setBool(_keyAutoExportToDevice, value);
+  }
+
+  // — Export Album Name —
+
+  String get exportAlbumName => _prefs.getString(_keyExportAlbumName) ?? 'NAIWeaver';
+
+  Future<void> setExportAlbumName(String value) async {
+    await _prefs.setString(_keyExportAlbumName, value);
   }
 
   // — Settings Section Order —
@@ -298,6 +328,26 @@ class PreferencesService {
 
   Future<void> setUiCharShowPresets(bool value) async {
     await _prefs.setBool(_keyUiCharShowPresets, value);
+  }
+
+  // — Sidebar Layout —
+
+  String get sidebarLayoutMode => _prefs.getString(_keySidebarLayoutMode) ?? 'auto';
+
+  Future<void> setSidebarLayoutMode(String value) async {
+    await _prefs.setString(_keySidebarLayoutMode, value);
+  }
+
+  String get sidebarPromptPosition => _prefs.getString(_keySidebarPromptPosition) ?? 'left';
+
+  Future<void> setSidebarPromptPosition(String value) async {
+    await _prefs.setString(_keySidebarPromptPosition, value);
+  }
+
+  String get sidebarWidthMode => _prefs.getString(_keySidebarWidthMode) ?? 'normal';
+
+  Future<void> setSidebarWidthMode(String value) async {
+    await _prefs.setString(_keySidebarWidthMode, value);
   }
 
   // — Delegating getters for backward compatibility —

@@ -130,9 +130,10 @@ class AdvancedSettingsPanel extends StatelessWidget {
           bottom: 0,
           height: isExpanded ? expandedH : collapsedH,
           child: GestureDetector(
-            onVerticalDragUpdate: (details) {
-              if (details.delta.dy < -5 && !isExpanded) notifier.toggleSettings();
-              if (details.delta.dy > 5 && isExpanded) notifier.toggleSettings();
+            onVerticalDragEnd: (details) {
+              final velocity = details.primaryVelocity ?? 0;
+              if (velocity < -300 && !isExpanded) notifier.toggleSettings();
+              if (velocity > 300 && isExpanded) notifier.toggleSettings();
             },
             child: Container(
               decoration: BoxDecoration(
@@ -180,7 +181,7 @@ class AdvancedSettingsPanel extends StatelessWidget {
                     // Scrollable Content — only watch full state when expanded
                     if (isExpanded)
                       Expanded(
-                        child: _ExpandedSettingsContent(
+                        child: ExpandedSettingsContent(
                           onManageStyles: onManageStyles,
                           onSavePreset: onSavePreset,
                         ),
@@ -199,20 +200,23 @@ class AdvancedSettingsPanel extends StatelessWidget {
 /// Inner content of the expanded settings panel.
 /// Uses context.watch so it rebuilds on state changes,
 /// but only exists in the tree when the panel is expanded.
-class _ExpandedSettingsContent extends StatefulWidget {
+class ExpandedSettingsContent extends StatefulWidget {
   final VoidCallback onManageStyles;
   final VoidCallback onSavePreset;
+  final bool inSidebar;
 
-  const _ExpandedSettingsContent({
+  const ExpandedSettingsContent({
+    super.key,
     required this.onManageStyles,
     required this.onSavePreset,
+    this.inSidebar = false,
   });
 
   @override
-  State<_ExpandedSettingsContent> createState() => _ExpandedSettingsContentState();
+  State<ExpandedSettingsContent> createState() => _ExpandedSettingsContentState();
 }
 
-class _ExpandedSettingsContentState extends State<_ExpandedSettingsContent> {
+class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
   final _negativePromptKey = GlobalKey();
   final _negativePromptFocus = FocusNode();
   bool _stylesExpanded = false;
@@ -257,10 +261,14 @@ class _ExpandedSettingsContentState extends State<_ExpandedSettingsContent> {
     final t = context.t;
     final sectionOrder = context.watch<ThemeNotifier>().sectionOrder;
 
+    final compact = widget.inSidebar;
+    final hPad = compact ? 16.0 : 24.0;
+    final sectionGap = compact ? 16.0 : 24.0;
+
     final builders = <String, Widget Function()>{
-      'dimensions_seed': () => _buildDimensionsSeed(notifier, state, mobile, t),
-      'steps_scale': () => _buildStepsScale(notifier, state, mobile, t),
-      'sampler_post': () => _buildSamplerPost(notifier, state, mobile, t),
+      'dimensions_seed': () => _buildDimensionsSeed(notifier, state, mobile, t, compact: compact),
+      'steps_scale': () => _buildStepsScale(notifier, state, mobile, t, compact: compact),
+      'sampler_post': () => _buildSamplerPost(notifier, state, mobile, t, compact: compact),
       'characters': () => const InlineCharacterEditor(),
       'styles': () => _buildStyles(notifier, state, t),
       'negative_prompt': () => _buildNegativePrompt(notifier, t),
@@ -272,7 +280,7 @@ class _ExpandedSettingsContentState extends State<_ExpandedSettingsContent> {
     for (final id in sectionOrder) {
       final builder = builders[id];
       if (builder != null) {
-        if (sections.isNotEmpty) sections.add(const SizedBox(height: 24));
+        if (sections.isNotEmpty) sections.add(SizedBox(height: sectionGap));
         try {
           sections.add(builder());
         } catch (e) {
@@ -283,12 +291,12 @@ class _ExpandedSettingsContentState extends State<_ExpandedSettingsContent> {
     sections.add(const SizedBox(height: 20));
 
     return ListView(
-      padding: EdgeInsets.fromLTRB(24, 8, 24, 40 + MediaQuery.of(context).padding.bottom + MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 40 + MediaQuery.of(context).padding.bottom + MediaQuery.of(context).viewInsets.bottom),
       children: sections,
     );
   }
 
-  Widget _buildDimensionsSeed(GenerationNotifier notifier, GenerationState state, bool mobile, VisionTokens t) {
+  Widget _buildDimensionsSeed(GenerationNotifier notifier, GenerationState state, bool mobile, VisionTokens t, {bool compact = false}) {
     final labelStyle = TextStyle(fontWeight: FontWeight.w900, fontSize: t.fontSize(mobile ? 12 : 9), letterSpacing: 2, color: t.secondaryText);
 
     Widget dimensionsField = Column(
@@ -408,7 +416,7 @@ class _ExpandedSettingsContentState extends State<_ExpandedSettingsContent> {
       ],
     );
 
-    if (mobile) {
+    if (mobile || compact) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -428,11 +436,11 @@ class _ExpandedSettingsContentState extends State<_ExpandedSettingsContent> {
     );
   }
 
-  Widget _buildStepsScale(GenerationNotifier notifier, GenerationState state, bool mobile, VisionTokens t) {
+  Widget _buildStepsScale(GenerationNotifier notifier, GenerationState state, bool mobile, VisionTokens t, {bool compact = false}) {
     Widget stepsSlider = _buildCompactSlider(context, context.l.panelSteps.toUpperCase(), state.steps, 1, 50, 1, (v) => notifier.updateSettings(steps: v), t, warnAbove: 28);
     Widget scaleSlider = _buildCompactSlider(context, context.l.panelScale.toUpperCase(), state.scale, 1.0, 30.0, 0.5, (v) => notifier.updateSettings(scale: v), t);
 
-    if (mobile) {
+    if (mobile || compact) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -451,7 +459,7 @@ class _ExpandedSettingsContentState extends State<_ExpandedSettingsContent> {
     );
   }
 
-  Widget _buildSamplerPost(GenerationNotifier notifier, GenerationState state, bool mobile, VisionTokens t) {
+  Widget _buildSamplerPost(GenerationNotifier notifier, GenerationState state, bool mobile, VisionTokens t, {bool compact = false}) {
     final labelStyle = TextStyle(fontWeight: FontWeight.w900, fontSize: t.fontSize(mobile ? 12 : 9), letterSpacing: 2, color: t.secondaryText);
 
     Widget samplerField = Column(
@@ -498,7 +506,7 @@ class _ExpandedSettingsContentState extends State<_ExpandedSettingsContent> {
       ],
     );
 
-    if (mobile) {
+    if (mobile || compact) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

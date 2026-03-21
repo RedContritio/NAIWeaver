@@ -19,3 +19,14 @@ double responsiveFont(BuildContext context, double desktop, double mobile) =>
 
 /// Returns 48 on mobile (Material touch target), 32 on desktop.
 double touchTarget(BuildContext context) => isMobile(context) ? 48.0 : 32.0;
+
+/// Returns true when the widescreen sidebar layout should be used.
+///
+/// [sidebarMode] is one of 'auto', 'always', 'never'.
+bool isWidescreenLayout(BuildContext context, String sidebarMode) {
+  if (sidebarMode == 'never') return false;
+  final width = MediaQuery.of(context).size.width;
+  if (sidebarMode == 'always') return width >= 1200;
+  // 'auto': only on desktop platforms with sufficient width
+  return isDesktopPlatform() && width >= 1200;
+}

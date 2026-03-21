@@ -38,6 +38,8 @@ class NovelAIService {
   }
 
   NovelAIService(this._apiKey) {
+    _dio.options.connectTimeout = const Duration(seconds: 30);
+    _dio.options.receiveTimeout = const Duration(minutes: 5);
     if (kDebugMode) {
       _dio.interceptors.add(LogInterceptor(
         requestHeader: false,
