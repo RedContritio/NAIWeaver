@@ -2,36 +2,41 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
-/// Image extensions accepted by the app.
+/// Image extensions for manual filtering when using FileType.any.
 const _imageExtensions = {'.png', '.jpg', '.jpeg', '.webp', '.bmp', '.gif'};
 
 bool _isAndroid() => !kIsWeb && Platform.isAndroid;
 
-/// Picks image files with an Android SAF workaround.
+/// Picks image files using the platform media picker.
 ///
-/// On Android, SAF transcoding can strip PNG metadata chunks when using
-/// [FileType.image]. This helper uses [FileType.any] on Android to bypass
-/// that behaviour, then filters results by extension manually.
+/// By default uses [FileType.image] so Android shows the gallery picker.
+/// Set [useFileBrowser] to true to use [FileType.any] instead, which opens
+/// the document browser showing all apps (ZArchiver, FStop, etc.) but with
+/// a less image-friendly UI. Results are filtered by image extension.
 Future<FilePickerResult?> pickImageFiles({
   bool allowMultiple = false,
   bool withData = false,
+  bool useFileBrowser = false,
 }) async {
-  final android = _isAndroid();
-  final result = await FilePicker.platform.pickFiles(
-    type: android ? FileType.any : FileType.image,
+  if (useFileBrowser && _isAndroid()) {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.any,
+      allowMultiple: allowMultiple,
+      withData: withData,
+    );
+    if (result == null) return null;
+    final filtered = result.files.where((f) {
+      if (f.path == null) return false;
+      final ext = f.path!.toLowerCase();
+      return _imageExtensions.any((e) => ext.endsWith(e));
+    }).toList();
+    return filtered.isEmpty ? null : FilePickerResult(filtered);
+  }
+  return FilePicker.platform.pickFiles(
+    type: FileType.image,
     allowMultiple: allowMultiple,
     withData: withData,
   );
-  if (result == null || !android) return result;
-
-  // Filter out non-image files the user may have selected.
-  final filtered = result.files.where((f) {
-    if (f.path == null) return false;
-    final ext = f.path!.toLowerCase();
-    return _imageExtensions.any((e) => ext.endsWith(e));
-  }).toList();
-
-  return filtered.isEmpty ? null : FilePickerResult(filtered);
 }
 
 /// Picks files with custom extensions, using [FileType.any] on Android
