@@ -437,6 +437,7 @@
 
   "refLoadSaved": "加载已保存",
   "refPickImage": "选择图片",
+  "refBrowseFiles": "浏览文件",
   "refNoSavedRefs": "暂无已保存的参考",
 
   "packTitle": "NAIWeaver 资源包",

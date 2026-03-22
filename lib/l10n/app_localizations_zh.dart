@@ -1242,6 +1242,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get refPickImage => '选择图片';
 
   @override
+  String get refBrowseFiles => '浏览文件';
+
+  @override
   String get refNoSavedRefs => '暂无已保存的参考';
 
   @override

@@ -1276,6 +1276,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get refPickImage => 'PICK IMAGE';
 
   @override
+  String get refBrowseFiles => 'BROWSE FILES';
+
+  @override
   String get refNoSavedRefs => 'NO SAVED REFERENCES';
 
   @override

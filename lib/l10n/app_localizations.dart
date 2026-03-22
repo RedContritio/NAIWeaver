@@ -2422,6 +2422,12 @@ abstract class AppLocalizations {
   /// **'PICK IMAGE'**
   String get refPickImage;
 
+  /// No description provided for @refBrowseFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'BROWSE FILES'**
+  String get refBrowseFiles;
+
   /// No description provided for @refNoSavedRefs.
   ///
   /// In en, this message translates to:

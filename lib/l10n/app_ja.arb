@@ -401,6 +401,7 @@
 
   "refLoadSaved": "保存済みを読込",
   "refPickImage": "画像を選択",
+  "refBrowseFiles": "ファイルを参照",
   "refNoSavedRefs": "保存されたリファレンスがありません",
 
   "packTitle": "NAIWEAVERパック",

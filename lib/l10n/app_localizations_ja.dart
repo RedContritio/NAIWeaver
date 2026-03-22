@@ -1247,6 +1247,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get refPickImage => '画像を選択';
 
   @override
+  String get refBrowseFiles => 'ファイルを参照';
+
+  @override
   String get refNoSavedRefs => '保存されたリファレンスがありません';
 
   @override
