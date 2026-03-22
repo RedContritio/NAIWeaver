@@ -38,7 +38,7 @@ class NovelAIService {
   }
 
   NovelAIService(this._apiKey) {
-    _dio.options.connectTimeout = const Duration(seconds: 30);
+    _dio.options.connectTimeout = const Duration(seconds: 60);
     _dio.options.receiveTimeout = const Duration(minutes: 5);
     if (kDebugMode) {
       _dio.interceptors.add(LogInterceptor(
@@ -48,6 +48,47 @@ class NovelAIService {
         responseBody: false, // Don't log bytes
       ));
     }
+  }
+
+  /// POST with automatic retry on connection/timeout errors.
+  Future<Response<dynamic>> _postWithRetry(
+    String url, {
+    required dynamic data,
+    Options? options,
+  }) async {
+    for (int attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await _dio.post(url, data: data, options: options);
+      } on DioException catch (e) {
+        final retryable = e.type == DioExceptionType.connectionError ||
+            e.type == DioExceptionType.receiveTimeout ||
+            e.type == DioExceptionType.sendTimeout;
+        if (!retryable || attempt >= 2) rethrow;
+        debugPrint('NovelAIService: Retry ${attempt + 1} for $url');
+        await Future.delayed(Duration(seconds: (attempt + 1) * 2));
+      }
+    }
+    throw StateError('Unreachable');
+  }
+
+  /// GET with automatic retry on connection/timeout errors.
+  Future<Response<dynamic>> _getWithRetry(
+    String url, {
+    Options? options,
+  }) async {
+    for (int attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await _dio.get(url, options: options);
+      } on DioException catch (e) {
+        final retryable = e.type == DioExceptionType.connectionError ||
+            e.type == DioExceptionType.receiveTimeout ||
+            e.type == DioExceptionType.sendTimeout;
+        if (!retryable || attempt >= 2) rethrow;
+        debugPrint('NovelAIService: Retry ${attempt + 1} for $url');
+        await Future.delayed(Duration(seconds: (attempt + 1) * 2));
+      }
+    }
+    throw StateError('Unreachable');
   }
 
   /// Encodes an image into a vibe vector via the NAI encode-vibe endpoint.
@@ -66,7 +107,7 @@ class NovelAIService {
     };
 
     try {
-      final response = await _dio.post(
+      final response = await _postWithRetry(
         url,
         data: body,
         options: Options(
@@ -97,7 +138,7 @@ class NovelAIService {
   Future<int?> getAnlasBalance() async {
     if (_apiKey.isEmpty) return null;
     try {
-      final response = await _dio.get(
+      final response = await _getWithRetry(
         'https://api.novelai.net/user/subscription',
         options: Options(headers: {'Authorization': 'Bearer $_apiKey'}),
       );
@@ -270,7 +311,7 @@ class NovelAIService {
     };
 
     try {
-      final response = await _dio.post(
+      final response = await _postWithRetry(
         url,
         data: body,
         options: Options(
@@ -343,7 +384,7 @@ class NovelAIService {
     };
 
     try {
-      final response = await _dio.post(
+      final response = await _postWithRetry(
         url,
         data: body,
         options: Options(
@@ -405,7 +446,7 @@ class NovelAIService {
     };
 
     try {
-      final response = await _dio.post(
+      final response = await _postWithRetry(
         url,
         data: body,
         options: Options(
