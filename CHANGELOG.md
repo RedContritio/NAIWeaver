@@ -1,5 +1,49 @@
 # Changelog
 
+## v0.8.1
+
+### Network & Reliability
+- **API retry with exponential backoff** — all API calls retry up to 3 times on connection/timeout errors with 2s/4s/6s delays. Prevents lost generations when switching apps on mobile
+- **Increased connect timeout** — 30s → 60s for better mobile resumption after app switch
+
+### Inpainting
+- **Pinch-to-zoom on mobile** — two-finger pinch zooms the canvas, single finger paints. Pointer count tracking distinguishes paint from zoom gestures
+- **Cursor position fix** — cursor preview now correctly tracks position when zoomed in (applies inverse zoom transform)
+
+### Clipboard & Export
+- **Copy to clipboard** — copy generated images to system clipboard on all platforms (Windows, Linux, macOS, Android, iOS) via `super_clipboard`. Toggleable button in quick action overlay settings
+- **Desktop export support** — Export button now works on Windows/Linux/macOS with a save file dialog (was previously Android/iOS only)
+- **Desktop auto-export** — auto-export writes to the configured album path or output directory on desktop
+
+### Window Management (Desktop)
+- **Save/restore window state** — window size, position, and maximized state persist across sessions via `window_manager`
+
+### Style Import
+- **Case-insensitive fuzzy matching** — style prefix/suffix detection now normalizes case, whitespace, and trailing commas. Fixes artist styles not being auto-detected on image import
+
+### Android
+- **Media picker shows gallery apps** — uses `FileType.image` so Android shows the gallery picker instead of the document browser. "Browse Files" fallback available in REF shelf for power users needing ZArchiver, FStop, etc.
+
+### Canvas Editor
+- **Canvas resize/expand** — new resize dialog with width/height inputs, quick-add buttons (+480px, +256px), and 3x3 anchor grid for positioning existing content. Fully undoable
+- **Middle-click pan** — hold middle mouse button to pan the canvas, matching standard image editor behavior
+
+### Cascade
+- **Help dialog** — new cascade editor help dialog with beat/timeline documentation
+
+### Jukebox
+- **11 anime MIDI songs** — A Cruel Angel's Thesis (Evangelion), Tank! (Cowboy Bebop), Cha-La Head-Cha-La (Dragon Ball Z), Moonlight Densetsu (Sailor Moon), We Are! (One Piece), Blue Bird & Silhouette (Naruto), Guren no Yumiya (Attack on Titan), The WORLD (Death Note), Again (FMA Brotherhood), Change the World (Inuyasha)
+- **Registry cleanup** — trimmed duplicate/redundant KAR entries to reduce APK size
+
+### Bug Fixes
+- **Fix API retry infinite recursion** — `_postWithRetry` called `_dio.post()` correctly instead of itself
+- **Fix cascade beat timeline** — beat indicator rendering improvements
+- **Fix jukebox style section** — remove reference to non-exported `RepeatMode` symbol
+- **Fix falling notes view** — rendering improvements
+
+### Localization
+- All new strings localized for EN, JA, ZH
+
 ## v0.8.0
 
 ### Canvas Editor
