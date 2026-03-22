@@ -23,6 +23,8 @@ class _MaskCanvasState extends State<MaskCanvas> {
   final TransformationController _zoomController = TransformationController();
   final FocusNode _keyboardFocusNode = FocusNode();
   bool _spaceHeld = false;
+  int _pointerCount = 0;
+  bool get _isPinching => _pointerCount >= 2;
   final GlobalKey<_CursorPreviewState> _cursorKey = GlobalKey<_CursorPreviewState>();
 
   @override
@@ -69,6 +71,9 @@ class _MaskCanvasState extends State<MaskCanvas> {
             }
           },
           child: Listener(
+            onPointerDown: (_) => setState(() => _pointerCount++),
+            onPointerUp: (_) => setState(() => _pointerCount = math.max(0, _pointerCount - 1)),
+            onPointerCancel: (_) => setState(() => _pointerCount = math.max(0, _pointerCount - 1)),
             onPointerSignal: (event) {
               if (event is PointerScrollEvent) {
                 _onPointerSignal(event, notifier);
@@ -81,18 +86,18 @@ class _MaskCanvasState extends State<MaskCanvas> {
               child: InteractiveViewer(
                 transformationController: _zoomController,
                 panEnabled: isPanMode,
-                scaleEnabled: false,
+                scaleEnabled: true,
                 boundaryMargin: const EdgeInsets.all(double.infinity),
                 minScale: 0.25,
                 maxScale: 16.0,
                 child: GestureDetector(
-                  onPanStart: isPanMode
+                  onPanStart: (_isPinching || isPanMode)
                       ? null
                       : (details) => _onPanStart(details, notifier),
-                  onPanUpdate: isPanMode
+                  onPanUpdate: (_isPinching || isPanMode)
                       ? null
                       : (details) => _onPanUpdate(details, notifier),
-                  onPanEnd: isPanMode
+                  onPanEnd: (_isPinching || isPanMode)
                       ? null
                       : (_) => notifier.endStroke(),
                   child: SizedBox(

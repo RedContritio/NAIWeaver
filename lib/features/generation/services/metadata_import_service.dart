@@ -82,6 +82,8 @@ class MetadataImportResult {
 class MetadataImportService {
   /// Try to match a composed prompt against available styles by checking
   /// prefix/suffix content. Strips matched content from the prompt.
+  static String _norm(String s) => s.toLowerCase().trim().replaceAll(RegExp(r',\s*$'), '');
+
   static StyleMatchResult tryMatchStyles({
     required String composedPrompt,
     required String composedNegativePrompt,
@@ -94,24 +96,39 @@ class MetadataImportService {
     for (final style in availableStyles) {
       bool didMatch = false;
 
-      if (style.prefix.isNotEmpty && prompt.startsWith(style.prefix)) {
-        prompt = prompt.substring(style.prefix.length);
-        didMatch = true;
+      // Prefix match (case-insensitive, whitespace-normalized)
+      if (style.prefix.isNotEmpty) {
+        final np = _norm(prompt);
+        final ns = _norm(style.prefix);
+        if (np.startsWith(ns)) {
+          prompt = prompt.substring(style.prefix.length).trimLeft();
+          if (prompt.startsWith(',')) prompt = prompt.substring(1).trimLeft();
+          didMatch = true;
+        }
       }
 
-      if (style.suffix.isNotEmpty && prompt.endsWith(style.suffix)) {
-        prompt = prompt.substring(0, prompt.length - style.suffix.length);
-        didMatch = true;
+      // Suffix match (case-insensitive, whitespace-normalized)
+      if (style.suffix.isNotEmpty) {
+        final np = _norm(prompt);
+        final ns = _norm(style.suffix);
+        if (np.endsWith(ns)) {
+          prompt = prompt.substring(0, prompt.length - style.suffix.length).trimRight();
+          if (prompt.endsWith(',')) prompt = prompt.substring(0, prompt.length - 1).trimRight();
+          didMatch = true;
+        }
       }
 
-      if (style.negativeContent.isNotEmpty && negative.contains(style.negativeContent)) {
-        negative = negative.replaceFirst(style.negativeContent, '');
-        // Clean up leading/trailing comma-space artifacts
-        negative = negative.replaceAll(RegExp(r',\s*,'), ',');
-        negative = negative.replaceAll(RegExp(r'^\s*,\s*'), '');
-        negative = negative.replaceAll(RegExp(r'\s*,\s*$'), '');
-        negative = negative.trim();
-        didMatch = true;
+      // Negative match (case-insensitive)
+      if (style.negativeContent.isNotEmpty) {
+        final idx = negative.toLowerCase().indexOf(style.negativeContent.toLowerCase());
+        if (idx >= 0) {
+          negative = negative.substring(0, idx) + negative.substring(idx + style.negativeContent.length);
+          negative = negative.replaceAll(RegExp(r',\s*,'), ',');
+          negative = negative.replaceAll(RegExp(r'^\s*,\s*'), '');
+          negative = negative.replaceAll(RegExp(r'\s*,\s*$'), '');
+          negative = negative.trim();
+          didMatch = true;
+        }
       }
 
       if (didMatch) {
@@ -127,7 +144,7 @@ class MetadataImportService {
     );
   }
 
-  /// Parse metadata from a PNG image file.
+  /// Parse metadata from an image file (PNG, WebP, JPEG).
   /// [smartStyleImport] controls whether to use original prompts or composed prompts.
   Future<MetadataImportResult> parseImageMetadata(
     File file, {
