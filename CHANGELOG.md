@@ -32,8 +32,8 @@
 - **Help dialog** — new cascade editor help dialog with beat/timeline documentation
 
 ### Jukebox
-- **11 anime MIDI songs** — A Cruel Angel's Thesis (Evangelion), Tank! (Cowboy Bebop), Cha-La Head-Cha-La (Dragon Ball Z), Moonlight Densetsu (Sailor Moon), We Are! (One Piece), Blue Bird & Silhouette (Naruto), Guren no Yumiya (Attack on Titan), The WORLD (Death Note), Again (FMA Brotherhood), Change the World (Inuyasha)
-- **Registry cleanup** — trimmed duplicate/redundant KAR entries to reduce APK size
+- **New bundled songs** — added new songs to the jukebox
+- **Registry cleanup** — trimmed duplicate/redundant entries to reduce APK size
 
 ### Bug Fixes
 - **Fix API retry infinite recursion** — `_postWithRetry` called `_dio.post()` correctly instead of itself
