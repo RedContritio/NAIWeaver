@@ -83,9 +83,15 @@ class FallingNotesViewState extends State<FallingNotesView>
         oldWidget.keyboardNoteMin != widget.keyboardNoteMin ||
         oldWidget.keyboardNoteMax != widget.keyboardNoteMax) {
       _computeNoteRange();
+      _judgedNotes.clear();
+      _windowStartIndex = 0;
+      _hitFeedbacks.clear();
     }
     if (widget.gameMode && !oldWidget.gameMode) {
       _gameStartTime = DateTime.now();
+      _judgedNotes.clear();
+      _windowStartIndex = 0;
+      _hitFeedbacks.clear();
     } else if (!widget.gameMode && oldWidget.gameMode) {
       _gameStartTime = null;
     }
