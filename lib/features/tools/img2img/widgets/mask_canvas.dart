@@ -23,6 +23,7 @@ class _MaskCanvasState extends State<MaskCanvas> {
   final TransformationController _zoomController = TransformationController();
   final FocusNode _keyboardFocusNode = FocusNode();
   bool _spaceHeld = false;
+  final GlobalKey<_CursorPreviewState> _cursorKey = GlobalKey<_CursorPreviewState>();
 
   @override
   void dispose() {
@@ -61,6 +62,7 @@ class _MaskCanvasState extends State<MaskCanvas> {
 
         return KeyboardListener(
           focusNode: _keyboardFocusNode,
+          autofocus: true,
           onKeyEvent: (event) {
             if (event.logicalKey == LogicalKeyboardKey.space) {
               setState(() => _spaceHeld = event is KeyDownEvent);
@@ -134,12 +136,14 @@ class _MaskCanvasState extends State<MaskCanvas> {
                         // Cursor preview
                         Positioned.fill(
                           child: _CursorPreview(
+                            key: _cursorKey,
                             brushRadius: notifier.brushRadius,
                             isErase: notifier.isEraseMode,
                             imageRect: _imageRect,
                             sourceWidth: session.sourceWidth,
                             sourceHeight: session.sourceHeight,
                             maskColor: notifier.maskColor,
+                            zoomController: _zoomController,
                           ),
                         ),
                       ],
@@ -189,6 +193,8 @@ class _MaskCanvasState extends State<MaskCanvas> {
     if (normalized != null) {
       notifier.addStrokePoint(normalized);
     }
+    // Update cursor position during drag
+    _cursorKey.currentState?.updatePosition(details.localPosition);
   }
 
   Offset? _toNormalized(Offset localPosition) {
@@ -409,13 +415,16 @@ class _CursorPreview extends StatefulWidget {
   final int sourceWidth;
   final int sourceHeight;
   final int maskColor;
+  final TransformationController zoomController;
 
   const _CursorPreview({
+    super.key,
     required this.brushRadius,
     required this.isErase,
     required this.imageRect,
     required this.sourceWidth,
     required this.sourceHeight,
+    required this.zoomController,
     this.maskColor = 0xFFFF0066,
   });
 
@@ -426,6 +435,20 @@ class _CursorPreview extends StatefulWidget {
 class _CursorPreviewState extends State<_CursorPreview> {
   Offset? _mousePosition;
 
+  void updatePosition(Offset position) {
+    setState(() => _mousePosition = position);
+  }
+
+  Offset? _transformedPosition() {
+    if (_mousePosition == null) return null;
+    try {
+      final inverse = Matrix4.inverted(widget.zoomController.value);
+      return MatrixUtils.transformPoint(inverse, _mousePosition!);
+    } catch (_) {
+      return _mousePosition;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
@@ -434,7 +457,7 @@ class _CursorPreviewState extends State<_CursorPreview> {
       onExit: (_) => setState(() => _mousePosition = null),
       child: CustomPaint(
         painter: _CursorPainter(
-          position: _mousePosition,
+          position: _transformedPosition(),
           rawRadius: widget.brushRadius * widget.imageRect.width,
           isErase: widget.isErase,
           imageRect: widget.imageRect,

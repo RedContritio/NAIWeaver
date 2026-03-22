@@ -601,116 +601,69 @@ class _ImportDialogState extends State<_ImportDialog> {
       final wildcard = context.read<WildcardNotifier>();
       final pathService = context.read<PathService>();
 
-      // Import presets
+      // Import presets (replace existing by name)
       if (_selectedPresets.isNotEmpty) {
         final existing = await PresetStorage.loadPresets(gen.presetsFilePath);
-        final existingNames = existing.map((p) => p.name).toSet();
         for (final i in _selectedPresets) {
-          var preset = widget.contents.presets[i];
-          // Rename duplicates
-          var name = preset.name;
-          while (existingNames.contains(name)) {
-            name = '$name (imported)';
+          final preset = widget.contents.presets[i];
+          final existingIndex = existing.indexWhere((p) => p.name == preset.name);
+          if (existingIndex >= 0) {
+            existing[existingIndex] = preset;
+          } else {
+            existing.add(preset);
           }
-          if (name != preset.name) {
-            preset = GenerationPreset(
-              name: name,
-              prompt: preset.prompt,
-              negativePrompt: preset.negativePrompt,
-              width: preset.width,
-              height: preset.height,
-              scale: preset.scale,
-              steps: preset.steps,
-              sampler: preset.sampler,
-              smea: preset.smea,
-              smeaDyn: preset.smeaDyn,
-              decrisper: preset.decrisper,
-              characters: preset.characters,
-              interactions: preset.interactions,
-              directorReferences: preset.directorReferences,
-            );
-          }
-          existing.add(preset);
-          existingNames.add(name);
         }
         await PresetStorage.savePresets(gen.presetsFilePath, existing);
       }
 
-      // Import styles
+      // Import styles (replace existing by name)
       if (_selectedStyles.isNotEmpty) {
         final existing = await StyleStorage.loadStyles(gen.stylesFilePath);
-        final existingNames = existing.map((s) => s.name).toSet();
         for (final i in _selectedStyles) {
-          var style = widget.contents.styles[i];
-          var name = style.name;
-          while (existingNames.contains(name)) {
-            name = '$name (imported)';
+          final style = widget.contents.styles[i];
+          final existingIndex = existing.indexWhere((s) => s.name == style.name);
+          if (existingIndex >= 0) {
+            existing[existingIndex] = style;
+          } else {
+            existing.add(style);
           }
-          if (name != style.name) {
-            style = PromptStyle(
-              name: name,
-              prefix: style.prefix,
-              suffix: style.suffix,
-              negativeContent: style.negativeContent,
-              isDefault: false,
-            );
-          }
-          existing.add(style);
-          existingNames.add(name);
         }
         await StyleStorage.saveStyles(gen.stylesFilePath, existing);
       }
 
-      // Import wildcards
+      // Import wildcards (overwrite existing files)
       if (_selectedWildcards.isNotEmpty) {
         for (final key in _selectedWildcards) {
           final content = widget.contents.wildcards[key]!;
-          var filename = key;
-          var targetPath = p.join(wildcard.wildcardDir, filename);
-          // Rename if exists
-          while (await File(targetPath).exists()) {
-            final base = p.basenameWithoutExtension(filename);
-            filename = '${base}_imported.txt';
-            targetPath = p.join(wildcard.wildcardDir, filename);
-          }
+          final targetPath = p.join(wildcard.wildcardDir, key);
           await File(targetPath).writeAsString(content);
         }
-        wildcard.refreshFiles();
+        await wildcard.refreshFiles();
       }
 
-      // Import saved references
+      // Import saved references (replace existing by name)
       if (_selectedSavedRefs.isNotEmpty || _selectedSavedVibes.isNotEmpty) {
         final libPath = pathService.referenceLibraryFilePath;
         final library = await ReferenceLibraryService.load(libPath);
-        final existingRefNames = library.directorRefs.map((r) => r.name).toSet();
-        final existingVibeNames = library.vibeTransfers.map((v) => v.name).toSet();
 
         for (final i in _selectedSavedRefs) {
           final ref = widget.contents.savedRefs[i];
-          var name = ref.name;
-          while (existingRefNames.contains(name)) {
-            name = '$name (imported)';
+          final existingIndex = library.directorRefs.indexWhere((r) => r.name == ref.name);
+          if (existingIndex >= 0) {
+            library.directorRefs[existingIndex] = ref;
+          } else {
+            library.directorRefs.add(ref);
           }
-          library.directorRefs.add(SavedDirectorRef(
-            name: name,
-            reference: ref.reference,
-            savedAt: ref.savedAt,
-          ));
-          existingRefNames.add(name);
         }
 
         for (final i in _selectedSavedVibes) {
           final vibe = widget.contents.savedVibes[i];
-          var name = vibe.name;
-          while (existingVibeNames.contains(name)) {
-            name = '$name (imported)';
+          final existingIndex = library.vibeTransfers.indexWhere((v) => v.name == vibe.name);
+          if (existingIndex >= 0) {
+            library.vibeTransfers[existingIndex] = vibe;
+          } else {
+            library.vibeTransfers.add(vibe);
           }
-          library.vibeTransfers.add(SavedVibeTransfer(
-            name: name,
-            vibe: vibe.vibe,
-            savedAt: vibe.savedAt,
-          ));
-          existingVibeNames.add(name);
         }
 
         await ReferenceLibraryService.save(libPath, library);
