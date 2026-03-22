@@ -139,6 +139,19 @@ class _AppSettingsState extends State<AppSettings> {
             onChanged: (_) => notifier.toggleShowDirectorToolsButton(),
             t: t,
           ),
+          if (!kIsWeb) ...[
+            const SizedBox(height: 12),
+            _buildShelfToggle(
+              label: 'COPY TO CLIPBOARD',
+              description: 'Show copy button on generated images',
+              value: prefs.showCopyButton,
+              onChanged: (_) async {
+                await prefs.setShowCopyButton(!prefs.showCopyButton);
+                setState(() {});
+              },
+              t: t,
+            ),
+          ],
           if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) ...[
             const SizedBox(height: 12),
             _buildShelfToggle(

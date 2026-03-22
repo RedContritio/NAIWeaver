@@ -23,6 +23,7 @@ class PreferencesService {
   static const String _keyShowEnhanceButton = 'show_enhance_button';
   static const String _keyShowDirectorToolsButton = 'show_director_tools_button';
   static const String _keyShowExportButton = 'show_export_button';
+  static const String _keyShowCopyButton = 'show_copy_button';
   static const String _keyAutoExportToDevice = 'auto_export_to_device';
   static const String _keyExportAlbumName = 'export_album_name';
   static const String _keySettingsSectionOrder = 'settings_section_order';
@@ -46,6 +47,11 @@ class PreferencesService {
   static const String _keySidebarLayoutMode = 'sidebar_layout_mode';
   static const String _keySidebarPromptPosition = 'sidebar_prompt_position';
   static const String _keySidebarWidthMode = 'sidebar_width_mode';
+  static const String _keyWindowX = 'window_x';
+  static const String _keyWindowY = 'window_y';
+  static const String _keyWindowW = 'window_w';
+  static const String _keyWindowH = 'window_h';
+  static const String _keyWindowMax = 'window_maximized';
 
   final SharedPreferences _prefs;
 
@@ -168,6 +174,12 @@ class PreferencesService {
 
   Future<void> setShowExportButton(bool value) async {
     await _prefs.setBool(_keyShowExportButton, value);
+  }
+
+  bool get showCopyButton => _prefs.getBool(_keyShowCopyButton) ?? false;
+
+  Future<void> setShowCopyButton(bool value) async {
+    await _prefs.setBool(_keyShowCopyButton, value);
   }
 
   // — Auto Export to Device —
@@ -348,6 +360,32 @@ class PreferencesService {
 
   Future<void> setSidebarWidthMode(String value) async {
     await _prefs.setString(_keySidebarWidthMode, value);
+  }
+
+  // — Window state (desktop) —
+  ({double x, double y, double w, double h})? get windowBounds {
+    final x = _prefs.getDouble(_keyWindowX);
+    final y = _prefs.getDouble(_keyWindowY);
+    final w = _prefs.getDouble(_keyWindowW);
+    final h = _prefs.getDouble(_keyWindowH);
+    if (x == null || y == null || w == null || h == null) return null;
+    return (x: x, y: y, w: w, h: h);
+  }
+
+  bool get windowMaximized => _prefs.getBool(_keyWindowMax) ?? false;
+
+  Future<void> saveWindowState({
+    required double x,
+    required double y,
+    required double w,
+    required double h,
+    required bool maximized,
+  }) async {
+    await _prefs.setDouble(_keyWindowX, x);
+    await _prefs.setDouble(_keyWindowY, y);
+    await _prefs.setDouble(_keyWindowW, w);
+    await _prefs.setDouble(_keyWindowH, h);
+    await _prefs.setBool(_keyWindowMax, maximized);
   }
 
   // — Delegating getters for backward compatibility —

@@ -7,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:gal/gal.dart';
 import 'package:path/path.dart' as p;
 import 'package:intl/intl.dart';
+import 'package:super_clipboard/super_clipboard.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/utils/app_snackbar.dart';
@@ -552,6 +553,26 @@ class GenerationNotifier extends ChangeNotifier {
       notifyListeners();
 
       await _autoExportIfEnabled(_state.generatedImage!);
+    }
+  }
+
+  /// Copies the current generated image to the system clipboard.
+  Future<void> copyToClipboard(BuildContext context) async {
+    if (_state.generatedImage == null) return;
+    try {
+      final item = DataWriterItem();
+      item.add(Formats.png(_state.generatedImage!));
+      final clipboard = SystemClipboard.instance;
+      if (clipboard != null) {
+        await clipboard.write([item]);
+        if (context.mounted) {
+          showAppSnackBar(context, 'COPIED TO CLIPBOARD', color: const Color(0xFF4CAF50));
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        showAppSnackBar(context, 'Copy failed: $e', color: const Color(0xFFF44336));
+      }
     }
   }
 

@@ -12,6 +12,7 @@ import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:window_manager/window_manager.dart';
 
 import 'core/l10n/locale_notifier.dart';
 import 'core/l10n/l10n_extensions.dart';
@@ -53,6 +54,25 @@ import 'core/services/tag_service.dart';
 import 'core/services/wildcard_service.dart';
 import 'package:audio_service/audio_service.dart';
 
+class _AppWindowListener extends WindowListener {
+  final PreferencesService _prefs;
+  _AppWindowListener(this._prefs);
+
+  @override
+  void onWindowClose() async {
+    try {
+      final bounds = await windowManager.getBounds();
+      final maximized = await windowManager.isMaximized();
+      await _prefs.saveWindowState(
+        x: bounds.left, y: bounds.top,
+        w: bounds.width, h: bounds.height,
+        maximized: maximized,
+      );
+    } catch (_) {}
+    await windowManager.destroy();
+  }
+}
+
 void main() {
   runZonedGuarded(() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -65,6 +85,20 @@ void main() {
   );
   final preferencesService = PreferencesService(prefs, secureStorage);
   await preferencesService.migrateApiKey();
+
+  // Restore window state on desktop
+  if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+    await windowManager.ensureInitialized();
+    final saved = preferencesService.windowBounds;
+    if (saved != null) {
+      await windowManager.setBounds(Rect.fromLTWH(saved.x, saved.y, saved.w, saved.h));
+    }
+    if (preferencesService.windowMaximized) {
+      await windowManager.maximize();
+    }
+    windowManager.setPreventClose(true);
+    windowManager.addListener(_AppWindowListener(preferencesService));
+  }
 
   final customOut = preferencesService.customOutputDir;
   if (customOut.isNotEmpty) paths.outputDirOverride = customOut;

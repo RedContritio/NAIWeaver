@@ -59,6 +59,8 @@ dependencies:
   ffi: ^2.1.0
   audio_service: ^0.18.15
   wakelock_plus: ^1.2.8
+  super_clipboard: ^0.8.0
+  window_manager: ^0.4.3
 
 dev_dependencies:
   flutter_test:

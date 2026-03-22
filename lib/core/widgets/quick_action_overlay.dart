@@ -57,6 +57,10 @@ class QuickActionOverlay extends StatelessWidget {
     final double exportTop = nextTop;
     if (showExport) nextTop += step;
 
+    final bool showCopy = prefs.showCopyButton && !kIsWeb;
+    final double copyTop = nextTop;
+    if (showCopy) nextTop += step;
+
     final bool showEdit = state.showEditButton;
     final double editTop = nextTop;
     if (showEdit) nextTop += step;
@@ -103,6 +107,20 @@ class QuickActionOverlay extends StatelessWidget {
               onTap: () => notifier.exportToDevice(context),
               icon: Icons.download,
               label: l.mainExport,
+              color: t.accent,
+              mobile: mobile,
+            ),
+          ),
+
+        // COPY to clipboard (desktop only)
+        if (showCopy)
+          Positioned(
+            top: copyTop,
+            right: 20,
+            child: _ActionButton(
+              onTap: () => notifier.copyToClipboard(context),
+              icon: Icons.copy,
+              label: 'COPY',
               color: t.accent,
               mobile: mobile,
             ),
