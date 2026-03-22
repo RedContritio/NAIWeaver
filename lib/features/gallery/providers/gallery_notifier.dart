@@ -497,6 +497,11 @@ class GalleryNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
+  void addToAlbumByBasename(String albumId, String basename) {
+    _albumService.addToAlbum(albumId, [basename]);
+    notifyListeners();
+  }
+
   void removeFromAlbum(String albumId, List<GalleryItem> items) {
     _albumService.removeFromAlbum(albumId, items.map((i) => i.basename).toList());
     notifyListeners();

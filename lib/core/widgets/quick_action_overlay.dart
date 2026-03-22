@@ -10,6 +10,7 @@ import '../ml/ml_notifier.dart';
 import '../ml/widgets/upscale_comparison_view.dart';
 import '../services/preferences_service.dart';
 import '../theme/theme_extensions.dart';
+import '../theme/vision_tokens.dart';
 import '../services/novel_ai_service.dart';
 import '../utils/app_snackbar.dart';
 import '../utils/responsive.dart';
@@ -60,6 +61,11 @@ class QuickActionOverlay extends StatelessWidget {
     final bool showCopy = prefs.showCopyButton && !kIsWeb;
     final double copyTop = nextTop;
     if (showCopy) nextTop += step;
+
+    final gallery = context.watch<GalleryNotifier>();
+    final bool showAlbum = gallery.albums.isNotEmpty;
+    final double albumTop = nextTop;
+    if (showAlbum) nextTop += step;
 
     final bool showEdit = state.showEditButton;
     final double editTop = nextTop;
@@ -121,6 +127,20 @@ class QuickActionOverlay extends StatelessWidget {
               onTap: () => notifier.copyToClipboard(context),
               icon: Icons.copy,
               label: 'COPY',
+              color: t.accent,
+              mobile: mobile,
+            ),
+          ),
+
+        // ALBUM
+        if (showAlbum)
+          Positioned(
+            top: albumTop,
+            right: 20,
+            child: _ActionButton(
+              onTap: () => _showAlbumPicker(context, notifier, gallery, t),
+              icon: Icons.photo_album_outlined,
+              label: 'ALBUM',
               color: t.accent,
               mobile: mobile,
             ),
@@ -381,6 +401,53 @@ class QuickActionOverlay extends StatelessWidget {
   final decoded = img.decodeImage(bytes);
   if (decoded == null) return null;
   return (decoded.width, decoded.height);
+}
+
+void _showAlbumPicker(
+  BuildContext context,
+  GenerationNotifier notifier,
+  GalleryNotifier gallery,
+  VisionTokens t,
+) async {
+  final basename = await notifier.ensureSavedAndGetBasename();
+  if (basename == null || !context.mounted) return;
+
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: t.surfaceHigh,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+    ),
+    builder: (_) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 12, bottom: 4),
+            child: Container(width: 32, height: 3, decoration: BoxDecoration(color: t.borderMedium, borderRadius: BorderRadius.circular(2))),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text('ADD TO ALBUM', style: TextStyle(fontSize: t.fontSize(10), letterSpacing: 2, fontWeight: FontWeight.w900, color: t.textSecondary)),
+          ),
+          for (final album in gallery.albums)
+            ListTile(
+              leading: Icon(Icons.photo_album, size: 18, color: album.imageBasenames.contains(basename) ? t.accentSuccess : t.textDisabled),
+              title: Text(album.name, style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(12))),
+              trailing: album.imageBasenames.contains(basename)
+                  ? Icon(Icons.check, size: 16, color: t.accentSuccess)
+                  : null,
+              onTap: () {
+                gallery.addToAlbumByBasename(album.id, basename);
+                Navigator.pop(context);
+                showAppSnackBar(context, 'ADDED TO ${album.name.toUpperCase()}');
+              },
+            ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    ),
+  );
 }
 
 /// SAVE button — keeps text+icon style (different category from tool launchers).

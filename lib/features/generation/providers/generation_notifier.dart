@@ -240,6 +240,8 @@ class GenerationNotifier extends ChangeNotifier {
   Map<String, dynamic>? _lastMetadata;
   bool _imageSaved = false;
   bool get imageSaved => _imageSaved;
+  String? _lastSavedBasename;
+  String? get lastSavedBasename => _lastSavedBasename;
   Uint8List? _previousImageBytes;
 
   Timer? _tagDebounce;
@@ -550,10 +552,26 @@ class GenerationNotifier extends ChangeNotifier {
     if (savedFile != null) {
       _galleryNotifier?.addFile(savedFile, DateTime.now());
       _imageSaved = true;
+      _lastSavedBasename = p.basename(savedFile.path);
       notifyListeners();
 
       await _autoExportIfEnabled(_state.generatedImage!);
     }
+  }
+
+  /// Ensures image is saved and returns its basename for album assignment.
+  Future<String?> ensureSavedAndGetBasename() async {
+    if (_lastSavedBasename != null) return _lastSavedBasename;
+    if (_state.generatedImage == null || _lastMetadata == null) return null;
+    final savedFile = await _saveToDisk(_state.generatedImage!, _lastMetadata!);
+    if (savedFile != null) {
+      _galleryNotifier?.addFile(savedFile, DateTime.now());
+      _imageSaved = true;
+      _lastSavedBasename = p.basename(savedFile.path);
+      notifyListeners();
+      return _lastSavedBasename;
+    }
+    return null;
   }
 
   /// Copies the current generated image to the system clipboard.
@@ -830,6 +848,7 @@ class GenerationNotifier extends ChangeNotifier {
 
       _lastMetadata = result.metadata;
       _imageSaved = false;
+      _lastSavedBasename = null;
       _state = _state.copyWith(
         generatedImage: result.imageBytes,
         duplicateImageDetected: isDuplicate,
@@ -839,6 +858,7 @@ class GenerationNotifier extends ChangeNotifier {
         if (savedFile != null) {
           _galleryNotifier?.addFile(savedFile, DateTime.now());
           _imageSaved = true;
+          _lastSavedBasename = p.basename(savedFile.path);
           await _autoExportIfEnabled(result.imageBytes);
         }
       }
