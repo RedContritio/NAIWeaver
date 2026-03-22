@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/l10n/l10n_extensions.dart';
 import '../../../../core/theme/theme_extensions.dart';
+import '../../../../core/utils/app_snackbar.dart';
 import '../providers/cascade_notifier.dart';
 
 class BeatTimeline extends StatelessWidget {
@@ -116,7 +117,10 @@ class BeatTimeline extends StatelessWidget {
                       _buildQuickAction(
                         context: context,
                         icon: Icons.copy,
-                        onPressed: () => notifier.cloneBeat(index),
+                        onPressed: () {
+                          notifier.cloneBeat(index);
+                          showAppSnackBar(context, l.cascadeCloneBeat);
+                        },
                         tooltip: l.cascadeCloneBeat,
                       ),
                       _buildQuickAction(

@@ -28,12 +28,42 @@ Uint8List injectMetadata(Map<String, dynamic> data) {
   return Uint8List.fromList(encoder.encode(image));
 }
 
-/// Helper to extract metadata from PNG bytes.
-/// Custom chunk parser that reads both tEXt and iTXt chunks, since the
-/// `image` package's decodePng only reads tEXt.
+/// Helper to extract metadata from image bytes.
+/// Supports PNG (tEXt/iTXt chunks) and WebP/JPEG (EXIF UserComment).
 /// This runs in a separate isolate via compute.
 Map<String, String>? extractMetadata(Uint8List bytes) {
-  return _extractPngTextChunks(bytes);
+  // Try PNG text chunks first
+  if (isPng(bytes)) return _extractPngTextChunks(bytes);
+
+  // For WebP/JPEG: try to extract NovelAI metadata from EXIF UserComment
+  try {
+    final image = img.decodeImage(bytes);
+    if (image == null) return null;
+
+    final result = <String, String>{};
+
+    // NovelAI stores the Comment JSON in EXIF UserComment (tag 0x9286)
+    final userComment = image.exif.exifIfd[0x9286]?.toString();
+    if (userComment != null && userComment.isNotEmpty) {
+      result['Comment'] = userComment;
+    }
+
+    // Also check ImageDescription (tag 0x010E) for the prompt/Description
+    final imageDesc = image.exif.imageIfd[0x010E]?.toString();
+    if (imageDesc != null && imageDesc.isNotEmpty) {
+      result['Description'] = imageDesc;
+    }
+
+    // Check Software tag (0x0131)
+    final software = image.exif.imageIfd[0x0131]?.toString();
+    if (software != null && software.isNotEmpty) {
+      result['Software'] = software;
+    }
+
+    return result.isEmpty ? null : result;
+  } catch (_) {
+    return null;
+  }
 }
 
 /// Parses PNG tEXt and iTXt chunks directly from raw bytes.

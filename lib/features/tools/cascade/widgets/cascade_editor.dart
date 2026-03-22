@@ -7,6 +7,7 @@ import '../../../../core/utils/responsive.dart';
 import '../providers/cascade_notifier.dart';
 import 'cascade_library_view.dart';
 import 'beat_timeline.dart';
+import 'cascade_help_dialog.dart';
 import 'director_view.dart';
 
 class CascadeEditor extends StatefulWidget {
@@ -169,6 +170,12 @@ class _CascadeEditorState extends State<CascadeEditor> {
                 ),
               ],
             ),
+          ),
+          IconButton(
+            icon: Icon(Icons.help_outline, size: mobile ? 18 : 14, color: t.textDisabled),
+            onPressed: () => showCascadeHelpDialog(context),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
           ),
           const SizedBox(width: 8),
           // Save button

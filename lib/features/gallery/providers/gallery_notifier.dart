@@ -179,7 +179,8 @@ class GalleryNotifier extends ChangeNotifier {
         final List<GalleryItem> newItems = [];
 
         for (var entity in entities) {
-          if (entity is File && p.extension(entity.path).toLowerCase() == '.png') {
+          final ext = entity is File ? p.extension(entity.path).toLowerCase() : '';
+          if (entity is File && (ext == '.png' || ext == '.webp')) {
             final stat = await entity.stat();
             newItems.add(GalleryItem(
               file: entity,

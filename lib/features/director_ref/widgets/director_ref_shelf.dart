@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import '../../../core/utils/file_picker_helper.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/l10n/l10n_extensions.dart';
@@ -16,8 +17,8 @@ import 'director_ref_editor_sheet.dart';
 class DirectorRefShelf extends StatelessWidget {
   const DirectorRefShelf({super.key});
 
-  Future<void> _pickAndAdd(BuildContext context) async {
-    final result = await pickImageFiles();
+  Future<void> _pickAndAdd(BuildContext context, {bool useFileBrowser = false}) async {
+    final result = await pickImageFiles(useFileBrowser: useFileBrowser);
     if (result != null && result.files.single.path != null) {
       final bytes = await File(result.files.single.path!).readAsBytes();
       if (context.mounted) {
@@ -41,7 +42,7 @@ class DirectorRefShelf extends StatelessWidget {
     );
   }
 
-  void _showRefMenu(BuildContext context) {
+  Future<void> _showRefMenu(BuildContext context) async {
     final t = context.t;
     final l = context.l;
     final RenderBox button = context.findRenderObject() as RenderBox;
@@ -54,7 +55,7 @@ class DirectorRefShelf extends StatelessWidget {
       Offset.zero & overlay.size,
     );
 
-    showMenu<String>(
+    final value = await showMenu<String>(
       context: context,
       position: position,
       color: t.surfaceHigh,
@@ -92,14 +93,33 @@ class DirectorRefShelf extends StatelessWidget {
             ],
           ),
         ),
+        if (!kIsWeb && Platform.isAndroid)
+          PopupMenuItem(
+            value: 'browse',
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.folder_open, size: 14, color: t.accentRefCharacter),
+                const SizedBox(width: 8),
+                Text(l.refBrowseFiles, style: TextStyle(
+                  fontSize: t.fontSize(9),
+                  letterSpacing: 1,
+                  fontWeight: FontWeight.bold,
+                  color: t.textPrimary,
+                )),
+              ],
+            ),
+          ),
       ],
-    ).then((value) {
-      if (value == 'library') {
-        _showSavedRefsSheet(context);
-      } else if (value == 'pick') {
-        _pickAndAdd(context);
-      }
-    });
+    );
+    if (!context.mounted) return;
+    if (value == 'library') {
+      _showSavedRefsSheet(context);
+    } else if (value == 'pick') {
+      _pickAndAdd(context);
+    } else if (value == 'browse') {
+      _pickAndAdd(context, useFileBrowser: true);
+    }
   }
 
   void _showSavedRefsSheet(BuildContext context) {

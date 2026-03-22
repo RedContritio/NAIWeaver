@@ -233,6 +233,9 @@ class CascadeNotifier extends ChangeNotifier {
       sampler: sourceBeat.sampler,
       steps: sourceBeat.steps,
       scale: sourceBeat.scale,
+      width: sourceBeat.width,
+      height: sourceBeat.height,
+      activeStyleNames: List.of(sourceBeat.activeStyleNames),
     );
     
     final updatedBeats = List<CascadeBeat>.from(_state.activeCascade!.beats)..insert(index + 1, clonedBeat);

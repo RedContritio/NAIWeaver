@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/l10n/l10n_extensions.dart';
@@ -52,8 +53,8 @@ class _RefSection extends StatelessWidget {
   final VisionTokens t;
   const _RefSection({required this.t});
 
-  Future<void> _pickAndAdd(BuildContext context) async {
-    final result = await pickImageFiles();
+  Future<void> _pickAndAdd(BuildContext context, {bool useFileBrowser = false}) async {
+    final result = await pickImageFiles(useFileBrowser: useFileBrowser);
     if (result != null && result.files.single.path != null) {
       final bytes = await File(result.files.single.path!).readAsBytes();
       if (context.mounted) {
@@ -62,7 +63,7 @@ class _RefSection extends StatelessWidget {
     }
   }
 
-  void _showRefMenu(BuildContext context) {
+  Future<void> _showRefMenu(BuildContext context) async {
     final menuT = context.t;
     final l = context.l;
     final RenderBox button = context.findRenderObject() as RenderBox;
@@ -75,7 +76,7 @@ class _RefSection extends StatelessWidget {
       Offset.zero & overlay.size,
     );
 
-    showMenu<String>(
+    final value = await showMenu<String>(
       context: context,
       position: position,
       color: menuT.surfaceHigh,
@@ -113,14 +114,33 @@ class _RefSection extends StatelessWidget {
             ],
           ),
         ),
+        if (!kIsWeb && Platform.isAndroid)
+          PopupMenuItem(
+            value: 'browse',
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.folder_open, size: 14, color: menuT.accentRefCharacter),
+                const SizedBox(width: 8),
+                Text(l.refBrowseFiles, style: TextStyle(
+                  fontSize: menuT.fontSize(9),
+                  letterSpacing: 1,
+                  fontWeight: FontWeight.bold,
+                  color: menuT.textPrimary,
+                )),
+              ],
+            ),
+          ),
       ],
-    ).then((value) {
-      if (value == 'library') {
-        _showSavedRefsSheet(context);
-      } else if (value == 'pick') {
-        _pickAndAdd(context);
-      }
-    });
+    );
+    if (!context.mounted) return;
+    if (value == 'library') {
+      _showSavedRefsSheet(context);
+    } else if (value == 'pick') {
+      _pickAndAdd(context);
+    } else if (value == 'browse') {
+      _pickAndAdd(context, useFileBrowser: true);
+    }
   }
 
   void _showSavedRefsSheet(BuildContext context) {

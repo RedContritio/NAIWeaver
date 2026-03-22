@@ -7,6 +7,7 @@ import '../../../../core/utils/responsive.dart';
 import '../../../../core/widgets/tag_suggestion_overlay.dart';
 import '../providers/cascade_notifier.dart';
 import '../services/cascade_stitching_service.dart';
+import 'cascade_help_dialog.dart';
 import '../../../generation/providers/generation_notifier.dart';
 import '../../../../core/services/tag_service.dart';
 
@@ -158,6 +159,12 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
               ),
             ],
           ),
+        ),
+        IconButton(
+          icon: Icon(Icons.help_outline, size: mobile ? 16 : 14, color: t.textDisabled),
+          onPressed: () => showCascadeHelpDialog(context),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
         ),
         const SizedBox(width: 8),
         TextButton.icon(
