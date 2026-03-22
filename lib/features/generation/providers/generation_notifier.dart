@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:gal/gal.dart';
 import 'package:path/path.dart' as p;
 import 'package:intl/intl.dart';
@@ -554,13 +555,28 @@ class GenerationNotifier extends ChangeNotifier {
     }
   }
 
-  /// Exports the current generated image to the device photo gallery.
+  /// Exports the current generated image to the device photo gallery or file system.
   Future<void> exportToDevice(BuildContext context) async {
     if (_state.generatedImage == null) return;
     try {
-      await _exportBytesToDevice(_state.generatedImage!);
-      if (context.mounted) {
-        showAppSnackBar(context, context.l.gallerySavedToDevice, color: const Color(0xFF4CAF50));
+      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+        await _exportBytesToMobileGallery(_state.generatedImage!);
+        if (context.mounted) {
+          showAppSnackBar(context, context.l.gallerySavedToDevice, color: const Color(0xFF4CAF50));
+        }
+      } else {
+        // Desktop: show save file dialog
+        final timestamp = DateFormat('yyyyMMdd_HHmmssSSS').format(DateTime.now());
+        final result = await FilePicker.platform.saveFile(
+          dialogTitle: 'Export Image',
+          fileName: 'Gen_$timestamp.png',
+          type: FileType.image,
+        );
+        if (result == null) return;
+        await File(result).writeAsBytes(_state.generatedImage!);
+        if (context.mounted) {
+          showAppSnackBar(context, 'SAVED TO ${p.basename(result).toUpperCase()}', color: const Color(0xFF4CAF50));
+        }
       }
     } catch (e) {
       if (context.mounted) {
@@ -569,7 +585,7 @@ class GenerationNotifier extends ChangeNotifier {
     }
   }
 
-  Future<void> _exportBytesToDevice(Uint8List bytes) async {
+  Future<void> _exportBytesToMobileGallery(Uint8List bytes) async {
     final hasAccess = await Gal.hasAccess();
     if (!hasAccess) {
       final granted = await Gal.requestAccess();
@@ -581,9 +597,21 @@ class GenerationNotifier extends ChangeNotifier {
   }
 
   Future<void> _autoExportIfEnabled(Uint8List bytes) async {
-    if (!_prefs.autoExportToDevice || kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return;
+    if (!_prefs.autoExportToDevice) return;
     try {
-      await _exportBytesToDevice(bytes);
+      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+        await _exportBytesToMobileGallery(bytes);
+      } else if (!kIsWeb) {
+        // Desktop auto-export: save to the configured output directory
+        final timestamp = DateFormat('yyyyMMdd_HHmmssSSS').format(DateTime.now());
+        final exportDir = _prefs.exportAlbumName.isNotEmpty
+            ? _prefs.exportAlbumName
+            : _outputDir;
+        final dir = Directory(exportDir);
+        if (!await dir.exists()) await dir.create(recursive: true);
+        final file = File(p.join(exportDir, 'Gen_$timestamp.png'));
+        await file.writeAsBytes(bytes);
+      }
     } catch (e) {
       debugPrint('Auto-export failed: $e');
     }

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -54,8 +53,7 @@ class QuickActionOverlay extends StatelessWidget {
     final double saveTop = nextTop;
     if (showSave) nextTop += step;
 
-    final bool showExport = prefs.showExportButton &&
-        !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+    final bool showExport = prefs.showExportButton && !kIsWeb;
     final double exportTop = nextTop;
     if (showExport) nextTop += step;
 

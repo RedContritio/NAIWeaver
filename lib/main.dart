@@ -386,22 +386,30 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
     final styles = notifier.state.styles;
     if (styles.isEmpty) return;
 
+    // Only cycle through non-default styles (preserve quality tags)
+    final cyclableStyles = styles.where((s) => !s.isDefault).toList();
+    if (cyclableStyles.isEmpty) return;
+
     final active = notifier.state.activeStyleNames;
+
+    // Find current non-default active style
     final currentIndex = active.isNotEmpty
-        ? styles.indexWhere((s) => s.name == active.last)
+        ? cyclableStyles.indexWhere((s) => active.contains(s.name))
         : -1;
 
     final nextIndex = forward
-        ? (currentIndex + 1) % styles.length
-        : (currentIndex - 1 + styles.length) % styles.length;
+        ? (currentIndex + 1) % cyclableStyles.length
+        : (currentIndex - 1 + cyclableStyles.length) % cyclableStyles.length;
 
-    // Clear current styles and activate the next one
+    // Only clear non-default active styles
     for (final name in [...active]) {
-      notifier.toggleStyle(name);
+      if (!styles.any((s) => s.name == name && s.isDefault)) {
+        notifier.toggleStyle(name);
+      }
     }
-    notifier.toggleStyle(styles[nextIndex].name);
+    notifier.toggleStyle(cyclableStyles[nextIndex].name);
 
-    showAppSnackBar(context, styles[nextIndex].name.toUpperCase());
+    showAppSnackBar(context, cyclableStyles[nextIndex].name.toUpperCase());
   }
 
   @override
@@ -913,7 +921,10 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
                 height: mobile ? 64 : 58,
                 width: mobile ? 64 : 58,
                 child: ElevatedButton(
-                  onPressed: state.isLoading ? null : notifier.generate,
+                  onPressed: state.isLoading ? null : () {
+                    FocusScope.of(context).unfocus();
+                    notifier.generate();
+                  },
                   style: ElevatedButton.styleFrom(
                     padding: EdgeInsets.zero,
                     backgroundColor: t.accent,

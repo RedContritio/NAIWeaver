@@ -63,7 +63,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _crossAxisCount ??= context.read<PreferencesService>().galleryGridColumns ?? (isMobile(context) ? 2 : 3);
+    _crossAxisCount ??= context.read<PreferencesService>().galleryGridColumns ?? (isMobile(context) ? 2 : 4);
   }
 
   @override
@@ -794,7 +794,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
     final t = context.t;
     final gallery = context.watch<GalleryNotifier>();
     final mobile = isMobile(context);
-    final maxCols = mobile ? 3 : 5;
+    final maxCols = mobile ? 4 : 8;
     final minCols = mobile ? 2 : 3;
     final activeItems = gallery.activeItems;
 
@@ -994,7 +994,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
           ],
         ),
         IconButton(
-          icon: Icon(Icons.checklist, size: mobile ? 20 : 16, color: t.textDisabled),
+          icon: Icon(Icons.checklist, size: mobile ? 20 : 16, color: t.textTertiary),
           tooltip: context.l.gallerySelectMode,
           onPressed: () {
             setState(() {
@@ -1003,7 +1003,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
           },
         ),
         IconButton(
-          icon: Icon(Icons.grid_view, size: mobile ? 20 : 16, color: t.textDisabled),
+          icon: Icon(Icons.grid_view, size: mobile ? 20 : 16, color: t.textTertiary),
           tooltip: context.l.galleryColumnsCount(_crossAxisCount!),
           onPressed: () {
             setState(() {
@@ -1014,7 +1014,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
         ),
         IconButton(
           icon: Icon(_isSearching ? Icons.close : Icons.search,
-              size: mobile ? 20 : 16, color: t.textDisabled),
+              size: mobile ? 20 : 16, color: t.textTertiary),
           onPressed: () {
             setState(() {
               if (_isSearching) {
