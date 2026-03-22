@@ -89,50 +89,59 @@ class MetadataImportService {
     required String composedNegativePrompt,
     required List<PromptStyle> availableStyles,
   }) {
-    final matched = <String>[];
+    final matched = <String>{};
     var prompt = composedPrompt;
     var negative = composedNegativePrompt;
 
-    for (final style in availableStyles) {
-      bool didMatch = false;
+    // Multiple passes: styles may be composed in any order, so a single
+    // pass can miss styles whose prefix/suffix is hidden behind another
+    // style's content. Loop until no new matches are found.
+    bool foundNew = true;
+    while (foundNew) {
+      foundNew = false;
+      for (final style in availableStyles) {
+        if (matched.contains(style.name)) continue;
+        bool didMatch = false;
 
-      // Prefix match (case-insensitive, whitespace-normalized)
-      if (style.prefix.isNotEmpty) {
-        final np = _norm(prompt);
-        final ns = _norm(style.prefix);
-        if (np.startsWith(ns)) {
-          prompt = prompt.substring(style.prefix.length).trimLeft();
-          if (prompt.startsWith(',')) prompt = prompt.substring(1).trimLeft();
-          didMatch = true;
+        // Prefix match (case-insensitive, whitespace-normalized)
+        if (style.prefix.isNotEmpty) {
+          final np = _norm(prompt);
+          final ns = _norm(style.prefix);
+          if (np.startsWith(ns)) {
+            prompt = prompt.substring(style.prefix.length).trimLeft();
+            if (prompt.startsWith(',')) prompt = prompt.substring(1).trimLeft();
+            didMatch = true;
+          }
         }
-      }
 
-      // Suffix match (case-insensitive, whitespace-normalized)
-      if (style.suffix.isNotEmpty) {
-        final np = _norm(prompt);
-        final ns = _norm(style.suffix);
-        if (np.endsWith(ns)) {
-          prompt = prompt.substring(0, prompt.length - style.suffix.length).trimRight();
-          if (prompt.endsWith(',')) prompt = prompt.substring(0, prompt.length - 1).trimRight();
-          didMatch = true;
+        // Suffix match (case-insensitive, whitespace-normalized)
+        if (style.suffix.isNotEmpty) {
+          final np = _norm(prompt);
+          final ns = _norm(style.suffix);
+          if (np.endsWith(ns)) {
+            prompt = prompt.substring(0, prompt.length - style.suffix.length).trimRight();
+            if (prompt.endsWith(',')) prompt = prompt.substring(0, prompt.length - 1).trimRight();
+            didMatch = true;
+          }
         }
-      }
 
-      // Negative match (case-insensitive)
-      if (style.negativeContent.isNotEmpty) {
-        final idx = negative.toLowerCase().indexOf(style.negativeContent.toLowerCase());
-        if (idx >= 0) {
-          negative = negative.substring(0, idx) + negative.substring(idx + style.negativeContent.length);
-          negative = negative.replaceAll(RegExp(r',\s*,'), ',');
-          negative = negative.replaceAll(RegExp(r'^\s*,\s*'), '');
-          negative = negative.replaceAll(RegExp(r'\s*,\s*$'), '');
-          negative = negative.trim();
-          didMatch = true;
+        // Negative match (case-insensitive)
+        if (style.negativeContent.isNotEmpty) {
+          final idx = negative.toLowerCase().indexOf(style.negativeContent.toLowerCase());
+          if (idx >= 0) {
+            negative = negative.substring(0, idx) + negative.substring(idx + style.negativeContent.length);
+            negative = negative.replaceAll(RegExp(r',\s*,'), ',');
+            negative = negative.replaceAll(RegExp(r'^\s*,\s*'), '');
+            negative = negative.replaceAll(RegExp(r'\s*,\s*$'), '');
+            negative = negative.trim();
+            didMatch = true;
+          }
         }
-      }
 
-      if (didMatch) {
-        matched.add(style.name);
+        if (didMatch) {
+          matched.add(style.name);
+          foundNew = true;
+        }
       }
     }
 
