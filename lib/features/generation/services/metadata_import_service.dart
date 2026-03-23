@@ -146,7 +146,7 @@ class MetadataImportService {
     }
 
     return StyleMatchResult(
-      matchedStyleNames: matched,
+      matchedStyleNames: matched.toList(),
       cleanedPrompt: prompt,
       cleanedNegativePrompt: negative,
       anyMatched: matched.isNotEmpty,
