@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.8.2
+
+### Style Import
+- **Fix style order dependency** — style matching now uses multi-pass detection, so artist styles and quality tags are correctly identified regardless of their ordering in the style list
+
+### Quick Actions
+- **Add to Album button** — assign a generated image to an album directly from the generation screen without navigating to the gallery. Auto-saves the image if needed
+
 ## v0.8.1
 
 ### Network & Reliability
