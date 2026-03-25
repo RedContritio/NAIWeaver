@@ -23,6 +23,7 @@ class _MaskCanvasState extends State<MaskCanvas> {
   final TransformationController _zoomController = TransformationController();
   final FocusNode _keyboardFocusNode = FocusNode();
   bool _spaceHeld = false;
+  bool _middleMouseHeld = false;
   int _pointerCount = 0;
   bool get _isPinching => _pointerCount >= 2;
   final GlobalKey<_CursorPreviewState> _cursorKey = GlobalKey<_CursorPreviewState>();
@@ -60,7 +61,7 @@ class _MaskCanvasState extends State<MaskCanvas> {
         final offsetY = (containerSize.height - renderHeight) / 2;
         _imageRect = Rect.fromLTWH(offsetX, offsetY, renderWidth, renderHeight);
 
-        final isPanMode = _spaceHeld;
+        final isPanMode = _spaceHeld || _middleMouseHeld;
 
         return KeyboardListener(
           focusNode: _keyboardFocusNode,
@@ -68,12 +69,34 @@ class _MaskCanvasState extends State<MaskCanvas> {
           onKeyEvent: (event) {
             if (event.logicalKey == LogicalKeyboardKey.space) {
               setState(() => _spaceHeld = event is KeyDownEvent);
+              return;
+            }
+            if (event is! KeyDownEvent) return;
+            final ctrl = HardwareKeyboard.instance.isControlPressed ||
+                HardwareKeyboard.instance.isMetaPressed;
+            if (ctrl && event.logicalKey == LogicalKeyboardKey.keyZ) {
+              notifier.undoLastStroke();
             }
           },
           child: Listener(
-            onPointerDown: (_) => setState(() => _pointerCount++),
-            onPointerUp: (_) => setState(() => _pointerCount = math.max(0, _pointerCount - 1)),
-            onPointerCancel: (_) => setState(() => _pointerCount = math.max(0, _pointerCount - 1)),
+            onPointerDown: (event) {
+              setState(() => _pointerCount++);
+              if (event.buttons & kMiddleMouseButton != 0) {
+                setState(() => _middleMouseHeld = true);
+              }
+            },
+            onPointerUp: (event) {
+              setState(() {
+                _pointerCount = math.max(0, _pointerCount - 1);
+                if (_middleMouseHeld) _middleMouseHeld = false;
+              });
+            },
+            onPointerCancel: (event) {
+              setState(() {
+                _pointerCount = math.max(0, _pointerCount - 1);
+                if (_middleMouseHeld) _middleMouseHeld = false;
+              });
+            },
             onPointerSignal: (event) {
               if (event is PointerScrollEvent) {
                 _onPointerSignal(event, notifier);
@@ -86,7 +109,7 @@ class _MaskCanvasState extends State<MaskCanvas> {
               child: InteractiveViewer(
                 transformationController: _zoomController,
                 panEnabled: isPanMode,
-                scaleEnabled: true,
+                scaleEnabled: !isPanMode,
                 boundaryMargin: const EdgeInsets.all(double.infinity),
                 minScale: 0.25,
                 maxScale: 16.0,
@@ -204,18 +227,12 @@ class _MaskCanvasState extends State<MaskCanvas> {
 
   Offset? _toNormalized(Offset localPosition) {
     if (_imageRect.width <= 0 || _imageRect.height <= 0) return null;
-    // Invert zoom/pan transform
-    try {
-      final inverseMatrix = Matrix4.inverted(_zoomController.value);
-      final transformed = MatrixUtils.transformPoint(inverseMatrix, localPosition);
-      final x = (transformed.dx - _imageRect.left) / _imageRect.width;
-      final y = (transformed.dy - _imageRect.top) / _imageRect.height;
-      return Offset(x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
-    } catch (_) {
-      final x = (localPosition.dx - _imageRect.left) / _imageRect.width;
-      final y = (localPosition.dy - _imageRect.top) / _imageRect.height;
-      return Offset(x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
-    }
+    // localPosition from GestureDetector inside InteractiveViewer is already
+    // in the child's untransformed coordinate space (Flutter hit testing applies
+    // the inverse transform automatically), so no manual inversion is needed.
+    final x = (localPosition.dx - _imageRect.left) / _imageRect.width;
+    final y = (localPosition.dy - _imageRect.top) / _imageRect.height;
+    return Offset(x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
   }
 }
 
@@ -444,16 +461,6 @@ class _CursorPreviewState extends State<_CursorPreview> {
     setState(() => _mousePosition = position);
   }
 
-  Offset? _transformedPosition() {
-    if (_mousePosition == null) return null;
-    try {
-      final inverse = Matrix4.inverted(widget.zoomController.value);
-      return MatrixUtils.transformPoint(inverse, _mousePosition!);
-    } catch (_) {
-      return _mousePosition;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
@@ -462,7 +469,7 @@ class _CursorPreviewState extends State<_CursorPreview> {
       onExit: (_) => setState(() => _mousePosition = null),
       child: CustomPaint(
         painter: _CursorPainter(
-          position: _transformedPosition(),
+          position: _mousePosition,
           rawRadius: widget.brushRadius * widget.imageRect.width,
           isErase: widget.isErase,
           imageRect: widget.imageRect,

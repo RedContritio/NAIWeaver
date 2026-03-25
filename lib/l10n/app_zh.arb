@@ -930,6 +930,8 @@
   "enhanceNoise": "噪声",
   "enhanceSaved": "增强图像已保存到图库",
 
+  "settingsSeedControl": "显示种子控制",
+  "settingsSeedControlDesc": "在生成界面显示种子值和随机切换",
   "settingsShowTooltips": "显示提示",
   "settingsShowTooltipsDesc": "悬停或长按按钮时显示帮助提示",
   "commonMenu": "菜单",

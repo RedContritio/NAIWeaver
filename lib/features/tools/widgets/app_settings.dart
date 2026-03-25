@@ -98,6 +98,8 @@ class _AppSettingsState extends State<AppSettings> {
           const SizedBox(height: 12),
           _buildAnlasTrackerToggle(t),
           const SizedBox(height: 12),
+          _buildSeedControlToggle(t),
+          const SizedBox(height: 12),
           _buildShowTooltipsToggle(t),
           const SizedBox(height: 12),
           _buildShelfToggle(
@@ -576,6 +578,25 @@ class _AppSettingsState extends State<AppSettings> {
               inactiveTrackColor: t.borderSubtle,
             ),
           ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSeedControlToggle(VisionTokens t) {
+    final prefs = context.read<PreferencesService>();
+    final l = context.l;
+    return StatefulBuilder(
+      builder: (context, setLocalState) {
+        return _buildShelfToggle(
+          label: l.settingsSeedControl.toUpperCase(),
+          description: l.settingsSeedControlDesc,
+          value: prefs.showSeedControl,
+          onChanged: (_) async {
+            await prefs.setShowSeedControl(!prefs.showSeedControl);
+            setLocalState(() {});
+          },
+          t: t,
         );
       },
     );

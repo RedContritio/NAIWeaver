@@ -2630,6 +2630,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get enhanceSaved => 'エンハンス画像をギャラリーに保存しました';
 
   @override
+  String get settingsSeedControl => 'シード表示';
+
+  @override
+  String get settingsSeedControlDesc => '生成画面にシード値とランダム切り替えを表示';
+
+  @override
   String get settingsShowTooltips => 'ツールチップ表示';
 
   @override

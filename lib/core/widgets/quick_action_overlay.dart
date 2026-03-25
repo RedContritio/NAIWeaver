@@ -118,15 +118,15 @@ class QuickActionOverlay extends StatelessWidget {
             ),
           ),
 
-        // COPY to clipboard (desktop only)
+        // COPY (desktop clipboard) / SHARE (mobile share sheet)
         if (showCopy)
           Positioned(
             top: copyTop,
             right: 20,
             child: _ActionButton(
               onTap: () => notifier.copyToClipboard(context),
-              icon: Icons.copy,
-              label: 'COPY',
+              icon: mobile ? Icons.share : Icons.copy,
+              label: mobile ? 'SHARE' : 'COPY',
               color: t.accent,
               mobile: mobile,
             ),

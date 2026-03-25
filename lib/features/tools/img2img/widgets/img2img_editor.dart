@@ -36,6 +36,7 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
 
   bool _showResult = false;
   bool _hadSession = false;
+  Object? _lastSourceImage;
 
   @override
   void dispose() {
@@ -49,9 +50,11 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
     final img2imgNotifier = context.watch<Img2ImgNotifier>();
     final genNotifier = context.watch<GenerationNotifier>();
 
-    // Sync controllers when a new session loads with pre-filled prompts
+    // Sync controllers when a new session loads or source image changes
     final hasSession = img2imgNotifier.hasSession;
-    if (hasSession && !_hadSession) {
+    final currentSource = hasSession ? img2imgNotifier.session!.sourceImageBytes : null;
+    final isNewLoad = (hasSession && !_hadSession) || (hasSession && !identical(currentSource, _lastSourceImage));
+    if (isNewLoad) {
       final session = img2imgNotifier.session!;
       if (session.prompt.isNotEmpty) {
         _promptController.text = session.prompt;
@@ -72,6 +75,7 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
       }
     }
     _hadSession = hasSession;
+    _lastSourceImage = currentSource;
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),

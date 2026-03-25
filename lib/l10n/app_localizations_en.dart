@@ -2677,6 +2677,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get enhanceSaved => 'ENHANCED IMAGE SAVED TO GALLERY';
 
   @override
+  String get settingsSeedControl => 'Show Seed Control';
+
+  @override
+  String get settingsSeedControlDesc =>
+      'Display seed value and randomize toggle on the generation screen';
+
+  @override
   String get settingsShowTooltips => 'Show Tooltips';
 
   @override

@@ -446,6 +446,52 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
     showAppSnackBar(context, cyclableStyles[nextIndex].name.toUpperCase());
   }
 
+  void _adjustTagWeight(TextEditingController controller, double delta) {
+    final text = controller.text;
+    final sel = controller.selection;
+    if (!sel.isValid || sel.baseOffset < 0) return;
+    final cursor = sel.baseOffset;
+
+    // Find tag boundaries (comma-delimited)
+    int start = text.lastIndexOf(',', cursor - 1) + 1;
+    int end = text.indexOf(',', cursor);
+    if (end < 0) end = text.length;
+
+    String tag = text.substring(start, end).trim();
+    if (tag.isEmpty) return;
+
+    // Parse existing weight: {tag:weight} or bare tag (weight = 1.0)
+    double weight = 1.0;
+    String bareTag = tag;
+    final weightMatch = RegExp(r'^\{(.+):([0-9.]+)\}$').firstMatch(tag);
+    if (weightMatch != null) {
+      bareTag = weightMatch.group(1)!;
+      weight = double.tryParse(weightMatch.group(2)!) ?? 1.0;
+    } else if (tag.startsWith('{') && tag.endsWith('}')) {
+      bareTag = tag.substring(1, tag.length - 1);
+      weight = 1.05;
+    }
+
+    weight = ((weight + delta) * 10).round() / 10;
+    if (weight < 0) weight = 0;
+
+    // Format result
+    String result;
+    if ((weight - 1.0).abs() < 0.01) {
+      result = bareTag;
+    } else {
+      result = '{$bareTag:${weight.toStringAsFixed(1)}}';
+    }
+
+    // Preserve spacing
+    final prefix = text.substring(start, start + (text.substring(start).length - text.substring(start).trimLeft().length));
+    final newText = text.substring(0, start) + prefix + result + text.substring(end);
+    controller.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: start + prefix.length + result.length),
+    );
+  }
+
   @override
   void dispose() {
     context.read<GenerationNotifier>().removeListener(_generationListener);
@@ -851,6 +897,8 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
               ),
             ),
           ),
+          if (context.read<PreferencesService>().showSeedControl)
+            _buildSeedRow(context, notifier, state, t),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -882,6 +930,15 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
                         (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
                          event.logicalKey == LogicalKeyboardKey.arrowRight)) {
                       _cycleStyle(notifier, event.logicalKey == LogicalKeyboardKey.arrowRight);
+                      return KeyEventResult.handled;
+                    }
+
+                    // Ctrl+Up/Down → adjust tag weight
+                    if (HardwareKeyboard.instance.isControlPressed &&
+                        (event.logicalKey == LogicalKeyboardKey.arrowUp ||
+                         event.logicalKey == LogicalKeyboardKey.arrowDown)) {
+                      final up = event.logicalKey == LogicalKeyboardKey.arrowUp;
+                      _adjustTagWeight(notifier.promptController, up ? 0.1 : -0.1);
                       return KeyEventResult.handled;
                     }
 
@@ -972,6 +1029,52 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSeedRow(BuildContext context, GenerationNotifier notifier, GenerationState state, VisionTokens t) {
+    final isRandom = state.randomizeSeed;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Icon(Icons.casino, size: 12, color: isRandom ? t.accent : t.textDisabled),
+          const SizedBox(width: 6),
+          if (isRandom)
+            Text('RANDOM', style: TextStyle(fontSize: t.fontSize(8), letterSpacing: 1, color: t.accent, fontWeight: FontWeight.bold))
+          else
+            Expanded(
+              child: SizedBox(
+                height: 24,
+                child: TextField(
+                  controller: notifier.seedController,
+                  style: TextStyle(fontSize: t.fontSize(9), color: t.textSecondary, letterSpacing: 1),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.borderSubtle)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.borderSubtle)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.accent)),
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+            ),
+          if (!isRandom) const SizedBox(width: 6),
+          InkWell(
+            onTap: () => notifier.updateSettings(randomizeSeed: !isRandom),
+            borderRadius: BorderRadius.circular(4),
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Icon(
+                isRandom ? Icons.lock_open : Icons.shuffle,
+                size: 14,
+                color: t.textDisabled,
+              ),
+            ),
           ),
         ],
       ),

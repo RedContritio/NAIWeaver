@@ -76,28 +76,28 @@ class TagSuggestionOverlay extends StatelessWidget {
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(color: t.borderMedium),
                 ),
-          child: Listener(
-            onPointerSignal: (pointerSignal) {
-              if (pointerSignal is PointerScrollEvent) {
-                final newOffset = scrollController.offset + pointerSignal.scrollDelta.dy;
-                scrollController.jumpTo(
-                  newOffset.clamp(0.0, scrollController.position.maxScrollExtent),
-                );
-              }
-            },
-            child: SingleChildScrollView(
-              controller: scrollController,
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: List.generate(suggestions.length, (index) {
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 120),
+            child: Listener(
+              onPointerSignal: (pointerSignal) {
+                if (pointerSignal is PointerScrollEvent) {
+                  final newOffset = scrollController.offset + pointerSignal.scrollDelta.dy;
+                  scrollController.jumpTo(
+                    newOffset.clamp(0.0, scrollController.position.maxScrollExtent),
+                  );
+                }
+              },
+              child: SingleChildScrollView(
+                controller: scrollController,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: List.generate(suggestions.length, (index) {
                   final tag = suggestions[index];
                   final color = tagColor(tag);
                   final isHighlighted = index == selectedIndex;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: InkWell(
+                  return InkWell(
                       onTap: () => onTagSelected(tag),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -163,11 +163,11 @@ class TagSuggestionOverlay extends StatelessWidget {
                           ],
                         ),
                       ),
-                    ),
                   );
                 }),
               ),
             ),
+          ),
           ),
         ),
       ),

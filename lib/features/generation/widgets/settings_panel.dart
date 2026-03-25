@@ -488,22 +488,41 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
       ],
     );
 
-    Widget postProcessingField = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(context.l.panelPostProcessing.toUpperCase(), style: labelStyle),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 4,
-          runSpacing: 4,
+    Widget furryToggle = InkWell(
+      onTap: () => notifier.updateSettings(furryMode: !state.furryMode),
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: state.furryMode ? const Color(0xFFFF9800) : t.borderMedium,
+          ),
+          color: state.furryMode
+              ? const Color(0xFFFF9800).withValues(alpha: 0.15)
+              : Colors.transparent,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _buildChipToggle("SMEA", state.smea, (v) => notifier.updateSettings(smea: v), t),
-            _buildChipToggle("DYN", state.smeaDyn, (v) => notifier.updateSettings(smeaDyn: v), t),
-            _buildChipToggle("CRISP", state.decrisper, (v) => notifier.updateSettings(decrisper: v), t),
-            _buildChipToggle("FURRY", state.furryMode, (v) => notifier.updateSettings(furryMode: v), t),
+            Icon(
+              Icons.pets,
+              size: mobile ? 16 : 14,
+              color: state.furryMode ? const Color(0xFFFF9800) : t.textDisabled,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'FURRY',
+              style: TextStyle(
+                color: state.furryMode ? const Color(0xFFFF9800) : t.textDisabled,
+                fontSize: t.fontSize(mobile ? 10 : 9),
+                fontWeight: FontWeight.bold,
+                letterSpacing: 2,
+              ),
+            ),
           ],
         ),
-      ],
+      ),
     );
 
     if (mobile || compact) {
@@ -512,7 +531,7 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
         children: [
           samplerField,
           const SizedBox(height: 16),
-          postProcessingField,
+          furryToggle,
         ],
       );
     }
@@ -521,7 +540,7 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
       children: [
         Expanded(flex: 1, child: samplerField),
         const SizedBox(width: 24),
-        Expanded(flex: 1, child: postProcessingField),
+        furryToggle,
       ],
     );
   }

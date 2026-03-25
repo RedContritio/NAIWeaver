@@ -932,6 +932,8 @@
   "enhanceNoise": "NOISE",
   "enhanceSaved": "ENHANCED IMAGE SAVED TO GALLERY",
 
+  "settingsSeedControl": "Show Seed Control",
+  "settingsSeedControlDesc": "Display seed value and randomize toggle on the generation screen",
   "settingsShowTooltips": "Show Tooltips",
   "settingsShowTooltipsDesc": "Display helpful tooltips when hovering or long-pressing buttons",
   "commonMenu": "Menu",

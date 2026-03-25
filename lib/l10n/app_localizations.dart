@@ -5012,6 +5012,18 @@ abstract class AppLocalizations {
   /// **'ENHANCED IMAGE SAVED TO GALLERY'**
   String get enhanceSaved;
 
+  /// No description provided for @settingsSeedControl.
+  ///
+  /// In en, this message translates to:
+  /// **'Show Seed Control'**
+  String get settingsSeedControl;
+
+  /// No description provided for @settingsSeedControlDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Display seed value and randomize toggle on the generation screen'**
+  String get settingsSeedControlDesc;
+
   /// No description provided for @settingsShowTooltips.
   ///
   /// In en, this message translates to:

@@ -350,7 +350,7 @@ class _CanvasEditorState extends State<CanvasEditor> {
       BuildContext context, CanvasNotifier notifier, AppLocalizations l) async {
     final session = notifier.session;
     if (session != null && session.hasStrokes) {
-      final t = context.t;
+      final t = context.tRead;
       final confirm = await showConfirmDialog(
         context,
         title: l.canvasDiscardTitle,

@@ -2625,6 +2625,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get enhanceSaved => '增强图像已保存到图库';
 
   @override
+  String get settingsSeedControl => '显示种子控制';
+
+  @override
+  String get settingsSeedControlDesc => '在生成界面显示种子值和随机切换';
+
+  @override
   String get settingsShowTooltips => '显示提示';
 
   @override

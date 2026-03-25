@@ -32,7 +32,9 @@ class PreferencesService {
   static const String _keyLocale = 'app_locale';
   static const String _keyFurryMode = 'furry_mode';
   static const String _keyImg2ImgImportPrompt = 'img2img_import_prompt';
+  static const String _keyShowSeedControl = 'show_seed_control';
   static const String _keyShowAnlasTracker = 'show_anlas_tracker';
+  static const String _keyImportDisabledCategories = 'import_disabled_categories';
   static const String _keyCanvasAutoSave = 'canvas_auto_save';
   static const String _keyCustomOutputDir = 'custom_output_dir';
   static const String _keyCustomResolutions = 'custom_resolutions';
@@ -245,6 +247,26 @@ class PreferencesService {
 
   Future<void> setImg2ImgImportPrompt(bool value) async {
     await _prefs.setBool(_keyImg2ImgImportPrompt, value);
+  }
+
+  // — Seed Control —
+
+  bool get showSeedControl => _prefs.getBool(_keyShowSeedControl) ?? false;
+
+  Future<void> setShowSeedControl(bool value) async {
+    await _prefs.setBool(_keyShowSeedControl, value);
+  }
+
+  // — Import Disabled Categories —
+
+  Set<String> get importDisabledCategories {
+    final raw = _prefs.getString(_keyImportDisabledCategories) ?? '';
+    if (raw.isEmpty) return {};
+    return raw.split(',').toSet();
+  }
+
+  Future<void> setImportDisabledCategories(Set<String> value) async {
+    await _prefs.setString(_keyImportDisabledCategories, value.join(','));
   }
 
   // — Anlas Tracker —

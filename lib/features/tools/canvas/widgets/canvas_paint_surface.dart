@@ -621,19 +621,12 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
 
   Offset? _toNormalized(Offset localPosition) {
     if (_imageRect.width <= 0 || _imageRect.height <= 0) return null;
-    // Invert the zoom/pan transform to get coordinates in the unzoomed canvas space
-    try {
-      final inverseMatrix = Matrix4.inverted(_zoomController.value);
-      final transformed = MatrixUtils.transformPoint(inverseMatrix, localPosition);
-      final x = (transformed.dx - _imageRect.left) / _imageRect.width;
-      final y = (transformed.dy - _imageRect.top) / _imageRect.height;
-      return Offset(x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
-    } catch (_) {
-      // Matrix non-invertible (e.g. zoomed to 0) — fall back to identity
-      final x = (localPosition.dx - _imageRect.left) / _imageRect.width;
-      final y = (localPosition.dy - _imageRect.top) / _imageRect.height;
-      return Offset(x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
-    }
+    // localPosition from GestureDetector inside InteractiveViewer is already
+    // in the child's untransformed coordinate space (Flutter hit testing applies
+    // the inverse transform automatically), so no manual inversion is needed.
+    final x = (localPosition.dx - _imageRect.left) / _imageRect.width;
+    final y = (localPosition.dy - _imageRect.top) / _imageRect.height;
+    return Offset(x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
   }
 
   void _samplePixel(Offset normalized, CanvasNotifier notifier) {

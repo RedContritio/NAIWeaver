@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/l10n/l10n_extensions.dart';
+import '../../../core/services/preferences_service.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../../core/theme/vision_tokens.dart';
 import '../../../core/utils/responsive.dart';
@@ -34,7 +36,10 @@ class _ImportMetadataDialogState extends State<_ImportMetadataDialog> {
   void initState() {
     super.initState();
     _available = widget.result.availableCategories;
-    _selected = Set.from(_available);
+    // Restore previously disabled categories from preferences
+    final prefs = Provider.of<PreferencesService>(context, listen: false);
+    final disabled = prefs.importDisabledCategories;
+    _selected = _available.where((cat) => !disabled.contains(cat.name)).toSet();
   }
 
   @override
@@ -96,7 +101,13 @@ class _ImportMetadataDialogState extends State<_ImportMetadataDialog> {
         TextButton(
           onPressed: _selected.isEmpty
               ? null
-              : () => Navigator.pop(context, Set<ImportCategory>.from(_selected)),
+              : () {
+                  // Persist disabled categories for next import
+                  final disabled = _available.difference(_selected).map((c) => c.name).toSet();
+                  Provider.of<PreferencesService>(context, listen: false)
+                      .setImportDisabledCategories(disabled);
+                  Navigator.pop(context, Set<ImportCategory>.from(_selected));
+                },
           child: Text(
             l.importActionImport,
             style: TextStyle(

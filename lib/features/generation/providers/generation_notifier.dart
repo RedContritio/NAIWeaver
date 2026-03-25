@@ -3,10 +3,12 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:gal/gal.dart';
 import 'package:path/path.dart' as p;
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../../core/l10n/l10n_extensions.dart';
@@ -575,8 +577,27 @@ class GenerationNotifier extends ChangeNotifier {
   }
 
   /// Copies the current generated image to the system clipboard.
+  /// On desktop, uses super_clipboard for native image copy.
+  /// On mobile, uses share_plus to share the image (native clipboard is unreliable).
   Future<void> copyToClipboard(BuildContext context) async {
     if (_state.generatedImage == null) return;
+
+    // Mobile: use share sheet (super_clipboard's native lib is missing on Android)
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      try {
+        final timestamp = DateFormat('yyyyMMdd_HHmmssSSS').format(DateTime.now());
+        await Share.shareXFiles(
+          [XFile.fromData(_state.generatedImage!, mimeType: 'image/png', name: 'Gen_$timestamp.png')],
+        );
+      } catch (e) {
+        if (context.mounted) {
+          showAppSnackBar(context, 'Share failed: $e', color: const Color(0xFFF44336));
+        }
+      }
+      return;
+    }
+
+    // Desktop: use super_clipboard for native image clipboard
     try {
       final item = DataWriterItem();
       item.add(Formats.png(_state.generatedImage!));
@@ -586,11 +607,11 @@ class GenerationNotifier extends ChangeNotifier {
         if (context.mounted) {
           showAppSnackBar(context, 'COPIED TO CLIPBOARD', color: const Color(0xFF4CAF50));
         }
+        return;
       }
-    } catch (e) {
-      if (context.mounted) {
-        showAppSnackBar(context, 'Copy failed: $e', color: const Color(0xFFF44336));
-      }
+    } catch (_) {}
+    if (context.mounted) {
+      showAppSnackBar(context, 'CLIPBOARD NOT AVAILABLE', color: const Color(0xFFF44336));
     }
   }
 

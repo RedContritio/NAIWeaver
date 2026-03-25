@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.8.3
+
+### Canvas & Inpainting
+- **Fix zoom cursor drift** — remove erroneous double-inversion of Matrix4 transform in `_toNormalized`; Flutter's hit testing already provides coordinates in child-space, so manual inversion was causing cursor/stroke offset proportional to zoom level
+- **Fix back button crash** — `_handleBack` used `context.t` (watch) inside async event handler; replaced with `context.tRead` (read) to avoid provider assertion failure
+
+### Prompt Editing
+- **Tag weight adjustment** — Ctrl+Up/Down adjusts the weight of the tag under the cursor (e.g. `{tag:1.2}` ↔ `{tag:1.3}`). Works with bare tags, `{tag}` shorthand, and `{tag:weight}` syntax
+- **Tag suggestion wrap** — suggestions now display in a wrapped grid layout (max 120px height) instead of a single horizontal scroll row
+
+### Seed Control
+- **Optional seed row** — new "Show Seed Control" toggle in app settings. When enabled, a seed input row appears above the prompt with random/fixed toggle and manual seed entry
+
+### Sharing & Export
+- **Mobile share sheet** — COPY button on mobile now opens the native share sheet (via `share_plus`) instead of attempting clipboard copy, which was unreliable on Android. Desktop retains clipboard behavior
+
+### Settings Panel
+- **Furry mode redesign** — post-processing toggles (SMEA/DYN/CRISP/FURRY) replaced with dedicated FURRY toggle button with icon, separate from sampler controls
+
+### Image Import
+- **Persistent category selection** — import metadata dialog remembers which categories you disabled/enabled across sessions (stored in preferences)
+
+### Localization
+- All new strings localized for EN, JA, ZH
+
 ## v0.8.2
 
 ### Style Import
