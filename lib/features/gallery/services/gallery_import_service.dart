@@ -35,31 +35,16 @@ class GalleryImportService {
           pngBytes = bytes;
         } else {
           // Check if the original file had a .png extension or if the bytes
-          // look like a JPEG transcoded from PNG — Android's SAF photo picker
-          // may transcode PNGs, stripping metadata chunks. Content URIs may
-          // also lack a proper extension, so also check for JPEG magic bytes
-          // when no extension is present.
-          final ext = p.extension(filePaths[i]).toLowerCase();
-          final isJpeg = bytes.length >= 3 &&
-              bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF;
-          final likelyTranscoded = ext == '.png' ||
-              (isJpeg && (ext.isEmpty || ext == '.'));
-          if (likelyTranscoded) {
-            // Likely transcoded from PNG — convert back to PNG.
-            final result = await compute(convertToPng, bytes);
-            if (result == null) {
-              errors.add(p.basename(filePaths[i]));
-              continue;
-            }
-            pngBytes = result;
-          } else {
-            final result = await compute(convertToPng, bytes);
-            if (result == null) {
-              errors.add(p.basename(filePaths[i]));
-              continue;
-            }
-            pngBytes = result;
+          // Convert to PNG while preserving metadata (NAI Comment chunk, etc.)
+          final result = await compute(convertToPngPreservingMetadata, {
+            'bytes': bytes,
+            'originalBytes': bytes,
+          });
+          if (result == null) {
+            errors.add(p.basename(filePaths[i]));
+            continue;
           }
+          pngBytes = result;
           converted++;
         }
 

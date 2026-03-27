@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
+import 'package:image/image.dart' as img;
 
 import '../models/canvas_action.dart';
 import '../models/canvas_layer.dart';
@@ -8,6 +9,38 @@ import '../models/canvas_selection.dart';
 import '../models/canvas_session.dart';
 import '../models/paint_stroke.dart';
 import '../widgets/canvas_color_picker.dart';
+
+/// Parameters for source image resize in isolate.
+class _ResizeParams {
+  final Uint8List sourceBytes;
+  final int newWidth;
+  final int newHeight;
+  final int anchorOffsetX;
+  final int anchorOffsetY;
+  _ResizeParams({
+    required this.sourceBytes,
+    required this.newWidth,
+    required this.newHeight,
+    required this.anchorOffsetX,
+    required this.anchorOffsetY,
+  });
+}
+
+/// Resize source image in an isolate: create a new image at the target
+/// dimensions and composite the original at the anchor offset.
+Uint8List _resizeSourceImage(_ResizeParams p) {
+  final decoded = img.decodeImage(p.sourceBytes);
+  if (decoded == null) return p.sourceBytes;
+
+  final newImage = img.Image(width: p.newWidth, height: p.newHeight);
+  // Fill with black (transparent would work too but black is safer for generation)
+  img.fill(newImage, color: img.ColorRgba8(0, 0, 0, 255));
+
+  // Composite the original image at the anchor offset
+  img.compositeImage(newImage, decoded, dstX: p.anchorOffsetX, dstY: p.anchorOffsetY);
+
+  return Uint8List.fromList(img.encodePng(newImage));
+}
 
 /// Tool mode for the canvas editor.
 enum CanvasTool { paint, erase, line, rectangle, circle, fill, text, eyedropper, transform, select, lasso, blur, cloneStamp }
@@ -725,11 +758,14 @@ class CanvasNotifier extends ChangeNotifier {
     _revertAction(action);
     // Handle dimension changes for resize actions
     if (action is ResizeCanvasAction) {
+      // Recompute source image at old dimensions (reverse the resize)
       _session = _session!.copyWith(
         sourceWidth: action.oldWidth,
         sourceHeight: action.oldHeight,
       );
-
+      _rebuildSourceImage(action.oldWidth, action.oldHeight,
+          -action.anchorOffsetX, -action.anchorOffsetY,
+          action.newWidth, action.newHeight);
     }
     _session = _session!.copyWith(historyIndex: _session!.historyIndex - 1);
     notifyListeners();
@@ -745,14 +781,34 @@ class CanvasNotifier extends ChangeNotifier {
         sourceWidth: action.newWidth,
         sourceHeight: action.newHeight,
       );
-
+      _rebuildSourceImage(action.newWidth, action.newHeight,
+          action.anchorOffsetX, action.anchorOffsetY,
+          action.oldWidth, action.oldHeight);
     }
     _session = _session!.copyWith(historyIndex: _session!.historyIndex + 1);
     notifyListeners();
   }
 
+  /// Rebuild source image bytes for a resize operation.
+  void _rebuildSourceImage(int newW, int newH, int offX, int offY, int fromW, int fromH) {
+    compute(_resizeSourceImage, _ResizeParams(
+      sourceBytes: _session!.sourceImageBytes,
+      newWidth: newW,
+      newHeight: newH,
+      anchorOffsetX: offX,
+      anchorOffsetY: offY,
+    )).then((resizedBytes) {
+      if (_session != null &&
+          _session!.sourceWidth == newW &&
+          _session!.sourceHeight == newH) {
+        _session = _session!.copyWith(sourceImageBytes: resizedBytes);
+        notifyListeners();
+      }
+    });
+  }
+
   /// Resize the canvas with the existing content anchored at the given offset.
-  void resizeCanvas(int newWidth, int newHeight, int anchorOffsetX, int anchorOffsetY) {
+  Future<void> resizeCanvas(int newWidth, int newHeight, int anchorOffsetX, int anchorOffsetY) async {
     if (_session == null) return;
     final action = ResizeCanvasAction(
       oldWidth: _session!.sourceWidth,
@@ -770,7 +826,18 @@ class CanvasNotifier extends ChangeNotifier {
       historyIndex: trimmedHistory.length + 1,
     );
     _applyAction(action);
+
+    // Resize the actual source image bytes to match the new dimensions
+    final resizedBytes = await compute(_resizeSourceImage, _ResizeParams(
+      sourceBytes: _session!.sourceImageBytes,
+      newWidth: newWidth,
+      newHeight: newHeight,
+      anchorOffsetX: anchorOffsetX,
+      anchorOffsetY: anchorOffsetY,
+    ));
+
     _session = _session!.copyWith(
+      sourceImageBytes: resizedBytes,
       sourceWidth: newWidth,
       sourceHeight: newHeight,
     );

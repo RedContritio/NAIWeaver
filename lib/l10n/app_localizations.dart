@@ -5234,6 +5234,24 @@ abstract class AppLocalizations {
   /// **'Device folder/album where exported images are saved'**
   String get settingsExportAlbumDesc;
 
+  /// No description provided for @settingsExportFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Export Folder'**
+  String get settingsExportFolder;
+
+  /// No description provided for @settingsExportFolderDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a custom folder for exports (SD card, etc). Overrides album name when set.'**
+  String get settingsExportFolderDesc;
+
+  /// No description provided for @settingsExportFolderDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Default (device gallery)'**
+  String get settingsExportFolderDefault;
+
   /// No description provided for @settingsUpscaleBackend.
   ///
   /// In en, this message translates to:

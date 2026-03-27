@@ -109,11 +109,14 @@ class _MaskCanvasState extends State<MaskCanvas> {
               child: InteractiveViewer(
                 transformationController: _zoomController,
                 panEnabled: isPanMode,
-                scaleEnabled: !isPanMode,
+                scaleEnabled: false, // all zoom handled via _onPointerSignal
                 boundaryMargin: const EdgeInsets.all(double.infinity),
                 minScale: 0.25,
                 maxScale: 16.0,
                 child: GestureDetector(
+                  onTapUp: (_isPinching || isPanMode)
+                      ? null
+                      : (details) => _onTapUp(details, notifier),
                   onPanStart: (_isPinching || isPanMode)
                       ? null
                       : (details) => _onPanStart(details, notifier),
@@ -123,6 +126,7 @@ class _MaskCanvasState extends State<MaskCanvas> {
                   onPanEnd: (_isPinching || isPanMode)
                       ? null
                       : (_) => notifier.endStroke(),
+                  onScaleStart: isPanMode ? (_) {} : null,
                   child: SizedBox(
                     width: containerSize.width,
                     height: containerSize.height,
@@ -157,6 +161,7 @@ class _MaskCanvasState extends State<MaskCanvas> {
                               maskOpacity: notifier.maskOpacity,
                               maskShowBorder: notifier.maskShowBorder,
                               maskPattern: notifier.maskPattern,
+                              brushRound: notifier.maskBrushRound,
                             ),
                           ),
                         ),
@@ -172,6 +177,7 @@ class _MaskCanvasState extends State<MaskCanvas> {
                             sourceHeight: session.sourceHeight,
                             maskColor: notifier.maskColor,
                             zoomController: _zoomController,
+                            brushRound: notifier.maskBrushRound,
                           ),
                         ),
                       ],
@@ -206,6 +212,14 @@ class _MaskCanvasState extends State<MaskCanvas> {
       // ignore: deprecated_member_use
       matrix.translate(-focalPoint.dx, -focalPoint.dy);
       _zoomController.value = matrix;
+    }
+  }
+
+  void _onTapUp(TapUpDetails details, Img2ImgNotifier notifier) {
+    final normalized = _toNormalized(details.localPosition);
+    if (normalized != null) {
+      notifier.beginStroke(normalized);
+      notifier.endStroke();
     }
   }
 
@@ -247,6 +261,7 @@ class _MaskOverlayPainter extends CustomPainter {
   final double maskOpacity;
   final bool maskShowBorder;
   final MaskPattern maskPattern;
+  final bool brushRound;
 
   _MaskOverlayPainter({
     required this.strokes,
@@ -258,6 +273,7 @@ class _MaskOverlayPainter extends CustomPainter {
     this.maskOpacity = 0.19,
     this.maskShowBorder = false,
     this.maskPattern = MaskPattern.solid,
+    this.brushRound = true,
   });
 
   @override
@@ -371,25 +387,54 @@ class _MaskOverlayPainter extends CustomPainter {
     }
   }
 
-  /// Draw the grid-snapped rectangles for a single stroke without any
-  /// saveLayer or alpha — the caller is responsible for compositing.
+  /// Draw grid-snapped brush marks for a single stroke. When [brushRound] is
+  /// true, only grid cells whose center falls within a circular radius are
+  /// filled (producing a plus/diamond at small sizes). Otherwise the full
+  /// bounding square is filled.
   void _drawStrokeGeometry(Canvas canvas, MaskStroke stroke, Paint paint) {
-    // Grid step in screen coordinates (8 source pixels)
     const grid = 8;
     final gridW = grid / sourceWidth * imageRect.width;
     final gridH = grid / sourceHeight * imageRect.height;
 
     // Snap brush radius UP to nearest grid cell (minimum 1 grid cell)
     final rawR = stroke.radius * imageRect.width;
-    final r = ((rawR / gridW).ceil()).clamp(1, sourceWidth) * gridW;
+    final rCells = ((rawR / gridW).ceil()).clamp(1, sourceWidth);
+    final r = rCells * gridW;
 
-    // Draw grid-aligned square at each sampled point
+    void drawBrushAt(double cx, double cy) {
+      final px = imageRect.left + ((cx - imageRect.left) / gridW).floor() * gridW;
+      final py = imageRect.top + ((cy - imageRect.top) / gridH).floor() * gridH;
+
+      if (!brushRound) {
+        canvas.drawRect(Rect.fromLTWH(px - r, py - r, r * 2, r * 2), paint);
+        return;
+      }
+
+      // Round brush: iterate grid cells in bounding box, fill those within radius
+      for (int gx = -rCells; gx <= rCells; gx++) {
+        for (int gy = -rCells; gy <= rCells; gy++) {
+          // Distance from cell center to brush center (in grid units)
+          final dist = math.sqrt(gx * gx + gy * gy);
+          if (dist <= rCells + 0.5) {
+            canvas.drawRect(
+              Rect.fromLTWH(
+                px + gx * gridW,
+                py + gy * gridH,
+                gridW,
+                gridH,
+              ),
+              paint,
+            );
+          }
+        }
+      }
+    }
+
+    // Draw at each sampled point
     for (final point in stroke.points) {
       final rawPx = imageRect.left + point.dx * imageRect.width;
       final rawPy = imageRect.top + point.dy * imageRect.height;
-      final px = imageRect.left + ((rawPx - imageRect.left) / gridW).floor() * gridW;
-      final py = imageRect.top + ((rawPy - imageRect.top) / gridH).floor() * gridH;
-      canvas.drawRect(Rect.fromLTWH(px - r, py - r, r * 2, r * 2), paint);
+      drawBrushAt(rawPx, rawPy);
     }
 
     // Interpolate between consecutive points
@@ -409,11 +454,7 @@ class _MaskOverlayPainter extends CustomPainter {
       final steps = [dx.abs(), dy.abs(), 1.0].reduce((a, b) => a > b ? a : b).ceil();
       for (int s = 1; s < steps; s++) {
         final t = s / steps;
-        final rawIx = x1 + dx * t;
-        final rawIy = y1 + dy * t;
-        final ix = imageRect.left + ((rawIx - imageRect.left) / gridW).floor() * gridW;
-        final iy = imageRect.top + ((rawIy - imageRect.top) / gridH).floor() * gridH;
-        canvas.drawRect(Rect.fromLTWH(ix - r, iy - r, r * 2, r * 2), paint);
+        drawBrushAt(x1 + dx * t, y1 + dy * t);
       }
     }
   }
@@ -426,7 +467,8 @@ class _MaskOverlayPainter extends CustomPainter {
       maskColor != oldDelegate.maskColor ||
       maskOpacity != oldDelegate.maskOpacity ||
       maskShowBorder != oldDelegate.maskShowBorder ||
-      maskPattern != oldDelegate.maskPattern;
+      maskPattern != oldDelegate.maskPattern ||
+      brushRound != oldDelegate.brushRound;
 }
 
 /// Shows a grid-snapped square cursor that follows the mouse position.
@@ -438,6 +480,7 @@ class _CursorPreview extends StatefulWidget {
   final int sourceHeight;
   final int maskColor;
   final TransformationController zoomController;
+  final bool brushRound;
 
   const _CursorPreview({
     super.key,
@@ -448,6 +491,7 @@ class _CursorPreview extends StatefulWidget {
     required this.sourceHeight,
     required this.zoomController,
     this.maskColor = 0xFFFF0066,
+    this.brushRound = true,
   });
 
   @override
@@ -476,6 +520,7 @@ class _CursorPreviewState extends State<_CursorPreview> {
           sourceWidth: widget.sourceWidth,
           sourceHeight: widget.sourceHeight,
           maskColor: widget.maskColor,
+          brushRound: widget.brushRound,
         ),
       ),
     );
@@ -490,6 +535,7 @@ class _CursorPainter extends CustomPainter {
   final int sourceWidth;
   final int sourceHeight;
   final int maskColor;
+  final bool brushRound;
 
   _CursorPainter({
     this.position,
@@ -499,6 +545,7 @@ class _CursorPainter extends CustomPainter {
     required this.sourceWidth,
     required this.sourceHeight,
     this.maskColor = 0xFFFF0066,
+    this.brushRound = true,
   });
 
   @override
@@ -510,7 +557,8 @@ class _CursorPainter extends CustomPainter {
     final gridH = grid / sourceHeight * imageRect.height;
 
     // Snap brush radius UP to nearest grid cell
-    final r = ((rawRadius / gridW).ceil()).clamp(1, sourceWidth) * gridW;
+    final rCells = ((rawRadius / gridW).ceil()).clamp(1, sourceWidth);
+    final r = rCells * gridW;
 
     // Snap cursor position to grid
     final rawPx = position!.dx;
@@ -523,7 +571,12 @@ class _CursorPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
 
-    canvas.drawRect(Rect.fromLTWH(px - r, py - r, r * 2, r * 2), paint);
+    if (brushRound) {
+      // Draw circle outline for round brush
+      canvas.drawCircle(Offset(px, py), r, paint);
+    } else {
+      canvas.drawRect(Rect.fromLTWH(px - r, py - r, r * 2, r * 2), paint);
+    }
 
     // Small crosshair at snapped center
     final crossPaint = Paint()
@@ -537,5 +590,6 @@ class _CursorPainter extends CustomPainter {
   bool shouldRepaint(_CursorPainter oldDelegate) =>
       position != oldDelegate.position ||
       rawRadius != oldDelegate.rawRadius ||
-      isErase != oldDelegate.isErase;
+      isErase != oldDelegate.isErase ||
+      brushRound != oldDelegate.brushRound;
 }

@@ -615,21 +615,34 @@ class GenerationNotifier extends ChangeNotifier {
     }
   }
 
-  /// Exports the current generated image to the device photo gallery or file system.
+  /// Exports the current generated image to the custom folder, device gallery, or file dialog.
   Future<void> exportToDevice(BuildContext context) async {
     if (_state.generatedImage == null) return;
     try {
+      final exportName = _lastMetadata != null
+          ? _buildFileName(_lastMetadata!)
+          : 'Gen_${DateFormat('yyyyMMdd_HHmmssSSS').format(DateTime.now())}';
+
+      // If a custom export folder is set, write directly there (any platform)
+      final customFolder = _prefs.exportFolderPath;
+      if (customFolder.isNotEmpty && !kIsWeb) {
+        await _exportToFolder(_state.generatedImage!, customFolder, exportName);
+        if (context.mounted) {
+          showAppSnackBar(context, 'SAVED TO ${p.basename(customFolder).toUpperCase()}', color: const Color(0xFF4CAF50));
+        }
+        return;
+      }
+
       if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-        await _exportBytesToMobileGallery(_state.generatedImage!);
+        await _exportBytesToMobileGallery(_state.generatedImage!, exportName);
         if (context.mounted) {
           showAppSnackBar(context, context.l.gallerySavedToDevice, color: const Color(0xFF4CAF50));
         }
       } else {
         // Desktop: show save file dialog
-        final timestamp = DateFormat('yyyyMMdd_HHmmssSSS').format(DateTime.now());
         final result = await FilePicker.platform.saveFile(
           dialogTitle: 'Export Image',
-          fileName: 'Gen_$timestamp.png',
+          fileName: '$exportName.png',
           type: FileType.image,
         );
         if (result == null) return;
@@ -645,32 +658,41 @@ class GenerationNotifier extends ChangeNotifier {
     }
   }
 
-  Future<void> _exportBytesToMobileGallery(Uint8List bytes) async {
+  Future<void> _exportBytesToMobileGallery(Uint8List bytes, String exportName) async {
     final hasAccess = await Gal.hasAccess();
     if (!hasAccess) {
       final granted = await Gal.requestAccess();
       if (!granted) return;
     }
-    final timestamp = DateFormat('yyyyMMdd_HHmmssSSS').format(DateTime.now());
     final album = _prefs.exportAlbumName;
-    await Gal.putImageBytes(bytes, name: 'Gen_$timestamp', album: album);
+    await Gal.putImageBytes(bytes, name: exportName, album: album);
+  }
+
+  Future<void> _exportToFolder(Uint8List bytes, String folderPath, String fileName) async {
+    final dir = Directory(folderPath);
+    if (!await dir.exists()) await dir.create(recursive: true);
+    final file = File(p.join(folderPath, '$fileName.png'));
+    await file.writeAsBytes(bytes);
   }
 
   Future<void> _autoExportIfEnabled(Uint8List bytes) async {
     if (!_prefs.autoExportToDevice) return;
     try {
+      final exportName = _lastMetadata != null
+          ? _buildFileName(_lastMetadata!)
+          : 'Gen_${DateFormat('yyyyMMdd_HHmmssSSS').format(DateTime.now())}';
+
+      // Custom folder takes priority on all platforms
+      final customFolder = _prefs.exportFolderPath;
+      if (customFolder.isNotEmpty && !kIsWeb) {
+        await _exportToFolder(bytes, customFolder, exportName);
+        return;
+      }
+
       if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-        await _exportBytesToMobileGallery(bytes);
+        await _exportBytesToMobileGallery(bytes, exportName);
       } else if (!kIsWeb) {
-        // Desktop auto-export: save to the configured output directory
-        final timestamp = DateFormat('yyyyMMdd_HHmmssSSS').format(DateTime.now());
-        final exportDir = _prefs.exportAlbumName.isNotEmpty
-            ? _prefs.exportAlbumName
-            : _outputDir;
-        final dir = Directory(exportDir);
-        if (!await dir.exists()) await dir.create(recursive: true);
-        final file = File(p.join(exportDir, 'Gen_$timestamp.png'));
-        await file.writeAsBytes(bytes);
+        await _exportToFolder(bytes, _outputDir, exportName);
       }
     } catch (e) {
       debugPrint('Auto-export failed: $e');
@@ -898,6 +920,27 @@ class GenerationNotifier extends ChangeNotifier {
     }
   }
 
+  /// Generates a NovelAI-style filename from the prompt and seed.
+  /// Format: first ~50 chars of prompt (sanitized) + _seed.png
+  String _buildFileName(Map<String, dynamic> metadata, {String prefix = 'Gen'}) {
+    try {
+      final prompt = (metadata['prompt'] as String? ?? '').trim();
+      final seed = metadata['seed']?.toString() ?? '';
+      if (prompt.isNotEmpty && seed.isNotEmpty) {
+        // Sanitize: keep alphanumeric, spaces→underscores, remove special chars
+        var sanitized = prompt
+            .replaceAll(RegExp(r'[^\w\s]'), '')
+            .replaceAll(RegExp(r'\s+'), '_')
+            .toLowerCase();
+        if (sanitized.length > 50) sanitized = sanitized.substring(0, 50);
+        sanitized = sanitized.replaceAll(RegExp(r'_+$'), ''); // trim trailing underscores
+        return '${sanitized}_$seed';
+      }
+    } catch (_) {}
+    // Fallback to timestamp
+    return '${prefix}_${DateFormat('yyyyMMdd_HHmmssSSS').format(DateTime.now())}';
+  }
+
   Future<File?> _saveToDisk(Uint8List bytes, Map<String, dynamic> metadata, {String prefix = 'Gen', String? timestamp}) async {
     try {
       final directory = Directory(_outputDir);
@@ -905,8 +948,10 @@ class GenerationNotifier extends ChangeNotifier {
         await directory.create(recursive: true);
       }
 
-      final ts = timestamp ?? DateFormat('yyyyMMdd_HHmmssSSS').format(DateTime.now());
-      final filePath = p.join(directory.path, '${prefix}_$ts.png');
+      final fileName = timestamp != null
+          ? '${prefix}_$timestamp'
+          : _buildFileName(metadata, prefix: prefix);
+      final filePath = p.join(directory.path, '$fileName.png');
 
       final bytesWithMetadata = await compute(injectMetadata, {
         'bytes': bytes,

@@ -2738,6 +2738,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsExportAlbumDesc => '导出的图片保存到的设备文件夹/相册';
 
   @override
+  String get settingsExportFolder => '导出文件夹';
+
+  @override
+  String get settingsExportFolderDesc => '选择自定义导出文件夹（SD卡等）。设置后将覆盖相册名称。';
+
+  @override
+  String get settingsExportFolderDefault => '默认（设备相册）';
+
+  @override
   String get settingsUpscaleBackend => '放大后端';
 
   @override

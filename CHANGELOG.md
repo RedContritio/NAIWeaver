@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.8.4
+
+### Gallery & Albums
+- **Fix export saves to wrong folder** — gallery bulk export and single-image export now correctly pass the `album:` parameter to `Gal.putImageBytes()`, saving to Pictures/NAIWeaver instead of Pictures root
+- **Import to active album** — importing images while viewing an album now adds them to that album, instead of the generation settings default
+- **Album reorder** — drag albums in the gallery strip to reorder them. New albums no longer stuck at the end
+- **Remove from album** — new "Remove" action in both gallery selection toolbar and image detail view when viewing an album
+- **Preserve metadata on import** — imported images now retain their NovelAI Comment chunk and other PNG metadata (switched from `convertToPng` to `convertToPngPreservingMetadata`)
+
+### Export & File Naming
+- **NovelAI-style filenames** — generated images are now named with the prompt start + seed (e.g. `1girl_ancient_greek_macedonian_177319647.png`) instead of timestamps. Falls back to timestamp when no metadata available
+- **Custom export folder** — new "Export Folder" picker in settings. Choose any folder (including SD card) for exports. Overrides the gallery album when set. Clear to return to default behavior
+
+### Inpainting
+- **Round/square brush toggle** — new brush shape button in mask toolbar. Round brush fills only grid cells within a circular radius; square brush fills the full bounding box
+- **Tap-to-fill single cell** — tapping (not dragging) on the mask canvas now places a single brush mark, useful for precise masking
+- **Disable scale on InteractiveViewer** — zoom is now exclusively handled via scroll wheel, preventing accidental pinch conflicts on desktop
+
+### Prompt Editing
+- **NAI tag weight format** — Ctrl+Up/Down now uses NovelAI's native `1.2::tag::` syntax instead of the legacy `{tag:1.2}` format. Both formats are recognized when parsing
+- **Key repeat support** — Ctrl+Up/Down weight adjustment now responds to held keys (KeyRepeatEvent), not just initial press
+
+### Localization
+- All new strings localized for EN, JA, ZH (export folder, browse files)
+
 ## v0.8.3
 
 ### Canvas & Inpainting

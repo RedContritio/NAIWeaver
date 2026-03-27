@@ -41,6 +41,13 @@ class AlbumService {
     _saveAlbums();
   }
 
+  void reorderAlbum(int oldIndex, int newIndex) {
+    if (oldIndex < newIndex) newIndex--;
+    final album = _albums.removeAt(oldIndex);
+    _albums.insert(newIndex, album);
+    _saveAlbums();
+  }
+
   void deleteAlbum(String id) {
     _albums.removeWhere((a) => a.id == id);
     _saveAlbums();

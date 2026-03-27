@@ -35,6 +35,7 @@ class PreferencesService {
   static const String _keyShowSeedControl = 'show_seed_control';
   static const String _keyShowAnlasTracker = 'show_anlas_tracker';
   static const String _keyImportDisabledCategories = 'import_disabled_categories';
+  static const String _keyExportFolderPath = 'export_folder_path';
   static const String _keyCanvasAutoSave = 'canvas_auto_save';
   static const String _keyCustomOutputDir = 'custom_output_dir';
   static const String _keyCustomResolutions = 'custom_resolutions';
@@ -267,6 +268,14 @@ class PreferencesService {
 
   Future<void> setImportDisabledCategories(Set<String> value) async {
     await _prefs.setString(_keyImportDisabledCategories, value.join(','));
+  }
+
+  // — Export Folder Path —
+
+  String get exportFolderPath => _prefs.getString(_keyExportFolderPath) ?? '';
+
+  Future<void> setExportFolderPath(String value) async {
+    await _prefs.setString(_keyExportFolderPath, value);
   }
 
   // — Anlas Tracker —

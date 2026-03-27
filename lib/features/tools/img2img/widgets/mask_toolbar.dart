@@ -62,7 +62,21 @@ class _MaskToolbarState extends State<MaskToolbar> {
                 splashRadius: 16,
               ),
 
-              const SizedBox(width: 16),
+              const SizedBox(width: 8),
+
+              // Brush shape toggle (round/square)
+              IconButton(
+                icon: Icon(
+                  notifier.maskBrushRound ? Icons.circle_outlined : Icons.square_outlined,
+                  size: 16,
+                  color: t.textTertiary,
+                ),
+                onPressed: () => notifier.setMaskBrushRound(!notifier.maskBrushRound),
+                tooltip: notifier.maskBrushRound ? 'Round brush' : 'Square brush',
+                splashRadius: 16,
+              ),
+
+              const SizedBox(width: 8),
 
               // Brush size slider
               Text(

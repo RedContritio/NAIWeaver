@@ -460,27 +460,34 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
     String tag = text.substring(start, end).trim();
     if (tag.isEmpty) return;
 
-    // Parse existing weight: {tag:weight} or bare tag (weight = 1.0)
+    // Parse existing weight: value::tag:: (NAI format) or legacy {tag:weight}
     double weight = 1.0;
     String bareTag = tag;
-    final weightMatch = RegExp(r'^\{(.+):([0-9.]+)\}$').firstMatch(tag);
-    if (weightMatch != null) {
-      bareTag = weightMatch.group(1)!;
-      weight = double.tryParse(weightMatch.group(2)!) ?? 1.0;
+
+    // NAI format: 1.2::tag::
+    final naiMatch = RegExp(r'^(-?[0-9.]+)::(.+)::$').firstMatch(tag);
+    // Legacy format: {tag:weight}
+    final legacyMatch = RegExp(r'^\{(.+):([0-9.-]+)\}$').firstMatch(tag);
+
+    if (naiMatch != null) {
+      weight = double.tryParse(naiMatch.group(1)!) ?? 1.0;
+      bareTag = naiMatch.group(2)!;
+    } else if (legacyMatch != null) {
+      bareTag = legacyMatch.group(1)!;
+      weight = double.tryParse(legacyMatch.group(2)!) ?? 1.0;
     } else if (tag.startsWith('{') && tag.endsWith('}')) {
       bareTag = tag.substring(1, tag.length - 1);
       weight = 1.05;
     }
 
     weight = ((weight + delta) * 10).round() / 10;
-    if (weight < 0) weight = 0;
 
-    // Format result
+    // Format result using NAI's value::tag:: syntax
     String result;
     if ((weight - 1.0).abs() < 0.01) {
       result = bareTag;
     } else {
-      result = '{$bareTag:${weight.toStringAsFixed(1)}}';
+      result = '${weight.toStringAsFixed(1)}::$bareTag::';
     }
 
     // Preserve spacing
@@ -915,7 +922,7 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
                     }
                   },
                   onKeyEvent: (node, event) {
-                    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return KeyEventResult.ignored;
                     final currentState = notifier.state;
 
                     // Ctrl+Enter → generate

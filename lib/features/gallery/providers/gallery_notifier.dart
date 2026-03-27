@@ -282,8 +282,8 @@ class GalleryNotifier extends ChangeNotifier {
     );
     _items.insert(0, newItem);
 
-    // Auto-add to album: explicit > default save album > active
-    final targetAlbum = albumId ?? _prefs.defaultSaveAlbumId ?? _activeAlbumId;
+    // Auto-add to album: explicit > default save album (no active album fallback)
+    final targetAlbum = albumId ?? _prefs.defaultSaveAlbumId;
     if (targetAlbum != null) {
       _albumService.addToAlbum(targetAlbum, [newItem.basename]);
     }
@@ -325,7 +325,7 @@ class GalleryNotifier extends ChangeNotifier {
     return _importService.importFiles(
       filePaths,
       outputDir: outputDir,
-      onFileImported: (file, date) => addFile(file, date),
+      onFileImported: (file, date) => addFile(file, date, albumId: _activeAlbumId),
       onProgress: onProgress,
     );
   }
@@ -478,6 +478,11 @@ class GalleryNotifier extends ChangeNotifier {
 
   void createAlbum(String name) {
     _albumService.createAlbum(name);
+    notifyListeners();
+  }
+
+  void reorderAlbum(int oldIndex, int newIndex) {
+    _albumService.reorderAlbum(oldIndex, newIndex);
     notifyListeners();
   }
 

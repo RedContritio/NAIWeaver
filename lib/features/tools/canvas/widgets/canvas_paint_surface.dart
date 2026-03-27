@@ -359,6 +359,7 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
                                 tool: notifier.tool,
                                 brushColor: notifier.brushColorAsColor,
                                 imageRect: _imageRect,
+                                zoomController: _zoomController,
                               ),
                             ),
                           ],
@@ -940,12 +941,14 @@ class _CanvasCursorPreview extends StatefulWidget {
   final CanvasTool tool;
   final Color brushColor;
   final Rect imageRect;
+  final TransformationController? zoomController;
 
   const _CanvasCursorPreview({
     required this.brushRadius,
     required this.tool,
     required this.brushColor,
     required this.imageRect,
+    this.zoomController,
   });
 
   @override
@@ -954,6 +957,35 @@ class _CanvasCursorPreview extends StatefulWidget {
 
 class _CanvasCursorPreviewState extends State<_CanvasCursorPreview> {
   Offset? _mousePosition;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.zoomController?.addListener(_onZoomChanged);
+  }
+
+  @override
+  void didUpdateWidget(_CanvasCursorPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.zoomController != widget.zoomController) {
+      oldWidget.zoomController?.removeListener(_onZoomChanged);
+      widget.zoomController?.addListener(_onZoomChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.zoomController?.removeListener(_onZoomChanged);
+    super.dispose();
+  }
+
+  void _onZoomChanged() {
+    // Clear stale cursor position when zoom/pan changes so it re-syncs
+    // on the next mouse move event
+    if (_mousePosition != null) {
+      setState(() => _mousePosition = null);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

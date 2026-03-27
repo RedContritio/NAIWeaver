@@ -189,7 +189,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
           var bytes = await item.file.readAsBytes();
           bytes = await _maybeStripMetadata(bytes);
           final name = p.basenameWithoutExtension(item.file.path);
-          await Gal.putImageBytes(bytes, name: name);
+          final album = context.read<PreferencesService>().exportAlbumName;
+          await Gal.putImageBytes(bytes, name: name, album: album);
           saved++;
         }
         if (mounted) {
@@ -544,28 +545,51 @@ class _GalleryScreenState extends State<GalleryScreen> {
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: t.borderSubtle)),
       ),
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
         children: [
-          _AlbumChip(
-            label: context.l.galleryAll.toUpperCase(),
-            count: gallery.items.length,
-            isActive: gallery.activeAlbumId == null,
-            mobile: mobile,
-            onTap: () => gallery.setActiveAlbum(null),
-          ),
-          for (final album in gallery.albums)
-            _AlbumChip(
-              label: album.name,
-              count: gallery.albumItemCount(album.id),
-              isActive: gallery.activeAlbumId == album.id,
-              mobile: mobile,
-              onTap: () => gallery.setActiveAlbum(album.id),
-              onLongPress: () => _showAlbumOptionsDialog(gallery, album.id, album.name),
+          // Fixed "All" chip + reorderable albums
+          Expanded(
+            child: ReorderableListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              buildDefaultDragHandles: false,
+              proxyDecorator: (child, index, animation) => Material(
+                color: Colors.transparent,
+                elevation: 4,
+                child: child,
+              ),
+              onReorder: (oldIndex, newIndex) {
+                // Index 0 is "All" (not reorderable), albums start at index 1
+                if (oldIndex == 0 || newIndex == 0) return;
+                gallery.reorderAlbum(oldIndex - 1, newIndex - 1);
+              },
+              children: [
+                _AlbumChip(
+                  key: const ValueKey('__all__'),
+                  label: context.l.galleryAll.toUpperCase(),
+                  count: gallery.items.length,
+                  isActive: gallery.activeAlbumId == null,
+                  mobile: mobile,
+                  onTap: () => gallery.setActiveAlbum(null),
+                ),
+                for (int i = 0; i < gallery.albums.length; i++)
+                  ReorderableDragStartListener(
+                    key: ValueKey(gallery.albums[i].id),
+                    index: i + 1,
+                    child: _AlbumChip(
+                      label: gallery.albums[i].name,
+                      count: gallery.albumItemCount(gallery.albums[i].id),
+                      isActive: gallery.activeAlbumId == gallery.albums[i].id,
+                      mobile: mobile,
+                      onTap: () => gallery.setActiveAlbum(gallery.albums[i].id),
+                      onLongPress: () => _showAlbumOptionsDialog(gallery, gallery.albums[i].id, gallery.albums[i].name),
+                    ),
+                  ),
+              ],
             ),
+          ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: () => _showCreateAlbumDialog(gallery),
@@ -1424,6 +1448,22 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   iconOnly: mobile,
                   onTap: count > 0 ? () => _bulkFavorite(selectedItems) : null,
                 ),
+                // Remove from album (only when viewing an album)
+                if (context.read<GalleryNotifier>().activeAlbumId != null) ...[
+                  SizedBox(width: mobile ? 12 : 8),
+                  _ActionButton(
+                    icon: Icons.playlist_remove,
+                    label: 'REMOVE',
+                    color: t.textTertiary,
+                    mobile: mobile,
+                    iconOnly: mobile,
+                    onTap: count > 0 ? () {
+                      final g = context.read<GalleryNotifier>();
+                      g.removeFromAlbum(g.activeAlbumId!, selectedItems);
+                      setState(() => _selectedIndices.clear());
+                    } : null,
+                  ),
+                ],
                 SizedBox(width: mobile ? 12 : 8),
                 _ActionButton(
                   icon: Icons.delete_outline,
@@ -1503,6 +1543,7 @@ class _AlbumChip extends StatelessWidget {
   final VoidCallback? onLongPress;
 
   const _AlbumChip({
+    super.key,
     required this.label,
     required this.count,
     required this.isActive,

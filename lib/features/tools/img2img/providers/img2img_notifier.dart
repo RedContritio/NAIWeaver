@@ -59,6 +59,14 @@ class Img2ImgNotifier extends ChangeNotifier {
   double get brushRadius => _brushRadius;
   bool get isEraseMode => _isEraseMode;
 
+  // --- Brush shape ---
+  bool _maskBrushRound = true;
+  bool get maskBrushRound => _maskBrushRound;
+  void setMaskBrushRound(bool round) {
+    _maskBrushRound = round;
+    notifyListeners();
+  }
+
   // --- Mask display settings ---
   int _maskColor = 0xFFFF0066;
   double _maskOpacity = 0.19; // ~48/255

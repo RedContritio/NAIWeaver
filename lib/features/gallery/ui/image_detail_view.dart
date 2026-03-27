@@ -315,7 +315,8 @@ class _ImageDetailViewState extends State<ImageDetailView>
           bytes = stripMetadata(bytes);
         }
         final name = p.basenameWithoutExtension(sourceFile.path);
-        await Gal.putImageBytes(bytes, name: name);
+        final album = prefs.exportAlbumName;
+        await Gal.putImageBytes(bytes, name: name, album: album);
 
         if (mounted) {
           showAppSnackBar(context, context.l.gallerySavedToDevice, color: t.accent);
@@ -764,6 +765,27 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                       tooltip: context.l.galleryExportImage,
                                       onPressed: _exportImage,
                                     ),
+                              // Remove from album (only when viewing an album)
+                              if (gallery.activeAlbumId != null)
+                                IconButton(
+                                  icon: Icon(Icons.playlist_remove,
+                                      size: mobile ? 22 : 18, color: t.textSecondary),
+                                  tooltip: 'Remove from album',
+                                  onPressed: () {
+                                    gallery.removeFromAlbum(gallery.activeAlbumId!, [item]);
+                                    final newItems = gallery.activeItems;
+                                    if (!context.mounted) return;
+                                    if (newItems.isEmpty) {
+                                      Navigator.pop(context);
+                                    } else {
+                                      setState(() {
+                                        if (_currentIndex >= newItems.length) {
+                                          _currentIndex = newItems.length - 1;
+                                        }
+                                      });
+                                    }
+                                  },
+                                ),
                               IconButton(
                                 icon: Icon(Icons.delete_outline,
                                     size: mobile ? 22 : 18, color: t.accentDanger),

@@ -187,6 +187,8 @@ class _AppSettingsState extends State<AppSettings> {
             ),
           ],
           const SizedBox(height: 12),
+          _buildExportFolderPicker(t),
+          const SizedBox(height: 12),
           _buildShelfToggle(
             label: l.settingsDirectorRefShelf.toUpperCase(),
             description: l.settingsDirectorRefShelfDesc,
@@ -576,6 +578,83 @@ class _AppSettingsState extends State<AppSettings> {
               activeTrackColor: t.borderStrong,
               inactiveThumbColor: t.textDisabled,
               inactiveTrackColor: t.borderSubtle,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildExportFolderPicker(VisionTokens t) {
+    final prefs = context.read<PreferencesService>();
+    final l = context.l;
+    return StatefulBuilder(
+      builder: (context, setLocalState) {
+        final currentPath = prefs.exportFolderPath;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              l.settingsExportFolder.toUpperCase(),
+              style: TextStyle(color: t.headerText, fontSize: t.fontSize(11), fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              l.settingsExportFolderDesc,
+              style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: t.borderSubtle.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      currentPath.isEmpty ? l.settingsExportFolderDefault : currentPath,
+                      style: TextStyle(
+                        fontSize: t.fontSize(9),
+                        color: currentPath.isEmpty ? t.textDisabled : t.textSecondary,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: () async {
+                    final dir = await FilePicker.platform.getDirectoryPath(
+                      dialogTitle: l.settingsExportFolder,
+                    );
+                    if (dir != null) {
+                      await prefs.setExportFolderPath(dir);
+                      setLocalState(() {});
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Icon(Icons.folder_open, size: 16, color: t.accent),
+                  ),
+                ),
+                if (currentPath.isNotEmpty) ...[
+                  const SizedBox(width: 4),
+                  InkWell(
+                    onTap: () async {
+                      await prefs.setExportFolderPath('');
+                      setLocalState(() {});
+                    },
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: Icon(Icons.close, size: 14, color: t.textDisabled),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ],
         );

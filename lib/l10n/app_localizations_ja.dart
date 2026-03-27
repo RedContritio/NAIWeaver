@@ -2743,6 +2743,16 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsExportAlbumDesc => 'エクスポートされた画像が保存されるデバイスフォルダ/アルバム';
 
   @override
+  String get settingsExportFolder => 'エクスポートフォルダ';
+
+  @override
+  String get settingsExportFolderDesc =>
+      'カスタムフォルダを選択（SDカードなど）。設定するとアルバム名より優先されます。';
+
+  @override
+  String get settingsExportFolderDefault => 'デフォルト（デバイスギャラリー）';
+
+  @override
   String get settingsUpscaleBackend => 'アップスケールバックエンド';
 
   @override

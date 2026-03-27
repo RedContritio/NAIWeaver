@@ -2799,6 +2799,16 @@ class AppLocalizationsEn extends AppLocalizations {
       'Device folder/album where exported images are saved';
 
   @override
+  String get settingsExportFolder => 'Export Folder';
+
+  @override
+  String get settingsExportFolderDesc =>
+      'Choose a custom folder for exports (SD card, etc). Overrides album name when set.';
+
+  @override
+  String get settingsExportFolderDefault => 'Default (device gallery)';
+
+  @override
   String get settingsUpscaleBackend => 'Upscale Backend';
 
   @override
