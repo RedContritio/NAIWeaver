@@ -98,11 +98,12 @@ class NovelAIService {
   Future<Uint8List> encodeVibeImage({
     required String imageBase64,
     double informationExtracted = 1.0,
+    bool useCurated = false,
   }) async {
     const url = 'https://image.novelai.net/ai/encode-vibe';
     final body = {
       "image": imageBase64,
-      "model": "nai-diffusion-4-5-full",
+      "model": useCurated ? "nai-diffusion-4-5-curated" : "nai-diffusion-4-5-full",
       "information_extracted": informationExtracted,
     };
 
@@ -194,6 +195,7 @@ class NovelAIService {
     List<double>? vibeTransferStrengths,
     List<double>? vibeTransferInfoExtracted,
     bool? useCoords,
+    bool useCurated = false,
   }) async {
     const url = 'https://image.novelai.net/ai/generate-image';
 
@@ -305,7 +307,9 @@ class NovelAIService {
 
     final body = {
       "input": inputPrompt,
-      "model": action == 'infill' ? "nai-diffusion-4-5-full-inpainting" : "nai-diffusion-4-5-full",
+      "model": action == 'infill'
+          ? (useCurated ? "nai-diffusion-4-5-curated-inpainting" : "nai-diffusion-4-5-full-inpainting")
+          : (useCurated ? "nai-diffusion-4-5-curated" : "nai-diffusion-4-5-full"),
       "action": action,
       "parameters": parameters,
     };

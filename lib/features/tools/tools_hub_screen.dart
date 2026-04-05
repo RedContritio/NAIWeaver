@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/services/preferences_service.dart';
@@ -22,7 +23,8 @@ import 'ml/widgets/ml_models_manager.dart';
 
 class ToolsHubScreen extends StatefulWidget {
   final String? initialToolId;
-  const ToolsHubScreen({super.key, this.initialToolId});
+  final String? initialStyleName;
+  const ToolsHubScreen({super.key, this.initialToolId, this.initialStyleName});
 
   @override
   State<ToolsHubScreen> createState() => _ToolsHubScreenState();
@@ -30,6 +32,7 @@ class ToolsHubScreen extends StatefulWidget {
 
 class _ToolsHubScreenState extends State<ToolsHubScreen> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  final FocusNode _toolsFocusNode = FocusNode();
   bool _isSidebarExpanded = true;
   late String _activeToolId;
 
@@ -78,6 +81,12 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
   }
 
   @override
+  void dispose() {
+    _toolsFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final mobile = isMobile(context);
     final t = context.t;
@@ -85,7 +94,18 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
     final tools = _getTools(context);
     final activeTool = tools.firstWhere((tool) => tool.id == _activeToolId, orElse: () => tools.first);
 
-    return Scaffold(
+    return Focus(
+      focusNode: _toolsFocusNode,
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+        if (event.logicalKey == LogicalKeyboardKey.escape) {
+          Navigator.pop(context);
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Scaffold(
       key: _scaffoldKey,
       backgroundColor: t.background,
       appBar: AppBar(
@@ -172,6 +192,7 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
                 ),
               ],
             ),
+    ),
     );
   }
 
@@ -262,7 +283,7 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
       case 'presets':
         return const PresetManager();
       case 'styles':
-        return const StyleEditor();
+        return StyleEditor(initialStyleName: widget.initialStyleName);
       case 'director_ref':
         return const ReferencesManager();
       case 'cascade':

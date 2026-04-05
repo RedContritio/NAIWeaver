@@ -31,6 +31,7 @@ class PreferencesService {
   static const String _keyRememberSession = 'remember_session';
   static const String _keyLocale = 'app_locale';
   static const String _keyFurryMode = 'furry_mode';
+  static const String _keyUseCurated = 'use_curated';
   static const String _keyImg2ImgImportPrompt = 'img2img_import_prompt';
   static const String _keyShowSeedControl = 'show_seed_control';
   static const String _keyShowAnlasTracker = 'show_anlas_tracker';
@@ -42,6 +43,7 @@ class PreferencesService {
   static const String _keyCharacterEditorMode = 'character_editor_mode';
   static const String _keyCharacterPresets = 'character_presets';
   static const String _keyShowTooltips = 'show_tooltips';
+  static const String _keyHideTagValues = 'hide_tag_values';
   static const String _keyUiStylesExpanded = 'ui_styles_expanded';
   static const String _keyUiCharShowTitle = 'ui_char_show_title';
   static const String _keyUiCharShowUc = 'ui_char_show_uc';
@@ -242,6 +244,14 @@ class PreferencesService {
     await _prefs.setBool(_keyFurryMode, value);
   }
 
+  // — Curated Model —
+
+  bool get useCurated => _prefs.getBool(_keyUseCurated) ?? false;
+
+  Future<void> setUseCurated(bool value) async {
+    await _prefs.setBool(_keyUseCurated, value);
+  }
+
   // — Img2Img Import Prompt —
 
   bool get img2imgImportPrompt => _prefs.getBool(_keyImg2ImgImportPrompt) ?? true;
@@ -339,6 +349,14 @@ class PreferencesService {
   Future<void> setShowTooltips(bool value) async {
     await _prefs.setBool(_keyShowTooltips, value);
     tooltipVisibilityNotifier.value = value;
+  }
+
+  // — Tag Suggestions —
+
+  bool get hideTagValues => _prefs.getBool(_keyHideTagValues) ?? false;
+
+  Future<void> setHideTagValues(bool value) async {
+    await _prefs.setBool(_keyHideTagValues, value);
   }
 
   // — UI State Persistence —

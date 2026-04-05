@@ -388,6 +388,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get galleryCopy => 'Copy';
 
   @override
+  String get galleryShare => 'Share';
+
+  @override
   String get galleryPaste => 'Paste';
 
   @override
@@ -871,6 +874,20 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get wildcardHelpFavorites =>
       'Favorited wildcards appear with a gold outline in tag completion';
+
+  @override
+  String get wildcardDeleteTitle => 'DELETE WILDCARD';
+
+  @override
+  String wildcardDeleteConfirm(String name) {
+    return 'Are you sure you want to delete \'\'$name\'\'?';
+  }
+
+  @override
+  String get wildcardRenameTitle => 'RENAME WILDCARD';
+
+  @override
+  String get wildcardRenameExists => 'A wildcard with this name already exists';
 
   @override
   String get tagLibTitle => 'TAG LIBRARY';

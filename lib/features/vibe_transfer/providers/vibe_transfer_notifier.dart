@@ -9,12 +9,17 @@ class VibeTransferNotifier extends ChangeNotifier {
   bool _isProcessing = false;
   int _idCounter = 0;
   NovelAIService? _service;
+  bool _useCurated = false;
 
   List<VibeTransfer> get vibes => _vibes;
   bool get isProcessing => _isProcessing;
 
   void updateService(NovelAIService service) {
     _service = service;
+  }
+
+  void updateUseCurated(bool value) {
+    _useCurated = value;
   }
 
   Future<void> addVibe(Uint8List imageBytes) async {
@@ -32,6 +37,7 @@ class VibeTransferNotifier extends ChangeNotifier {
       final vibeVectorBytes = await _service!.encodeVibeImage(
         imageBase64: b64,
         informationExtracted: 1.0,
+        useCurated: _useCurated,
       );
       final vibeVectorB64 = base64Encode(vibeVectorBytes);
 

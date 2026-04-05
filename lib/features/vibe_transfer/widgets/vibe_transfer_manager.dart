@@ -66,6 +66,17 @@ class _VibeTransferManagerState extends State<VibeTransferManager> {
     setState(() => _savedVibes = library.vibeTransfers);
   }
 
+  Future<void> _reorderSaved(int oldIndex, int newIndex) async {
+    if (newIndex > oldIndex) newIndex--;
+    final reordered = List<SavedVibeTransfer>.from(_savedVibes);
+    final item = reordered.removeAt(oldIndex);
+    reordered.insert(newIndex, item);
+    final library = await ReferenceLibraryService.load(_libraryPath);
+    library.vibeTransfers = reordered;
+    await ReferenceLibraryService.save(_libraryPath, library);
+    setState(() => _savedVibes = reordered);
+  }
+
   void _loadSaved(SavedVibeTransfer saved) {
     final notifier = context.read<VibeTransferNotifier>();
     // Vector is already stored, no API call needed
@@ -320,15 +331,30 @@ class _VibeTransferManagerState extends State<VibeTransferManager> {
               ),
             ),
             const SizedBox(height: 12),
-            ..._savedVibes.asMap().entries.map((entry) {
-              final idx = entry.key;
-              final saved = entry.value;
-              return _SavedVibeCard(
-                saved: saved,
-                onLoad: () => _loadSaved(saved),
-                onDelete: () => _deleteSaved(idx),
-              );
-            }),
+            PrimaryScrollController.none(
+              child: ReorderableListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                buildDefaultDragHandles: false,
+                itemCount: _savedVibes.length,
+                onReorder: _reorderSaved,
+                proxyDecorator: (child, index, animation) => Material(
+                  color: Colors.transparent,
+                  elevation: 4,
+                  child: child,
+                ),
+                itemBuilder: (context, idx) {
+                  final saved = _savedVibes[idx];
+                  return _SavedVibeCard(
+                    key: ValueKey(saved.name + idx.toString()),
+                    saved: saved,
+                    index: idx,
+                    onLoad: () => _loadSaved(saved),
+                    onDelete: () => _deleteSaved(idx),
+                  );
+                },
+              ),
+            ),
           ],
         ],
       ),
@@ -448,11 +474,14 @@ class _VibeCard extends StatelessWidget {
 
 class _SavedVibeCard extends StatelessWidget {
   final SavedVibeTransfer saved;
+  final int index;
   final VoidCallback onLoad;
   final VoidCallback onDelete;
 
   const _SavedVibeCard({
+    super.key,
     required this.saved,
+    required this.index,
     required this.onLoad,
     required this.onDelete,
   });
@@ -475,6 +504,11 @@ class _SavedVibeCard extends StatelessWidget {
       ),
       child: Row(
         children: [
+          ReorderableDragStartListener(
+            index: index,
+            child: Icon(Icons.drag_handle, size: 14, color: t.textDisabled),
+          ),
+          const SizedBox(width: 8),
           Container(
             width: thumbSize,
             height: thumbSize,

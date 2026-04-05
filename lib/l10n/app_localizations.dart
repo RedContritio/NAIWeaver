@@ -796,6 +796,12 @@ abstract class AppLocalizations {
   /// **'Copy'**
   String get galleryCopy;
 
+  /// No description provided for @galleryShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get galleryShare;
+
   /// No description provided for @galleryPaste.
   ///
   /// In en, this message translates to:
@@ -1671,6 +1677,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Favorited wildcards appear with a gold outline in tag completion'**
   String get wildcardHelpFavorites;
+
+  /// No description provided for @wildcardDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'DELETE WILDCARD'**
+  String get wildcardDeleteTitle;
+
+  /// No description provided for @wildcardDeleteConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete \'\'{name}\'\'?'**
+  String wildcardDeleteConfirm(String name);
+
+  /// No description provided for @wildcardRenameTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'RENAME WILDCARD'**
+  String get wildcardRenameTitle;
+
+  /// No description provided for @wildcardRenameExists.
+  ///
+  /// In en, this message translates to:
+  /// **'A wildcard with this name already exists'**
+  String get wildcardRenameExists;
 
   /// No description provided for @tagLibTitle.
   ///

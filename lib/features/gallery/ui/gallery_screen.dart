@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:file_picker/file_picker.dart';
 import '../../../core/utils/file_picker_helper.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:gal/gal.dart';
 import 'package:provider/provider.dart';
@@ -41,6 +41,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _gridKey = GlobalKey();
+  final FocusNode _galleryFocusNode = FocusNode();
   bool _isSearching = false;
   int? _crossAxisCount;
 
@@ -68,6 +69,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
   @override
   void dispose() {
+    _galleryFocusNode.dispose();
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -822,7 +824,39 @@ class _GalleryScreenState extends State<GalleryScreen> {
     final minCols = mobile ? 2 : 3;
     final activeItems = gallery.activeItems;
 
-    return Scaffold(
+    return Focus(
+      focusNode: _galleryFocusNode,
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+        if (event.logicalKey == LogicalKeyboardKey.escape) {
+          if (_isSearching) {
+            setState(() {
+              _isSearching = false;
+              _searchController.clear();
+              context.read<GalleryNotifier>().setSearchQuery("");
+            });
+            return KeyEventResult.handled;
+          }
+          if (_isSelectionMode) {
+            _exitSelectionMode();
+            return KeyEventResult.handled;
+          }
+          Navigator.pop(context);
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.delete &&
+            _isSelectionMode && _selectedIndices.isNotEmpty) {
+          final selectedItems = _selectedIndices
+              .where((i) => i < activeItems.length)
+              .map((i) => activeItems[i])
+              .toList();
+          if (selectedItems.isNotEmpty) _bulkDelete(selectedItems);
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Scaffold(
       backgroundColor: t.background,
       appBar: _buildAppBar(gallery, activeItems, mobile, maxCols, minCols),
       body: Column(
@@ -869,6 +903,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -973,7 +1008,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
       ),
       actions: [
         IconButton(
-          icon: Icon(Icons.add_photo_alternate, size: mobile ? 22 : 16, color: t.textDisabled),
+          icon: Icon(Icons.add_photo_alternate, size: mobile ? 22 : 16, color: t.secondaryText),
           tooltip: context.l.galleryImport,
           onPressed: _importImages,
         ),
@@ -981,7 +1016,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
           icon: Icon(
             gallery.showFavoritesOnly ? Icons.star : Icons.star_outline,
             size: mobile ? 22 : 16,
-            color: gallery.showFavoritesOnly ? t.accentFavorite : t.textDisabled,
+            color: gallery.showFavoritesOnly ? t.accentFavorite : t.secondaryText,
           ),
           tooltip: context.l.galleryFavoritesFilter,
           onPressed: () {
@@ -989,7 +1024,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
           },
         ),
         PopupMenuButton<GallerySortMode>(
-          icon: Icon(Icons.sort, size: mobile ? 20 : 16, color: t.textDisabled),
+          icon: Icon(Icons.sort, size: mobile ? 20 : 16, color: t.secondaryText),
           tooltip: context.l.gallerySort,
           color: t.surfaceHigh,
           onSelected: (mode) => gallery.setSortMode(mode),
@@ -1018,7 +1053,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
           ],
         ),
         IconButton(
-          icon: Icon(Icons.checklist, size: mobile ? 20 : 16, color: t.textTertiary),
+          icon: Icon(Icons.checklist, size: mobile ? 20 : 16, color: t.secondaryText),
           tooltip: context.l.gallerySelectMode,
           onPressed: () {
             setState(() {
@@ -1027,7 +1062,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
           },
         ),
         IconButton(
-          icon: Icon(Icons.grid_view, size: mobile ? 20 : 16, color: t.textTertiary),
+          icon: Icon(Icons.grid_view, size: mobile ? 20 : 16, color: t.secondaryText),
           tooltip: context.l.galleryColumnsCount(_crossAxisCount!),
           onPressed: () {
             setState(() {
@@ -1038,7 +1073,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
         ),
         IconButton(
           icon: Icon(_isSearching ? Icons.close : Icons.search,
-              size: mobile ? 20 : 16, color: t.textTertiary),
+              size: mobile ? 20 : 16, color: t.secondaryText),
           onPressed: () {
             setState(() {
               if (_isSearching) {
@@ -1254,7 +1289,10 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
     return GestureDetector(
       onTap: () {
-        if (_isSelectionMode) {
+        if (_isSelectionMode || HardwareKeyboard.instance.isShiftPressed) {
+          if (!_isSelectionMode) {
+            setState(() => _isSelectionMode = true);
+          }
           _toggleSelection(index);
         } else {
           Navigator.push(
@@ -1454,7 +1492,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   _ActionButton(
                     icon: Icons.playlist_remove,
                     label: 'REMOVE',
-                    color: t.textTertiary,
+                    color: t.secondaryText,
                     mobile: mobile,
                     iconOnly: mobile,
                     onTap: count > 0 ? () {

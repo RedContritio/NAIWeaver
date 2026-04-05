@@ -194,7 +194,9 @@ Uint8List? convertToPngPreservingMetadata(Map<String, dynamic> data) {
   final originalBytes = data['originalBytes'] as Uint8List;
 
   // Try to extract metadata from the original source (supports both tEXt and iTXt)
-  final textData = _extractPngTextChunks(originalBytes);
+  // Falls back to EXIF extraction for non-PNG formats (WebP/JPEG)
+  var textData = _extractPngTextChunks(originalBytes);
+  textData ??= extractMetadata(originalBytes);
 
   // Decode the (possibly-transcoded) bytes
   final image = img.decodeImage(bytes);

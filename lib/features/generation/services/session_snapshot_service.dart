@@ -23,6 +23,7 @@ class SessionSnapshot {
   final List<String> activeStyleNames;
   final bool isStyleEnabled;
   final bool furryMode;
+  final bool useCurated;
   final List<NaiCharacter> characters;
   final List<NaiInteraction> interactions;
   final List<DirectorReference> directorReferences;
@@ -45,6 +46,7 @@ class SessionSnapshot {
     required this.activeStyleNames,
     required this.isStyleEnabled,
     required this.furryMode,
+    required this.useCurated,
     required this.characters,
     required this.interactions,
     required this.directorReferences,
@@ -68,6 +70,7 @@ class SessionSnapshot {
         'active_style_names': activeStyleNames,
         'is_style_enabled': isStyleEnabled,
         'furry_mode': furryMode,
+        'use_curated': useCurated,
         'characters': characters.map((c) => c.toJson()).toList(),
         'interactions': interactions.map((i) => i.toJson()).toList(),
         'director_references':
@@ -114,6 +117,7 @@ class SessionSnapshot {
           [],
       isStyleEnabled: json['is_style_enabled'] as bool? ?? true,
       furryMode: json['furry_mode'] as bool? ?? false,
+      useCurated: json['use_curated'] as bool? ?? false,
       characters: characters,
       interactions: interactions,
       directorReferences: directorReferences,

@@ -120,6 +120,8 @@ class Img2ImgNotifier extends ChangeNotifier {
 
   void clearSession() {
     _session = null;
+    _currentStrokePoints = null;
+    _activeStroke = null;
     notifyListeners();
   }
 
@@ -137,8 +139,15 @@ class Img2ImgNotifier extends ChangeNotifier {
 
   // --- Stroke management ---
 
+  MaskStroke? _activeStroke;
+
   void beginStroke(Offset normalizedPoint) {
     _currentStrokePoints = [normalizedPoint];
+    _activeStroke = MaskStroke(
+      points: _currentStrokePoints!,
+      radius: _brushRadius,
+      isErase: _isEraseMode,
+    );
     notifyListeners();
   }
 
@@ -150,6 +159,7 @@ class Img2ImgNotifier extends ChangeNotifier {
   void endStroke() {
     if (_session == null || _currentStrokePoints == null || _currentStrokePoints!.isEmpty) {
       _currentStrokePoints = null;
+      _activeStroke = null;
       return;
     }
 
@@ -163,18 +173,14 @@ class Img2ImgNotifier extends ChangeNotifier {
       maskStrokes: [..._session!.maskStrokes, stroke],
     );
     _currentStrokePoints = null;
+    _activeStroke = null;
     notifyListeners();
   }
 
   /// Returns current in-progress stroke for live preview rendering.
-  MaskStroke? get activeStroke {
-    if (_currentStrokePoints == null || _currentStrokePoints!.isEmpty) return null;
-    return MaskStroke(
-      points: _currentStrokePoints!,
-      radius: _brushRadius,
-      isErase: _isEraseMode,
-    );
-  }
+  /// Returns the same object instance across the stroke's lifetime so that
+  /// identityHashCode-based caching in MaskCanvas works correctly.
+  MaskStroke? get activeStroke => _activeStroke;
 
   void undoLastStroke() {
     if (_session == null || _session!.maskStrokes.isEmpty) return;

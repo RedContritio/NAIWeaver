@@ -373,6 +373,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get galleryCopy => '复制';
 
   @override
+  String get galleryShare => '分享';
+
+  @override
   String get galleryPaste => '粘贴';
 
   @override
@@ -839,6 +842,20 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get wildcardHelpFavorites => '收藏的随机提示词会在标签补全中显示金色边框';
+
+  @override
+  String get wildcardDeleteTitle => '删除随机提示词';
+
+  @override
+  String wildcardDeleteConfirm(String name) {
+    return '确定要删除 \'\'$name\'\' 吗？';
+  }
+
+  @override
+  String get wildcardRenameTitle => '重命名随机提示词';
+
+  @override
+  String get wildcardRenameExists => '已存在同名的随机提示词';
 
   @override
   String get tagLibTitle => '标签库';

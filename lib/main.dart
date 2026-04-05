@@ -281,6 +281,7 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
   late VoidCallback _generationListener;
   bool _isTouchingSuggestions = false;
   int _tagSuggestionIndex = -1;
+  final FocusNode _globalFocusNode = FocusNode(skipTraversal: true);
 
   @override
   void initState() {
@@ -443,6 +444,7 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
     }
     notifier.toggleStyle(cyclableStyles[nextIndex].name);
 
+    ScaffoldMessenger.of(context).clearSnackBars();
     showAppSnackBar(context, cyclableStyles[nextIndex].name.toUpperCase());
   }
 
@@ -501,6 +503,7 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
 
   @override
   void dispose() {
+    _globalFocusNode.dispose();
     context.read<GenerationNotifier>().removeListener(_generationListener);
     _pulseController.dispose();
     super.dispose();
@@ -524,7 +527,19 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
     final useSidebar = isWidescreenLayout(context, themeNotifier.sidebarLayoutMode);
     final promptOnLeft = themeNotifier.sidebarPromptPosition == 'left';
 
-    Widget scaffold = PopScope(
+    Widget scaffold = Focus(
+      focusNode: _globalFocusNode,
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent && event is! KeyRepeatEvent) return KeyEventResult.ignored;
+        if (event.logicalKey == LogicalKeyboardKey.enter &&
+            HardwareKeyboard.instance.isControlPressed) {
+          final n = context.read<GenerationNotifier>();
+          if (!n.state.isLoading) n.generate();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: PopScope(
         canPop: false,
         onPopInvokedWithResult: (didPop, result) async {
           if (didPop) return;
@@ -648,7 +663,8 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
                 : _buildDefaultBody(context, notifier, state, isCascadeMode, mobile, t),
           ),
         ),
-      );
+      ),
+    );
 
     return isDesktopPlatform()
           ? DropTarget(
@@ -724,9 +740,21 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
 
         AdvancedSettingsPanel(
           onManageStyles: () {
+            String? activeStyle;
+            for (final name in notifier.state.activeStyleNames) {
+              final style = notifier.state.styles.where((s) => s.name == name).firstOrNull;
+              if (style != null && !style.isDefault) { activeStyle = name; break; }
+            }
+            activeStyle ??= notifier.state.activeStyleNames.isNotEmpty ? notifier.state.activeStyleNames.first : null;
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const ToolsHubScreen(initialToolId: 'styles')),
+              MaterialPageRoute(builder: (context) => ToolsHubScreen(initialToolId: 'styles', initialStyleName: activeStyle)),
+            );
+          },
+          onEditStyle: (styleName) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => ToolsHubScreen(initialToolId: 'styles', initialStyleName: styleName)),
             );
           },
           onSavePreset: () => _showSavePresetDialog(context, notifier),
@@ -770,9 +798,21 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
                   child: ExpandedSettingsContent(
                     inSidebar: true,
                     onManageStyles: () {
+                      String? activeStyle;
+                      for (final name in notifier.state.activeStyleNames) {
+                        final style = notifier.state.styles.where((s) => s.name == name).firstOrNull;
+                        if (style != null && !style.isDefault) { activeStyle = name; break; }
+                      }
+                      activeStyle ??= notifier.state.activeStyleNames.isNotEmpty ? notifier.state.activeStyleNames.first : null;
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const ToolsHubScreen(initialToolId: 'styles')),
+                        MaterialPageRoute(builder: (context) => ToolsHubScreen(initialToolId: 'styles', initialStyleName: activeStyle)),
+                      );
+                    },
+                    onEditStyle: (styleName) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => ToolsHubScreen(initialToolId: 'styles', initialStyleName: styleName)),
                       );
                     },
                     onSavePreset: () => _showSavePresetDialog(context, notifier),
@@ -932,8 +972,9 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
                       return KeyEventResult.handled;
                     }
 
-                    // Ctrl+Left/Right → cycle style
+                    // Ctrl+Shift+Left/Right → cycle style
                     if (HardwareKeyboard.instance.isControlPressed &&
+                        HardwareKeyboard.instance.isShiftPressed &&
                         (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
                          event.logicalKey == LogicalKeyboardKey.arrowRight)) {
                       _cycleStyle(notifier, event.logicalKey == LogicalKeyboardKey.arrowRight);

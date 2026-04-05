@@ -96,12 +96,16 @@ class AdvancedSettingsPanel extends StatelessWidget {
   /// Callback for navigating to the style manager.
   final VoidCallback onManageStyles;
 
+  /// Callback for opening a specific style's settings.
+  final void Function(String styleName)? onEditStyle;
+
   /// Callback for showing the save-preset dialog.
   final VoidCallback onSavePreset;
 
   const AdvancedSettingsPanel({
     super.key,
     required this.onManageStyles,
+    this.onEditStyle,
     required this.onSavePreset,
   });
 
@@ -183,6 +187,7 @@ class AdvancedSettingsPanel extends StatelessWidget {
                       Expanded(
                         child: ExpandedSettingsContent(
                           onManageStyles: onManageStyles,
+                          onEditStyle: onEditStyle,
                           onSavePreset: onSavePreset,
                         ),
                       ),
@@ -202,12 +207,14 @@ class AdvancedSettingsPanel extends StatelessWidget {
 /// but only exists in the tree when the panel is expanded.
 class ExpandedSettingsContent extends StatefulWidget {
   final VoidCallback onManageStyles;
+  final void Function(String styleName)? onEditStyle;
   final VoidCallback onSavePreset;
   final bool inSidebar;
 
   const ExpandedSettingsContent({
     super.key,
     required this.onManageStyles,
+    this.onEditStyle,
     required this.onSavePreset,
     this.inSidebar = false,
   });
@@ -525,13 +532,56 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
       ),
     );
 
+    Widget curatedToggle = InkWell(
+      onTap: () => notifier.updateSettings(useCurated: !state.useCurated),
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: state.useCurated ? const Color(0xFF4CAF50) : t.borderMedium,
+          ),
+          color: state.useCurated
+              ? const Color(0xFF4CAF50).withValues(alpha: 0.15)
+              : Colors.transparent,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.auto_awesome,
+              size: mobile ? 16 : 14,
+              color: state.useCurated ? const Color(0xFF4CAF50) : t.textDisabled,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'CURATED',
+              style: TextStyle(
+                color: state.useCurated ? const Color(0xFF4CAF50) : t.textDisabled,
+                fontSize: t.fontSize(mobile ? 10 : 9),
+                fontWeight: FontWeight.bold,
+                letterSpacing: 2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
     if (mobile || compact) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           samplerField,
           const SizedBox(height: 16),
-          furryToggle,
+          Row(
+            children: [
+              furryToggle,
+              const SizedBox(width: 12),
+              curatedToggle,
+            ],
+          ),
         ],
       );
     }
@@ -541,60 +591,79 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
         Expanded(flex: 1, child: samplerField),
         const SizedBox(width: 24),
         furryToggle,
+        const SizedBox(width: 12),
+        curatedToggle,
       ],
     );
   }
 
   Widget _buildStyleChip(PromptStyle style, bool isSelected, GenerationNotifier notifier, VisionTokens t) {
-    return FilterChip(
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(style.name.toUpperCase(),
-              style: TextStyle(fontSize: t.fontSize(8), fontWeight: FontWeight.bold, letterSpacing: 1)),
-          if (style.negativeContent.isNotEmpty) ...[
-            const SizedBox(width: 4),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
-              decoration: BoxDecoration(
-                color: isSelected ? t.background.withValues(alpha: 0.2) : t.borderMedium,
-                borderRadius: BorderRadius.circular(2),
-              ),
-              child: Text("NEG",
-                  style: TextStyle(
-                      fontSize: t.fontSize(6),
-                      fontWeight: FontWeight.w900,
-                      color: isSelected ? t.background : t.textTertiary)),
+    return Tooltip(
+      message: style.name,
+      waitDuration: const Duration(milliseconds: 500),
+      child: GestureDetector(
+        onLongPress: widget.onEditStyle != null ? () => widget.onEditStyle!(style.name) : null,
+        child: FilterChip(
+        label: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 120),
+              child: Text(style.name.toUpperCase(),
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: t.fontSize(8), fontWeight: FontWeight.bold, letterSpacing: 1)),
             ),
-          ],
-          if (style.prefix.isNotEmpty || style.suffix.isNotEmpty) ...[
-            const SizedBox(width: 4),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
-              decoration: BoxDecoration(
-                color: isSelected ? t.background.withValues(alpha: 0.2) : t.borderMedium,
-                borderRadius: BorderRadius.circular(2),
+            if (style.negativeContent.isNotEmpty) ...[
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+                decoration: BoxDecoration(
+                  color: isSelected ? t.background.withValues(alpha: 0.2) : t.borderMedium,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                child: Text("NEG",
+                    style: TextStyle(
+                        fontSize: t.fontSize(6),
+                        fontWeight: FontWeight.w900,
+                        color: isSelected ? t.background : t.textTertiary)),
               ),
-              child: Text("POS",
-                  style: TextStyle(
-                      fontSize: t.fontSize(6),
-                      fontWeight: FontWeight.w900,
-                      color: isSelected ? t.background : t.textTertiary)),
-            ),
+            ],
+            if (style.prefix.isNotEmpty || style.suffix.isNotEmpty) ...[
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+                decoration: BoxDecoration(
+                  color: isSelected ? t.background.withValues(alpha: 0.2) : t.borderMedium,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                child: Text("POS",
+                    style: TextStyle(
+                        fontSize: t.fontSize(6),
+                        fontWeight: FontWeight.w900,
+                        color: isSelected ? t.background : t.textTertiary)),
+              ),
+            ],
           ],
-        ],
+        ),
+        selected: isSelected,
+        onSelected: (_) {
+          if (HardwareKeyboard.instance.isControlPressed && widget.onEditStyle != null) {
+            widget.onEditStyle!(style.name);
+          } else {
+            notifier.toggleStyle(style.name);
+          }
+        },
+        backgroundColor: t.borderSubtle,
+        selectedColor: t.accent,
+        checkmarkColor: t.background,
+        showCheckmark: false,
+        labelStyle: TextStyle(color: isSelected ? t.background : t.textTertiary),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+        side: BorderSide(color: isSelected ? t.accent : t.textMinimal, width: 0.5),
       ),
-      selected: isSelected,
-      onSelected: (_) => notifier.toggleStyle(style.name),
-      backgroundColor: t.borderSubtle,
-      selectedColor: t.accent,
-      checkmarkColor: t.background,
-      showCheckmark: false,
-      labelStyle: TextStyle(color: isSelected ? t.background : t.textTertiary),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
-      side: BorderSide(color: isSelected ? t.accent : t.textMinimal, width: 0.5),
+      ),
     );
   }
 

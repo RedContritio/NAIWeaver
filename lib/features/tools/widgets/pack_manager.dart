@@ -325,7 +325,13 @@ class _ExportDialogState extends State<_ExportDialog> {
               ),
               const SizedBox(height: 20),
               if (widget.presets.isNotEmpty) ...[
-                _sectionHeader(l.packPresetsSection(_selectedPresets.length, widget.presets.length), t),
+                _sectionHeader(l.packPresetsSection(_selectedPresets.length, widget.presets.length), t,
+                  allSelected: _selectedPresets.length == widget.presets.length,
+                  onToggle: () => setState(() {
+                    if (_selectedPresets.length == widget.presets.length) { _selectedPresets.clear(); }
+                    else { _selectedPresets = Set.from(List.generate(widget.presets.length, (i) => i)); }
+                  }),
+                ),
                 for (int i = 0; i < widget.presets.length; i++)
                   _checkTile(widget.presets[i].name, _selectedPresets.contains(i), (v) {
                     setState(() => v! ? _selectedPresets.add(i) : _selectedPresets.remove(i));
@@ -333,7 +339,13 @@ class _ExportDialogState extends State<_ExportDialog> {
                 const SizedBox(height: 12),
               ],
               if (widget.styles.isNotEmpty) ...[
-                _sectionHeader(l.packStylesSection(_selectedStyles.length, widget.styles.length), t),
+                _sectionHeader(l.packStylesSection(_selectedStyles.length, widget.styles.length), t,
+                  allSelected: _selectedStyles.length == widget.styles.length,
+                  onToggle: () => setState(() {
+                    if (_selectedStyles.length == widget.styles.length) { _selectedStyles.clear(); }
+                    else { _selectedStyles = Set.from(List.generate(widget.styles.length, (i) => i)); }
+                  }),
+                ),
                 for (int i = 0; i < widget.styles.length; i++)
                   _checkTile(widget.styles[i].name, _selectedStyles.contains(i), (v) {
                     setState(() => v! ? _selectedStyles.add(i) : _selectedStyles.remove(i));
@@ -341,7 +353,13 @@ class _ExportDialogState extends State<_ExportDialog> {
                 const SizedBox(height: 12),
               ],
               if (widget.wildcardFiles.isNotEmpty) ...[
-                _sectionHeader(l.packWildcardsSection(_selectedWildcards.length, widget.wildcardFiles.length), t),
+                _sectionHeader(l.packWildcardsSection(_selectedWildcards.length, widget.wildcardFiles.length), t,
+                  allSelected: _selectedWildcards.length == widget.wildcardFiles.length,
+                  onToggle: () => setState(() {
+                    if (_selectedWildcards.length == widget.wildcardFiles.length) { _selectedWildcards.clear(); }
+                    else { _selectedWildcards = Set.from(List.generate(widget.wildcardFiles.length, (i) => i)); }
+                  }),
+                ),
                 for (int i = 0; i < widget.wildcardFiles.length; i++)
                   _checkTile(p.basenameWithoutExtension(widget.wildcardFiles[i].path), _selectedWildcards.contains(i), (v) {
                     setState(() => v! ? _selectedWildcards.add(i) : _selectedWildcards.remove(i));
@@ -349,7 +367,13 @@ class _ExportDialogState extends State<_ExportDialog> {
                 const SizedBox(height: 12),
               ],
               if (widget.savedRefs.isNotEmpty) ...[
-                _sectionHeader(l.packSavedRefsSection(_selectedSavedRefs.length, widget.savedRefs.length), t),
+                _sectionHeader(l.packSavedRefsSection(_selectedSavedRefs.length, widget.savedRefs.length), t,
+                  allSelected: _selectedSavedRefs.length == widget.savedRefs.length,
+                  onToggle: () => setState(() {
+                    if (_selectedSavedRefs.length == widget.savedRefs.length) { _selectedSavedRefs.clear(); }
+                    else { _selectedSavedRefs = Set.from(List.generate(widget.savedRefs.length, (i) => i)); }
+                  }),
+                ),
                 for (int i = 0; i < widget.savedRefs.length; i++)
                   _checkTile(widget.savedRefs[i].name, _selectedSavedRefs.contains(i), (v) {
                     setState(() => v! ? _selectedSavedRefs.add(i) : _selectedSavedRefs.remove(i));
@@ -357,7 +381,13 @@ class _ExportDialogState extends State<_ExportDialog> {
                 const SizedBox(height: 12),
               ],
               if (widget.savedVibes.isNotEmpty) ...[
-                _sectionHeader(l.packSavedVibesSection(_selectedSavedVibes.length, widget.savedVibes.length), t),
+                _sectionHeader(l.packSavedVibesSection(_selectedSavedVibes.length, widget.savedVibes.length), t,
+                  allSelected: _selectedSavedVibes.length == widget.savedVibes.length,
+                  onToggle: () => setState(() {
+                    if (_selectedSavedVibes.length == widget.savedVibes.length) { _selectedSavedVibes.clear(); }
+                    else { _selectedSavedVibes = Set.from(List.generate(widget.savedVibes.length, (i) => i)); }
+                  }),
+                ),
                 for (int i = 0; i < widget.savedVibes.length; i++)
                   _checkTile(widget.savedVibes[i].name, _selectedSavedVibes.contains(i), (v) {
                     setState(() => v! ? _selectedSavedVibes.add(i) : _selectedSavedVibes.remove(i));
@@ -382,10 +412,23 @@ class _ExportDialogState extends State<_ExportDialog> {
     );
   }
 
-  Widget _sectionHeader(String text, VisionTokens t) {
+  Widget _sectionHeader(String text, VisionTokens t, {VoidCallback? onToggle, bool allSelected = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
-      child: Text(text, style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(8), letterSpacing: 2, fontWeight: FontWeight.bold)),
+      child: Row(
+        children: [
+          Text(text, style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(8), letterSpacing: 2, fontWeight: FontWeight.bold)),
+          const Spacer(),
+          if (onToggle != null)
+            GestureDetector(
+              onTap: onToggle,
+              child: Text(
+                allSelected ? 'NONE' : 'ALL',
+                style: TextStyle(color: t.accent, fontSize: t.fontSize(8), letterSpacing: 1),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -638,6 +681,7 @@ class _ImportDialogState extends State<_ImportDialog> {
           final targetPath = p.join(wildcard.wildcardDir, key);
           await File(targetPath).writeAsString(content);
         }
+        await wildcard.wildcardService.refresh();
         await wildcard.refreshFiles();
       }
 

@@ -214,6 +214,37 @@ class WildcardNotifier extends ChangeNotifier {
     }
   }
 
+  Future<bool> renameFile(File file, String newName) async {
+    final oldName = p.basenameWithoutExtension(file.path);
+    final sanitized = newName.trim().replaceAll(' ', '.')
+        .replaceAll('/', '').replaceAll('\\', '').replaceAll('..', '');
+    if (sanitized.isEmpty || sanitized == oldName) return false;
+
+    final newPath = p.normalize(p.join(wildcardDir, '$sanitized.txt'));
+    if (!p.isWithin(wildcardDir, newPath)) return false;
+    if (await File(newPath).exists()) return false;
+
+    try {
+      final wasSelected = _state.selectedFile?.path == file.path;
+      final success = await wildcardService.renameWildcard(oldName, sanitized);
+      if (!success) return false;
+
+      await refreshFiles();
+
+      if (wasSelected) {
+        final renamedFile = _state.files.firstWhere(
+          (f) => p.basenameWithoutExtension(f.path) == sanitized,
+          orElse: () => file,
+        );
+        await selectFile(renamedFile);
+      }
+      return true;
+    } catch (e) {
+      debugPrint('Error renaming wildcard file: $e');
+      return false;
+    }
+  }
+
   void handleTagSuggestions(String text, TextSelection selection) {
     if (!selection.isValid || selection.baseOffset != selection.extentOffset) {
       _state = _state.copyWith(tagSuggestions: []);

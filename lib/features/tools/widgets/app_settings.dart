@@ -102,6 +102,8 @@ class _AppSettingsState extends State<AppSettings> {
           const SizedBox(height: 12),
           _buildShowTooltipsToggle(t),
           const SizedBox(height: 12),
+          _buildHideTagValuesToggle(t),
+          const SizedBox(height: 12),
           _buildShelfToggle(
             label: l.settingsEditButton.toUpperCase(),
             description: l.settingsEditButtonDesc,
@@ -716,6 +718,24 @@ class _AppSettingsState extends State<AppSettings> {
               inactiveTrackColor: t.borderSubtle,
             ),
           ],
+        );
+      },
+    );
+  }
+
+  Widget _buildHideTagValuesToggle(VisionTokens t) {
+    final prefs = context.read<PreferencesService>();
+    return StatefulBuilder(
+      builder: (context, setLocalState) {
+        return _buildShelfToggle(
+          label: 'HIDE TAG VALUES',
+          description: 'Hide tag count values in autocomplete suggestions',
+          value: prefs.hideTagValues,
+          onChanged: (_) async {
+            await prefs.setHideTagValues(!prefs.hideTagValues);
+            setLocalState(() {});
+          },
+          t: t,
         );
       },
     );

@@ -376,6 +376,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get galleryCopy => 'コピー';
 
   @override
+  String get galleryShare => '共有';
+
+  @override
   String get galleryPaste => '貼り付け';
 
   @override
@@ -842,6 +845,20 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get wildcardHelpFavorites => 'お気に入りのワイルドカードはタグ補完でゴールドの枠線で表示されます';
+
+  @override
+  String get wildcardDeleteTitle => 'ワイルドカードを削除';
+
+  @override
+  String wildcardDeleteConfirm(String name) {
+    return '\'\'$name\'\' を削除してもよろしいですか？';
+  }
+
+  @override
+  String get wildcardRenameTitle => 'ワイルドカードの名前変更';
+
+  @override
+  String get wildcardRenameExists => 'この名前のワイルドカードは既に存在します';
 
   @override
   String get tagLibTitle => 'タグライブラリ';

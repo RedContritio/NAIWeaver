@@ -34,6 +34,8 @@ import '../../../core/ml/widgets/upscale_comparison_view.dart';
 import '../../tools/enhance/providers/enhance_notifier.dart';
 import '../../tools/director_tools/providers/director_tools_notifier.dart';
 import '../../../core/services/novel_ai_service.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:super_clipboard/super_clipboard.dart';
 
 class ImageDetailView extends StatefulWidget {
   final int initialIndex;
@@ -621,6 +623,30 @@ class _ImageDetailViewState extends State<ImageDetailView>
     );
   }
 
+  Future<void> _copyImageToClipboard(GalleryItem item) async {
+    try {
+      final bytes = await item.file.readAsBytes();
+
+      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+        final name = p.basenameWithoutExtension(item.file.path);
+        await Share.shareXFiles(
+          [XFile.fromData(bytes, mimeType: 'image/png', name: '$name.png')],
+        );
+        return;
+      }
+
+      final clipItem = DataWriterItem();
+      clipItem.add(Formats.png(bytes));
+      final clipboard = SystemClipboard.instance;
+      if (clipboard != null) {
+        await clipboard.write([clipItem]);
+        if (mounted) showAppSnackBar(context, 'COPIED TO CLIPBOARD', color: const Color(0xFF4CAF50));
+        return;
+      }
+    } catch (_) {}
+    if (mounted) showErrorSnackBar(context, 'CLIPBOARD NOT AVAILABLE');
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.t;
@@ -1097,6 +1123,13 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                     color: t.textSecondary,
                                     mobile: mobile,
                                     onTap: _launchSlideshow,
+                                  ),
+                                  _ViewerAction(
+                                    icon: mobile ? Icons.share : Icons.copy,
+                                    label: mobile ? context.l.galleryShare.toUpperCase() : context.l.galleryCopy.toUpperCase(),
+                                    color: t.textSecondary,
+                                    mobile: mobile,
+                                    onTap: () => _copyImageToClipboard(item),
                                   ),
                                 ],
                               ),

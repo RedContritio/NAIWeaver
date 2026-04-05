@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
@@ -6,6 +7,8 @@ import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../../core/theme/vision_tokens.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/utils/app_snackbar.dart';
+import '../../../core/widgets/confirm_dialog.dart';
 import '../../../core/widgets/tag_suggestion_overlay.dart';
 import '../../../core/services/wildcard_processor.dart';
 import '../providers/wildcard_notifier.dart';
@@ -209,21 +212,23 @@ class _WildcardManagerState extends State<WildcardManager> {
                           ),
                         ),
                         if (isSelected) ...[
-                          IconButton(
-                            icon: Icon(
-                              isFav ? Icons.star : Icons.star_border,
-                              size: 12,
-                              color: isFav ? const Color(0xFFFFD740) : t.textDisabled,
-                            ),
-                            onPressed: () => notifier.toggleFavorite(file),
-                            constraints: const BoxConstraints(),
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                          const SizedBox(width: 4),
+                          _actionButton(
+                            icon: Icons.drive_file_rename_outline,
+                            color: t.textSecondary,
+                            onPressed: () => _showRenameDialog(context, notifier, file, fileName, t),
                           ),
-                          IconButton(
-                            icon: Icon(Icons.delete_outline, size: 12, color: t.textDisabled),
-                            onPressed: () => notifier.deleteFile(file),
-                            constraints: const BoxConstraints(),
-                            padding: EdgeInsets.zero,
+                          const SizedBox(width: 2),
+                          _actionButton(
+                            icon: isFav ? Icons.star : Icons.star_border,
+                            color: isFav ? const Color(0xFFFFD740) : t.textDisabled,
+                            onPressed: () => notifier.toggleFavorite(file),
+                          ),
+                          const SizedBox(width: 2),
+                          _actionButton(
+                            icon: Icons.delete_outline,
+                            color: t.textDisabled,
+                            onPressed: () => _showDeleteConfirm(context, notifier, file, fileName, t),
                           ),
                         ],
                       ],
@@ -256,12 +261,9 @@ class _WildcardManagerState extends State<WildcardManager> {
 
     return Column(
       children: [
-        SizedBox(
-          height: 30,
-          child: TagSuggestionOverlay(
-            suggestions: state.tagSuggestions,
-            onTagSelected: notifier.applyTagSuggestion,
-          ),
+        TagSuggestionOverlay(
+          suggestions: state.tagSuggestions,
+          onTagSelected: notifier.applyTagSuggestion,
         ),
         // Validation toolbar
         Container(
@@ -550,6 +552,90 @@ class _WildcardManagerState extends State<WildcardManager> {
               description,
               style: TextStyle(color: t.hintText, fontSize: t.fontSize(9), height: 1.4),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _actionButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return IconButton(
+      icon: Icon(icon, size: 16, color: color),
+      onPressed: onPressed,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      padding: const EdgeInsets.all(4),
+      splashRadius: 16,
+    );
+  }
+
+  Future<void> _showDeleteConfirm(
+    BuildContext context,
+    WildcardNotifier notifier,
+    File file,
+    String fileName,
+    VisionTokens t,
+  ) async {
+    final l = context.l;
+    final confirm = await showConfirmDialog(
+      context,
+      title: l.wildcardDeleteTitle,
+      message: l.wildcardDeleteConfirm(fileName),
+      confirmLabel: l.commonDelete,
+      confirmColor: t.accentDanger,
+    );
+    if (confirm == true) {
+      notifier.deleteFile(file);
+    }
+  }
+
+  void _showRenameDialog(
+    BuildContext context,
+    WildcardNotifier notifier,
+    File file,
+    String currentName,
+    VisionTokens t,
+  ) {
+    final controller = TextEditingController(text: currentName);
+    final l = context.l;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: t.surfaceHigh,
+        title: Text(
+          l.wildcardRenameTitle,
+          style: TextStyle(fontSize: t.fontSize(10), letterSpacing: 2, color: t.textSecondary),
+        ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(13)),
+          decoration: InputDecoration(
+            hintText: l.wildcardFileName,
+            hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9)),
+            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: t.borderMedium)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l.commonCancel.toUpperCase(), style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9))),
+          ),
+          TextButton(
+            onPressed: () async {
+              final success = await notifier.renameFile(file, controller.text);
+              if (ctx.mounted) {
+                if (success) {
+                  Navigator.pop(ctx);
+                } else {
+                  showAppSnackBar(ctx, l.wildcardRenameExists, color: const Color(0xFFFFC107));
+                }
+              }
+            },
+            child: Text(l.commonRename.toUpperCase(), style: TextStyle(color: t.accent, fontSize: t.fontSize(9))),
           ),
         ],
       ),

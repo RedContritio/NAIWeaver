@@ -62,10 +62,15 @@ class StyleNotifier extends ChangeNotifier {
     required List<PromptStyle> initialStyles,
     required String stylesFilePath,
     required this.onStylesChanged,
+    String? initialStyleName,
   }) : _tagService = tagService,
        _wildcardService = wildcardService,
        _stylesFilePath = stylesFilePath {
     _state = _state.copyWith(styles: initialStyles);
+    if (initialStyleName != null) {
+      final match = initialStyles.where((s) => s.name == initialStyleName).firstOrNull;
+      if (match != null) selectStyle(match);
+    }
   }
 
   void selectStyle(PromptStyle? style) {
@@ -125,7 +130,7 @@ class StyleNotifier extends ChangeNotifier {
         isDefault: isDefault ?? _state.selectedStyle!.isDefault,
       );
     } else {
-      final currentIsPrefix = isPrefix ?? _state.selectedStyle!.prefix.isNotEmpty || _state.selectedStyle!.suffix.isEmpty;
+      final currentIsPrefix = isPrefix ?? (_state.selectedStyle!.prefix.isNotEmpty || _state.selectedStyle!.suffix.isEmpty);
       updated = PromptStyle(
         name: name ?? nameController.text,
         prefix: currentIsPrefix ? finalContent : "",

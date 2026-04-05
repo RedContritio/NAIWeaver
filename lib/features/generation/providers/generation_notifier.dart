@@ -76,6 +76,7 @@ class GenerationState {
   final bool showEnhanceButton;
   final bool showDirectorToolsButton;
   final bool furryMode;
+  final bool useCurated;
   final String? errorMessage;
   final int? anlas;
   final String characterEditorMode;
@@ -117,6 +118,7 @@ class GenerationState {
     this.showEnhanceButton = false,
     this.showDirectorToolsButton = false,
     this.furryMode = false,
+    this.useCurated = false,
     this.errorMessage,
     this.anlas,
     this.characterEditorMode = 'expanded',
@@ -159,6 +161,7 @@ class GenerationState {
     bool? showEnhanceButton,
     bool? showDirectorToolsButton,
     bool? furryMode,
+    bool? useCurated,
     String? errorMessage,
     bool clearErrorMessage = false,
     int? anlas,
@@ -202,6 +205,7 @@ class GenerationState {
       showEnhanceButton: showEnhanceButton ?? this.showEnhanceButton,
       showDirectorToolsButton: showDirectorToolsButton ?? this.showDirectorToolsButton,
       furryMode: furryMode ?? this.furryMode,
+      useCurated: useCurated ?? this.useCurated,
       errorMessage: clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
       anlas: clearAnlas ? null : (anlas ?? this.anlas),
       characterEditorMode: characterEditorMode ?? this.characterEditorMode,
@@ -292,6 +296,7 @@ class GenerationNotifier extends ChangeNotifier {
   void updateVibeTransferNotifier(VibeTransferNotifier notifier) {
     _vibeTransferNotifier = notifier;
     notifier.updateService(_service);
+    notifier.updateUseCurated(_state.useCurated);
   }
 
   void updateDirectorToolsNotifier(DirectorToolsNotifier notifier) {
@@ -346,6 +351,7 @@ class GenerationNotifier extends ChangeNotifier {
       showEnhanceButton: _prefs.showEnhanceButton,
       showDirectorToolsButton: _prefs.showDirectorToolsButton,
       furryMode: _prefs.furryMode,
+      useCurated: _prefs.useCurated,
       characterEditorMode: _prefs.characterEditorMode,
     );
     loadCharacterPresets();
@@ -491,8 +497,13 @@ class GenerationNotifier extends ChangeNotifier {
     bool? isStyleEnabled,
     List<NaiCharacter>? characters,
     bool? furryMode,
+    bool? useCurated,
   }) {
     if (furryMode != null) _prefs.setFurryMode(furryMode);
+    if (useCurated != null) {
+      _prefs.setUseCurated(useCurated);
+      _vibeTransferNotifier?.updateUseCurated(useCurated);
+    }
     _state = _state.copyWith(
       width: width,
       height: height,
@@ -507,6 +518,7 @@ class GenerationNotifier extends ChangeNotifier {
       isStyleEnabled: isStyleEnabled,
       characters: characters,
       furryMode: furryMode,
+      useCurated: useCurated,
     );
     notifyListeners();
   }
@@ -875,6 +887,7 @@ class GenerationNotifier extends ChangeNotifier {
         vibeTransferImages: vibePayload?.vibeVectors,
         vibeTransferStrengths: vibePayload?.strengths,
         vibeTransferInfoExtracted: vibePayload?.infoExtracted,
+        useCurated: _state.useCurated,
       );
 
       // Save active style info in metadata for round-trip restore
@@ -1153,6 +1166,7 @@ class GenerationNotifier extends ChangeNotifier {
         steps: settings.steps,
         sampler: settings.sampler,
         seed: seed,
+        useCurated: _state.useCurated,
       );
 
       // Auto-save the preview as well, so it's in the gallery
@@ -1196,6 +1210,7 @@ class GenerationNotifier extends ChangeNotifier {
         seed: seed,
         characters: request.characters,
         useCoords: request.useCoords,
+        useCurated: _state.useCurated,
       );
 
       _lastMetadata = result.metadata;
@@ -1268,6 +1283,7 @@ class GenerationNotifier extends ChangeNotifier {
         vibeTransferImages: vibePayload?.vibeVectors,
         vibeTransferStrengths: vibePayload?.strengths,
         vibeTransferInfoExtracted: vibePayload?.infoExtracted,
+        useCurated: _state.useCurated,
       );
 
       Uint8List finalBytes = result.imageBytes;
@@ -1278,13 +1294,14 @@ class GenerationNotifier extends ChangeNotifier {
 
       if (_state.autoSaveImages) {
         final timestamp = DateFormat('yyyyMMdd_HHmmssSSS').format(DateTime.now());
+        String? srcPath;
         if (sourceImageBytes != null) {
           try {
             final directory = Directory(_outputDir);
             if (!await directory.exists()) {
               await directory.create(recursive: true);
             }
-            final srcPath = p.join(directory.path, 'Src_$timestamp.png');
+            srcPath = p.join(directory.path, 'Src_$timestamp.png');
             await File(srcPath).writeAsBytes(sourceImageBytes);
           } catch (e) {
             debugPrint("Source image save error: $e");
@@ -1295,6 +1312,9 @@ class GenerationNotifier extends ChangeNotifier {
           _galleryNotifier?.addFile(savedFile, DateTime.now());
           _imageSaved = true;
           await _autoExportIfEnabled(finalBytes);
+          if (srcPath != null) {
+            try { await File(srcPath).delete(); } catch (_) {}
+          }
         }
       }
 
@@ -1363,6 +1383,7 @@ class GenerationNotifier extends ChangeNotifier {
       activeStyleNames: _state.activeStyleNames,
       isStyleEnabled: _state.isStyleEnabled,
       furryMode: _state.furryMode,
+      useCurated: _state.useCurated,
       characters: _state.characters,
       interactions: _state.interactions,
       directorReferences: _directorRefNotifier?.references.toList() ?? [],
@@ -1394,6 +1415,7 @@ class GenerationNotifier extends ChangeNotifier {
       activeStyleNames: snapshot.activeStyleNames,
       isStyleEnabled: snapshot.isStyleEnabled,
       furryMode: snapshot.furryMode,
+      useCurated: snapshot.useCurated,
       characters: snapshot.characters,
       interactions: snapshot.interactions,
     );

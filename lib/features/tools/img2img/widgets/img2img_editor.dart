@@ -1,5 +1,5 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/l10n/l10n_extensions.dart';
 import '../../../../core/theme/theme_extensions.dart';
@@ -34,12 +34,14 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
     text: 'lowres, {bad}, error, fewer, extra, missing, worst quality, jpeg artifacts, bad quality, watermark, unfinished, displeasing, chromatic aberration, signature, extra digits, artistic error, username, scan, [abstract]',
   );
 
+  final FocusNode _img2imgFocusNode = FocusNode(skipTraversal: true);
   bool _showResult = false;
   bool _hadSession = false;
   Object? _lastSourceImage;
 
   @override
   void dispose() {
+    _img2imgFocusNode.dispose();
     _promptController.dispose();
     _negativePromptController.dispose();
     super.dispose();
@@ -103,15 +105,25 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
 
     final mobile = isMobile(context);
 
+    final showingResult = _showResult && hasResult;
+
     Widget canvasArea = Column(
       children: [
         Expanded(
           child: Stack(
             children: [
-              if (_showResult && hasResult)
-                _buildResultView(session.resultImageBytes!, img2imgNotifier)
-              else
-                const MaskCanvas(),
+              // Keep MaskCanvas alive using IndexedStack so its raster
+              // caches survive result/canvas toggles.
+              IndexedStack(
+                index: showingResult ? 1 : 0,
+                children: [
+                  const MaskCanvas(),
+                  if (hasResult)
+                    _buildResultView(session.resultImageBytes!, img2imgNotifier)
+                  else
+                    const SizedBox.shrink(),
+                ],
+              ),
 
               // Source / Result label badge
               Positioned(
@@ -120,13 +132,13 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: (_showResult && hasResult)
+                    color: showingResult
                         ? const Color(0xCC00CC66)
                         : const Color(0xCC000000),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    (_showResult && hasResult) ? l.img2imgResult : l.img2imgSource,
+                    showingResult ? l.img2imgResult : l.img2imgSource,
                     style: TextStyle(
                       color: t.textPrimary,
                       fontSize: t.fontSize(9),
@@ -139,11 +151,24 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
             ],
           ),
         ),
-        if (!_showResult || !hasResult) const MaskToolbar(),
+        if (!showingResult) const MaskToolbar(),
       ],
     );
 
-    return Stack(
+    return Focus(
+      focusNode: _img2imgFocusNode,
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent && event is! KeyRepeatEvent) return KeyEventResult.ignored;
+        if (event.logicalKey == LogicalKeyboardKey.enter &&
+            HardwareKeyboard.instance.isControlPressed) {
+          if (!genNotifier.state.isLoading) {
+            _generate(img2imgNotifier, genNotifier);
+          }
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Stack(
       children: [
         Column(
           children: [
@@ -202,6 +227,7 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
             ),
           ),
       ],
+    ),
     );
   }
 

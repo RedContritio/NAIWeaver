@@ -11,7 +11,8 @@ import '../../generation/providers/generation_notifier.dart';
 import '../providers/style_notifier.dart';
 
 class StyleEditor extends StatelessWidget {
-  const StyleEditor({super.key});
+  final String? initialStyleName;
+  const StyleEditor({super.key, this.initialStyleName});
 
   @override
   Widget build(BuildContext context) {
@@ -24,14 +25,16 @@ class StyleEditor extends StatelessWidget {
         initialStyles: genNotifier.state.styles,
         stylesFilePath: genNotifier.stylesFilePath,
         onStylesChanged: () => genNotifier.refreshStyles(),
+        initialStyleName: initialStyleName,
       ),
-      child: const _StyleEditorContent(),
+      child: _StyleEditorContent(hasInitialStyle: initialStyleName != null),
     );
   }
 }
 
 class _StyleEditorContent extends StatefulWidget {
-  const _StyleEditorContent();
+  final bool hasInitialStyle;
+  const _StyleEditorContent({this.hasInitialStyle = false});
 
   @override
   State<_StyleEditorContent> createState() => _StyleEditorContentState();
@@ -39,6 +42,14 @@ class _StyleEditorContent extends StatefulWidget {
 
 class _StyleEditorContentState extends State<_StyleEditorContent> {
   bool _showingEditor = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.hasInitialStyle) {
+      _showingEditor = true;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

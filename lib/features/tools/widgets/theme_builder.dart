@@ -583,57 +583,59 @@ class _ThemeBuilderState extends State<ThemeBuilder> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ReorderableListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          buildDefaultDragHandles: false,
-          itemCount: order.length,
-          onReorder: themeNotifier.reorderSections,
-          proxyDecorator: (child, index, animation) {
-            return Material(
-              color: t.surfaceHigh,
-              borderRadius: BorderRadius.circular(4),
-              elevation: 4,
-              child: child,
-            );
-          },
-          itemBuilder: (context, index) {
-            final id = order[index];
-            final name = displayNames[id] ?? id;
-            return Container(
-              key: ValueKey(id),
-              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-              margin: const EdgeInsets.symmetric(vertical: 2),
-              decoration: BoxDecoration(
-                color: t.borderSubtle.withValues(alpha: 0.3),
+        PrimaryScrollController.none(
+          child: ReorderableListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            buildDefaultDragHandles: false,
+            itemCount: order.length,
+            onReorder: themeNotifier.reorderSections,
+            proxyDecorator: (child, index, animation) {
+              return Material(
+                color: t.surfaceHigh,
                 borderRadius: BorderRadius.circular(4),
-              ),
-              child: Row(
-                children: [
-                  ReorderableDragStartListener(
-                    index: index,
-                    child: Icon(Icons.drag_handle, size: 16, color: t.textDisabled),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      name,
-                      style: TextStyle(
-                        color: t.textSecondary,
-                        fontSize: t.fontSize(10),
-                        letterSpacing: 1,
-                        fontWeight: FontWeight.bold,
+                elevation: 4,
+                child: child,
+              );
+            },
+            itemBuilder: (context, index) {
+              final id = order[index];
+              final name = displayNames[id] ?? id;
+              return Container(
+                key: ValueKey(id),
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                margin: const EdgeInsets.symmetric(vertical: 2),
+                decoration: BoxDecoration(
+                  color: t.borderSubtle.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  children: [
+                    ReorderableDragStartListener(
+                      index: index,
+                      child: Icon(Icons.drag_handle, size: 16, color: t.textDisabled),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        name,
+                        style: TextStyle(
+                          color: t.textSecondary,
+                          fontSize: t.fontSize(10),
+                          letterSpacing: 1,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                  ),
-                  Text(
-                    '${index + 1}',
-                    style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9)),
-                  ),
-                ],
-              ),
-            );
-          },
+                    Text(
+                      '${index + 1}',
+                      style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9)),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
         const SizedBox(height: 8),
         Align(

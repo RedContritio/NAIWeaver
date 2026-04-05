@@ -172,6 +172,48 @@ class WildcardService {
     await _saveModes();
   }
 
+  Future<bool> renameWildcard(String oldName, String newName) async {
+    final oldFile = File(p.join(wildcardDir, '$oldName.txt'));
+    final newFile = File(p.join(wildcardDir, '$newName.txt'));
+    if (await newFile.exists()) return false;
+    if (!await oldFile.exists()) return false;
+
+    try {
+      await oldFile.rename(newFile.path);
+    } catch (e) {
+      debugPrint('Error renaming wildcard file: $e');
+      return false;
+    }
+
+    // Update favorites
+    if (_favorites.contains(oldName)) {
+      _favorites.remove(oldName);
+      _favorites.add(newName);
+      await _saveFavorites();
+    }
+
+    // Update custom order
+    final orderIdx = _customOrder.indexOf(oldName);
+    if (orderIdx >= 0) {
+      _customOrder[orderIdx] = newName;
+      await _saveOrder();
+    }
+
+    // Update modes
+    if (_modes.containsKey(oldName)) {
+      _modes[newName] = _modes.remove(oldName)!;
+      await _saveModes();
+    }
+
+    // Update internal names list
+    final nameIdx = _wildcardNames.indexOf(oldName);
+    if (nameIdx >= 0) {
+      _wildcardNames[nameIdx] = newName;
+    }
+
+    return true;
+  }
+
   /// Returns wildcard suggestions matching [query] as DanbooruTag objects
   /// with typeName 'wildcard' or 'wildcard_favorite'.
   List<DanbooruTag> getSuggestions(String query) {

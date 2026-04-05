@@ -64,6 +64,17 @@ class _DirectorRefManagerState extends State<DirectorRefManager> {
     setState(() => _savedRefs = library.directorRefs);
   }
 
+  Future<void> _reorderSaved(int oldIndex, int newIndex) async {
+    if (newIndex > oldIndex) newIndex--;
+    final reordered = List<SavedDirectorRef>.from(_savedRefs);
+    final item = reordered.removeAt(oldIndex);
+    reordered.insert(newIndex, item);
+    final library = await ReferenceLibraryService.load(_libraryPath);
+    library.directorRefs = reordered;
+    await ReferenceLibraryService.save(_libraryPath, library);
+    setState(() => _savedRefs = reordered);
+  }
+
   Future<void> _loadSaved(SavedDirectorRef saved) async {
     final notifier = context.read<DirectorRefNotifier>();
     await notifier.addReference(saved.reference.originalImageBytes);
@@ -313,15 +324,30 @@ class _DirectorRefManagerState extends State<DirectorRefManager> {
               ),
             ),
             const SizedBox(height: 12),
-            ..._savedRefs.asMap().entries.map((entry) {
-              final idx = entry.key;
-              final saved = entry.value;
-              return _SavedRefCard(
-                saved: saved,
-                onLoad: () => _loadSaved(saved),
-                onDelete: () => _deleteSaved(idx),
-              );
-            }),
+            PrimaryScrollController.none(
+              child: ReorderableListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                buildDefaultDragHandles: false,
+                itemCount: _savedRefs.length,
+                onReorder: _reorderSaved,
+                proxyDecorator: (child, index, animation) => Material(
+                  color: Colors.transparent,
+                  elevation: 4,
+                  child: child,
+                ),
+                itemBuilder: (context, idx) {
+                  final saved = _savedRefs[idx];
+                  return _SavedRefCard(
+                    key: ValueKey(saved.name + idx.toString()),
+                    saved: saved,
+                    index: idx,
+                    onLoad: () => _loadSaved(saved),
+                    onDelete: () => _deleteSaved(idx),
+                  );
+                },
+              ),
+            ),
           ],
         ],
       ),
@@ -493,11 +519,14 @@ class _ReferenceCard extends StatelessWidget {
 
 class _SavedRefCard extends StatelessWidget {
   final SavedDirectorRef saved;
+  final int index;
   final VoidCallback onLoad;
   final VoidCallback onDelete;
 
   const _SavedRefCard({
+    super.key,
     required this.saved,
+    required this.index,
     required this.onLoad,
     required this.onDelete,
   });
@@ -518,6 +547,11 @@ class _SavedRefCard extends StatelessWidget {
       ),
       child: Row(
         children: [
+          ReorderableDragStartListener(
+            index: index,
+            child: Icon(Icons.drag_handle, size: 14, color: t.textDisabled),
+          ),
+          const SizedBox(width: 8),
           Container(
             width: thumbSize,
             height: thumbSize,

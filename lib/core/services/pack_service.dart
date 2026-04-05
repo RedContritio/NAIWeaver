@@ -176,7 +176,7 @@ class PackService {
       if (file.name.startsWith('references/') && !file.isFile) continue;
       if (file.name.startsWith('references/') && file.isFile) {
         final filename = file.name.replaceFirst('references/', '');
-        if (filename.contains('..') || filename.startsWith('/')) continue;
+        if (filename.contains('..') || filename.contains('\\') || filename.contains(':') || filename.startsWith('/')) continue;
         refImages[filename] = Uint8List.fromList(file.content as List<int>);
       }
     }
@@ -186,7 +186,7 @@ class PackService {
     for (final file in archive) {
       if (file.name.startsWith('presets/') && file.name.endsWith('.json') && file.isFile) {
         final presetFilename = file.name.replaceFirst('presets/', '');
-        if (presetFilename.contains('..') || presetFilename.startsWith('/')) continue;
+        if (presetFilename.contains('..') || presetFilename.contains('\\') || presetFilename.contains(':') || presetFilename.startsWith('/')) continue;
         try {
           final json = jsonDecode(utf8.decode(file.content as List<int>)) as Map<String, dynamic>;
 
@@ -218,7 +218,7 @@ class PackService {
     for (final file in archive) {
       if (file.name.startsWith('styles/') && file.name.endsWith('.json') && file.isFile) {
         final styleFilename = file.name.replaceFirst('styles/', '');
-        if (styleFilename.contains('..') || styleFilename.startsWith('/')) continue;
+        if (styleFilename.contains('..') || styleFilename.contains('\\') || styleFilename.contains(':') || styleFilename.startsWith('/')) continue;
         try {
           final json = jsonDecode(utf8.decode(file.content as List<int>)) as Map<String, dynamic>;
           styles.add(PromptStyle.fromJson(json));
@@ -233,7 +233,7 @@ class PackService {
     for (final file in archive) {
       if (file.name.startsWith('wildcards/') && file.isFile) {
         final filename = file.name.replaceFirst('wildcards/', '');
-        if (filename.contains('..') || filename.startsWith('/')) continue;
+        if (filename.contains('..') || filename.contains('\\') || filename.contains(':') || filename.startsWith('/')) continue;
         wildcards[filename] = utf8.decode(file.content as List<int>);
       }
     }
@@ -243,7 +243,7 @@ class PackService {
     for (final file in archive) {
       if (file.name.startsWith('saved_refs/') && file.name.endsWith('.json') && file.isFile) {
         final filename = file.name.replaceFirst('saved_refs/', '');
-        if (filename.contains('..') || filename.startsWith('/')) continue;
+        if (filename.contains('..') || filename.contains('\\') || filename.contains(':') || filename.startsWith('/')) continue;
         try {
           final json = jsonDecode(utf8.decode(file.content as List<int>)) as Map<String, dynamic>;
           savedRefs.add(SavedDirectorRef.fromJson(json));
@@ -256,7 +256,7 @@ class PackService {
     for (final file in archive) {
       if (file.name.startsWith('saved_vibes/') && file.name.endsWith('.json') && file.isFile) {
         final filename = file.name.replaceFirst('saved_vibes/', '');
-        if (filename.contains('..') || filename.startsWith('/')) continue;
+        if (filename.contains('..') || filename.contains('\\') || filename.contains(':') || filename.startsWith('/')) continue;
         try {
           final json = jsonDecode(utf8.decode(file.content as List<int>)) as Map<String, dynamic>;
           savedVibes.add(SavedVibeTransfer.fromJson(json));

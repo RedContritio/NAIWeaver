@@ -1,6 +1,8 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import '../services/preferences_service.dart';
 import '../services/tag_service.dart';
 import '../theme/theme_extensions.dart';
 
@@ -77,7 +79,7 @@ class TagSuggestionOverlay extends StatelessWidget {
                   border: Border.all(color: t.borderMedium),
                 ),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 120),
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.3),
             child: Listener(
               onPointerSignal: (pointerSignal) {
                 if (pointerSignal is PointerScrollEvent) {
@@ -150,7 +152,7 @@ class TagSuggestionOverlay extends StatelessWidget {
                                   shadows: const [Shadow(color: Colors.black54, blurRadius: 1)],
                                 ),
                               ),
-                            if (tag.typeName != 'category_shortcut') ...[
+                            if (!context.read<PreferencesService>().hideTagValues && tag.typeName != 'category_shortcut') ...[
                               const SizedBox(width: 4),
                               Text(
                                 NumberFormat.compact().format(tag.count),

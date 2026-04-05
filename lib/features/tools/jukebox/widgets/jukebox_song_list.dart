@@ -224,39 +224,41 @@ class JukeboxQueue extends StatelessWidget {
       );
     }
 
-    return ReorderableListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: jukebox.queue.length,
-      onReorder: jukebox.reorderQueue,
-      itemBuilder: (context, index) {
-        final song = jukebox.queue[index];
-        final isCurrent = jukebox.currentSong != null && song.id == jukebox.currentSong!.id;
-        return ListTile(
-          key: ValueKey('${song.id}_$index'),
-          dense: true,
-          leading: Icon(
-            isCurrent ? Icons.equalizer : Icons.drag_handle,
-            size: 14,
-            color: isCurrent ? t.accent : t.textMinimal,
-          ),
-          title: Text(
-            song.title.toUpperCase(),
-            style: TextStyle(
-              color: isCurrent ? t.accent : t.textSecondary,
-              fontSize: t.fontSize(8),
-              letterSpacing: 1,
-              fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+    return PrimaryScrollController.none(
+      child: ReorderableListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: jukebox.queue.length,
+        onReorder: jukebox.reorderQueue,
+        itemBuilder: (context, index) {
+          final song = jukebox.queue[index];
+          final isCurrent = jukebox.currentSong != null && song.id == jukebox.currentSong!.id;
+          return ListTile(
+            key: ValueKey('${song.id}_$index'),
+            dense: true,
+            leading: Icon(
+              isCurrent ? Icons.equalizer : Icons.drag_handle,
+              size: 14,
+              color: isCurrent ? t.accent : t.textMinimal,
             ),
-          ),
-          trailing: IconButton(
-            icon: Icon(Icons.close, size: 12, color: t.textMinimal),
-            onPressed: () => jukebox.removeFromQueue(index),
-            constraints: const BoxConstraints(),
-            padding: const EdgeInsets.all(4),
-          ),
-        );
-      },
+            title: Text(
+              song.title.toUpperCase(),
+              style: TextStyle(
+                color: isCurrent ? t.accent : t.textSecondary,
+                fontSize: t.fontSize(8),
+                letterSpacing: 1,
+                fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+            trailing: IconButton(
+              icon: Icon(Icons.close, size: 12, color: t.textMinimal),
+              onPressed: () => jukebox.removeFromQueue(index),
+              constraints: const BoxConstraints(),
+              padding: const EdgeInsets.all(4),
+            ),
+          );
+        },
+      ),
     );
   }
 }
