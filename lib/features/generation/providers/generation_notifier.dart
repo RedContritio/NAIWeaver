@@ -847,7 +847,8 @@ class GenerationNotifier extends ChangeNotifier {
       String? combinedSuffix = styleResult.suffix;
       String? styleNegativeContent = styleResult.negative;
 
-      String baseNegative = _tagService.resolveAliases(negativePromptController.text);
+      String baseNegative = _tagService.resolveAliases(
+          await _wildcardProcessor.process(negativePromptController.text));
       if (_galleryNotifier?.demoMode == true) {
         final demoNeg = _prefs.demoNegativePrefix;
         if (demoNeg.isNotEmpty) {
@@ -858,6 +859,14 @@ class GenerationNotifier extends ChangeNotifier {
 
       final dirPayload = _directorRefNotifier?.buildPayload();
       final vibePayload = _vibeTransferNotifier?.buildPayload();
+
+      // Process wildcards in character prompts
+      final processedCharacters = await Future.wait(
+        _state.characters.map((c) async => c.copyWith(
+          prompt: _tagService.resolveAliases(await _wildcardProcessor.process(c.prompt)),
+          uc: _tagService.resolveAliases(await _wildcardProcessor.process(c.uc)),
+        )),
+      );
 
       final result = await _service.generateImage(
         prompt: finalPrompt,
@@ -873,10 +882,7 @@ class GenerationNotifier extends ChangeNotifier {
         seed: seed,
         promptPrefix: combinedPrefix,
         promptSuffix: combinedSuffix,
-        characters: _state.characters.map((c) => c.copyWith(
-          prompt: _tagService.resolveAliases(c.prompt),
-          uc: _tagService.resolveAliases(c.uc),
-        )).toList(),
+        characters: processedCharacters,
         interactions: _state.interactions,
         useCoords: _state.characters.isNotEmpty ? !_state.autoPositioning : false,
         directorRefImages: dirPayload?.images,
@@ -1191,13 +1197,23 @@ class GenerationNotifier extends ChangeNotifier {
 
     try {
       final seed = math.Random().nextInt(4294967295);
-      
-      final combinedNegative = [defaultNegativePrompt, request.negativePrompt]
+
+      // Process wildcards in cascade prompts
+      final processedCaption = await _wildcardProcessor.process(request.baseCaption);
+      final processedNeg = await _wildcardProcessor.process(request.negativePrompt);
+      final processedChars = await Future.wait(
+        request.characters.map((c) async => c.copyWith(
+          prompt: await _wildcardProcessor.process(c.prompt),
+          uc: await _wildcardProcessor.process(c.uc),
+        )),
+      );
+
+      final combinedNegative = [defaultNegativePrompt, processedNeg]
           .where((s) => s.isNotEmpty).join(', ');
 
       final cascadePrompt = _state.furryMode
-          ? "fur dataset, ${request.baseCaption}"
-          : request.baseCaption;
+          ? "fur dataset, $processedCaption"
+          : processedCaption;
 
       final result = await _service.generateImage(
         prompt: cascadePrompt,
@@ -1208,7 +1224,7 @@ class GenerationNotifier extends ChangeNotifier {
         steps: request.steps,
         sampler: request.sampler,
         seed: seed,
-        characters: request.characters,
+        characters: processedChars,
         useCoords: request.useCoords,
         useCurated: _state.useCurated,
       );
