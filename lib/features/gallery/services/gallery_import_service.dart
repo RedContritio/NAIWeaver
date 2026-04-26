@@ -17,6 +17,18 @@ class GalleryImportService {
     required void Function(File file, DateTime date) onFileImported,
     void Function(int current, int total)? onProgress,
   }) async {
+    if (kIsWeb) {
+      // Filesystem-based import is not available on web. Callers should
+      // disable the import UI on web; this guard is defensive.
+      return ImportResult(
+        total: filePaths.length,
+        succeeded: 0,
+        withMetadata: 0,
+        converted: 0,
+        errors: filePaths.map(p.basename).toList(),
+        filesWithMetadata: const [],
+      );
+    }
     final fmt = DateFormat('yyyyMMdd_HHmmssSSS');
     int succeeded = 0;
     int withMetadata = 0;

@@ -172,6 +172,16 @@ class GalleryNotifier extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
+    if (kIsWeb) {
+      // No filesystem on web — gallery starts empty. Generated images
+      // are returned as bytes for browser download instead of being
+      // written to disk.
+      _items = [];
+      _isLoading = false;
+      notifyListeners();
+      return;
+    }
+
     try {
       final dir = Directory(outputDir);
       if (await dir.exists()) {

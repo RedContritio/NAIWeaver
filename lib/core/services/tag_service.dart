@@ -418,6 +418,11 @@ class TagService {
   }
 
   Future<void> saveTags() async {
+    // The tag list (~MB) is too large for SharedPreferences and the web build
+    // has no filesystem to write to. Tags ship as a bundled asset on web; user
+    // edits (favorites, example paths) are session-only there until we add an
+    // IndexedDB-backed store.
+    if (kIsWeb) return;
     try {
       final file = File(filePath);
       final jsonString = await compute(_serializeTags, _tags);

@@ -961,6 +961,9 @@ class GenerationNotifier extends ChangeNotifier {
   }
 
   Future<File?> _saveToDisk(Uint8List bytes, Map<String, dynamic> metadata, {String prefix = 'Gen', String? timestamp}) async {
+    // No filesystem on web. Bytes remain in memory; users use the existing
+    // download/share path (XFile / share_plus) to get the image off-app.
+    if (kIsWeb) return null;
     try {
       final directory = Directory(_outputDir);
       if (!await directory.exists()) {
@@ -976,7 +979,7 @@ class GenerationNotifier extends ChangeNotifier {
         'bytes': bytes,
         'metadata': metadata,
       });
-      
+
       final file = File(filePath);
       await file.writeAsBytes(bytesWithMetadata);
       return file;

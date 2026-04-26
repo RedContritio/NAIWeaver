@@ -27,6 +27,9 @@ class CanvasGalleryService {
     Uint8List flattenedBytes,
     String outputDir,
   ) async {
+    if (kIsWeb) {
+      throw UnsupportedError('Canvas saving is not available on web.');
+    }
     final name = 'Canvas_${_fmt.format(DateTime.now())}';
     final pngFile = File('$outputDir/$name.png');
     final jsonFile = File('$outputDir/$name.canvas.json');
@@ -53,6 +56,7 @@ class CanvasGalleryService {
   /// Load a full [CanvasSession] from sidecar files next to the given PNG path.
   /// Returns null if sidecars don't exist.
   static Future<CanvasSession?> loadSession(String pngPath) async {
+    if (kIsWeb) return null;
     final base = _sidecarBase(pngPath);
     if (base == null) return null;
 
@@ -101,6 +105,7 @@ class CanvasGalleryService {
 
   /// Check whether sidecar files exist for a given gallery PNG.
   static bool hasCanvasState(String pngPath) {
+    if (kIsWeb) return false;
     final base = _sidecarBase(pngPath);
     if (base == null) return false;
     return File('$base.canvas.json').existsSync();
@@ -108,6 +113,7 @@ class CanvasGalleryService {
 
   /// Delete sidecar files alongside the given PNG (if they exist).
   static Future<void> deleteSidecars(String pngPath) async {
+    if (kIsWeb) return;
     final base = _sidecarBase(pngPath);
     if (base == null) return;
 

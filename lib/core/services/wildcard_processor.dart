@@ -45,6 +45,12 @@ class WildcardProcessor {
   }
 
   Future<String?> _getWildcardReplacement(String name) async {
+    if (kIsWeb) {
+      // Wildcard .txt content lives on disk on native; web doesn't have a
+      // filesystem (yet). Leave the wildcard placeholder unresolved so the
+      // raw `__name__` token surfaces to the user instead of crashing.
+      return null;
+    }
     try {
       final resolved = p.normalize(p.join(wildcardDir, '$name.txt'));
       if (!p.isWithin(wildcardDir, resolved)) return null;
