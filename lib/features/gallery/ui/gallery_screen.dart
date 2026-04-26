@@ -184,6 +184,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
     final t = context.tRead;
     try {
       if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+        final album = context.read<PreferencesService>().exportAlbumName;
         final hasAccess = await Gal.hasAccess();
         if (!hasAccess) await Gal.requestAccess();
         int saved = 0;
@@ -191,7 +192,6 @@ class _GalleryScreenState extends State<GalleryScreen> {
           var bytes = await item.file.readAsBytes();
           bytes = await _maybeStripMetadata(bytes);
           final name = p.basenameWithoutExtension(item.file.path);
-          final album = context.read<PreferencesService>().exportAlbumName;
           await Gal.putImageBytes(bytes, name: name, album: album);
           saved++;
         }
