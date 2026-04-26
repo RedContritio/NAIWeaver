@@ -89,12 +89,14 @@ class _DirectorViewState extends State<DirectorView> {
       setState(() => _suggestions = []);
       return;
     }
+    final wildcardService = context.read<GenerationNotifier>().wildcardService;
     _debounce = Timer(const Duration(milliseconds: 150), () {
       if (!mounted) return;
       final result = TagSuggestionHelper.getSuggestions(
         text: controller.text,
         selection: controller.selection,
         tagService: tagService,
+        wildcardService: wildcardService,
       );
       setState(() => _suggestions = result.suggestions);
     });

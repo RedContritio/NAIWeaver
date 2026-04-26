@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math' as math;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -598,9 +599,27 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
   }
 
   Widget _buildStyleChip(PromptStyle style, bool isSelected, GenerationNotifier notifier, VisionTokens t) {
+    final tooltipBuffer = StringBuffer(style.name);
+    if (style.prefix.isNotEmpty) {
+      tooltipBuffer.write('\n+ ${style.prefix}');
+    }
+    if (style.suffix.isNotEmpty) {
+      tooltipBuffer.write('\n+ ${style.suffix}');
+    }
+    if (style.negativeContent.isNotEmpty) {
+      tooltipBuffer.write('\nNEG: ${style.negativeContent}');
+    }
     return Tooltip(
-      message: style.name,
-      waitDuration: const Duration(milliseconds: 500),
+      message: tooltipBuffer.toString(),
+      waitDuration: const Duration(milliseconds: 200),
+      preferBelow: false,
+      textStyle: TextStyle(color: t.textPrimary, fontSize: t.fontSize(9)),
+      decoration: BoxDecoration(
+        color: t.surfaceHigh,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: t.borderMedium),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: GestureDetector(
         onLongPress: widget.onEditStyle != null ? () => widget.onEditStyle!(style.name) : null,
         child: FilterChip(
@@ -608,7 +627,7 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 120),
+              constraints: const BoxConstraints(maxWidth: 200),
               child: Text(style.name.toUpperCase(),
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: t.fontSize(8), fontWeight: FontWeight.bold, letterSpacing: 1)),
@@ -745,16 +764,24 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
           child: Text(context.l.panelNegativePrompt.toUpperCase(), style: TextStyle(fontWeight: FontWeight.w900, fontSize: t.fontSize(mobile ? 12 : 9), letterSpacing: 2, color: t.secondaryText)),
         ),
         const SizedBox(height: 12),
-        TextField(
-          focusNode: _negativePromptFocus,
-          controller: notifier.negativePromptController,
-          maxLines: 3,
-          onTap: _scrollToNegativePrompt,
-          style: TextStyle(fontSize: t.fontSize(11), color: t.textSecondary, height: 1.4),
-          decoration: InputDecoration(
-            fillColor: t.borderSubtle.withValues(alpha: 0.5),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
-            contentPadding: const EdgeInsets.all(16),
+        ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context).copyWith(
+            dragDevices: {
+              PointerDeviceKind.touch,
+              PointerDeviceKind.stylus,
+            },
+          ),
+          child: TextField(
+            focusNode: _negativePromptFocus,
+            controller: notifier.negativePromptController,
+            maxLines: 3,
+            onTap: _scrollToNegativePrompt,
+            style: TextStyle(fontSize: t.fontSize(11), color: t.textSecondary, height: 1.4),
+            decoration: InputDecoration(
+              fillColor: t.borderSubtle.withValues(alpha: 0.5),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
+              contentPadding: const EdgeInsets.all(16),
+            ),
           ),
         ),
       ],

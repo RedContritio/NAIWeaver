@@ -38,6 +38,9 @@ class AppThemeConfig {
   // Font
   final String fontFamily;
   final double fontScale;
+  final double headerScale;
+  final double titleScale;
+  final double buttonScale;
 
   // Prompt input
   final double promptFontSize;
@@ -79,6 +82,9 @@ class AppThemeConfig {
     this.negativeIndicator = const Color(0xFFFF5252), // red
     this.fontFamily = 'JetBrains Mono',
     this.fontScale = 1.0,
+    this.headerScale = 1.0,
+    this.titleScale = 1.0,
+    this.buttonScale = 1.0,
     this.promptFontSize = 13.0,
     this.promptMaxLines = 2,
     this.brightMode = true,
@@ -117,6 +123,9 @@ class AppThemeConfig {
     Color? negativeIndicator,
     String? fontFamily,
     double? fontScale,
+    double? headerScale,
+    double? titleScale,
+    double? buttonScale,
     double? promptFontSize,
     int? promptMaxLines,
     bool? brightMode,
@@ -154,6 +163,9 @@ class AppThemeConfig {
       negativeIndicator: negativeIndicator ?? this.negativeIndicator,
       fontFamily: fontFamily ?? this.fontFamily,
       fontScale: fontScale ?? this.fontScale,
+      headerScale: headerScale ?? this.headerScale,
+      titleScale: titleScale ?? this.titleScale,
+      buttonScale: buttonScale ?? this.buttonScale,
       promptFontSize: promptFontSize ?? this.promptFontSize,
       promptMaxLines: promptMaxLines ?? this.promptMaxLines,
       brightMode: brightMode ?? this.brightMode,
@@ -193,6 +205,9 @@ class AppThemeConfig {
     'negativeIndicator': negativeIndicator.toARGB32(),
     'fontFamily': fontFamily,
     'fontScale': fontScale,
+    'headerScale': headerScale,
+    'titleScale': titleScale,
+    'buttonScale': buttonScale,
     'promptFontSize': promptFontSize,
     'promptMaxLines': promptMaxLines,
     'brightMode': brightMode,
@@ -232,6 +247,9 @@ class AppThemeConfig {
       negativeIndicator: Color(json['negativeIndicator'] as int? ?? 0xFFFF5252),
       fontFamily: json['fontFamily'] as String? ?? 'JetBrains Mono',
       fontScale: (json['fontScale'] as num?)?.toDouble() ?? 1.0,
+      headerScale: (json['headerScale'] as num?)?.toDouble() ?? 1.0,
+      titleScale: (json['titleScale'] as num?)?.toDouble() ?? 1.0,
+      buttonScale: (json['buttonScale'] as num?)?.toDouble() ?? 1.0,
       promptFontSize: (json['promptFontSize'] as num?)?.toDouble() ?? 13.0,
       promptMaxLines: (json['promptMaxLines'] as num?)?.toInt() ?? 2,
       brightMode: json['brightMode'] as bool? ?? true,

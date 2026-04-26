@@ -45,9 +45,26 @@ class VisionTokens {
   // — Font —
   String get fontFamily => _config.fontFamily;
   double get fontScale => _config.fontScale;
+  double get headerScale => _config.headerScale;
+  double get titleScale => _config.titleScale;
+  double get buttonScale => _config.buttonScale;
 
   /// Returns a scaled font size. Use as: `t.fontSize(12)`.
   double fontSize(num base) => base.toDouble() * _config.fontScale;
+
+  /// Header sizes get fontScale * headerScale so users can tune body and
+  /// headings independently (useful when shipping markdown like wiki entries).
+  double headerSize(num base) =>
+      base.toDouble() * _config.fontScale * _config.headerScale;
+
+  /// Panel/section title sizes — separate from headers so users can size
+  /// "TOOLS HUB" / "ADD TAG" labels without enlarging wiki article headings.
+  double titleSize(num base) =>
+      base.toDouble() * _config.fontScale * _config.titleScale;
+
+  /// Button labels — separate slider for prominent action buttons.
+  double buttonSize(num base) =>
+      base.toDouble() * _config.fontScale * _config.buttonScale;
 
   // — Prompt input —
   double get promptFontSize => _config.promptFontSize * _config.fontScale;

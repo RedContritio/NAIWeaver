@@ -1502,6 +1502,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get themeTextScale => '文字大小';
 
   @override
+  String get themeHeaderScale => '标题大小';
+
+  @override
+  String get themeTitleScale => '面板标题大小';
+
+  @override
+  String get themeButtonScale => '按钮大小';
+
+  @override
   String get themeSmall => '小';
 
   @override

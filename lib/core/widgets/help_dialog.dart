@@ -73,7 +73,7 @@ Widget _sectionHeader(VisionTokens t, String label) {
     label,
     style: TextStyle(
       color: t.textSecondary,
-      fontSize: t.fontSize(11),
+      fontSize: t.titleSize(11),
       fontWeight: FontWeight.bold,
       letterSpacing: 2,
     ),

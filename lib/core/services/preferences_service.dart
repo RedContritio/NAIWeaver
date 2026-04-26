@@ -49,6 +49,8 @@ class PreferencesService {
   static const String _keyUiCharShowUc = 'ui_char_show_uc';
   static const String _keyUiCharShowPosition = 'ui_char_show_position';
   static const String _keyUiCharShowPresets = 'ui_char_show_presets';
+  static const String _keyRefLastStrength = 'ref_last_strength';
+  static const String _keyRefLastFidelity = 'ref_last_fidelity';
   static const String _keySidebarLayoutMode = 'sidebar_layout_mode';
   static const String _keySidebarPromptPosition = 'sidebar_prompt_position';
   static const String _keySidebarWidthMode = 'sidebar_width_mode';
@@ -389,6 +391,20 @@ class PreferencesService {
 
   Future<void> setUiCharShowPresets(bool value) async {
     await _prefs.setBool(_keyUiCharShowPresets, value);
+  }
+
+  // — Reference defaults (last applied) —
+
+  double get refLastStrength => _prefs.getDouble(_keyRefLastStrength) ?? 1.0;
+
+  Future<void> setRefLastStrength(double value) async {
+    await _prefs.setDouble(_keyRefLastStrength, value);
+  }
+
+  double get refLastFidelity => _prefs.getDouble(_keyRefLastFidelity) ?? 0.8;
+
+  Future<void> setRefLastFidelity(double value) async {
+    await _prefs.setDouble(_keyRefLastFidelity, value);
   }
 
   // — Sidebar Layout —

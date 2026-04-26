@@ -1,0 +1,27 @@
+Tag descriptions in `wiki-descriptions.json`
+============================================
+
+Source: Danbooru wiki pages, via the
+        isek-ai/danbooru-wiki-2024 dataset on Hugging Face
+        https://huggingface.co/datasets/isek-ai/danbooru-wiki-2024
+
+Original content: https://danbooru.donmai.us/wiki_pages
+
+License: Creative Commons Attribution-ShareAlike 4.0 International
+         (CC-BY-SA-4.0)
+         https://creativecommons.org/licenses/by-sa/4.0/
+
+Attribution: "Tag descriptions (c) Danbooru contributors,
+              licensed CC-BY-SA-4.0."
+
+The descriptions in `wiki-descriptions.json` are derived from the source
+above. They have been:
+  - filtered to tags present in this app's tag library
+  - converted from DText markup to simplified markdown by
+    `Tags/dtext_to_markdown.py`
+  - deduplicated and trimmed of stub entries (<20 chars)
+
+Per the ShareAlike clause, this derived dataset (the JSON file) is
+also distributed under CC-BY-SA-4.0. This license applies ONLY to
+`Tags/wiki-descriptions.json`; it does not extend to the surrounding
+application source code.

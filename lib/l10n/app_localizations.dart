@@ -2890,6 +2890,24 @@ abstract class AppLocalizations {
   /// **'TEXT SCALE'**
   String get themeTextScale;
 
+  /// No description provided for @themeHeaderScale.
+  ///
+  /// In en, this message translates to:
+  /// **'HEADER SCALE'**
+  String get themeHeaderScale;
+
+  /// No description provided for @themeTitleScale.
+  ///
+  /// In en, this message translates to:
+  /// **'TITLE SCALE'**
+  String get themeTitleScale;
+
+  /// No description provided for @themeButtonScale.
+  ///
+  /// In en, this message translates to:
+  /// **'BUTTON SCALE'**
+  String get themeButtonScale;
+
   /// No description provided for @themeSmall.
   ///
   /// In en, this message translates to:

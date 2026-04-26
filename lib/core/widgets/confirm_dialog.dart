@@ -20,7 +20,7 @@ Future<bool?> showConfirmDialog(
         title: Text(
           title.toUpperCase(),
           style: TextStyle(
-            fontSize: t.fontSize(10),
+            fontSize: t.titleSize(10),
             letterSpacing: 2,
             color: t.textSecondary,
           ),
@@ -39,7 +39,7 @@ Future<bool?> showConfirmDialog(
             onPressed: () => Navigator.pop(ctx, false),
             child: Text(
               (cancelLabel ?? 'CANCEL').toUpperCase(),
-              style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9)),
+              style: TextStyle(color: t.textDisabled, fontSize: t.buttonSize(9)),
             ),
           ),
           TextButton(
@@ -48,7 +48,7 @@ Future<bool?> showConfirmDialog(
               confirmLabel.toUpperCase(),
               style: TextStyle(
                 color: confirmColor ?? t.accentDanger,
-                fontSize: t.fontSize(9),
+                fontSize: t.buttonSize(9),
               ),
             ),
           ),

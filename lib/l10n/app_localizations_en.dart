@@ -1538,6 +1538,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get themeTextScale => 'TEXT SCALE';
 
   @override
+  String get themeHeaderScale => 'HEADER SCALE';
+
+  @override
+  String get themeTitleScale => 'TITLE SCALE';
+
+  @override
+  String get themeButtonScale => 'BUTTON SCALE';
+
+  @override
   String get themeSmall => 'SMALL';
 
   @override

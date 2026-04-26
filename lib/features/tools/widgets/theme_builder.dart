@@ -286,6 +286,24 @@ class _ThemeBuilderState extends State<ThemeBuilder> {
                 _buildSectionHeader(l.themeTextScale, t),
                 const SizedBox(height: 8),
                 _buildScaleSlider(themeNotifier, config, t),
+                const SizedBox(height: 16),
+
+                // Header scale (multiplier on top of text scale)
+                _buildSectionHeader(l.themeHeaderScale, t),
+                const SizedBox(height: 8),
+                _buildHeaderScaleSlider(themeNotifier, config, t),
+                const SizedBox(height: 16),
+
+                // Title scale (panel/section titles)
+                _buildSectionHeader(l.themeTitleScale, t),
+                const SizedBox(height: 8),
+                _buildTitleScaleSlider(themeNotifier, config, t),
+                const SizedBox(height: 16),
+
+                // Button scale (action button labels)
+                _buildSectionHeader(l.themeButtonScale, t),
+                const SizedBox(height: 8),
+                _buildButtonScaleSlider(themeNotifier, config, t),
                 const SizedBox(height: 24),
 
                 // Prompt input
@@ -323,7 +341,7 @@ class _ThemeBuilderState extends State<ThemeBuilder> {
   Widget _buildSectionHeader(String title, VisionTokens t) {
     return Text(
       title,
-      style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(10), letterSpacing: 2, fontWeight: FontWeight.bold),
+      style: TextStyle(color: t.textSecondary, fontSize: t.titleSize(10), letterSpacing: 2, fontWeight: FontWeight.bold),
     );
   }
 
@@ -491,6 +509,63 @@ class _ThemeBuilderState extends State<ThemeBuilder> {
         ),
         Text(
           '${(config.fontScale * 100).round()}%',
+          style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(10)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeaderScaleSlider(ThemeNotifier themeNotifier, AppThemeConfig config, VisionTokens t) {
+    return _multiplierSlider(
+      value: config.headerScale,
+      onChanged: (v) => _updateConfig(themeNotifier, config.copyWith(headerScale: v)),
+      t: t,
+    );
+  }
+
+  Widget _buildTitleScaleSlider(ThemeNotifier themeNotifier, AppThemeConfig config, VisionTokens t) {
+    return _multiplierSlider(
+      value: config.titleScale,
+      onChanged: (v) => _updateConfig(themeNotifier, config.copyWith(titleScale: v)),
+      t: t,
+    );
+  }
+
+  Widget _buildButtonScaleSlider(ThemeNotifier themeNotifier, AppThemeConfig config, VisionTokens t) {
+    return _multiplierSlider(
+      value: config.buttonScale,
+      onChanged: (v) => _updateConfig(themeNotifier, config.copyWith(buttonScale: v)),
+      t: t,
+    );
+  }
+
+  Widget _multiplierSlider({
+    required double value,
+    required ValueChanged<double> onChanged,
+    required VisionTokens t,
+  }) {
+    final l = context.l;
+    return Column(
+      children: [
+        Row(
+          children: [
+            Text(l.themeSmall, style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(8))),
+            Expanded(
+              child: Slider(
+                value: value,
+                min: 0.75,
+                max: 2.0,
+                divisions: 25,
+                activeColor: t.accent,
+                inactiveColor: t.borderMedium,
+                onChanged: onChanged,
+              ),
+            ),
+            Text(l.themeLarge, style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(8))),
+          ],
+        ),
+        Text(
+          '${(value * 100).round()}%',
           style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(10)),
         ),
       ],

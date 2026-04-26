@@ -256,6 +256,21 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
                   if (event.buttons & kMiddleMouseButton != 0) {
                     setState(() => _middleMouseHeld = true);
                   }
+                  // For draw-style tools, begin the stroke immediately on
+                  // pointer-down (no slop wait) so the brush registers from
+                  // the very first frame instead of after the pan threshold
+                  // is crossed — this is what makes touch input on Android
+                  // feel "delayed" otherwise.
+                  if (_isPanMode) return;
+                  if (event.kind != PointerDeviceKind.touch &&
+                      event.kind != PointerDeviceKind.stylus) {
+                    return;
+                  }
+                  if (!_isDrawTool(notifier.tool)) return;
+                  if (!_imageRect.contains(event.localPosition)) return;
+                  final normalized = _toNormalized(event.localPosition);
+                  if (normalized == null) return;
+                  notifier.beginStroke(normalized);
                 },
                 onPointerUp: (event) {
                   if (_middleMouseHeld) setState(() => _middleMouseHeld = false);
@@ -529,6 +544,23 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
     }
   }
 
+  bool get _isPanMode => _spaceHeld || _middleMouseHeld;
+
+  bool _isDrawTool(CanvasTool tool) {
+    switch (tool) {
+      case CanvasTool.paint:
+      case CanvasTool.erase:
+      case CanvasTool.line:
+      case CanvasTool.rectangle:
+      case CanvasTool.circle:
+      case CanvasTool.blur:
+      case CanvasTool.cloneStamp:
+        return true;
+      default:
+        return false;
+    }
+  }
+
   void _onPanStart(DragStartDetails details, CanvasNotifier notifier) {
     if (!_imageRect.contains(details.localPosition)) return;
     final normalized = _toNormalized(details.localPosition);
@@ -577,7 +609,12 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
         notifier.beginLassoSelection(normalized);
       }
     } else {
-      notifier.beginStroke(normalized);
+      // Draw tools: stroke may have already been started in onPointerDown
+      // (touch/stylus only). Re-begin here only if it hasn't, so mouse input
+      // on desktop still works (mouse skips onPointerDown stroke begin).
+      if (notifier.activeStroke == null) {
+        notifier.beginStroke(normalized);
+      }
     }
   }
 

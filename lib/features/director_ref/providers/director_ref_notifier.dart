@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../../core/services/preferences_service.dart';
 import '../models/director_reference.dart';
 import '../services/reference_image_processor.dart';
 
@@ -7,8 +8,25 @@ class DirectorRefNotifier extends ChangeNotifier {
   bool _isProcessing = false;
   int _idCounter = 0;
 
+  /// Defaults for newly added references — initially 1.0 / 0.8 but updated
+  /// whenever the user adjusts a reference, so subsequent additions inherit
+  /// the last-applied values.
+  double _defaultStrength = 1.0;
+  double _defaultFidelity = 0.8;
+  PreferencesService? _prefs;
+
   List<DirectorReference> get references => _references;
   bool get isProcessing => _isProcessing;
+  double get defaultStrength => _defaultStrength;
+  double get defaultFidelity => _defaultFidelity;
+
+  /// Initialize last-applied defaults (typically called from PreferencesService
+  /// at app startup).
+  void setDefaults({double? strength, double? fidelity, PreferencesService? prefs}) {
+    if (strength != null) _defaultStrength = strength;
+    if (fidelity != null) _defaultFidelity = fidelity;
+    if (prefs != null) _prefs = prefs;
+  }
 
   Future<void> addReference(Uint8List imageBytes) async {
     _isProcessing = true;
@@ -21,6 +39,8 @@ class DirectorRefNotifier extends ChangeNotifier {
         id: 'ref_${_idCounter++}',
         originalImageBytes: imageBytes,
         processedBase64: base64,
+        strength: _defaultStrength,
+        fidelity: _defaultFidelity,
       );
       _references = List.from(_references)..add(ref);
     } catch (e) {
@@ -49,6 +69,8 @@ class DirectorRefNotifier extends ChangeNotifier {
       if (r.id == id) return r.copyWith(strength: strength);
       return r;
     }).toList();
+    _defaultStrength = strength;
+    _prefs?.setRefLastStrength(strength);
     notifyListeners();
   }
 
@@ -57,6 +79,8 @@ class DirectorRefNotifier extends ChangeNotifier {
       if (r.id == id) return r.copyWith(fidelity: fidelity);
       return r;
     }).toList();
+    _defaultFidelity = fidelity;
+    _prefs?.setRefLastFidelity(fidelity);
     notifyListeners();
   }
 

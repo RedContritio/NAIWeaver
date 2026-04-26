@@ -86,3 +86,6 @@ soundfonts/
 *.sf2
 test_itxt.dart
 EXAMPLEINPAINTED.png
+
+# Wiki preprocessing artifacts (downloaded; rebuilt by Tags/build_wiki_asset.py)
+Tags/_wiki_raw/

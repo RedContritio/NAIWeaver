@@ -39,8 +39,29 @@ class _MaskCanvasState extends State<MaskCanvas> {
   int _activeCachedPointCount = 0;
   Object? _activeCachedStrokeId;
 
+  Img2ImgNotifier? _notifierRef;
+
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_handleGlobalKey);
+  }
+
+  bool _handleGlobalKey(KeyEvent event) {
+    if (event is! KeyDownEvent) return false;
+    if (!mounted) return false;
+    final ctrl = HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isMetaPressed;
+    if (ctrl && event.logicalKey == LogicalKeyboardKey.keyZ) {
+      _notifierRef?.undoLastStroke();
+      return true;
+    }
+    return false;
+  }
+
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleGlobalKey);
     _activeStrokeCache?.dispose();
     _committedMaskCache?.dispose();
     _zoomController.dispose();
@@ -245,6 +266,7 @@ class _MaskCanvasState extends State<MaskCanvas> {
   @override
   Widget build(BuildContext context) {
     final notifier = context.watch<Img2ImgNotifier>();
+    _notifierRef = notifier;
     final session = notifier.session;
     if (session == null) return const SizedBox.shrink();
 

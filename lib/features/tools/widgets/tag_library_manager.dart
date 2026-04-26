@@ -11,7 +11,9 @@ import '../../../core/widgets/vision_slider.dart';
 import '../../../core/utils/app_snackbar.dart';
 import '../../generation/providers/generation_notifier.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/services/tag_service.dart';
 import '../providers/tag_library_notifier.dart';
+import 'tag_detail_sheet.dart';
 
 class TagLibraryManager extends StatelessWidget {
   const TagLibraryManager({super.key});
@@ -64,7 +66,7 @@ class TagLibraryManager extends StatelessWidget {
                 context.l.tagLibTitle,
                 style: TextStyle(
                   color: t.textPrimary,
-                  fontSize: t.fontSize(12),
+                  fontSize: t.titleSize(12),
                   letterSpacing: 4,
                   fontWeight: FontWeight.w900,
                 ),
@@ -243,90 +245,16 @@ class TagLibraryManager extends StatelessWidget {
       itemExtent: 40,
       itemBuilder: (context, index) {
         final tag = state.tags[index];
-        final color = _getCategoryColor(tag.typeName);
-        return Container(
-          decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: t.textMinimal, width: 0.5)),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              if (tag.examplePaths.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: GestureDetector(
-                    onTap: () => _showExamplesOverlay(context, tag),
-                    child: Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: color.withValues(alpha: 0.5), width: 1),
-                        image: File(tag.examplePaths.first).existsSync()
-                            ? DecorationImage(
-                                image: FileImage(File(tag.examplePaths.first)),
-                                fit: BoxFit.cover,
-                              )
-                            : null,
-                      ),
-                    ),
-                  ),
-                )
-              else
-                const SizedBox(width: 32),
-              Expanded(
-                flex: mobile ? 1 : 4,
-                child: Text(
-                  tag.tag,
-                  style: TextStyle(color: color, fontSize: t.fontSize(11), fontFamily: 'monospace'),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (!mobile) ...[
-                Expanded(
-                  flex: 1,
-                  child: Text(
-                    tag.typeName.toUpperCase(),
-                    style: TextStyle(color: color.withValues(alpha: 0.3), fontSize: t.fontSize(8)),
-                  ),
-                ),
-                Expanded(
-                  flex: 1,
-                  child: Text(
-                    NumberFormat.compact().format(tag.count),
-                    style: TextStyle(color: color.withValues(alpha: 0.5), fontSize: t.fontSize(9), fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.right,
-                  ),
-                ),
-                const SizedBox(width: 16),
-              ],
-              IconButton(
-                icon: Icon(
-                  tag.isFavorite ? Icons.favorite : Icons.favorite_border,
-                  size: 14,
-                  color: tag.isFavorite ? color : t.textDisabled,
-                ),
-                onPressed: () => notifier.toggleFavorite(tag),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: Icon(Icons.image_search, size: 14, color: t.textDisabled),
-                onPressed: () => _showQuickPreview(context, tag.tag),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                tooltip: context.l.tagLibTestTag,
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: Icon(Icons.delete_outline, size: 14, color: t.textDisabled),
-                onPressed: () => _confirmDelete(context, notifier, tag, t),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-            ],
-          ),
+        return _TagRow(
+          tag: tag,
+          color: _getCategoryColor(tag.typeName),
+          mobile: mobile,
+          tokens: t,
+          onTapDetail: () => TagDetailSheet.show(context, tag),
+          onTapExample: () => _showExamplesOverlay(context, tag),
+          onToggleFavorite: () => notifier.toggleFavorite(tag),
+          onPreview: () => _showQuickPreview(context, tag.tag),
+          onDelete: () => _confirmDelete(context, notifier, tag, t),
         );
       },
     );
@@ -914,6 +842,164 @@ class _TagPreviewSettingsPanelState extends State<_TagPreviewSettingsPanel> {
           onChanged: onChanged,
         ),
       ],
+    );
+  }
+}
+
+/// Single tag row with hover/click affordance on desktop.
+class _TagRow extends StatefulWidget {
+  final DanbooruTag tag;
+  final Color color;
+  final bool mobile;
+  final VisionTokens tokens;
+  final VoidCallback onTapDetail;
+  final VoidCallback onTapExample;
+  final VoidCallback onToggleFavorite;
+  final VoidCallback onPreview;
+  final VoidCallback onDelete;
+
+  const _TagRow({
+    required this.tag,
+    required this.color,
+    required this.mobile,
+    required this.tokens,
+    required this.onTapDetail,
+    required this.onTapExample,
+    required this.onToggleFavorite,
+    required this.onPreview,
+    required this.onDelete,
+  });
+
+  @override
+  State<_TagRow> createState() => _TagRowState();
+}
+
+class _TagRowState extends State<_TagRow> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.tokens;
+    final color = widget.color;
+    final tag = widget.tag;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 80),
+        decoration: BoxDecoration(
+          color: _hover ? color.withValues(alpha: 0.08) : Colors.transparent,
+          border: Border(
+            bottom: BorderSide(color: t.textMinimal, width: 0.5),
+            left: BorderSide(
+              color: _hover ? color.withValues(alpha: 0.6) : Colors.transparent,
+              width: 2,
+            ),
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            if (tag.examplePaths.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: widget.onTapExample,
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: color.withValues(alpha: 0.5), width: 1),
+                      image: File(tag.examplePaths.first).existsSync()
+                          ? DecorationImage(
+                              image: FileImage(File(tag.examplePaths.first)),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                    ),
+                  ),
+                ),
+              )
+            else
+              const SizedBox(width: 32),
+            Expanded(
+              flex: widget.mobile ? 2 : 6,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: widget.onTapDetail,
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: widget.mobile ? 1 : 4,
+                      child: Text(
+                        tag.tag,
+                        style: TextStyle(
+                          color: color,
+                          fontSize: t.fontSize(11),
+                          fontFamily: 'monospace',
+                          decoration: _hover ? TextDecoration.underline : TextDecoration.none,
+                          decorationColor: color.withValues(alpha: 0.5),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (!widget.mobile) ...[
+                      Expanded(
+                        flex: 1,
+                        child: Text(
+                          tag.typeName.toUpperCase(),
+                          style: TextStyle(color: color.withValues(alpha: 0.3), fontSize: t.fontSize(8)),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 1,
+                        child: Text(
+                          NumberFormat.compact().format(tag.count),
+                          style: TextStyle(
+                            color: color.withValues(alpha: 0.5),
+                            fontSize: t.fontSize(9),
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            IconButton(
+              icon: Icon(
+                tag.isFavorite ? Icons.favorite : Icons.favorite_border,
+                size: 14,
+                color: tag.isFavorite ? color : t.textDisabled,
+              ),
+              onPressed: widget.onToggleFavorite,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: Icon(Icons.image_search, size: 14, color: t.textDisabled),
+              onPressed: widget.onPreview,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              tooltip: context.l.tagLibTestTag,
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: Icon(Icons.delete_outline, size: 14, color: t.textDisabled),
+              onPressed: widget.onDelete,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

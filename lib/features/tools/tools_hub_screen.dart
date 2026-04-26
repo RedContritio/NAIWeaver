@@ -120,7 +120,7 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
           mobile ? activeTool.name : l.toolsHub.toUpperCase(),
           style: TextStyle(
             letterSpacing: 4,
-            fontSize: t.fontSize(mobile ? 12 : 10),
+            fontSize: t.titleSize(mobile ? 12 : 10),
             fontWeight: FontWeight.w900,
             color: t.headerText,
           ),
@@ -144,7 +144,7 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
                   children: [
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                      child: Text(l.toolsTitle.toUpperCase(), style: TextStyle(color: t.secondaryText, fontSize: t.fontSize(10), letterSpacing: 2, fontWeight: FontWeight.bold)),
+                      child: Text(l.toolsTitle.toUpperCase(), style: TextStyle(color: t.secondaryText, fontSize: t.titleSize(10), letterSpacing: 2, fontWeight: FontWeight.bold)),
                     ),
                     Divider(height: 1, color: t.borderMedium),
                     Expanded(
@@ -159,7 +159,7 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
                               title: Text(
                                 tool.name,
                                 style: TextStyle(
-                                  fontSize: t.fontSize(12),
+                                  fontSize: t.titleSize(12),
                                   letterSpacing: 2,
                                   fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
                                   color: isActive ? t.accent : t.secondaryText,

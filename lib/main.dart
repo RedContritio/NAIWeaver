@@ -51,6 +51,7 @@ import 'core/widgets/tag_suggestion_overlay.dart';
 import 'core/jukebox/providers/jukebox_notifier.dart';
 import 'core/jukebox/services/jukebox_audio_handler.dart';
 import 'core/services/tag_service.dart';
+import 'core/services/wiki_service.dart';
 import 'core/services/wildcard_service.dart';
 import 'package:audio_service/audio_service.dart';
 
@@ -105,6 +106,7 @@ void main() {
 
   final tagService = TagService(filePath: paths.tagFilePath);
   final wildcardService = WildcardService(wildcardDir: paths.wildcardDir);
+  final wikiService = WikiService();
 
   JukeboxAudioHandler? audioHandler;
   if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
@@ -146,7 +148,12 @@ void main() {
           ),
         ),
         ChangeNotifierProvider(
-          create: (_) => DirectorRefNotifier(),
+          create: (_) => DirectorRefNotifier()
+            ..setDefaults(
+              strength: preferencesService.refLastStrength,
+              fidelity: preferencesService.refLastFidelity,
+              prefs: preferencesService,
+            ),
         ),
         ChangeNotifierProvider(
           create: (_) => VibeTransferNotifier(),
@@ -159,6 +166,7 @@ void main() {
         ),
         Provider<TagService>.value(value: tagService),
         Provider<WildcardService>.value(value: wildcardService),
+        Provider<WikiService>.value(value: wikiService),
         ChangeNotifierProxyProvider5<GalleryNotifier, DirectorRefNotifier, VibeTransferNotifier, DirectorToolsNotifier, EnhanceNotifier, GenerationNotifier>(
           create: (context) => GenerationNotifier(
             preferences: preferencesService,
@@ -1015,7 +1023,14 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
                     }
                     return KeyEventResult.ignored;
                   },
-                  child: TextField(
+                  child: ScrollConfiguration(
+                    behavior: ScrollConfiguration.of(context).copyWith(
+                      dragDevices: {
+                        PointerDeviceKind.touch,
+                        PointerDeviceKind.stylus,
+                      },
+                    ),
+                    child: TextField(
                     controller: notifier.promptController,
                     maxLines: useSidebarStyle ? 5 : (mobile ? t.promptMaxLines + 2 : t.promptMaxLines + 1),
                     onChanged: (val) {
@@ -1052,6 +1067,7 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
                         borderSide: BorderSide(color: t.borderMedium),
                       ),
                     ),
+                  ),
                   ),
                 ),
               ),
