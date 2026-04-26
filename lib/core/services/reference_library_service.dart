@@ -1,8 +1,8 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../../features/director_ref/models/director_reference.dart';
 import '../../features/vibe_transfer/models/vibe_transfer.dart';
+import 'kv_store.dart';
 
 class SavedDirectorRef {
   final String name;
@@ -84,12 +84,16 @@ class ReferenceLibrary {
 }
 
 class ReferenceLibraryService {
+  static const String _prefsKey = 'saved_reference_library';
+
   static Future<ReferenceLibrary> load(String filePath) async {
     try {
-      final file = File(filePath);
-      if (!await file.exists()) return ReferenceLibrary();
-      final content = await file.readAsString();
-      final json = jsonDecode(content) as Map<String, dynamic>;
+      final raw = await KvStore.readString(
+        path: filePath,
+        prefsKey: _prefsKey,
+      );
+      if (raw == null) return ReferenceLibrary();
+      final json = jsonDecode(raw) as Map<String, dynamic>;
       return ReferenceLibrary.fromJson(json);
     } catch (e) {
       debugPrint('ReferenceLibraryService: load error: $e');
@@ -99,8 +103,11 @@ class ReferenceLibraryService {
 
   static Future<void> save(String filePath, ReferenceLibrary library) async {
     try {
-      final file = File(filePath);
-      await file.writeAsString(jsonEncode(library.toJson()));
+      await KvStore.writeString(
+        path: filePath,
+        prefsKey: _prefsKey,
+        value: jsonEncode(library.toJson()),
+      );
     } catch (e) {
       debugPrint('ReferenceLibraryService: save error: $e');
     }

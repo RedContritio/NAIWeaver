@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
+import '../../../core/services/kv_store.dart';
 import '../models/nai_character.dart';
 import '../../director_ref/models/director_reference.dart';
 import '../../vibe_transfer/models/vibe_transfer.dart';
@@ -128,13 +128,18 @@ class SessionSnapshot {
 
 /// Handles saving, restoring, and deleting session snapshot files.
 class SessionSnapshotService {
+  static const String _prefsKey = 'session_snapshot';
   final String sessionFilePath;
 
   SessionSnapshotService({required this.sessionFilePath});
 
   Future<void> save(SessionSnapshot snapshot) async {
     try {
-      await File(sessionFilePath).writeAsString(jsonEncode(snapshot.toJson()));
+      await KvStore.writeString(
+        path: sessionFilePath,
+        prefsKey: _prefsKey,
+        value: jsonEncode(snapshot.toJson()),
+      );
     } catch (e) {
       debugPrint('Session save error: $e');
     }
@@ -142,11 +147,13 @@ class SessionSnapshotService {
 
   Future<SessionSnapshot?> restore() async {
     try {
-      final file = File(sessionFilePath);
-      if (!await file.exists()) return null;
+      final raw = await KvStore.readString(
+        path: sessionFilePath,
+        prefsKey: _prefsKey,
+      );
+      if (raw == null) return null;
 
-      final json =
-          jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+      final json = jsonDecode(raw) as Map<String, dynamic>;
       return SessionSnapshot.fromJson(json);
     } catch (e) {
       debugPrint('Session restore error: $e');
@@ -156,8 +163,7 @@ class SessionSnapshotService {
 
   Future<void> delete() async {
     try {
-      final file = File(sessionFilePath);
-      if (await file.exists()) await file.delete();
+      await KvStore.remove(path: sessionFilePath, prefsKey: _prefsKey);
     } catch (e) {
       debugPrint('Session delete error: $e');
     }

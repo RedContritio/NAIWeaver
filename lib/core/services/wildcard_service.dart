@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
+import 'kv_store.dart';
 import 'tag_service.dart';
 import 'wildcard_processor.dart';
 
@@ -17,6 +18,10 @@ class WildcardService {
   String get _orderPath => p.join(wildcardDir, '.wildcard_order.json');
   String get _modesPath => p.join(wildcardDir, '.wildcard_modes.json');
 
+  static const String _prefsKeyFavorites = 'wildcard_favorites';
+  static const String _prefsKeyOrder = 'wildcard_order';
+  static const String _prefsKeyModes = 'wildcard_modes';
+
   WildcardService({required this.wildcardDir});
 
   List<String> get wildcardNames => _wildcardNames;
@@ -30,6 +35,13 @@ class WildcardService {
 
   Future<void> _scanWildcards() async {
     try {
+      // No filesystem on web — caller-supplied bundled lists / future
+      // SharedPreferences-based list could populate this in a follow-up.
+      if (kIsWeb) {
+        _wildcardNames = [];
+        return;
+      }
+
       final dir = Directory(wildcardDir);
       if (!await dir.exists()) {
         _wildcardNames = [];
@@ -73,11 +85,12 @@ class WildcardService {
 
   Future<void> _loadFavorites() async {
     try {
-      final file = File(_favoritesPath);
-      if (await file.exists()) {
-        final json = jsonDecode(await file.readAsString());
-        _favorites = Set<String>.from(json as List);
-      }
+      final raw = await KvStore.readString(
+        path: _favoritesPath,
+        prefsKey: _prefsKeyFavorites,
+      );
+      if (raw == null) return;
+      _favorites = Set<String>.from(jsonDecode(raw) as List);
     } catch (e) {
       debugPrint('Error loading wildcard favorites: $e');
     }
@@ -85,8 +98,11 @@ class WildcardService {
 
   Future<void> _saveFavorites() async {
     try {
-      final file = File(_favoritesPath);
-      await file.writeAsString(jsonEncode(_favorites.toList()));
+      await KvStore.writeString(
+        path: _favoritesPath,
+        prefsKey: _prefsKeyFavorites,
+        value: jsonEncode(_favorites.toList()),
+      );
     } catch (e) {
       debugPrint('Error saving wildcard favorites: $e');
     }
@@ -94,11 +110,12 @@ class WildcardService {
 
   Future<void> _loadOrder() async {
     try {
-      final file = File(_orderPath);
-      if (await file.exists()) {
-        final json = jsonDecode(await file.readAsString());
-        _customOrder = List<String>.from(json as List);
-      }
+      final raw = await KvStore.readString(
+        path: _orderPath,
+        prefsKey: _prefsKeyOrder,
+      );
+      if (raw == null) return;
+      _customOrder = List<String>.from(jsonDecode(raw) as List);
     } catch (e) {
       debugPrint('Error loading wildcard order: $e');
     }
@@ -106,8 +123,11 @@ class WildcardService {
 
   Future<void> _saveOrder() async {
     try {
-      final file = File(_orderPath);
-      await file.writeAsString(jsonEncode(_customOrder));
+      await KvStore.writeString(
+        path: _orderPath,
+        prefsKey: _prefsKeyOrder,
+        value: jsonEncode(_customOrder),
+      );
     } catch (e) {
       debugPrint('Error saving wildcard order: $e');
     }
@@ -115,14 +135,19 @@ class WildcardService {
 
   Future<void> _loadModes() async {
     try {
-      final file = File(_modesPath);
-      if (await file.exists()) {
-        final json = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
-        _modes = json.map((k, v) => MapEntry(k, WildcardMode.values.firstWhere(
-          (m) => m.name == v,
-          orElse: () => WildcardMode.random,
-        )));
-      }
+      final raw = await KvStore.readString(
+        path: _modesPath,
+        prefsKey: _prefsKeyModes,
+      );
+      if (raw == null) return;
+      final json = jsonDecode(raw) as Map<String, dynamic>;
+      _modes = json.map((k, v) => MapEntry(
+            k,
+            WildcardMode.values.firstWhere(
+              (m) => m.name == v,
+              orElse: () => WildcardMode.random,
+            ),
+          ));
     } catch (e) {
       debugPrint('Error loading wildcard modes: $e');
     }
@@ -130,9 +155,12 @@ class WildcardService {
 
   Future<void> _saveModes() async {
     try {
-      final file = File(_modesPath);
       final json = _modes.map((k, v) => MapEntry(k, v.name));
-      await file.writeAsString(jsonEncode(json));
+      await KvStore.writeString(
+        path: _modesPath,
+        prefsKey: _prefsKeyModes,
+        value: jsonEncode(json),
+      );
     } catch (e) {
       debugPrint('Error saving wildcard modes: $e');
     }
@@ -173,6 +201,7 @@ class WildcardService {
   }
 
   Future<bool> renameWildcard(String oldName, String newName) async {
+    if (kIsWeb) return false;
     final oldFile = File(p.join(wildcardDir, '$oldName.txt'));
     final newFile = File(p.join(wildcardDir, '$newName.txt'));
     if (await newFile.exists()) return false;

@@ -1,7 +1,7 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'kv_store.dart';
 
 class PromptStyle {
   final String name;
@@ -36,24 +36,27 @@ class PromptStyle {
 }
 
 class StyleStorage {
+  static const String _prefsKey = 'saved_prompt_styles';
+
   static Future<List<PromptStyle>> loadStyles(String filePath) async {
     try {
-      if (kIsWeb) {
-        final content = await rootBundle.loadString('prompt_styles.json');
-        final List<dynamic> jsonList = jsonDecode(content);
+      final stored = await KvStore.readString(
+        path: filePath,
+        prefsKey: _prefsKey,
+      );
+      if (stored != null) {
+        final List<dynamic> jsonList = jsonDecode(stored);
         return jsonList.map((j) => PromptStyle.fromJson(j)).toList();
       }
-      final file = File(filePath);
-      if (await file.exists()) {
-        final content = await file.readAsString();
-        final List<dynamic> jsonList = jsonDecode(content);
-        return jsonList.map((j) => PromptStyle.fromJson(j)).toList();
-      }
+
+      // First run (or web with nothing saved): seed from bundled asset.
+      final content = await rootBundle.loadString('prompt_styles.json');
+      final List<dynamic> jsonList = jsonDecode(content);
+      return jsonList.map((j) => PromptStyle.fromJson(j)).toList();
     } catch (e) {
       debugPrint('Error loading styles: $e');
     }
 
-    // Default styles if file doesn't exist or error occurs
     return [
       PromptStyle(
         name: "Quality (NAI Default)",
@@ -62,24 +65,29 @@ class StyleStorage {
     ];
   }
 
-  static Future<void> saveStyles(String filePath, List<PromptStyle> styles) async {
+  static Future<void> saveStyles(
+      String filePath, List<PromptStyle> styles) async {
     try {
-      final file = File(filePath);
       final jsonString = jsonEncode(styles.map((s) => s.toJson()).toList());
-      await file.writeAsString(jsonString);
+      await KvStore.writeString(
+        path: filePath,
+        prefsKey: _prefsKey,
+        value: jsonString,
+      );
     } catch (e) {
       debugPrint('Error saving styles: $e');
     }
   }
 
-  /// Resets styles to bundled defaults by overwriting the local file.
+  /// Resets styles to bundled defaults by overwriting saved data.
   static Future<List<PromptStyle>> resetToDefaults(String filePath) async {
     try {
       final content = await rootBundle.loadString('prompt_styles.json');
-      if (!kIsWeb) {
-        final file = File(filePath);
-        await file.writeAsString(content);
-      }
+      await KvStore.writeString(
+        path: filePath,
+        prefsKey: _prefsKey,
+        value: content,
+      );
       final List<dynamic> jsonList = jsonDecode(content);
       return jsonList.map((j) => PromptStyle.fromJson(j)).toList();
     } catch (e) {

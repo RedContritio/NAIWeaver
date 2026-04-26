@@ -1,9 +1,9 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../../features/director_ref/models/director_reference.dart';
 import '../../features/vibe_transfer/models/vibe_transfer.dart';
 import '../../features/generation/models/nai_character.dart';
+import 'kv_store.dart';
 
 class GenerationPreset {
   final String name;
@@ -90,24 +90,32 @@ class GenerationPreset {
 }
 
 class PresetStorage {
+  static const String _prefsKey = 'saved_generation_presets';
+
   static Future<List<GenerationPreset>> loadPresets(String filePath) async {
     try {
-      final file = File(filePath);
-      if (!await file.exists()) return [];
-      final content = await file.readAsString();
+      final content = await KvStore.readString(
+        path: filePath,
+        prefsKey: _prefsKey,
+      );
+      if (content == null) return [];
       final List<dynamic> jsonList = json.decode(content);
-      return jsonList.map((json) => GenerationPreset.fromJson(json)).toList();
+      return jsonList.map((j) => GenerationPreset.fromJson(j)).toList();
     } catch (e) {
       debugPrint("Error loading presets: $e");
       return [];
     }
   }
 
-  static Future<void> savePresets(String filePath, List<GenerationPreset> presets) async {
+  static Future<void> savePresets(
+      String filePath, List<GenerationPreset> presets) async {
     try {
-      final file = File(filePath);
       final jsonList = presets.map((p) => p.toJson()).toList();
-      await file.writeAsString(json.encode(jsonList));
+      await KvStore.writeString(
+        path: filePath,
+        prefsKey: _prefsKey,
+        value: json.encode(jsonList),
+      );
     } catch (e) {
       debugPrint("Error saving presets: $e");
     }
