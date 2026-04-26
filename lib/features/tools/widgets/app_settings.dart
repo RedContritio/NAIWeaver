@@ -96,6 +96,8 @@ class _AppSettingsState extends State<AppSettings> {
           _buildPromptPositionSelector(t),
           _buildSidebarWidthSelector(t),
           const SizedBox(height: 12),
+          _buildFontScaleSlider(t),
+          const SizedBox(height: 12),
           _buildAnlasTrackerToggle(t),
           const SizedBox(height: 12),
           _buildSeedControlToggle(t),
@@ -680,6 +682,65 @@ class _AppSettingsState extends State<AppSettings> {
           t: t,
         );
       },
+    );
+  }
+
+  Widget _buildFontScaleSlider(VisionTokens t) {
+    final themeNotifier = context.watch<ThemeNotifier>();
+    final scale = themeNotifier.activeConfig.fontScale;
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'FONT SIZE',
+                style: TextStyle(
+                  color: t.headerText,
+                  fontSize: t.fontSize(11),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Scales all UI text. Default 100%.',
+                style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
+              ),
+              const SizedBox(height: 4),
+              SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  activeTrackColor: t.accent,
+                  inactiveTrackColor: t.borderSubtle,
+                  thumbColor: t.accent,
+                  overlayColor: t.accent.withValues(alpha: 0.12),
+                  trackHeight: 2,
+                ),
+                child: Slider(
+                  min: 0.85,
+                  max: 1.40,
+                  divisions: 11, // 0.05 increments
+                  value: scale.clamp(0.85, 1.40),
+                  onChanged: (v) => themeNotifier.setFontScale(v),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          width: 56,
+          child: Text(
+            '${(scale * 100).round()}%',
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              color: t.textPrimary,
+              fontSize: t.fontSize(11),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
     );
   }
 

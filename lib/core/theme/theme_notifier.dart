@@ -129,6 +129,18 @@ class ThemeNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
+  // — Font scale (UI text size multiplier) —
+  /// Update the active config's [fontScale] and persist. Clamped to a sensible
+  /// range so the UI never collapses or overflows past usable sizes.
+  Future<void> setFontScale(double scale) async {
+    final clamped = scale.clamp(0.85, 1.40);
+    if ((_activeConfig.fontScale - clamped).abs() < 0.0001) return;
+    _activeConfig = _activeConfig.copyWith(fontScale: clamped);
+    _tokens = VisionTokens(_activeConfig);
+    await _persist();
+    notifyListeners();
+  }
+
   // — Toggle bright mode —
   Future<void> toggleBrightMode() async {
     _activeConfig = _activeConfig.copyWith(brightMode: !_activeConfig.brightMode);
