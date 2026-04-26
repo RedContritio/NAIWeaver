@@ -139,6 +139,10 @@ class DirectorRefShelf extends StatelessWidget {
             notifier.updateFidelity(last.id, saved.reference.fidelity);
           }
         },
+        onPickImage: () => _pickAndAdd(context),
+        onBrowseFiles: !kIsWeb && Platform.isAndroid
+            ? () => _pickAndAdd(context, useFileBrowser: true)
+            : null,
       ),
     );
   }
@@ -165,7 +169,8 @@ class DirectorRefShelf extends StatelessWidget {
                 )),
                 _AddRefButton(
                   isProcessing: notifier.isProcessing,
-                  onTap: () => _showRefMenu(context),
+                  onTap: () => _showSavedRefsSheet(context),
+                  onLongPress: () => _showRefMenu(context),
                 ),
               ],
             ),
@@ -179,8 +184,13 @@ class DirectorRefShelf extends StatelessWidget {
 class _AddRefButton extends StatelessWidget {
   final bool isProcessing;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
-  const _AddRefButton({required this.isProcessing, required this.onTap});
+  const _AddRefButton({
+    required this.isProcessing,
+    required this.onTap,
+    this.onLongPress,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -190,6 +200,7 @@ class _AddRefButton extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 3),
       child: GestureDetector(
         onTap: isProcessing ? null : onTap,
+        onLongPress: isProcessing ? null : onLongPress,
         child: Container(
           height: mobile ? 44 : 36,
           width: mobile ? 52 : 42,
@@ -213,7 +224,20 @@ class _AddRefButton extends StatelessWidget {
 class SavedRefsSheet extends StatefulWidget {
   final Future<void> Function(SavedDirectorRef) onLoad;
 
-  const SavedRefsSheet({super.key, required this.onLoad});
+  /// Optional: when provided, the sheet shows a "Pick image" action at the top
+  /// that opens the standard file picker. Used so the Ref button can deep-link
+  /// straight into this sheet without losing the file-picker entry point.
+  final Future<void> Function()? onPickImage;
+
+  /// Optional: Android-only "Browse files" action.
+  final Future<void> Function()? onBrowseFiles;
+
+  const SavedRefsSheet({
+    super.key,
+    required this.onLoad,
+    this.onPickImage,
+    this.onBrowseFiles,
+  });
 
   @override
   State<SavedRefsSheet> createState() => _SavedRefsSheetState();
@@ -282,6 +306,38 @@ class _SavedRefsSheetState extends State<SavedRefsSheet> {
               ),
             ),
           ),
+          // Picker actions (when caller wired them up)
+          if (widget.onPickImage != null || widget.onBrowseFiles != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+              child: Column(
+                children: [
+                  if (widget.onPickImage != null)
+                    _SavedRefActionTile(
+                      icon: Icons.add_photo_alternate_outlined,
+                      label: l.refPickImage,
+                      onTap: () async {
+                        Navigator.pop(context);
+                        await widget.onPickImage!();
+                      },
+                    ),
+                  if (widget.onBrowseFiles != null)
+                    _SavedRefActionTile(
+                      icon: Icons.folder_open,
+                      label: l.refBrowseFiles,
+                      onTap: () async {
+                        Navigator.pop(context);
+                        await widget.onBrowseFiles!();
+                      },
+                    ),
+                  if (_savedRefs.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Divider(color: t.borderSubtle, height: 1),
+                    ),
+                ],
+              ),
+            ),
           // Content
           if (_loading)
             Padding(
@@ -399,6 +455,57 @@ class _SavedRefTile extends StatelessWidget {
                 ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SavedRefActionTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _SavedRefActionTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    final mobile = isMobile(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        child: Row(
+          children: [
+            Container(
+              width: mobile ? 36 : 28,
+              height: mobile ? 36 : 28,
+              decoration: BoxDecoration(
+                color: t.accentRefCharacter.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Icon(icon, size: 14, color: t.accentRefCharacter),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label.toUpperCase(),
+                style: TextStyle(
+                  color: t.textPrimary,
+                  fontSize: t.fontSize(mobile ? 10 : 8),
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+            ),
+            Icon(Icons.chevron_right, size: 14, color: t.textDisabled),
           ],
         ),
       ),

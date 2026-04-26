@@ -160,6 +160,10 @@ class _RefSection extends StatelessWidget {
             notifier.updateFidelity(last.id, saved.reference.fidelity);
           }
         },
+        onPickImage: () => _pickAndAdd(context),
+        onBrowseFiles: !kIsWeb && Platform.isAndroid
+            ? () => _pickAndAdd(context, useFileBrowser: true)
+            : null,
       ),
     );
   }
@@ -201,7 +205,8 @@ class _RefSection extends StatelessWidget {
               label: 'REF',
               color: t.accentRefCharacter,
               isProcessing: notifier.isProcessing,
-              onTap: () => _showRefMenu(context),
+              onTap: () => _showSavedRefsSheet(context),
+              onLongPress: () => _showRefMenu(context),
             ),
           ],
         );
@@ -364,12 +369,14 @@ class _RailAddButton extends StatelessWidget {
   final Color color;
   final bool isProcessing;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   const _RailAddButton({
     required this.label,
     required this.color,
     required this.isProcessing,
     required this.onTap,
+    this.onLongPress,
   });
 
   @override
@@ -377,6 +384,7 @@ class _RailAddButton extends StatelessWidget {
     final t = context.t;
     return GestureDetector(
       onTap: isProcessing ? null : onTap,
+      onLongPress: isProcessing ? null : onLongPress,
       child: Container(
         width: 36,
         height: 36,
