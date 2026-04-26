@@ -13,6 +13,7 @@ import 'package:super_clipboard/super_clipboard.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/utils/app_snackbar.dart';
+import '../../../core/utils/unique_file_path.dart';
 import '../../../core/services/preferences_service.dart';
 import '../../../core/services/novel_ai_service.dart';
 import '../../../core/services/wildcard_processor.dart';
@@ -970,10 +971,10 @@ class GenerationNotifier extends ChangeNotifier {
         await directory.create(recursive: true);
       }
 
-      final fileName = timestamp != null
+      final baseName = timestamp != null
           ? '${prefix}_$timestamp'
           : _buildFileName(metadata, prefix: prefix);
-      final filePath = p.join(directory.path, '$fileName.png');
+      final filePath = await uniqueFilePath(directory.path, baseName, 'png');
 
       final bytesWithMetadata = await compute(injectMetadata, {
         'bytes': bytes,

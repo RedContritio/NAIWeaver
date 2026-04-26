@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
 import 'package:path/path.dart' as p;
 import '../../../core/services/preferences_service.dart';
 import '../../../core/utils/image_utils.dart';
@@ -285,6 +286,12 @@ class GalleryNotifier extends ChangeNotifier {
   }
 
   void addFile(File file, DateTime date, {String? albumId}) {
+    // Evict any cached decode for this path. Flutter's FileImage caches by
+    // path; if a previous file at this exact path was decoded earlier
+    // (e.g. ML save with a stable filename, or a user-replaced file), the
+    // cache would otherwise serve the stale bitmap.
+    FileImage(file).evict();
+
     final newItem = GalleryItem(
       file: file,
       date: date,
