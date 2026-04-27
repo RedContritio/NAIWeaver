@@ -60,7 +60,7 @@ class Img2ImgNotifier extends ChangeNotifier {
   bool get isEraseMode => _isEraseMode;
 
   // --- Brush shape ---
-  bool _maskBrushRound = true;
+  bool _maskBrushRound = false;
   bool get maskBrushRound => _maskBrushRound;
   void setMaskBrushRound(bool round) {
     _maskBrushRound = round;
