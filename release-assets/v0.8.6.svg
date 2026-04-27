@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" font-family="ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace">
+  <!--
+    NAIWeaver v0.8.6 release banner.
+    The release theme is connection: tags are no longer isolated strings,
+    they're nodes in a graph with descriptions and links between them.
+    So the art is a tag graph. Dark surface like the app, category-colored
+    nodes (the same palette the app uses), edges linking [[1girl]] to its
+    actual see-also tags from the real wiki entry shipped in this release.
+  -->
+
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="78%">
+      <stop offset="0%" stop-color="#0a0a0a"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </radialGradient>
+
+    <!-- Subtle glow for the centerpiece node -->
+    <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="60%" stop-color="#ffffff" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Per-category glow for satellites -->
+    <radialGradient id="glowGen" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowChar" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00ad00" stop-opacity="0.20"/>
+      <stop offset="100%" stop-color="#00ad00" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowCopy" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#d880ff" stop-opacity="0.20"/>
+      <stop offset="100%" stop-color="#d880ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowArtist" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff5858" stop-opacity="0.20"/>
+      <stop offset="100%" stop-color="#ff5858" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowMeta" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff9229" stop-opacity="0.20"/>
+      <stop offset="100%" stop-color="#ff9229" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Filter for the soft halo behind the version mark -->
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+
+    <!-- Reusable node symbol (chip-style) -->
+    <symbol id="node" overflow="visible">
+      <rect x="-46" y="-13" width="92" height="26" rx="13" ry="13"
+            fill="rgba(0,0,0,0.85)" stroke="currentColor" stroke-width="1"/>
+    </symbol>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1280" height="640" fill="url(#bg)"/>
+
+  <!-- Faint grid (the canvas/inpaint motif from the app) -->
+  <g stroke="#ffffff" stroke-opacity="0.025" stroke-width="1">
+    <path d="M0 80 H1280 M0 160 H1280 M0 240 H1280 M0 320 H1280 M0 400 H1280 M0 480 H1280 M0 560 H1280"/>
+    <path d="M80 0 V640 M160 0 V640 M240 0 V640 M320 0 V640 M400 0 V640 M480 0 V640 M560 0 V640 M640 0 V640 M720 0 V640 M800 0 V640 M880 0 V640 M960 0 V640 M1040 0 V640 M1120 0 V640 M1200 0 V640"/>
+  </g>
+
+  <!-- Edges first so chips paint on top.
+       Soft, accent-colored, half-opacity. These are real wiki links from
+       the 1girl wiki entry shipped in v0.8.6. -->
+  <g fill="none" stroke-width="1.3" stroke-linecap="round" opacity="0.75">
+    <!-- center to upper-left cluster (general/solo) -->
+    <path d="M520 320 C 460 290, 380 250, 305 215" stroke="#ffffff" stroke-opacity="0.38"/>
+    <!-- center to upper-right (long_hair) -->
+    <path d="M580 310 C 660 280, 760 250, 880 215" stroke="#ffffff" stroke-opacity="0.38"/>
+    <!-- center to right (looking_at_viewer) -->
+    <path d="M600 330 C 720 340, 880 350, 1020 350" stroke="#ffffff" stroke-opacity="0.32"/>
+    <!-- center to lower-right (smile) -->
+    <path d="M580 360 C 720 410, 850 460, 970 510" stroke="#ffffff" stroke-opacity="0.32"/>
+    <!-- center to lower-left (multiple_views) -->
+    <path d="M520 360 C 430 410, 330 470, 230 510" stroke="#ffffff" stroke-opacity="0.32"/>
+    <!-- center to left (1boy, copyright purple) -->
+    <path d="M510 335 C 380 345, 260 350, 130 355" stroke="#d880ff" stroke-opacity="0.45"/>
+    <!-- center to upper (character) -->
+    <path d="M555 305 C 555 230, 555 170, 555 110" stroke="#00ad00" stroke-opacity="0.45"/>
+    <!-- secondary edges between satellites -->
+    <path d="M305 215 L 230 510" stroke="#ffffff" stroke-opacity="0.10"/>
+    <path d="M880 215 L 1020 350" stroke="#ffffff" stroke-opacity="0.10"/>
+    <path d="M970 510 L 1020 350" stroke="#ffffff" stroke-opacity="0.10"/>
+  </g>
+
+  <!-- Center node: the release itself -->
+  <g transform="translate(555 335)">
+    <circle r="120" fill="url(#centerGlow)"/>
+    <!-- ring -->
+    <circle r="68" fill="rgba(0,0,0,0.92)" stroke="#fafafa" stroke-width="1.2"/>
+    <circle r="68" fill="none" stroke="#fafafa" stroke-opacity="0.20" stroke-width="6"/>
+    <!-- version mark -->
+    <text x="0" y="-6" text-anchor="middle"
+          fill="#fafafa" font-size="11" letter-spacing="6"
+          font-weight="700" opacity="0.55">NAIWEAVER</text>
+    <text x="0" y="22" text-anchor="middle"
+          fill="#fafafa" font-size="32" letter-spacing="2" font-weight="800">
+      v0.8.6
+    </text>
+  </g>
+
+  <!-- Satellites: each <use> is a chip; text + dot painted on top. -->
+  <!-- 1girl (general / white) — the headline real tag -->
+  <g transform="translate(305 215)" color="#fafafa">
+    <circle cx="0" cy="0" r="38" fill="url(#glowGen)"/>
+    <use href="#node"/>
+    <text x="0" y="4" text-anchor="middle" fill="#fafafa" font-size="11" font-weight="600">1girl</text>
+    <circle cx="-36" cy="0" r="3" fill="#fafafa"/>
+  </g>
+
+  <!-- long hair (general) -->
+  <g transform="translate(880 215)" color="#fafafa">
+    <circle cx="0" cy="0" r="38" fill="url(#glowGen)"/>
+    <use href="#node"/>
+    <text x="0" y="4" text-anchor="middle" fill="#fafafa" font-size="11" font-weight="600">long hair</text>
+    <circle cx="-36" cy="0" r="3" fill="#fafafa"/>
+  </g>
+
+  <!-- looking at viewer (general, longer chip) -->
+  <g transform="translate(1020 350)" color="#fafafa">
+    <circle cx="0" cy="0" r="44" fill="url(#glowGen)"/>
+    <rect x="-66" y="-13" width="132" height="26" rx="13" ry="13"
+          fill="rgba(0,0,0,0.85)" stroke="#fafafa" stroke-width="1"/>
+    <text x="0" y="4" text-anchor="middle" fill="#fafafa" font-size="11" font-weight="600">looking at viewer</text>
+    <circle cx="-56" cy="0" r="3" fill="#fafafa"/>
+  </g>
+
+  <!-- smile (general) -->
+  <g transform="translate(970 510)" color="#fafafa">
+    <circle cx="0" cy="0" r="38" fill="url(#glowGen)"/>
+    <use href="#node"/>
+    <text x="0" y="4" text-anchor="middle" fill="#fafafa" font-size="11" font-weight="600">smile</text>
+    <circle cx="-36" cy="0" r="3" fill="#fafafa"/>
+  </g>
+
+  <!-- multiple views (general) -->
+  <g transform="translate(230 510)" color="#fafafa">
+    <circle cx="0" cy="0" r="44" fill="url(#glowGen)"/>
+    <rect x="-58" y="-13" width="116" height="26" rx="13" ry="13"
+          fill="rgba(0,0,0,0.85)" stroke="#fafafa" stroke-width="1"/>
+    <text x="0" y="4" text-anchor="middle" fill="#fafafa" font-size="11" font-weight="600">multiple views</text>
+    <circle cx="-50" cy="0" r="3" fill="#fafafa"/>
+  </g>
+
+  <!-- touhou (copyright / purple) -->
+  <g transform="translate(130 355)" color="#d880ff">
+    <circle cx="0" cy="0" r="38" fill="url(#glowCopy)"/>
+    <use href="#node"/>
+    <text x="0" y="4" text-anchor="middle" fill="#d880ff" font-size="11" font-weight="600">touhou</text>
+    <circle cx="-36" cy="0" r="3" fill="#d880ff"/>
+  </g>
+
+  <!-- hatsune miku (character / green) -->
+  <g transform="translate(555 110)" color="#00ad00">
+    <circle cx="0" cy="0" r="44" fill="url(#glowChar)"/>
+    <rect x="-58" y="-13" width="116" height="26" rx="13" ry="13"
+          fill="rgba(0,0,0,0.85)" stroke="#00ad00" stroke-width="1"/>
+    <text x="0" y="4" text-anchor="middle" fill="#00ad00" font-size="11" font-weight="600">hatsune miku</text>
+    <circle cx="-50" cy="0" r="3" fill="#00ad00"/>
+  </g>
+
+  <!-- A couple of background "wiki page" hint cards in the periphery -->
+  <g opacity="0.35" stroke="#ffffff" stroke-opacity="0.20" fill="none">
+    <rect x="60" y="60" width="120" height="36" rx="4"/>
+    <line x1="74" y1="76" x2="160" y2="76" stroke-opacity="0.30"/>
+    <line x1="74" y1="84" x2="140" y2="84" stroke-opacity="0.18"/>
+
+    <rect x="1100" y="80" width="120" height="36" rx="4"/>
+    <line x1="1114" y1="96" x2="1200" y2="96" stroke-opacity="0.30"/>
+    <line x1="1114" y1="104" x2="1180" y2="104" stroke-opacity="0.18"/>
+
+    <rect x="80" y="560" width="120" height="36" rx="4"/>
+    <line x1="94" y1="576" x2="180" y2="576" stroke-opacity="0.30"/>
+    <line x1="94" y1="584" x2="160" y2="584" stroke-opacity="0.18"/>
+
+    <rect x="1080" y="560" width="120" height="36" rx="4"/>
+    <line x1="1094" y1="576" x2="1180" y2="576" stroke-opacity="0.30"/>
+    <line x1="1094" y1="584" x2="1160" y2="584" stroke-opacity="0.18"/>
+  </g>
+
+  <!-- Header text -->
+  <g font-weight="700">
+    <text x="48" y="42" fill="#fafafa" font-size="13" letter-spacing="6" opacity="0.85">NAIWEAVER</text>
+    <text x="48" y="62" fill="#fafafa" font-size="9" letter-spacing="3" opacity="0.40">RELEASE NOTES — 2026.04</text>
+  </g>
+
+  <!-- Headline (one sentence, no marketing) -->
+  <g>
+    <text x="640" y="600" text-anchor="middle"
+          fill="#fafafa" font-size="13" letter-spacing="3" opacity="0.62">
+      tags now know what they mean.
+    </text>
+  </g>
+
+  <!-- Top-right release flag -->
+  <g transform="translate(1232 48)">
+    <rect x="-90" y="-18" width="90" height="36" rx="4" ry="4"
+          fill="rgba(216,128,255,0.10)" stroke="#d880ff" stroke-width="1" stroke-opacity="0.6"/>
+    <text x="-45" y="5" text-anchor="middle" fill="#d880ff" font-size="11"
+          letter-spacing="2" font-weight="700">v0.8.6</text>
+  </g>
+
+  <!-- Subtle attribution in the corner -->
+  <text x="1232" y="618" text-anchor="end" fill="#fafafa" font-size="8"
+        opacity="0.30" letter-spacing="1">
+    danbooru wiki · cc-by-sa 4.0
+  </text>
+</svg>
