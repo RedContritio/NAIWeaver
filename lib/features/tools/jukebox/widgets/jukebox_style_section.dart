@@ -1,4 +1,10 @@
-import 'package:flutter/material.dart';
+// Flutter stable 3.41+ added a `RepeatMode` to
+// widgets/repeating_animation_builder.dart, which collides with our jukebox
+// enum and breaks the web (dart2js) build. Hiding it here keeps the import
+// safe across SDK versions; the ignore covers older SDKs that don't yet
+// export the symbol so `hide` would otherwise warn.
+// ignore: undefined_hidden_name
+import 'package:flutter/material.dart' hide RepeatMode;
 import '../../../../core/jukebox/models/jukebox_song.dart';
 import '../../../../core/jukebox/providers/jukebox_notifier.dart';
 import '../../../../core/theme/vision_tokens.dart';
