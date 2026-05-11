@@ -6091,6 +6091,174 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Normal'**
   String get settingsSidebarNormal;
+
+  /// No description provided for @toolsTextGen.
+  ///
+  /// In en, this message translates to:
+  /// **'Text Gen'**
+  String get toolsTextGen;
+
+  /// No description provided for @textGenTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Text Generation'**
+  String get textGenTitle;
+
+  /// No description provided for @textGenInput.
+  ///
+  /// In en, this message translates to:
+  /// **'Input'**
+  String get textGenInput;
+
+  /// No description provided for @textGenInputHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The text to continue from…'**
+  String get textGenInputHint;
+
+  /// No description provided for @textGenInputNote.
+  ///
+  /// In en, this message translates to:
+  /// **'NovelAI text models continue your text — they don\'t follow chat turns.'**
+  String get textGenInputNote;
+
+  /// No description provided for @textGenModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Model'**
+  String get textGenModel;
+
+  /// No description provided for @textGenModelCustom.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom…'**
+  String get textGenModelCustom;
+
+  /// No description provided for @textGenParameters.
+  ///
+  /// In en, this message translates to:
+  /// **'Parameters'**
+  String get textGenParameters;
+
+  /// No description provided for @textGenPreset.
+  ///
+  /// In en, this message translates to:
+  /// **'Preset'**
+  String get textGenPreset;
+
+  /// No description provided for @textGenTemperature.
+  ///
+  /// In en, this message translates to:
+  /// **'Temperature'**
+  String get textGenTemperature;
+
+  /// No description provided for @textGenMaxLength.
+  ///
+  /// In en, this message translates to:
+  /// **'Max length'**
+  String get textGenMaxLength;
+
+  /// No description provided for @textGenTopP.
+  ///
+  /// In en, this message translates to:
+  /// **'Top P'**
+  String get textGenTopP;
+
+  /// No description provided for @textGenTopK.
+  ///
+  /// In en, this message translates to:
+  /// **'Top K'**
+  String get textGenTopK;
+
+  /// No description provided for @textGenRepetitionPenalty.
+  ///
+  /// In en, this message translates to:
+  /// **'Repetition penalty'**
+  String get textGenRepetitionPenalty;
+
+  /// No description provided for @textGenPhraseRepPen.
+  ///
+  /// In en, this message translates to:
+  /// **'Phrase rep. pen.'**
+  String get textGenPhraseRepPen;
+
+  /// No description provided for @textGenGenerateUntilSentence.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate until sentence end'**
+  String get textGenGenerateUntilSentence;
+
+  /// No description provided for @textGenStopStrings.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop strings'**
+  String get textGenStopStrings;
+
+  /// No description provided for @textGenStopStringsNote.
+  ///
+  /// In en, this message translates to:
+  /// **'One per line. Output is truncated at the first match (client-side).'**
+  String get textGenStopStringsNote;
+
+  /// No description provided for @textGenStopStringsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. an ending line of dialogue'**
+  String get textGenStopStringsHint;
+
+  /// No description provided for @textGenGenerate.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate'**
+  String get textGenGenerate;
+
+  /// No description provided for @textGenCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get textGenCancel;
+
+  /// No description provided for @textGenContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get textGenContinue;
+
+  /// No description provided for @textGenCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get textGenCopy;
+
+  /// No description provided for @textGenClear.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get textGenClear;
+
+  /// No description provided for @textGenCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied to clipboard'**
+  String get textGenCopied;
+
+  /// No description provided for @textGenOutput.
+  ///
+  /// In en, this message translates to:
+  /// **'Output'**
+  String get textGenOutput;
+
+  /// No description provided for @textGenOutputEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Generated text will appear here.'**
+  String get textGenOutputEmpty;
+
+  /// No description provided for @textGenHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'History'**
+  String get textGenHistory;
 }
 
 class _AppLocalizationsDelegate

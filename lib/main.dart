@@ -47,6 +47,7 @@ import 'features/generation/widgets/sidebar_ref_vibe_rail.dart';
 import 'features/tools/slideshow/providers/slideshow_notifier.dart';
 import 'features/tools/director_tools/providers/director_tools_notifier.dart';
 import 'features/tools/enhance/providers/enhance_notifier.dart';
+import 'features/text_gen/providers/text_gen_notifier.dart';
 import 'core/widgets/tag_suggestion_overlay.dart';
 import 'core/jukebox/providers/jukebox_notifier.dart';
 import 'core/jukebox/services/jukebox_audio_handler.dart';
@@ -164,10 +165,13 @@ void main() {
         ChangeNotifierProvider(
           create: (_) => EnhanceNotifier(),
         ),
+        ChangeNotifierProvider(
+          create: (_) => TextGenNotifier(),
+        ),
         Provider<TagService>.value(value: tagService),
         Provider<WildcardService>.value(value: wildcardService),
         Provider<WikiService>.value(value: wikiService),
-        ChangeNotifierProxyProvider5<GalleryNotifier, DirectorRefNotifier, VibeTransferNotifier, DirectorToolsNotifier, EnhanceNotifier, GenerationNotifier>(
+        ChangeNotifierProxyProvider6<GalleryNotifier, DirectorRefNotifier, VibeTransferNotifier, DirectorToolsNotifier, EnhanceNotifier, TextGenNotifier, GenerationNotifier>(
           create: (context) => GenerationNotifier(
             preferences: preferencesService,
             tagService: tagService,
@@ -177,12 +181,13 @@ void main() {
             stylesFilePath: paths.stylesFilePath,
             galleryNotifier: Provider.of<GalleryNotifier>(context, listen: false),
           ),
-          update: (context, gallery, directorRef, vibeTransfer, directorTools, enhance, previous) {
+          update: (context, gallery, directorRef, vibeTransfer, directorTools, enhance, textGen, previous) {
             previous?.updateGalleryNotifier(gallery);
             previous?.updateDirectorRefNotifier(directorRef);
             previous?.updateVibeTransferNotifier(vibeTransfer);
             previous?.updateDirectorToolsNotifier(directorTools);
             previous?.updateEnhanceNotifier(enhance);
+            previous?.updateTextGenNotifier(textGen);
             return previous!;
           },
         ),

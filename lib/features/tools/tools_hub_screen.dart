@@ -20,6 +20,7 @@ import 'director_tools/widgets/director_tools_editor.dart';
 import 'enhance/widgets/enhance_editor.dart';
 import 'widgets/references_manager.dart';
 import 'ml/widgets/ml_models_manager.dart';
+import '../text_gen/widgets/text_gen_panel.dart';
 
 class ToolsHubScreen extends StatefulWidget {
   final String? initialToolId;
@@ -74,6 +75,7 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
       ToolItem(id: 'enhance', name: l.toolsEnhance.toUpperCase(), icon: Icons.hd),
       ToolItem(id: 'slideshow', name: l.toolsSlideshow.toUpperCase(), icon: Icons.slideshow),
       ToolItem(id: 'ml_models', name: l.mlModels.toUpperCase(), icon: Icons.psychology),
+      ToolItem(id: 'text_gen', name: l.toolsTextGen.toUpperCase(), icon: Icons.notes),
       ToolItem(id: 'packs', name: l.toolsPacks.toUpperCase(), icon: Icons.inventory_2),
       ToolItem(id: 'theme', name: l.toolsTheme.toUpperCase(), icon: Icons.palette),
       ToolItem(id: 'settings', name: l.toolsSettings.toUpperCase(), icon: Icons.settings),
@@ -298,6 +300,8 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
         return const SlideshowLauncher();
       case 'ml_models':
         return const MLModelsManager();
+      case 'text_gen':
+        return const TextGenPanel();
       case 'packs':
         return const PackManager();
       case 'theme':

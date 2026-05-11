@@ -16,6 +16,7 @@ import '../../../core/utils/app_snackbar.dart';
 import '../../../core/utils/unique_file_path.dart';
 import '../../../core/services/preferences_service.dart';
 import '../../../core/services/novel_ai_service.dart';
+import '../../../core/services/nai_text_service.dart';
 import '../../../core/services/wildcard_processor.dart';
 import '../../../core/services/presets.dart';
 import '../../../core/services/tag_service.dart';
@@ -34,6 +35,7 @@ import '../../director_ref/providers/director_ref_notifier.dart';
 import '../../vibe_transfer/providers/vibe_transfer_notifier.dart';
 import '../../tools/director_tools/providers/director_tools_notifier.dart';
 import '../../tools/enhance/providers/enhance_notifier.dart';
+import '../../text_gen/providers/text_gen_notifier.dart';
 import 'package:dio/dio.dart';
 import '../services/metadata_import_service.dart';
 import '../services/session_snapshot_service.dart';
@@ -232,6 +234,8 @@ class GenerationNotifier extends ChangeNotifier {
   VibeTransferNotifier? _vibeTransferNotifier;
   DirectorToolsNotifier? _directorToolsNotifier;
   EnhanceNotifier? _enhanceNotifier;
+  TextGenNotifier? _textGenNotifier;
+  NaiTextService _textService = NaiTextService('');
 
   // Extracted services
   final MetadataImportService _metadataImportService = MetadataImportService();
@@ -310,6 +314,11 @@ class GenerationNotifier extends ChangeNotifier {
     notifier.updateService(_service);
   }
 
+  void updateTextGenNotifier(TextGenNotifier notifier) {
+    _textGenNotifier = notifier;
+    notifier.updateService(_textService);
+  }
+
   void setOutputDir(String dir) {
     _outputDir = dir;
   }
@@ -333,9 +342,11 @@ class GenerationNotifier extends ChangeNotifier {
 
     final apiKey = await _prefs.getApiKey();
     _service = NovelAIService(apiKey);
+    _textService = NaiTextService(apiKey);
     _vibeTransferNotifier?.updateService(_service);
     _directorToolsNotifier?.updateService(_service);
     _enhanceNotifier?.updateService(_service);
+    _textGenNotifier?.updateService(_textService);
 
     _state = _state.copyWith(
       presets: presets,
@@ -380,9 +391,11 @@ class GenerationNotifier extends ChangeNotifier {
   Future<void> updateApiKey(String key) async {
     await _prefs.setApiKey(key);
     _service = NovelAIService(key);
+    _textService = NaiTextService(key);
     _vibeTransferNotifier?.updateService(_service);
     _directorToolsNotifier?.updateService(_service);
     _enhanceNotifier?.updateService(_service);
+    _textGenNotifier?.updateService(_textService);
     _state = _state.copyWith(apiKey: key, hasAuthError: false);
     notifyListeners();
   }

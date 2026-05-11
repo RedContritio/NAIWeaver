@@ -3192,4 +3192,88 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsSidebarNormal => '通常';
+
+  @override
+  String get toolsTextGen => 'テキスト生成';
+
+  @override
+  String get textGenTitle => 'テキスト生成';
+
+  @override
+  String get textGenInput => '入力';
+
+  @override
+  String get textGenInputHint => '続きを生成する元のテキスト…';
+
+  @override
+  String get textGenInputNote => 'NovelAIのテキストモデルは入力の続きを生成します。チャット形式ではありません。';
+
+  @override
+  String get textGenModel => 'モデル';
+
+  @override
+  String get textGenModelCustom => 'カスタム…';
+
+  @override
+  String get textGenParameters => 'パラメータ';
+
+  @override
+  String get textGenPreset => 'プリセット';
+
+  @override
+  String get textGenTemperature => 'Temperature';
+
+  @override
+  String get textGenMaxLength => '最大長';
+
+  @override
+  String get textGenTopP => 'Top P';
+
+  @override
+  String get textGenTopK => 'Top K';
+
+  @override
+  String get textGenRepetitionPenalty => '繰り返しペナルティ';
+
+  @override
+  String get textGenPhraseRepPen => 'フレーズ繰り返しペナルティ';
+
+  @override
+  String get textGenGenerateUntilSentence => '文末まで生成';
+
+  @override
+  String get textGenStopStrings => '停止文字列';
+
+  @override
+  String get textGenStopStringsNote => '1行に1つ。最初に一致した位置で出力を切り詰めます（クライアント側）。';
+
+  @override
+  String get textGenStopStringsHint => '例：会話の終わりの行';
+
+  @override
+  String get textGenGenerate => '生成';
+
+  @override
+  String get textGenCancel => 'キャンセル';
+
+  @override
+  String get textGenContinue => '続行';
+
+  @override
+  String get textGenCopy => 'コピー';
+
+  @override
+  String get textGenClear => 'クリア';
+
+  @override
+  String get textGenCopied => 'クリップボードにコピーしました';
+
+  @override
+  String get textGenOutput => '出力';
+
+  @override
+  String get textGenOutputEmpty => '生成されたテキストがここに表示されます。';
+
+  @override
+  String get textGenHistory => '履歴';
 }

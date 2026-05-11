@@ -3252,4 +3252,90 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsSidebarNormal => 'Normal';
+
+  @override
+  String get toolsTextGen => 'Text Gen';
+
+  @override
+  String get textGenTitle => 'Text Generation';
+
+  @override
+  String get textGenInput => 'Input';
+
+  @override
+  String get textGenInputHint => 'The text to continue from…';
+
+  @override
+  String get textGenInputNote =>
+      'NovelAI text models continue your text — they don\'t follow chat turns.';
+
+  @override
+  String get textGenModel => 'Model';
+
+  @override
+  String get textGenModelCustom => 'Custom…';
+
+  @override
+  String get textGenParameters => 'Parameters';
+
+  @override
+  String get textGenPreset => 'Preset';
+
+  @override
+  String get textGenTemperature => 'Temperature';
+
+  @override
+  String get textGenMaxLength => 'Max length';
+
+  @override
+  String get textGenTopP => 'Top P';
+
+  @override
+  String get textGenTopK => 'Top K';
+
+  @override
+  String get textGenRepetitionPenalty => 'Repetition penalty';
+
+  @override
+  String get textGenPhraseRepPen => 'Phrase rep. pen.';
+
+  @override
+  String get textGenGenerateUntilSentence => 'Generate until sentence end';
+
+  @override
+  String get textGenStopStrings => 'Stop strings';
+
+  @override
+  String get textGenStopStringsNote =>
+      'One per line. Output is truncated at the first match (client-side).';
+
+  @override
+  String get textGenStopStringsHint => 'e.g. an ending line of dialogue';
+
+  @override
+  String get textGenGenerate => 'Generate';
+
+  @override
+  String get textGenCancel => 'Cancel';
+
+  @override
+  String get textGenContinue => 'Continue';
+
+  @override
+  String get textGenCopy => 'Copy';
+
+  @override
+  String get textGenClear => 'Clear';
+
+  @override
+  String get textGenCopied => 'Copied to clipboard';
+
+  @override
+  String get textGenOutput => 'Output';
+
+  @override
+  String get textGenOutputEmpty => 'Generated text will appear here.';
+
+  @override
+  String get textGenHistory => 'History';
 }

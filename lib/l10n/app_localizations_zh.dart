@@ -3183,4 +3183,88 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsSidebarNormal => '标准';
+
+  @override
+  String get toolsTextGen => '文本生成';
+
+  @override
+  String get textGenTitle => '文本生成';
+
+  @override
+  String get textGenInput => '输入';
+
+  @override
+  String get textGenInputHint => '要续写的文本……';
+
+  @override
+  String get textGenInputNote => 'NovelAI 文本模型会续写你的文本，而不是按聊天回合工作。';
+
+  @override
+  String get textGenModel => '模型';
+
+  @override
+  String get textGenModelCustom => '自定义……';
+
+  @override
+  String get textGenParameters => '参数';
+
+  @override
+  String get textGenPreset => '预设';
+
+  @override
+  String get textGenTemperature => 'Temperature';
+
+  @override
+  String get textGenMaxLength => '最大长度';
+
+  @override
+  String get textGenTopP => 'Top P';
+
+  @override
+  String get textGenTopK => 'Top K';
+
+  @override
+  String get textGenRepetitionPenalty => '重复惩罚';
+
+  @override
+  String get textGenPhraseRepPen => '短语重复惩罚';
+
+  @override
+  String get textGenGenerateUntilSentence => '生成到句末';
+
+  @override
+  String get textGenStopStrings => '停止字符串';
+
+  @override
+  String get textGenStopStringsNote => '每行一个。在第一个匹配处截断输出（客户端）。';
+
+  @override
+  String get textGenStopStringsHint => '例如对话的结束行';
+
+  @override
+  String get textGenGenerate => '生成';
+
+  @override
+  String get textGenCancel => '取消';
+
+  @override
+  String get textGenContinue => '继续';
+
+  @override
+  String get textGenCopy => '复制';
+
+  @override
+  String get textGenClear => '清除';
+
+  @override
+  String get textGenCopied => '已复制到剪贴板';
+
+  @override
+  String get textGenOutput => '输出';
+
+  @override
+  String get textGenOutputEmpty => '生成的文本将显示在这里。';
+
+  @override
+  String get textGenHistory => '历史';
 }
