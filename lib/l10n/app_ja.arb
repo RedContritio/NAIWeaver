@@ -1095,5 +1095,8 @@
   "textGenCopied": "クリップボードにコピーしました",
   "textGenOutput": "出力",
   "textGenOutputEmpty": "生成されたテキストがここに表示されます。",
-  "textGenHistory": "履歴"
+  "textGenHistory": "履歴",
+  "textGenEnableThinking": "Thinking を有効化",
+  "textGenEnableThinkingNote": "GLM は回答前に推論ブロックを生成します。ストリーミングは無効化されます。",
+  "textGenReasoning": "推論"
 }

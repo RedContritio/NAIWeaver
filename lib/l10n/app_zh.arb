@@ -1167,5 +1167,8 @@
   "textGenCopied": "已复制到剪贴板",
   "textGenOutput": "输出",
   "textGenOutputEmpty": "生成的文本将显示在这里。",
-  "textGenHistory": "历史"
+  "textGenHistory": "历史",
+  "textGenEnableThinking": "启用思考",
+  "textGenEnableThinkingNote": "GLM 会在回答前生成一段推理。会强制使用非流式响应。",
+  "textGenReasoning": "推理"
 }

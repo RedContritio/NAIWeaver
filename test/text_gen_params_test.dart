@@ -209,6 +209,22 @@ void main() {
       expect((body['parameters'] as Map)['max_length'], 150);
     });
 
+    test('enable_thinking only appears in the body when on', () {
+      final off = TextGenRequest(
+        input: 'x',
+        model: 'glm-4-6',
+        params: TextGenParams.glmDefault(),
+      ).toJson();
+      expect(off.containsKey('enable_thinking'), isFalse);
+
+      final on = TextGenRequest(
+        input: 'x',
+        model: 'glm-4-6',
+        params: TextGenParams.glmDefault().copyWith(enableThinking: true),
+      ).toJson();
+      expect(on['enable_thinking'], isTrue);
+    });
+
     test('completions body forwards stop strings as a "stop" array', () {
       final req = TextGenRequest(
         input: 'x',
@@ -281,6 +297,61 @@ void main() {
     test('returns null when there is nothing usable', () {
       expect(extractGeneratedText({'unrelated': 1}), isNull);
       expect(extractGeneratedText(42), isNull);
+    });
+  });
+
+  group('splitThinkBlock', () {
+    test('splits a leading <think>…</think> block from the answer', () {
+      final r = splitThinkBlock(
+          '<think>let me reason</think>\nThe final answer.');
+      expect(r.reasoning, 'let me reason');
+      expect(r.answer, 'The final answer.');
+    });
+
+    test('handles a closing tag with no opening tag', () {
+      final r = splitThinkBlock('I considered X.</think>\nAnswer here.');
+      expect(r.reasoning, 'I considered X.');
+      expect(r.answer, 'Answer here.');
+    });
+
+    test('returns the whole string as the answer when no </think> is present',
+        () {
+      final r = splitThinkBlock('Just an answer.');
+      expect(r.reasoning, isEmpty);
+      expect(r.answer, 'Just an answer.');
+    });
+  });
+
+  group('extractGeneratedResult', () {
+    test('uses parsedReasoning / parsedContent when the server pre-split', () {
+      final r = extractGeneratedResult({
+        'choices': [
+          {
+            'parsedReasoning': 'I weighed the options.',
+            'parsedContent': 'Picked B.',
+            'text': '<think>I weighed the options.</think>Picked B.',
+          }
+        ]
+      });
+      expect(r, isNotNull);
+      expect(r!.text, 'Picked B.');
+      expect(r.reasoning, 'I weighed the options.');
+    });
+
+    test('falls back to raw text when parsedContent is missing', () {
+      final r = extractGeneratedResult({
+        'choices': [
+          {'text': 'plain answer'}
+        ]
+      });
+      expect(r!.text, 'plain answer');
+      expect(r.reasoning, isEmpty);
+    });
+
+    test('legacy {output} responses never have reasoning', () {
+      final r = extractGeneratedResult({'output': 'kayra-style continuation'});
+      expect(r!.text, 'kayra-style continuation');
+      expect(r.hasReasoning, isFalse);
     });
   });
 }

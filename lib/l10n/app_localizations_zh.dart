@@ -3267,4 +3267,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get textGenHistory => '历史';
+
+  @override
+  String get textGenEnableThinking => '启用思考';
+
+  @override
+  String get textGenEnableThinkingNote => 'GLM 会在回答前生成一段推理。会强制使用非流式响应。';
+
+  @override
+  String get textGenReasoning => '推理';
 }

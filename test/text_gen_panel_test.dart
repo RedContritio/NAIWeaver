@@ -18,9 +18,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 class FakeTextGenService implements TextGenService {
   final List<String> tokens;
   final Duration tokenDelay;
-  int generateCalls = 0;
 
-  FakeTextGenService(this.tokens, {this.tokenDelay = Duration.zero});
+  /// If non-empty, [generateStructured] returns this reasoning alongside the
+  /// joined tokens — used to test the Thinking path.
+  final String reasoning;
+  int generateCalls = 0;
+  int structuredCalls = 0;
+
+  FakeTextGenService(
+    this.tokens, {
+    this.tokenDelay = Duration.zero,
+    this.reasoning = '',
+  });
 
   @override
   String get providerId => 'fake';
@@ -36,6 +45,12 @@ class FakeTextGenService implements TextGenService {
 
   @override
   Future<String> generate(TextGenRequest req) async => tokens.join();
+
+  @override
+  Future<TextGenResult> generateStructured(TextGenRequest req) async {
+    structuredCalls++;
+    return TextGenResult(text: tokens.join(), reasoning: reasoning);
+  }
 }
 
 Future<void> pumpPanel(
@@ -144,6 +159,30 @@ void main() {
     // Let any leftover timers fire; output must not grow.
     await tester.pump(const Duration(milliseconds: 300));
     expect(notifier.output, partial);
+  });
+
+  testWidgets('Thinking on => uses generateStructured + reasoning is captured',
+      (tester) async {
+    final fake = FakeTextGenService(
+      ['the answer'],
+      reasoning: 'first I considered X, then Y',
+    );
+    final notifier = TextGenNotifier()
+      ..updateService(fake)
+      ..setEnableThinking(true);
+    await pumpPanel(tester, notifier: notifier);
+
+    await tester.enterText(find.byType(TextField).first, 'why?');
+    await tester.pump();
+    await tester.tap(find.text('Generate'));
+    await tester.pumpAndSettle();
+
+    expect(fake.structuredCalls, 1);
+    expect(fake.generateCalls, 0);
+    expect(notifier.output, 'the answer');
+    expect(notifier.reasoning, 'first I considered X, then Y');
+    expect(notifier.hasReasoning, isTrue);
+    expect(notifier.history.first.reasoning, 'first I considered X, then Y');
   });
 
   testWidgets('Generate with no service set surfaces an error', (tester) async {

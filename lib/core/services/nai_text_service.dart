@@ -103,6 +103,12 @@ class NaiTextService implements TextGenService {
 
   @override
   Future<String> generate(TextGenRequest req) async {
+    final result = await generateStructured(req);
+    return result.text;
+  }
+
+  @override
+  Future<TextGenResult> generateStructured(TextGenRequest req) async {
     _requireToken();
     final url = _urlFor(req.model, stream: false);
     final body = _bodyFor(req, stream: false);
@@ -115,7 +121,7 @@ class NaiTextService implements TextGenService {
               headers: _headers(stream: false),
               responseType: ResponseType.json),
         );
-        return _extractOutput(response.data, req);
+        return _extractResult(response.data, req);
       } on DioException catch (e) {
         if (_isRetryable(e) && attempt < 2) {
           debugPrint('NaiTextService: retry ${attempt + 1} for $url');
@@ -131,7 +137,12 @@ class NaiTextService implements TextGenService {
     throw StateError('unreachable');
   }
 
-  String _extractOutput(dynamic data, TextGenRequest req) {
+  /// Decodes a non-stream response into a [TextGenResult], handling input echo,
+  /// client-side stop-string truncation, and the `<think>…</think>` split for
+  /// thinking-enabled responses (preferring NovelAI's pre-parsed
+  /// `parsedReasoning` / `parsedContent` when present, otherwise splitting the
+  /// raw text on `</think>` ourselves).
+  TextGenResult _extractResult(dynamic data, TextGenRequest req) {
     dynamic decoded = data;
     if (data is String) {
       final s = data.trim();
@@ -143,26 +154,38 @@ class NaiTextService implements TextGenService {
         }
       }
     } else if (data is List<int>) {
-      return _extractOutput(utf8.decode(data, allowMalformed: true), req);
+      return _extractResult(utf8.decode(data, allowMalformed: true), req);
     }
 
     if (decoded is Map && decoded['error'] is String) {
       final err = (decoded['error'] as String).trim();
-      final text = extractGeneratedText(decoded);
-      if ((text == null || text.isEmpty) && err.isNotEmpty) {
+      final preview = extractGeneratedText(decoded);
+      if ((preview == null || preview.isEmpty) && err.isNotEmpty) {
         throw TextGenException('NovelAI generation error: $err');
       }
     }
 
-    var output = extractGeneratedText(decoded) ?? '';
+    final raw = extractGeneratedResult(decoded) ?? const TextGenResult(text: '');
+    var text = raw.text;
+    var reasoning = raw.reasoning;
+
+    // If the server didn't pre-split (e.g. raw `text` field with an inline
+    // `<think>` block), split it ourselves.
+    if (reasoning.isEmpty && text.contains('</think>')) {
+      final split = splitThinkBlock(text);
+      reasoning = split.reasoning;
+      text = split.answer;
+    }
+
     if (!req.returnFullText &&
         req.input.isNotEmpty &&
-        output.startsWith(req.input)) {
-      output = output.substring(req.input.length);
+        text.startsWith(req.input)) {
+      text = text.substring(req.input.length);
     }
-    final stopIdx = req.firstStopIndex(output);
-    if (stopIdx >= 0) output = output.substring(0, stopIdx);
-    return output;
+    final stopIdx = req.firstStopIndex(text);
+    if (stopIdx >= 0) text = text.substring(0, stopIdx);
+
+    return TextGenResult(text: text, reasoning: reasoning);
   }
 
   // ─── streaming ────────────────────────────────────────────────────────────
@@ -170,6 +193,33 @@ class NaiTextService implements TextGenService {
   @override
   Stream<String> generateStream(TextGenRequest req) {
     _requireToken();
+    // When thinking is on, we want the server's reliable reasoning/answer
+    // split — force a non-stream call and emit the answer as a single chunk.
+    // Callers that need the reasoning text should call [generateStructured]
+    // directly (and the notifier already does for thinking requests).
+    if (req.params.enableThinking) {
+      final controller = StreamController<String>();
+      controller.onListen = () async {
+        try {
+          final result = await generateStructured(req);
+          if (!controller.isClosed) {
+            if (result.text.isNotEmpty) controller.add(result.text);
+            await controller.close();
+          }
+        } on TextGenException catch (te) {
+          if (!controller.isClosed) {
+            controller.addError(te);
+            await controller.close();
+          }
+        } catch (e) {
+          if (!controller.isClosed) {
+            controller.addError(TextGenException('Text generation failed: $e'));
+            await controller.close();
+          }
+        }
+      };
+      return controller.stream;
+    }
     final controller = StreamController<String>();
     StreamSubscription<List<int>>? sub;
     var cancelled = false;

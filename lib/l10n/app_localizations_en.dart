@@ -3338,4 +3338,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get textGenHistory => 'History';
+
+  @override
+  String get textGenEnableThinking => 'Enable thinking';
+
+  @override
+  String get textGenEnableThinkingNote =>
+      'GLM emits a private reasoning block before its answer. Forces non-streaming.';
+
+  @override
+  String get textGenReasoning => 'Reasoning';
 }

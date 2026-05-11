@@ -1169,5 +1169,8 @@
   "textGenCopied": "Copied to clipboard",
   "textGenOutput": "Output",
   "textGenOutputEmpty": "Generated text will appear here.",
-  "textGenHistory": "History"
+  "textGenHistory": "History",
+  "textGenEnableThinking": "Enable thinking",
+  "textGenEnableThinkingNote": "GLM emits a private reasoning block before its answer. Forces non-streaming.",
+  "textGenReasoning": "Reasoning"
 }

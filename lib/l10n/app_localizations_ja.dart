@@ -3276,4 +3276,14 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get textGenHistory => '履歴';
+
+  @override
+  String get textGenEnableThinking => 'Thinking を有効化';
+
+  @override
+  String get textGenEnableThinkingNote =>
+      'GLM は回答前に推論ブロックを生成します。ストリーミングは無効化されます。';
+
+  @override
+  String get textGenReasoning => '推論';
 }

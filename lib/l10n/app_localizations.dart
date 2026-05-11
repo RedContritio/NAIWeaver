@@ -6259,6 +6259,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'History'**
   String get textGenHistory;
+
+  /// No description provided for @textGenEnableThinking.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable thinking'**
+  String get textGenEnableThinking;
+
+  /// No description provided for @textGenEnableThinkingNote.
+  ///
+  /// In en, this message translates to:
+  /// **'GLM emits a private reasoning block before its answer. Forces non-streaming.'**
+  String get textGenEnableThinkingNote;
+
+  /// No description provided for @textGenReasoning.
+  ///
+  /// In en, this message translates to:
+  /// **'Reasoning'**
+  String get textGenReasoning;
 }
 
 class _AppLocalizationsDelegate

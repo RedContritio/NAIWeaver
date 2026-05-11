@@ -9,13 +9,52 @@ abstract class TextGenService {
   ///
   /// Implementations must enforce [TextGenRequest.stopStrings] client-side
   /// (truncating the *yielded* chunk at the stop string and ending the stream).
+  /// When [TextGenParams.enableThinking] is set the implementation may degrade
+  /// to a single-shot delivery so the reasoning/answer split is reliable —
+  /// callers that need the split should use [generateStructured] instead.
   Stream<String> generateStream(TextGenRequest req);
 
   /// One-shot convenience: awaits the full generated continuation.
   Future<String> generate(TextGenRequest req);
 
+  /// One-shot that also returns the model's `<think>…</think>` block separately
+  /// when `enable_thinking` is on. The [TextGenResult.text] is always just the
+  /// final answer (reasoning stripped); [TextGenResult.reasoning] is empty if
+  /// the model didn't reason or the flag was off.
+  Future<TextGenResult> generateStructured(TextGenRequest req);
+
   /// Stable id for the provider, e.g. `"novelai"`.
   String get providerId;
+}
+
+/// A structured generation result that splits the model's reasoning from its
+/// final answer. [text] is the answer (never includes the `<think>` block);
+/// [reasoning] is the contents of the `<think>…</think>` block, empty if there
+/// wasn't one.
+class TextGenResult {
+  final String text;
+  final String reasoning;
+
+  const TextGenResult({required this.text, this.reasoning = ''});
+
+  bool get hasReasoning => reasoning.trim().isNotEmpty;
+}
+
+/// Splits a raw model output that may contain a `<think>…</think>` block at
+/// the start. Returns `(reasoning, answer)`. If no closing `</think>` tag is
+/// found, the whole string is treated as the answer with no reasoning.
+///
+/// Tolerates whitespace/newlines around the tags and an optional opening
+/// `<think>` (some chat templates emit only the closing tag).
+({String reasoning, String answer}) splitThinkBlock(String raw) {
+  final closeIdx = raw.indexOf('</think>');
+  if (closeIdx < 0) return (reasoning: '', answer: raw);
+  var reasoning = raw.substring(0, closeIdx);
+  // Strip an opening <think> tag if present.
+  final openIdx = reasoning.indexOf('<think>');
+  if (openIdx >= 0) reasoning = reasoning.substring(openIdx + '<think>'.length);
+  final answer = raw.substring(closeIdx + '</think>'.length);
+  return (reasoning: reasoning.trim(), answer: answer.trimLeft());
 }
 
 /// Thrown by a [TextGenService] when generation fails.
@@ -104,6 +143,12 @@ class TextGenParams {
   /// Chat-only: min-p sampling cutoff (0 disables).
   final double minP;
 
+  /// Chat-only: when true, the model emits a `<think>…</think>` reasoning block
+  /// before the answer. The non-stream response includes `parsedReasoning` /
+  /// `parsedContent` split for us; in v1 we force non-stream when this is on so
+  /// the split is reliable.
+  final bool enableThinking;
+
   // — Legacy-only —
   final double topA;
   final double typicalP;
@@ -126,6 +171,7 @@ class TextGenParams {
     this.frequencyPenalty = 0.0,
     this.presencePenalty = 0.0,
     this.minP = 0.0,
+    this.enableThinking = false,
     this.topA = 1.0,
     this.typicalP = 1.0,
     this.tailFreeSampling = 1.0,
@@ -170,6 +216,7 @@ class TextGenParams {
     double? frequencyPenalty,
     double? presencePenalty,
     double? minP,
+    bool? enableThinking,
     double? topA,
     double? typicalP,
     double? tailFreeSampling,
@@ -191,6 +238,7 @@ class TextGenParams {
       frequencyPenalty: frequencyPenalty ?? this.frequencyPenalty,
       presencePenalty: presencePenalty ?? this.presencePenalty,
       minP: minP ?? this.minP,
+      enableThinking: enableThinking ?? this.enableThinking,
       topA: topA ?? this.topA,
       typicalP: typicalP ?? this.typicalP,
       tailFreeSampling: tailFreeSampling ?? this.tailFreeSampling,
@@ -249,6 +297,7 @@ class TextGenParams {
         if (frequencyPenalty != 0.0) 'frequency_penalty': frequencyPenalty,
         if (presencePenalty != 0.0) 'presence_penalty': presencePenalty,
         if (minP > 0.0) 'min_p': minP,
+        if (enableThinking) 'enable_thinking': true,
       };
 
   /// Serialization used by tests / history: a stable superset of all fields.
@@ -261,6 +310,7 @@ class TextGenParams {
         'frequency_penalty': frequencyPenalty,
         'presence_penalty': presencePenalty,
         'min_p': minP,
+        'enable_thinking': enableThinking,
         'top_a': topA,
         'typical_p': typicalP,
         'tail_free_sampling': tailFreeSampling,
@@ -299,6 +349,7 @@ class TextGenParams {
       frequencyPenalty: d('frequency_penalty', 0.0),
       presencePenalty: d('presence_penalty', 0.0),
       minP: d('min_p', 0.0),
+      enableThinking: b('enable_thinking', false),
       topA: d('top_a', 1.0),
       typicalP: d('typical_p', 1.0),
       tailFreeSampling: d('tail_free_sampling', 1.0),
@@ -389,6 +440,7 @@ class TextGenRequest {
           'frequency_penalty': params.frequencyPenalty,
         if (params.presencePenalty != 0.0)
           'presence_penalty': params.presencePenalty,
+        if (params.enableThinking) 'enable_thinking': true,
         if (cleanStops != null) 'stop': cleanStops,
         'stream': stream,
       };
@@ -416,6 +468,10 @@ class TextGenRequest {
 class TextGenHistoryEntry {
   final String input;
   final String output;
+
+  /// The model's `<think>…</think>` reasoning, if `enable_thinking` was on for
+  /// this generation. Empty otherwise.
+  final String reasoning;
   final TextGenParams params;
   final String model;
   final DateTime timestamp;
@@ -423,6 +479,7 @@ class TextGenHistoryEntry {
   TextGenHistoryEntry({
     required this.input,
     required this.output,
+    this.reasoning = '',
     required this.params,
     required this.model,
     required this.timestamp,
@@ -454,6 +511,52 @@ String? extractGeneratedText(dynamic decoded) {
   }
   // Some streamed shapes nest token text directly.
   if (decoded['token'] is String) return decoded['token'] as String;
+  return null;
+}
+
+/// Like [extractGeneratedText] but also returns NovelAI's `parsedReasoning` /
+/// `parsedContent` fields when present (only on non-stream responses with
+/// `enable_thinking` on). When the server pre-split the response, [TextGenResult.text]
+/// is `parsedContent` and [TextGenResult.reasoning] is `parsedReasoning`.
+/// Otherwise the raw `text` field is returned with no reasoning split (the
+/// caller can fall back to [splitThinkBlock]).
+TextGenResult? extractGeneratedResult(dynamic decoded) {
+  if (decoded is! Map) {
+    final t = extractGeneratedText(decoded);
+    return t == null ? null : TextGenResult(text: t);
+  }
+  // Legacy text-completion shape — never has reasoning.
+  final out = decoded['output'];
+  if (out is String && out.isNotEmpty) return TextGenResult(text: out);
+  // Chat/completions shape.
+  final choices = decoded['choices'];
+  if (choices is List && choices.isNotEmpty) {
+    final c0 = choices.first;
+    if (c0 is Map) {
+      final parsedReasoning = c0['parsedReasoning'];
+      final parsedContent = c0['parsedContent'];
+      if (parsedContent is String && parsedContent.isNotEmpty) {
+        return TextGenResult(
+          text: parsedContent,
+          reasoning:
+              parsedReasoning is String ? parsedReasoning.trim() : '',
+        );
+      }
+      final text = c0['text'];
+      if (text is String) return TextGenResult(text: text);
+      final msg = c0['message'];
+      if (msg is Map && msg['content'] is String) {
+        return TextGenResult(text: msg['content'] as String);
+      }
+      final delta = c0['delta'];
+      if (delta is Map && delta['content'] is String) {
+        return TextGenResult(text: delta['content'] as String);
+      }
+    }
+  }
+  if (decoded['token'] is String) {
+    return TextGenResult(text: decoded['token'] as String);
+  }
   return null;
 }
 

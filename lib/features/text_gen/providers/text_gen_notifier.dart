@@ -20,6 +20,7 @@ class TextGenNotifier extends ChangeNotifier {
   String _activePresetName = TextGenParams.presetNames.first;
 
   String _output = '';
+  String _reasoning = '';
   bool _isGenerating = false;
   String? _lastError;
 
@@ -35,11 +36,13 @@ class TextGenNotifier extends ChangeNotifier {
   String get stopStringsRaw => _stopStringsRaw;
   String get activePresetName => _activePresetName;
   String get output => _output;
+  String get reasoning => _reasoning;
   bool get isGenerating => _isGenerating;
   String? get lastError => _lastError;
   List<TextGenHistoryEntry> get history => List.unmodifiable(_history);
   bool get hasService => _service != null;
   bool get hasOutput => _output.isNotEmpty;
+  bool get hasReasoning => _reasoning.trim().isNotEmpty;
 
   /// Parsed stop strings (newline-separated in the UI; blanks dropped).
   List<String> get stopStrings => _stopStringsRaw
@@ -79,6 +82,8 @@ class TextGenNotifier extends ChangeNotifier {
       _updateParams(_params.copyWith(phraseRepPen: v));
   void setGenerateUntilSentence(bool v) =>
       _updateParams(_params.copyWith(generateUntilSentence: v));
+  void setEnableThinking(bool v) =>
+      _updateParams(_params.copyWith(enableThinking: v));
 
   void _updateParams(TextGenParams next) {
     _params = next;
@@ -94,16 +99,18 @@ class TextGenNotifier extends ChangeNotifier {
 
   void clearOutput() {
     _output = '';
+    _reasoning = '';
     _lastError = null;
     notifyListeners();
   }
 
   /// Moves the current output onto the end of the input — the manual version of
-  /// chunked continuation. Output is then cleared.
+  /// chunked continuation. Output (and reasoning) is then cleared.
   void appendOutputToInput() {
     if (_output.isEmpty) return;
     _input = '$_input$_output';
     _output = '';
+    _reasoning = '';
     notifyListeners();
   }
 
@@ -124,6 +131,7 @@ class TextGenNotifier extends ChangeNotifier {
     _isGenerating = true;
     _lastError = null;
     _output = '';
+    _reasoning = '';
     notifyListeners();
 
     final req = TextGenRequest(
@@ -132,12 +140,48 @@ class TextGenNotifier extends ChangeNotifier {
       params: _params,
       stopStrings: stopStrings.isEmpty ? null : stopStrings,
     );
-
-    final completer = Completer<void>();
     final capturedInput = _input;
     final capturedParams = _params;
     final capturedModel = _model;
 
+    void recordHistory() {
+      if (_output.isEmpty) return;
+      _history.insert(
+        0,
+        TextGenHistoryEntry(
+          input: capturedInput,
+          output: _output,
+          reasoning: _reasoning,
+          params: capturedParams,
+          model: capturedModel,
+          timestamp: DateTime.now(),
+        ),
+      );
+      if (_history.length > _maxHistory) {
+        _history.removeRange(_maxHistory, _history.length);
+      }
+    }
+
+    // Thinking on => take the structured (non-stream) path so we get the
+    // reasoning/answer split cleanly. The stream path can't surface the
+    // reasoning text separately.
+    if (_params.enableThinking) {
+      try {
+        final result = await service.generateStructured(req);
+        _output = result.text;
+        _reasoning = result.reasoning;
+        recordHistory();
+      } on TextGenException catch (te) {
+        _lastError = te.message;
+      } catch (e) {
+        _lastError = e.toString();
+      } finally {
+        _finishGeneration();
+      }
+      return;
+    }
+
+    final completer = Completer<void>();
     _sub = service.generateStream(req).listen(
       (chunk) {
         _output += chunk;
@@ -149,21 +193,7 @@ class TextGenNotifier extends ChangeNotifier {
         if (!completer.isCompleted) completer.complete();
       },
       onDone: () {
-        if (_output.isNotEmpty) {
-          _history.insert(
-            0,
-            TextGenHistoryEntry(
-              input: capturedInput,
-              output: _output,
-              params: capturedParams,
-              model: capturedModel,
-              timestamp: DateTime.now(),
-            ),
-          );
-          if (_history.length > _maxHistory) {
-            _history.removeRange(_maxHistory, _history.length);
-          }
-        }
+        recordHistory();
         _finishGeneration();
         if (!completer.isCompleted) completer.complete();
       },
@@ -195,6 +225,7 @@ class TextGenNotifier extends ChangeNotifier {
     _model = entry.model;
     _params = entry.params;
     _output = entry.output;
+    _reasoning = entry.reasoning;
     _activePresetName = TextGenParams.presetNames.first;
     notifyListeners();
   }

@@ -29,6 +29,7 @@ class _TextGenPanelState extends State<TextGenPanel> {
   final TextEditingController _modelController = TextEditingController();
   final TextEditingController _stopController = TextEditingController();
   bool _paramsExpanded = false;
+  bool _reasoningExpanded = false;
   bool _synced = false;
 
   @override
@@ -371,6 +372,23 @@ class _TextGenPanelState extends State<TextGenPanel> {
             ),
             onChanged: n.setGenerateUntilSentence,
           ),
+          if (isChatStyleModel(n.model)) ...[
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              value: n.params.enableThinking,
+              activeThumbColor: t.accent,
+              title: Text(
+                l.textGenEnableThinking,
+                style: TextStyle(fontSize: t.fontSize(10), color: t.textPrimary),
+              ),
+              subtitle: Text(
+                l.textGenEnableThinkingNote,
+                style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9)),
+              ),
+              onChanged: n.setEnableThinking,
+            ),
+          ],
           const SizedBox(height: 8),
           _label(t, l.textGenStopStrings),
           const SizedBox(height: 6),
@@ -445,6 +463,10 @@ class _TextGenPanelState extends State<TextGenPanel> {
             ],
           ),
           const SizedBox(height: 8),
+          if (n.hasReasoning) ...[
+            _buildReasoningSection(context, n, t),
+            const SizedBox(height: 8),
+          ],
           Expanded(
             child: Container(
               width: double.infinity,
@@ -485,6 +507,75 @@ class _TextGenPanelState extends State<TextGenPanel> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReasoningSection(
+      BuildContext context, TextGenNotifier n, VisionTokens t) {
+    final l = context.l;
+    final reasoning = n.reasoning;
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: t.surfaceMid,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: t.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: () =>
+                setState(() => _reasoningExpanded = !_reasoningExpanded),
+            borderRadius: BorderRadius.circular(4),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(Icons.psychology_outlined,
+                      size: 14, color: t.textMinimal),
+                  const SizedBox(width: 8),
+                  Text(
+                    l.textGenReasoning.toUpperCase(),
+                    style: TextStyle(
+                      color: t.textMinimal,
+                      fontSize: t.fontSize(9),
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  const Spacer(),
+                  Icon(
+                    _reasoningExpanded
+                        ? Icons.expand_less
+                        : Icons.expand_more,
+                    size: 16,
+                    color: t.textMinimal,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_reasoningExpanded)
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 220),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                child: SingleChildScrollView(
+                  child: SelectableText(
+                    reasoning,
+                    style: TextStyle(
+                      color: t.textTertiary,
+                      fontSize: t.fontSize(10),
+                      height: 1.4,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
