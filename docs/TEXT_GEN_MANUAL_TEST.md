@@ -1,69 +1,80 @@
 # Text Generation — manual test checklist
 
-The Text Gen tool (Tools Hub → **Text Gen**) talks to NovelAI's text API
-(`https://text.novelai.net/ai/generate` and `/ai/generate-stream`) using the
-same `pst-` token as image generation. Token-id features (`bad_words_ids`,
-token-array `stop_sequences`, logit bias) are intentionally **out of scope** in
-v1 — only string mode (`use_string: true`) is used.
+The Text Gen tool (Tools Hub → **Text Gen**) talks to NovelAI's text API,
+reusing the same `pst-` token as image generation.
 
-Run this list once a real `pst-` token is configured (Settings → API key).
-Until then, leave it for the user — the automated tests cover the wiring; only
-the live round-trips below need a token.
+NovelAI has **two text APIs** and the panel picks one based on the selected
+model:
 
-> **Status:** _not yet run end-to-end_ — needs a valid `pst-` token. Automated
-> coverage (`flutter test`) passes: param serialization, SSE parsing, client-side
-> stop-string truncation, and the panel widget (Generate/Cancel with a fake
-> service).
+| Models | Transport | Request body | Non-stream response |
+|---|---|---|---|
+| `glm-4-6` (and GLM/"Xialong" finetunes) | `POST {host}/ai/generate` (and `/ai/generate-stream`) | chat-style: `{ model, messages:[{role,content}], temperature, max_tokens, top_p, top_k?, frequency_penalty?, presence_penalty?, min_p?, stop? }` | `{ "choices": [ { "text": "…" } ] }` |
+| `kayra-v1`, `clio-v1`, `llama-3-erato-v1` (legacy) | same paths | `{ input, model, parameters:{ use_string:true, temperature, max_length, min_length, top_k/top_p/top_a/typical_p, tail_free_sampling, repetition_penalty*, phrase_rep_pen, generate_until_sentence, order, force_emotion:false } }` | `{ "output": "…" }` |
 
-## Checklist
+Host routing: `kayra-v1`/`llama-3-erato-v1` → `text.novelai.net`; everything
+else (Clio, GLM) → `api.novelai.net` (the documented legacy alias). Streaming
+events: legacy emits `{"token":"…","ptr":N,"final":bool}`; chat emits
+OpenAI-style `{"choices":[{"delta":{"content":"…"}}]}` chunks (exact shape not
+publicly documented — the SSE parser handles both, and `generateStream` falls
+back to the non-stream `/ai/generate` call if it can't parse a stream).
 
-- [ ] **Happy path (streaming).** Input: `The old lighthouse keeper said,`,
-      model `glm-4-6`, max length `150`. Click **Generate**. → A plausible
-      continuation streams into the Output area visibly token-by-token; the
-      button shows **Cancel** while running, then returns to **Generate**; the
-      result is added to the History list.
+> ⚠️ The GLM chat wire format here is **reverse-engineered from NovelAI's
+> scripting-API docs** (`api.v1.generate` → `messages` + OpenAI-ish params →
+> `choices[0].text`). The exact raw HTTP route/streaming chunk shape isn't
+> officially published. The non-streaming `/ai/generate` path is the primary
+> one; iterate against the debug log (`NaiTextService: /ai/generate failed
+> <code>: <body> (sent: …)`) if a request is rejected.
+>
+> **Status:** _not yet verified end-to-end against a live account._ Automated
+> tests cover the request/response shaping, SSE parsing (legacy + chat chunks),
+> client-side stop-string truncation, and the panel widget with a fake service.
 
-- [ ] **No token set.** Clear the API key in Settings, reopen Text Gen, click
-      **Generate**. → A clear error ("NovelAI token not set — add it in
-      Settings."), no crash, `isGenerating` returns to false.
+## Checklist (needs a valid `pst-` token in Settings)
 
-- [ ] **Bad token → 401.** Set an obviously invalid token (e.g. `pst-bogus`),
-      click **Generate**. → Clear "NovelAI rejected the token (401)…" error, no
-      crash.
+- [ ] **GLM happy path.** Input `The old lighthouse keeper said,`, model
+      `glm-4-6`, max length `150` → a plausible continuation appears in the
+      Output area (streamed if the server streams, otherwise as one chunk),
+      and it lands in the History list.
 
-- [ ] **Long output on a capped tier.** With a free/Tablet token, set max length
-      to `400` and **Generate**. → Either the request returns short output (tier
-      cap) or a clear 402/403-style "your NovelAI subscription tier may not allow
-      …" message. No crash, no infinite spinner.
+- [ ] **No token set.** Clear the API key, click **Generate** → clear "NovelAI
+      token not set" error, no crash, spinner clears.
 
-- [ ] **Cancel mid-stream.** Start a generation, click **Cancel** while tokens
-      are still arriving. → Stream stops, the partial output stays in the Output
-      area, `isGenerating` is false, and no further tokens append afterwards.
+- [ ] **Bad token → 401.** Set `pst-bogus`, **Generate** → clear "NovelAI
+      rejected the token (401)…" message.
 
-- [ ] **Continue.** After a successful generation, click **Continue** (the
-      `↵`-style button in the Output toolbar). → The previous output is appended
-      to the Input field, the Output area clears, and a new generation runs from
-      the extended prompt.
+- [ ] **Server-message surfacing.** If anything 4xx's, the snackbar/inline error
+      shows the server's `message` field, and the debug console prints
+      `NaiTextService: …failed <code>: <body> (sent: …)`. Paste that back if it
+      fails — it tells us exactly which field/route the server didn't like.
 
-- [ ] **Stop string.** Open **Parameters**, turn **Generate until sentence end**
-      OFF, put `.` in the Stop strings box, then **Generate** from something like
-      `She opened the door`. → Output is truncated at the first period (client-
-      side), nothing after it appears.
+- [ ] **Long output on a capped tier.** With a free/Tablet token, max length
+      `400`, **Generate** → either short output (tier cap) or a clear 402/403
+      message; no crash, no hang.
 
-- [ ] **Copy.** With output present, click **Copy** → snackbar "Copied to
-      clipboard" and the clipboard holds the output text.
+- [ ] **Cancel mid-stream.** Start a generation, **Cancel** while tokens arrive
+      → stream stops, partial output retained, `isGenerating` false, nothing
+      appends afterwards.
 
-- [ ] **Presets.** Switch the **Preset** dropdown to "Deterministic (low temp)" →
-      temperature slider drops to ~0.6. Switch back → 1.0.
+- [ ] **Continue.** After a generation, click **Continue** → previous output is
+      appended to Input, Output clears, a new generation runs from the extended
+      prompt.
 
-- [ ] **Custom model.** Pick **Custom…** in the model dropdown, type a NovelAI
-      finetune id (e.g. their "Xialong" GLM-4.6 variant id from the NovelAI docs)
-      and **Generate**. → Request uses that model id; works or returns a clear
-      error if the id is wrong.
+- [ ] **Stop string.** Parameters → turn **Generate until sentence end** off
+      (legacy models) / leave default (GLM passes `stop`), put `.` in Stop
+      strings, **Generate** from `She opened the door` → output truncated at the
+      first period (client-side, regardless of model).
 
-- [ ] **History restore.** Click a History entry → Input/model/params/output are
-      restored into the panel.
+- [ ] **Legacy model.** Switch model to `kayra-v1` or `clio-v1` and **Generate**
+      → uses the `{input, parameters}` body; works on tiers that still allow it,
+      or returns a clear error (NovelAI is deprecating Kayra for subscribers).
 
-- [ ] **Non-stream path.** (Code review note, not a UI step.) `NaiTextService.generate()`
-      hits `/ai/generate` directly and returns `output`, stripping an echoed
-      `input` prefix if the deployment includes one.
+- [ ] **Custom model.** Model dropdown → **Custom…**, type a GLM finetune id
+      (e.g. NovelAI's "Xialong" variant from their docs) → name pattern routes
+      it through the chat path.
+
+- [ ] **Copy.** With output present, **Copy** → "Copied to clipboard" snackbar +
+      clipboard holds the text.
+
+- [ ] **Presets / history.** Preset → "Deterministic (low temp)" drops
+      temperature to 0.6; clicking a History entry restores
+      input/model/params/output.

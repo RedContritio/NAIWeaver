@@ -163,6 +163,45 @@ void main() {
       ];
       expect(drain(p, chunks), ['good']);
     });
+
+    test('parses chat-completions delta chunks', () {
+      final p = SseTextParser();
+      final chunks = [
+        'data: {"choices":[{"delta":{"content":"Hello"}}]}\n\n',
+        'data: {"choices":[{"delta":{"content":" there"}}]}\n\n',
+        'data: {"choices":[{"delta":{"content":"!"},"finish_reason":"stop"}]}\n\n',
+      ];
+      expect(drain(p, chunks), ['Hello', ' there', '!']);
+    });
+
+    test('parses chat chunks that carry "text" instead of "delta"', () {
+      final p = SseTextParser();
+      final chunks = [
+        'data: {"choices":[{"text":"a"}]}\n\n',
+        'data: {"choices":[{"text":"b","finish_reason":"length"}]}\n\n',
+      ];
+      expect(drain(p, chunks), ['a', 'b']);
+    });
+
+    test('chat stream terminated by [DONE]', () {
+      final p = SseTextParser();
+      final chunks = [
+        'data: {"choices":[{"delta":{"content":"x"}}]}\n\n',
+        'data: [DONE]\n\n',
+        'data: {"choices":[{"delta":{"content":"y"}}]}\n\n',
+      ];
+      expect(drain(p, chunks), ['x']);
+    });
+
+    test('an error-only event ends the stream', () {
+      final p = SseTextParser();
+      final chunks = [
+        'data: {"token":"partial","final":false}\n\n',
+        'data: {"error":"end of stream"}\n\n',
+        'data: {"token":"never","final":false}\n\n',
+      ];
+      expect(drain(p, chunks), ['partial']);
+    });
   });
 
   group('client-side stop strings', () {

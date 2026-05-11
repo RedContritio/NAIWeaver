@@ -34,7 +34,8 @@ class TextGenException implements Exception {
       : 'TextGenException($statusCode): $message';
 }
 
-/// `phrase_rep_pen` enum values accepted by the NovelAI text API.
+/// `phrase_rep_pen` enum values accepted by the legacy (Kayra/Clio/Erato) text
+/// API. Not used by GLM-style chat models.
 const List<String> kPhraseRepPenOptions = <String>[
   'off',
   'very_light',
@@ -46,8 +47,10 @@ const List<String> kPhraseRepPenOptions = <String>[
 
 /// Model ids known to work with the NovelAI text API.
 ///
-/// The panel also allows a free-text override, since NovelAI ships new
-/// finetunes (e.g. their "Xialong" GLM-4.6 variant) under ids that change.
+/// `glm-4-6` (and NovelAI's "Xialong" GLM-4.6 finetune) use a chat/completions
+/// style body; `kayra-v1` / `clio-v1` / `llama-3-erato-v1` use the legacy
+/// `{input, parameters}` body. The panel also allows a free-text override since
+/// NovelAI ships new finetunes under ids that change.
 const List<String> kKnownTextModels = <String>[
   'glm-4-6',
   'llama-3-erato-v1',
@@ -57,49 +60,79 @@ const List<String> kKnownTextModels = <String>[
 
 const String kDefaultTextModel = 'glm-4-6';
 
-/// All tunable sampling parameters for a text-generation request.
+/// True if [model] should be driven via the chat/completions-style API
+/// (`messages` + OpenAI-ish params, response `choices[0].text`) rather than the
+/// legacy `{input, parameters}` text-completion API.
 ///
-/// Field names map 1:1 onto the NovelAI `parameters` object. Defaults match
-/// NovelAI's documented neutral values; [use_string] is always true in v1.
-class TextGenParams {
-  /// Accept/return plain strings instead of token-id arrays. Always true in v1.
-  final bool useString;
+/// Currently that's the GLM family; NovelAI's docs say only models that use the
+/// "OpenAI-like completions endpoint" support this path. New chat-style ids can
+/// be picked up by name pattern.
+bool isChatStyleModel(String model) {
+  final m = model.toLowerCase().trim();
+  return m.startsWith('glm') ||
+      m.contains('xialong') ||
+      m.contains('chat');
+}
 
+/// One message in a chat-style request.
+class ChatMessage {
+  /// `system` | `user` | `assistant`.
+  final String role;
+  final String content;
+  const ChatMessage(this.role, this.content);
+
+  Map<String, dynamic> toJson() => {'role': role, 'content': content};
+}
+
+/// Tunable sampling parameters.
+///
+/// Covers both the legacy `parameters` object (Kayra/Clio/Erato) and the
+/// chat-style params (GLM). Only the relevant subset is serialized for each
+/// transport — see [toLegacyParametersJson] and [toChatJson].
+class TextGenParams {
+  // — Shared / chat-style —
   final double temperature;
 
-  /// Output length in tokens. Free/Tablet tiers cap this around ~150;
-  /// Scroll/Opus allow much more. Exposed in the UI; default 150.
+  /// Output length in tokens. Maps to `max_length` (legacy) / `max_tokens`
+  /// (chat). Free/Tablet tiers cap this lower than Scroll/Opus.
   final int maxLength;
   final int minLength;
-
   final int topK;
   final double topP;
+
+  /// Chat-only: OpenAI-style frequency penalty (≈ legacy
+  /// `repetition_penalty_frequency`).
+  final double frequencyPenalty;
+
+  /// Chat-only: OpenAI-style presence penalty (≈ legacy
+  /// `repetition_penalty_presence`).
+  final double presencePenalty;
+
+  /// Chat-only: min-p sampling cutoff (0 disables).
+  final double minP;
+
+  // — Legacy-only —
   final double topA;
   final double typicalP;
   final double tailFreeSampling;
-
   final double repetitionPenalty;
   final int repetitionPenaltyRange;
   final double repetitionPenaltySlope;
   final double repetitionPenaltyFrequency;
   final double repetitionPenaltyPresence;
-
-  /// One of [kPhraseRepPenOptions].
   final String phraseRepPen;
-
-  final bool bracketBan;
   final bool generateUntilSentence;
-
-  /// Sampler order. Default `[0,1,2,3]`.
   final List<int> order;
 
   const TextGenParams({
-    this.useString = true,
     this.temperature = 1.0,
     this.maxLength = 150,
     this.minLength = 1,
     this.topK = 0,
     this.topP = 1.0,
+    this.frequencyPenalty = 0.0,
+    this.presencePenalty = 0.0,
+    this.minP = 0.0,
     this.topA = 1.0,
     this.typicalP = 1.0,
     this.tailFreeSampling = 1.0,
@@ -109,20 +142,17 @@ class TextGenParams {
     this.repetitionPenaltyFrequency = 0.0,
     this.repetitionPenaltyPresence = 0.0,
     this.phraseRepPen = 'aggressive',
-    this.bracketBan = true,
     this.generateUntilSentence = true,
     this.order = const [0, 1, 2, 3],
   });
 
-  /// NovelAI's neutral GLM preset (also the default).
+  /// Neutral GLM defaults (also the overall default).
   factory TextGenParams.glmDefault() => const TextGenParams();
 
   /// A low-temperature / more deterministic variant.
-  factory TextGenParams.deterministic() => const TextGenParams(
-        temperature: 0.6,
-      );
+  factory TextGenParams.deterministic() =>
+      const TextGenParams(temperature: 0.6);
 
-  /// Named presets surfaced in the panel's preset dropdown.
   static const List<String> presetNames = <String>[
     'GLM Default',
     'Deterministic (low temp)',
@@ -139,12 +169,14 @@ class TextGenParams {
   }
 
   TextGenParams copyWith({
-    bool? useString,
     double? temperature,
     int? maxLength,
     int? minLength,
     int? topK,
     double? topP,
+    double? frequencyPenalty,
+    double? presencePenalty,
+    double? minP,
     double? topA,
     double? typicalP,
     double? tailFreeSampling,
@@ -154,17 +186,18 @@ class TextGenParams {
     double? repetitionPenaltyFrequency,
     double? repetitionPenaltyPresence,
     String? phraseRepPen,
-    bool? bracketBan,
     bool? generateUntilSentence,
     List<int>? order,
   }) {
     return TextGenParams(
-      useString: useString ?? this.useString,
       temperature: temperature ?? this.temperature,
       maxLength: maxLength ?? this.maxLength,
       minLength: minLength ?? this.minLength,
       topK: topK ?? this.topK,
       topP: topP ?? this.topP,
+      frequencyPenalty: frequencyPenalty ?? this.frequencyPenalty,
+      presencePenalty: presencePenalty ?? this.presencePenalty,
+      minP: minP ?? this.minP,
       topA: topA ?? this.topA,
       typicalP: typicalP ?? this.typicalP,
       tailFreeSampling: tailFreeSampling ?? this.tailFreeSampling,
@@ -178,20 +211,20 @@ class TextGenParams {
       repetitionPenaltyPresence:
           repetitionPenaltyPresence ?? this.repetitionPenaltyPresence,
       phraseRepPen: phraseRepPen ?? this.phraseRepPen,
-      bracketBan: bracketBan ?? this.bracketBan,
       generateUntilSentence:
           generateUntilSentence ?? this.generateUntilSentence,
       order: order ?? this.order,
     );
   }
 
-  /// Serializes to the exact `parameters` shape the NovelAI text API expects.
+  /// The legacy `parameters` object for `kayra-v1` / `clio-v1` /
+  /// `llama-3-erato-v1` on `POST /ai/generate(-stream)`.
   ///
-  /// Token-id features (`bad_words_ids`, `stop_sequences`) are emitted as empty
-  /// arrays — they're out of scope for v1's string-only mode but the API still
-  /// accepts the keys.
-  Map<String, dynamic> toJson() => {
-        'use_string': useString,
+  /// Matches the shape SillyTavern sends (and the NovelAI Swagger
+  /// `AiGenerateParameters`). `use_string` is always true in v1; token-id
+  /// features (`bad_words_ids`, token-array `stop_sequences`) are omitted.
+  Map<String, dynamic> toLegacyParametersJson() => {
+        'use_string': true,
         'temperature': temperature,
         'max_length': maxLength,
         'min_length': minLength,
@@ -206,9 +239,44 @@ class TextGenParams {
         'repetition_penalty_frequency': repetitionPenaltyFrequency,
         'repetition_penalty_presence': repetitionPenaltyPresence,
         'phrase_rep_pen': phraseRepPen,
-        'bad_words_ids': const <List<int>>[],
-        'stop_sequences': const <List<int>>[],
-        'bracket_ban': bracketBan,
+        'generate_until_sentence': generateUntilSentence,
+        'order': order,
+        // Required by the Swagger schema for the legacy endpoint.
+        'force_emotion': false,
+      };
+
+  /// The chat-style param fields merged into the top-level request body for GLM
+  /// models (NovelAI's docs: `{ model, temperature?, max_tokens?, top_p?,
+  /// top_k?, frequency_penalty?, presence_penalty?, min_p?, stop? }`).
+  Map<String, dynamic> toChatJson() => {
+        'temperature': temperature,
+        'max_tokens': maxLength,
+        'top_p': topP,
+        if (topK > 0) 'top_k': topK,
+        if (frequencyPenalty != 0.0) 'frequency_penalty': frequencyPenalty,
+        if (presencePenalty != 0.0) 'presence_penalty': presencePenalty,
+        if (minP > 0.0) 'min_p': minP,
+      };
+
+  /// Serialization used by tests / history: a stable superset of all fields.
+  Map<String, dynamic> toJson() => {
+        'temperature': temperature,
+        'max_length': maxLength,
+        'min_length': minLength,
+        'top_k': topK,
+        'top_p': topP,
+        'frequency_penalty': frequencyPenalty,
+        'presence_penalty': presencePenalty,
+        'min_p': minP,
+        'top_a': topA,
+        'typical_p': typicalP,
+        'tail_free_sampling': tailFreeSampling,
+        'repetition_penalty': repetitionPenalty,
+        'repetition_penalty_range': repetitionPenaltyRange,
+        'repetition_penalty_slope': repetitionPenaltySlope,
+        'repetition_penalty_frequency': repetitionPenaltyFrequency,
+        'repetition_penalty_presence': repetitionPenaltyPresence,
+        'phrase_rep_pen': phraseRepPen,
         'generate_until_sentence': generateUntilSentence,
         'order': order,
       };
@@ -230,12 +298,14 @@ class TextGenParams {
     }
 
     return TextGenParams(
-      useString: b('use_string', true),
       temperature: d('temperature', 1.0),
-      maxLength: i('max_length', 150),
+      maxLength: i('max_length', i('max_tokens', 150)),
       minLength: i('min_length', 1),
       topK: i('top_k', 0),
       topP: d('top_p', 1.0),
+      frequencyPenalty: d('frequency_penalty', 0.0),
+      presencePenalty: d('presence_penalty', 0.0),
+      minP: d('min_p', 0.0),
       topA: d('top_a', 1.0),
       typicalP: d('typical_p', 1.0),
       tailFreeSampling: d('tail_free_sampling', 1.0),
@@ -247,10 +317,12 @@ class TextGenParams {
       phraseRepPen: (json['phrase_rep_pen'] is String)
           ? json['phrase_rep_pen'] as String
           : 'aggressive',
-      bracketBan: b('bracket_ban', true),
       generateUntilSentence: b('generate_until_sentence', true),
       order: (json['order'] is List)
-          ? (json['order'] as List).whereType<num>().map((e) => e.toInt()).toList()
+          ? (json['order'] as List)
+              .whereType<num>()
+              .map((e) => e.toInt())
+              .toList()
           : const [0, 1, 2, 3],
     );
   }
@@ -258,19 +330,25 @@ class TextGenParams {
 
 /// A single text-generation request.
 ///
-/// [stopStrings] is a *client-side* post-process: as output accumulates, the
-/// first occurrence of any stop string truncates the result and ends the stream.
-/// (v1 doesn't use token-id `stop_sequences`.)
+/// [input] is the raw text. For chat-style models it becomes a single
+/// `{role: 'user', content: input}` message (plus [systemPrompt] as a leading
+/// `system` message if non-empty); for legacy models it's sent verbatim as
+/// `input`. NAI text models *continue* text — they don't follow chat turns —
+/// so the default mapping is deliberately a single user message, not a
+/// multi-turn conversation.
+///
+/// [stopStrings] is a *client-side* post-process (the chat API does take a
+/// `stop` array, which we also forward, but the client-side truncation is the
+/// reliable v1 behaviour).
 class TextGenRequest {
-  /// The full raw prompt as one text block. NAI text models continue text —
-  /// they don't follow chat turns.
   final String input;
   final String model;
   final TextGenParams params;
   final List<String>? stopStrings;
+  final String systemPrompt;
 
-  /// Whether to return the echoed `input` prepended to the output. Defaults to
-  /// false — we only want the continuation.
+  /// Whether to keep the echoed `input` if the server prepends it (legacy
+  /// endpoint only echoes when asked; defaults to false — continuation only).
   final bool returnFullText;
 
   const TextGenRequest({
@@ -278,15 +356,36 @@ class TextGenRequest {
     this.model = kDefaultTextModel,
     this.params = const TextGenParams(),
     this.stopStrings,
+    this.systemPrompt = '',
     this.returnFullText = false,
   });
 
-  /// The JSON body for `POST /ai/generate` (and `/ai/generate-stream`).
-  Map<String, dynamic> toJson() => {
+  bool get isChatStyle => isChatStyleModel(model);
+
+  List<ChatMessage> get messages => [
+        if (systemPrompt.trim().isNotEmpty) ChatMessage('system', systemPrompt),
+        ChatMessage('user', input),
+      ];
+
+  /// JSON body for a legacy `{input, model, parameters}` request.
+  Map<String, dynamic> toLegacyJson() => {
         'input': input,
         'model': model,
-        'parameters': params.toJson(),
+        'parameters': params.toLegacyParametersJson(),
       };
+
+  /// JSON body for a GLM-style chat request.
+  Map<String, dynamic> toChatJson() => {
+        'model': model,
+        'messages': messages.map((m) => m.toJson()).toList(),
+        ...params.toChatJson(),
+        if (stopStrings != null && stopStrings!.isNotEmpty)
+          'stop': stopStrings!.where((s) => s.isNotEmpty).toList(),
+      };
+
+  /// Picks the right body for [model].
+  Map<String, dynamic> toJson() =>
+      isChatStyle ? toChatJson() : toLegacyJson();
 
   /// Returns the index of the earliest stop string in [text], or -1 if none of
   /// [stopStrings] occur. Empty stop strings are ignored.
@@ -320,7 +419,35 @@ class TextGenHistoryEntry {
   });
 }
 
-/// Result of parsing a NovelAI text SSE event.
+/// Pulls the generated continuation out of a parsed response body, handling
+/// both the legacy `{"output": "..."}` shape and the chat `{"choices":[{"text"|
+/// "message":{"content"}}]}` shape. Returns null if nothing usable is found.
+String? extractGeneratedText(dynamic decoded) {
+  if (decoded is! Map) return decoded is String ? decoded : null;
+  // Legacy text-completion shape.
+  final out = decoded['output'];
+  if (out is String && out.isNotEmpty) return out;
+  // Chat/completions shape.
+  final choices = decoded['choices'];
+  if (choices is List && choices.isNotEmpty) {
+    final c0 = choices.first;
+    if (c0 is Map) {
+      final text = c0['text'];
+      if (text is String) return text;
+      final msg = c0['message'];
+      if (msg is Map && msg['content'] is String) return msg['content'] as String;
+      final delta = c0['delta'];
+      if (delta is Map && delta['content'] is String) {
+        return delta['content'] as String;
+      }
+    }
+  }
+  // Some streamed shapes nest token text directly.
+  if (decoded['token'] is String) return decoded['token'] as String;
+  return null;
+}
+
+/// Result of parsing one SSE event from a NovelAI text stream.
 class SseEvent {
   final String token;
   final bool isFinal;
@@ -331,43 +458,38 @@ class SseEvent {
   static const SseEvent empty = SseEvent();
 }
 
-/// Incremental parser for NovelAI's text `generate-stream` Server-Sent Events.
+/// Incremental parser for NovelAI text streams (`/ai/generate-stream`).
 ///
-/// The wire format is loosely:
-/// ```
-/// event: newToken
-/// data: {"token":"...", "ptr":<int>, "final":<bool>}
+/// Tolerates the messiness of real SSE: `data:` with or without a leading
+/// space, multi-line `data:` values, blank-line event terminators, `[DONE]`
+/// sentinels, comment/`event:`/`id:` lines, and a non-streamed plain-JSON body
+/// (`{"output":...}` or `{"choices":[...]}`) that some deployments return
+/// instead of an event stream.
 ///
-/// ```
-/// but real deployments are messy: `data:` may or may not have a leading space,
-/// events are separated by blank lines, `[DONE]` may appear as a sentinel, and
-/// some deployments just return a plain `{"output":"..."}` body instead of a
-/// stream. This parser tolerates all of that.
-///
-/// Feed it raw chunk strings via [addChunk]; it returns the [SseEvent]s that
-/// completed within (and across) those chunks. Multi-line `data:` values are
-/// concatenated. A flush of any trailing buffered line happens in [finish].
+/// Recognised event payloads:
+/// * legacy text: `{"token":"...","ptr":N,"final":bool}`
+/// * chat-completions chunk: `{"choices":[{"delta":{"content":"..."}}]}` or
+///   `{"choices":[{"text":"..."}]}`
+/// * one-shot: `{"output":"..."}` (treated as a single final token)
 class SseTextParser {
   final StringBuffer _buf = StringBuffer();
-  // Accumulated `data:` payload lines for the event currently being assembled.
   final List<String> _dataLines = [];
 
-  /// Feeds a raw chunk of the response body and returns any events that
-  /// completed. A blank line (event terminator) flushes the pending event.
+  /// Feeds a raw chunk of the response body; returns events that completed.
   List<SseEvent> addChunk(String chunk) {
     _buf.write(chunk);
     final text = _buf.toString();
     _buf.clear();
 
     final out = <SseEvent>[];
-    // Split on \n. `split` always yields a trailing element after the final
-    // separator: for "a\n" that's "" (a spurious empty fragment, NOT a blank
-    // line), for "a\nb" (no trailing \n) that's "b" (a partial line to
-    // re-buffer). Either way the last fragment is held back here.
+    // `split('\n')` always yields a trailing element after the final separator:
+    // for "a\n" that's "" (a spurious empty fragment, NOT a blank line); for
+    // "a\nb" that's "b" (a partial line). Either way the last fragment is held
+    // back here — re-buffered if the chunk didn't end with '\n', dropped if it
+    // did.
     final parts = text.split('\n');
     final lastIsPartial = !text.endsWith('\n');
     final lineCount = parts.length - 1;
-
     for (int i = 0; i < lineCount; i++) {
       final raw = parts[i];
       final line = raw.endsWith('\r') ? raw.substring(0, raw.length - 1) : raw;
@@ -381,26 +503,23 @@ class SseTextParser {
   /// Flushes any pending event (e.g. a final `data:` line with no trailing
   /// blank line). Returns the event if one was pending, else null.
   SseEvent? finish() {
-    // Treat any leftover buffered text as a final line.
     if (_buf.isNotEmpty) {
       final leftover = _buf.toString();
       _buf.clear();
-      final ev = _consumeLine(
-          leftover.endsWith('\r') ? leftover.substring(0, leftover.length - 1) : leftover);
+      final ev = _consumeLine(leftover.endsWith('\r')
+          ? leftover.substring(0, leftover.length - 1)
+          : leftover);
       if (ev != null) return ev;
     }
     return _flushEvent();
   }
 
-  // Returns a completed event when [line] terminates one (blank line), else null.
   SseEvent? _consumeLine(String line) {
-    if (line.isEmpty) {
-      return _flushEvent();
-    }
-    // Comments / heartbeats.
-    if (line.startsWith(':')) return null;
-    // `event:` / `id:` / `retry:` lines — irrelevant to us.
-    if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+    if (line.isEmpty) return _flushEvent();
+    if (line.startsWith(':')) return null; // comment / heartbeat
+    if (line.startsWith('event:') ||
+        line.startsWith('id:') ||
+        line.startsWith('retry:')) {
       return null;
     }
     if (line.startsWith('data:')) {
@@ -409,7 +528,6 @@ class SseTextParser {
       _dataLines.add(payload);
       return null;
     }
-    // A bare line that is itself JSON or a sentinel (some servers omit `data:`).
     final trimmed = line.trim();
     if (trimmed == '[DONE]') {
       _dataLines.clear();
@@ -430,14 +548,43 @@ class SseTextParser {
     try {
       final decoded = json.decode(joined);
       if (decoded is Map<String, dynamic>) {
-        // Streaming token event.
+        // An `error` field usually means end-of-stream (legacy behaviour).
+        // We surface it as a terminal empty event; the caller logs the body.
+        if (decoded['error'] is String &&
+            (decoded['error'] as String).isNotEmpty &&
+            !decoded.containsKey('token') &&
+            !decoded.containsKey('choices')) {
+          return const SseEvent(isFinal: true);
+        }
+        // Legacy token event.
         if (decoded.containsKey('token')) {
           return SseEvent(
             token: decoded['token']?.toString() ?? '',
             isFinal: decoded['final'] == true,
           );
         }
-        // Non-streaming-style payload that slipped into the stream.
+        // Chat-completions chunk.
+        final choices = decoded['choices'];
+        if (choices is List && choices.isNotEmpty) {
+          final c0 = choices.first;
+          String tok = '';
+          var fin = false;
+          if (c0 is Map) {
+            final delta = c0['delta'];
+            if (delta is Map && delta['content'] is String) {
+              tok = delta['content'] as String;
+            } else if (c0['text'] is String) {
+              tok = c0['text'] as String;
+            } else if (c0['message'] is Map &&
+                (c0['message'] as Map)['content'] is String) {
+              tok = (c0['message'] as Map)['content'] as String;
+            }
+            final fr = c0['finish_reason'];
+            if (fr != null && fr != false) fin = true;
+          }
+          return SseEvent(token: tok, isFinal: fin);
+        }
+        // One-shot body that slipped into the stream.
         if (decoded.containsKey('output')) {
           return SseEvent(
             token: decoded['output']?.toString() ?? '',
