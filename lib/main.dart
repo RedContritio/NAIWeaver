@@ -65,11 +65,16 @@ class _AppWindowListener extends WindowListener {
     try {
       final bounds = await windowManager.getBounds();
       final maximized = await windowManager.isMaximized();
-      await _prefs.saveWindowState(
-        x: bounds.left, y: bounds.top,
-        w: bounds.width, h: bounds.height,
-        maximized: maximized,
-      );
+      // Don't persist a degenerate rect (can happen if the window was minimized
+      // or mid-animation when closing) — it would make the next launch's window
+      // invisible.
+      if (bounds.width >= 400 && bounds.height >= 300) {
+        await _prefs.saveWindowState(
+          x: bounds.left, y: bounds.top,
+          w: bounds.width, h: bounds.height,
+          maximized: maximized,
+        );
+      }
     } catch (_) {}
     await windowManager.destroy();
   }
@@ -92,12 +97,33 @@ void main() {
   if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
     await windowManager.ensureInitialized();
     final saved = preferencesService.windowBounds;
-    if (saved != null) {
-      await windowManager.setBounds(Rect.fromLTWH(saved.x, saved.y, saved.w, saved.h));
+    // Only restore a saved rect if it's sane — a stale/garbage value (zero or
+    // negative size, or a position far off any plausible screen) would leave
+    // the window invisible. Otherwise fall back to a sensible default + center.
+    final bool savedIsSane = saved != null &&
+        saved.w >= 400 &&
+        saved.h >= 300 &&
+        saved.w <= 16384 &&
+        saved.h <= 16384 &&
+        saved.x > -16384 &&
+        saved.x < 16384 &&
+        saved.y > -16384 &&
+        saved.y < 16384;
+    if (savedIsSane) {
+      await windowManager.setBounds(
+          Rect.fromLTWH(saved.x, saved.y, saved.w, saved.h));
+    } else {
+      await windowManager.setSize(const Size(1280, 800));
+      await windowManager.center();
     }
     if (preferencesService.windowMaximized) {
       await windowManager.maximize();
     }
+    // Make sure the window is actually visible and frontmost regardless of what
+    // was restored — guards against an off-screen restore on a now-disconnected
+    // monitor.
+    await windowManager.show();
+    await windowManager.focus();
     windowManager.setPreventClose(true);
     windowManager.addListener(_AppWindowListener(preferencesService));
   }
