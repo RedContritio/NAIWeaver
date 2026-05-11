@@ -50,6 +50,7 @@ class PresetNotifier extends ChangeNotifier {
   final WildcardService _wildcardService;
   final String _presetsFilePath;
   final VoidCallback onPresetsChanged;
+  final List<DanbooruTag> Function(String query)? characterSuggestionsFor;
 
   final TextEditingController nameController = TextEditingController();
   final TextEditingController promptController = TextEditingController();
@@ -61,6 +62,7 @@ class PresetNotifier extends ChangeNotifier {
     required List<GenerationPreset> initialPresets,
     required String presetsFilePath,
     required this.onPresetsChanged,
+    this.characterSuggestionsFor,
   }) : _tagService = tagService,
        _wildcardService = wildcardService,
        _presetsFilePath = presetsFilePath {
@@ -217,6 +219,7 @@ class PresetNotifier extends ChangeNotifier {
       tagService: _tagService,
       supportFavorites: true,
       wildcardService: _wildcardService,
+      characterSuggestionsFor: characterSuggestionsFor,
     );
     _state = _state.copyWith(
       tagSuggestions: result.suggestions,

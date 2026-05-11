@@ -12,6 +12,12 @@ class DanbooruTag {
   final List<String> aliases;
   final String? matchedAlias;
 
+  /// For `typeName == 'saved_character'`: the pre-expanded tag string inserted
+  /// at the cursor when this suggestion is picked (body tags + outfit tags via
+  /// concealment, comma-joined; `nsfw` appended if dishevelled). Null for
+  /// ordinary tags / wildcards.
+  final String? expansion;
+
   DanbooruTag({
     required this.tag,
     required this.count,
@@ -20,6 +26,7 @@ class DanbooruTag {
     this.examplePaths = const [],
     this.aliases = const [],
     this.matchedAlias,
+    this.expansion,
   });
 
   DanbooruTag copyWith({
@@ -30,6 +37,7 @@ class DanbooruTag {
     List<String>? examplePaths,
     List<String>? aliases,
     String? Function()? matchedAlias,
+    String? Function()? expansion,
   }) {
     return DanbooruTag(
       tag: tag ?? this.tag,
@@ -39,6 +47,7 @@ class DanbooruTag {
       examplePaths: examplePaths ?? this.examplePaths,
       aliases: aliases ?? this.aliases,
       matchedAlias: matchedAlias != null ? matchedAlias() : this.matchedAlias,
+      expansion: expansion != null ? expansion() : this.expansion,
     );
   }
 

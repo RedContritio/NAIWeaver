@@ -14,6 +14,7 @@ import '../../director_ref/models/director_reference.dart';
 import '../../director_ref/services/reference_image_processor.dart';
 import '../../generation/models/nai_character.dart';
 import '../../generation/providers/generation_notifier.dart';
+import '../../characters/providers/character_library_notifier.dart';
 import '../providers/preset_notifier.dart';
 
 class PresetManager extends StatelessWidget {
@@ -22,6 +23,7 @@ class PresetManager extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final genNotifier = context.watch<GenerationNotifier>();
+    final charLib = context.read<CharacterLibraryNotifier>();
 
     return ChangeNotifierProvider(
       create: (_) => PresetNotifier(
@@ -30,6 +32,7 @@ class PresetManager extends StatelessWidget {
         initialPresets: genNotifier.state.presets,
         presetsFilePath: genNotifier.presetsFilePath,
         onPresetsChanged: () => genNotifier.refreshPresets(),
+        characterSuggestionsFor: (q) => charLib.suggestionTags(q),
       ),
       child: const _PresetManagerContent(),
     );

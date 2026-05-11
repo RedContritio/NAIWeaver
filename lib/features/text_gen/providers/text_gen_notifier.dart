@@ -41,6 +41,10 @@ class TextGenNotifier extends ChangeNotifier {
   String? get lastError => _lastError;
   List<TextGenHistoryEntry> get history => List.unmodifiable(_history);
   bool get hasService => _service != null;
+
+  /// The injected text-gen service (null until an API key is present). Exposed
+  /// for callers like the wardrobe generator that need to drive it directly.
+  TextGenService? get service => _service;
   bool get hasOutput => _output.isNotEmpty;
   bool get hasReasoning => _reasoning.trim().isNotEmpty;
 

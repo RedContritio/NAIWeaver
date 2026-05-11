@@ -21,6 +21,7 @@ import 'enhance/widgets/enhance_editor.dart';
 import 'widgets/references_manager.dart';
 import 'ml/widgets/ml_models_manager.dart';
 import '../text_gen/widgets/text_gen_panel.dart';
+import '../characters/widgets/characters_page.dart';
 
 class ToolsHubScreen extends StatefulWidget {
   final String? initialToolId;
@@ -69,6 +70,7 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
       ToolItem(id: 'presets', name: l.toolsPresets.toUpperCase(), icon: Icons.tune),
       ToolItem(id: 'styles', name: l.toolsStyles.toUpperCase(), icon: Icons.auto_awesome),
       ToolItem(id: 'director_ref', name: l.toolsReferences.toUpperCase(), icon: Icons.photo_library),
+      ToolItem(id: 'characters', name: 'CHARACTERS', icon: Icons.people_alt),
       ToolItem(id: 'cascade', name: l.toolsCascadeEditor.toUpperCase(), icon: Icons.movie_filter),
       ToolItem(id: 'img2img', name: l.toolsImg2imgEditor.toUpperCase(), icon: Icons.brush),
       ToolItem(id: 'director_tools', name: l.toolsDirectorTools.toUpperCase(), icon: Icons.auto_fix_high),
@@ -288,6 +290,8 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
         return StyleEditor(initialStyleName: widget.initialStyleName);
       case 'director_ref':
         return const ReferencesManager();
+      case 'characters':
+        return const CharactersPage();
       case 'cascade':
         return const CascadeEditor();
       case 'img2img':

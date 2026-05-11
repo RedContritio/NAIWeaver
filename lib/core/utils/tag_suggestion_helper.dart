@@ -22,12 +22,19 @@ class TagSuggestionHelper {
   ///
   /// When [wildcardService] is provided, typing `__` triggers wildcard
   /// auto-completion (e.g. `__hair` suggests `__hairstyles__`).
+  /// [characterSuggestionsFor] is an optional callback returning saved-character
+  /// autocomplete entries that match a query (each a [DanbooruTag] with
+  /// `typeName == 'saved_character'` and `expansion` set). They are slotted in
+  /// just above the ordinary danbooru tag suggestions (favorited wildcards stay
+  /// on top in the `__` flow; in the normal flow there are no wildcards, so
+  /// characters lead).
   static TagSuggestionResult getSuggestions({
     required String text,
     required TextSelection selection,
     required TagService tagService,
     bool supportFavorites = false,
     WildcardService? wildcardService,
+    List<DanbooruTag> Function(String query)? characterSuggestionsFor,
   }) {
     if (!selection.isValid || selection.baseOffset != selection.extentOffset) {
       return TagSuggestionResult.empty;
@@ -73,6 +80,12 @@ class TagSuggestionHelper {
       );
     }
 
+    // Saved-character matches (≥2 chars). Slotted in just above the ordinary
+    // danbooru tag suggestions in the normal-typing flow.
+    final charMatches = (characterSuggestionsFor != null && lookupWord.length >= 2)
+        ? characterSuggestionsFor(lookupWord)
+        : const <DanbooruTag>[];
+
     // Category prefix detection (e.g. "artist:moj" or "artist:")
     final lowerWord = lookupWord.toLowerCase();
     for (final entry in _categoryPrefixes.entries) {
@@ -95,7 +108,7 @@ class TagSuggestionHelper {
           count: 0,
           typeName: 'category_shortcut',
         );
-        final List<DanbooruTag> results = [shortcut];
+        final List<DanbooruTag> results = [shortcut, ...charMatches];
         // Also include normal suggestions if >= min length
         final catMinLength = TagService.containsNonAscii(lookupWord) ? 1 : 3;
         if (lookupWord.length >= catMinLength) {
@@ -111,9 +124,13 @@ class TagSuggestionHelper {
     final minLength = TagService.containsNonAscii(lookupWord) ? 1 : 3;
     if (lookupWord.length >= minLength) {
       return TagSuggestionResult(
-        suggestions: tagService.getSuggestions(lookupWord),
+        suggestions: [...charMatches, ...tagService.getSuggestions(lookupWord)],
         query: currentWord,
       );
+    }
+    if (charMatches.isNotEmpty) {
+      // 2-char query that's too short for tag lookup but matched a character.
+      return TagSuggestionResult(suggestions: charMatches, query: currentWord);
     }
 
     return TagSuggestionResult.empty;
@@ -138,6 +155,21 @@ class TagSuggestionHelper {
     // Shortcut insertion (e.g. "artist:") — insert without trailing comma
     if (tag.typeName == 'category_shortcut') {
       final newBeforeCursor = "$prefix$spacer${tag.tag}";
+      controller.value = TextEditingValue(
+        text: newBeforeCursor + afterCursor,
+        selection: TextSelection.collapsed(offset: newBeforeCursor.length),
+      );
+      return;
+    }
+
+    // Saved-character expansion: insert the pre-expanded tag block (body tags +
+    // outfit tags through concealment, with `nsfw` if dishevelled), not the
+    // bracketed label. Falls back to the label if no expansion was attached.
+    if (tag.typeName == 'saved_character') {
+      final expansion = (tag.expansion != null && tag.expansion!.trim().isNotEmpty)
+          ? tag.expansion!.trim()
+          : tag.tag;
+      final newBeforeCursor = "$prefix$spacer$expansion, ";
       controller.value = TextEditingValue(
         text: newBeforeCursor + afterCursor,
         selection: TextSelection.collapsed(offset: newBeforeCursor.length),

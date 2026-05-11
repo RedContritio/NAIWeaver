@@ -52,6 +52,7 @@ class StyleNotifier extends ChangeNotifier {
   final WildcardService _wildcardService;
   final String _stylesFilePath;
   final VoidCallback onStylesChanged;
+  final List<DanbooruTag> Function(String query)? characterSuggestionsFor;
 
   final TextEditingController nameController = TextEditingController();
   final TextEditingController contentController = TextEditingController();
@@ -63,6 +64,7 @@ class StyleNotifier extends ChangeNotifier {
     required String stylesFilePath,
     required this.onStylesChanged,
     String? initialStyleName,
+    this.characterSuggestionsFor,
   }) : _tagService = tagService,
        _wildcardService = wildcardService,
        _stylesFilePath = stylesFilePath {
@@ -236,6 +238,7 @@ class StyleNotifier extends ChangeNotifier {
       tagService: _tagService,
       supportFavorites: true,
       wildcardService: _wildcardService,
+      characterSuggestionsFor: characterSuggestionsFor,
     );
     _state = _state.copyWith(
       tagSuggestions: result.suggestions,

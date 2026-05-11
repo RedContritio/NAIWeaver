@@ -36,6 +36,7 @@ import '../../vibe_transfer/providers/vibe_transfer_notifier.dart';
 import '../../tools/director_tools/providers/director_tools_notifier.dart';
 import '../../tools/enhance/providers/enhance_notifier.dart';
 import '../../text_gen/providers/text_gen_notifier.dart';
+import '../../characters/providers/character_library_notifier.dart';
 import 'package:dio/dio.dart';
 import '../services/metadata_import_service.dart';
 import '../services/session_snapshot_service.dart';
@@ -235,6 +236,7 @@ class GenerationNotifier extends ChangeNotifier {
   DirectorToolsNotifier? _directorToolsNotifier;
   EnhanceNotifier? _enhanceNotifier;
   TextGenNotifier? _textGenNotifier;
+  CharacterLibraryNotifier? _characterLibrary;
   NaiTextService _textService = NaiTextService('');
 
   // Extracted services
@@ -274,11 +276,13 @@ class GenerationNotifier extends ChangeNotifier {
     required String presetsFilePath,
     required String stylesFilePath,
     GalleryNotifier? galleryNotifier,
+    CharacterLibraryNotifier? characterLibrary,
   }) : _prefs = preferences,
        _tagService = tagService,
        _wildcardService = wildcardService,
        _outputDir = outputDir,
-       _galleryNotifier = galleryNotifier {
+       _galleryNotifier = galleryNotifier,
+       _characterLibrary = characterLibrary {
     _service = NovelAIService('');
     _wildcardProcessor = WildcardProcessor(wildcardDir: wildcardService.wildcardDir, wildcardService: _wildcardService);
     _presetService = PresetFileService(presetsFilePath: presetsFilePath, stylesFilePath: stylesFilePath);
@@ -292,6 +296,10 @@ class GenerationNotifier extends ChangeNotifier {
 
   void updateGalleryNotifier(GalleryNotifier galleryNotifier) {
     _galleryNotifier = galleryNotifier;
+  }
+
+  void updateCharacterLibraryNotifier(CharacterLibraryNotifier notifier) {
+    _characterLibrary = notifier;
   }
 
   void updateDirectorRefNotifier(DirectorRefNotifier notifier) {
@@ -1016,6 +1024,9 @@ class GenerationNotifier extends ChangeNotifier {
         tagService: _tagService,
         supportFavorites: true,
         wildcardService: _wildcardService,
+        characterSuggestionsFor: _characterLibrary == null
+            ? null
+            : (q) => _characterLibrary!.suggestionTags(q),
       );
       _state = _state.copyWith(
         tagSuggestions: result.suggestions,

@@ -48,6 +48,9 @@ import 'features/tools/slideshow/providers/slideshow_notifier.dart';
 import 'features/tools/director_tools/providers/director_tools_notifier.dart';
 import 'features/tools/enhance/providers/enhance_notifier.dart';
 import 'features/text_gen/providers/text_gen_notifier.dart';
+import 'features/characters/providers/character_library_notifier.dart';
+import 'features/characters/services/character_library_service.dart';
+import 'features/characters/services/closet_service.dart';
 import 'core/widgets/tag_suggestion_overlay.dart';
 import 'core/jukebox/providers/jukebox_notifier.dart';
 import 'core/jukebox/services/jukebox_audio_handler.dart';
@@ -134,6 +137,9 @@ void main() {
   final tagService = TagService(filePath: paths.tagFilePath);
   final wildcardService = WildcardService(wildcardDir: paths.wildcardDir);
   final wikiService = WikiService();
+  final characterLibraryService =
+      CharacterLibraryService(charactersDir: paths.charactersDir);
+  final closetService = ClosetService(charactersDir: paths.charactersDir);
 
   JukeboxAudioHandler? audioHandler;
   if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
@@ -194,6 +200,12 @@ void main() {
         ChangeNotifierProvider(
           create: (_) => TextGenNotifier(),
         ),
+        ChangeNotifierProvider(
+          create: (_) => CharacterLibraryNotifier(
+            service: characterLibraryService,
+            closetService: closetService,
+          )..loadAll(),
+        ),
         Provider<TagService>.value(value: tagService),
         Provider<WildcardService>.value(value: wildcardService),
         Provider<WikiService>.value(value: wikiService),
@@ -206,6 +218,8 @@ void main() {
             presetsFilePath: paths.presetsFilePath,
             stylesFilePath: paths.stylesFilePath,
             galleryNotifier: Provider.of<GalleryNotifier>(context, listen: false),
+            characterLibrary:
+                Provider.of<CharacterLibraryNotifier>(context, listen: false),
           ),
           update: (context, gallery, directorRef, vibeTransfer, directorTools, enhance, textGen, previous) {
             previous?.updateGalleryNotifier(gallery);

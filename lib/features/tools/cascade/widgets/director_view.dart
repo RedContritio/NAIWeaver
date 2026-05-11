@@ -8,6 +8,7 @@ import '../../../../core/utils/tag_suggestion_helper.dart';
 import '../../../../core/widgets/tag_suggestion_overlay.dart';
 import '../providers/cascade_notifier.dart';
 import '../models/cascade_beat.dart';
+import '../../../characters/providers/character_library_notifier.dart';
 import '../../../generation/widgets/nai_grid_selector.dart';
 import '../../../generation/widgets/action_interaction_sheet.dart';
 import '../../../generation/models/nai_character.dart';
@@ -90,6 +91,7 @@ class _DirectorViewState extends State<DirectorView> {
       return;
     }
     final wildcardService = context.read<GenerationNotifier>().wildcardService;
+    final charLib = context.read<CharacterLibraryNotifier>();
     _debounce = Timer(const Duration(milliseconds: 150), () {
       if (!mounted) return;
       final result = TagSuggestionHelper.getSuggestions(
@@ -97,6 +99,7 @@ class _DirectorViewState extends State<DirectorView> {
         selection: controller.selection,
         tagService: tagService,
         wildcardService: wildcardService,
+        characterSuggestionsFor: (q) => charLib.suggestionTags(q),
       );
       setState(() => _suggestions = result.suggestions);
     });

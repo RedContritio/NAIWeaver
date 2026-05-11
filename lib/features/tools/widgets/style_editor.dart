@@ -8,6 +8,7 @@ import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/tag_suggestion_overlay.dart';
 import '../../../core/services/styles.dart';
 import '../../generation/providers/generation_notifier.dart';
+import '../../characters/providers/character_library_notifier.dart';
 import '../providers/style_notifier.dart';
 
 class StyleEditor extends StatelessWidget {
@@ -17,6 +18,7 @@ class StyleEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final genNotifier = context.watch<GenerationNotifier>();
+    final charLib = context.read<CharacterLibraryNotifier>();
 
     return ChangeNotifierProvider(
       create: (_) => StyleNotifier(
@@ -26,6 +28,7 @@ class StyleEditor extends StatelessWidget {
         stylesFilePath: genNotifier.stylesFilePath,
         onStylesChanged: () => genNotifier.refreshStyles(),
         initialStyleName: initialStyleName,
+        characterSuggestionsFor: (q) => charLib.suggestionTags(q),
       ),
       child: _StyleEditorContent(hasInitialStyle: initialStyleName != null),
     );

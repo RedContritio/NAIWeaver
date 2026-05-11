@@ -4,6 +4,7 @@ import '../../../core/theme/theme_extensions.dart';
 import '../../../core/widgets/tag_suggestion_overlay.dart';
 import '../../../core/services/tag_service.dart';
 import '../providers/generation_notifier.dart';
+import '../../characters/providers/character_library_notifier.dart';
 import '../models/nai_character.dart';
 import 'nai_grid_selector.dart';
 
@@ -38,6 +39,7 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
   bool _saved = false;
   bool _deleted = false;
   TagService? _tagService;
+  CharacterLibraryNotifier? _characterLibrary;
 
   @override
   void initState() {
@@ -56,6 +58,7 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _tagService ??= context.read<GenerationNotifier>().tagService;
+    _characterLibrary ??= context.read<CharacterLibraryNotifier>();
   }
 
   void _updatePromptSuggestions() {
@@ -72,7 +75,8 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
       if (_promptSuggestions.isNotEmpty) setState(() => _promptSuggestions = []);
       return;
     }
-    final suggestions = _tagService!.getSuggestions(lastPart);
+    final charMatches = _characterLibrary?.suggestionTags(lastPart) ?? const [];
+    final suggestions = [...charMatches, ..._tagService!.getSuggestions(lastPart)];
     setState(() => _promptSuggestions = suggestions);
   }
 
@@ -95,7 +99,11 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
   }
 
   void _onTagSelected(TextEditingController controller, DanbooruTag tag) {
-    final insertText = tag.matchedAlias ?? tag.tag;
+    final insertText = tag.typeName == 'saved_character'
+        ? ((tag.expansion != null && tag.expansion!.trim().isNotEmpty)
+            ? tag.expansion!.trim()
+            : tag.tag)
+        : (tag.matchedAlias ?? tag.tag);
     final currentText = controller.text;
     final parts = currentText.split(',');
     parts.removeLast();
