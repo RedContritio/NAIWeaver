@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -8,19 +9,25 @@ import 'text_gen_service.dart';
 
 /// NovelAI text-generation backend.
 ///
-/// Talks to `text.novelai.net` / `api.novelai.net` (the legacy alias) using the
-/// same `pst-` bearer token as image gen. Picks the request shape from the
-/// model: GLM-style models get a chat/completions body (`messages` + OpenAI-ish
-/// params, response `choices[0].text`); Kayra/Clio/Erato get the legacy
-/// `{input, model, parameters}` body (response `{"output": "..."}`).
+/// Two transports, picked from the model:
+/// * **GLM / Xialong** → `POST text.novelai.net/oa/v1/completions`
+///   (NovelAI's OpenAI-compatible "completions" endpoint — body
+///   `{prompt, model, max_tokens, temperature, top_p, [top_k, min_p,
+///   frequency_penalty, presence_penalty, stop], stream}`; non-stream response
+///   `{"choices":[{"text":"…"}]}`; stream is SSE `data: {"choices":[{"text":
+///   "…"}]}` lines ending with `data: [DONE]`).
+/// * **Kayra / Clio / Erato** (legacy) → `POST text.novelai.net/ai/generate(-stream)`
+///   (body `{input, model, parameters:{…}}`; response `{"output":"…"}`; stream
+///   is SSE `data: {"token":"…","ptr":N,"final":bool}`).
 ///
-/// Mirrors [NovelAIService]'s timeouts + light retry on transient 5xx/429.
+/// Same `pst-` bearer token as image gen. Mirrors [NovelAIService]'s timeouts +
+/// light retry on transient 5xx/429.
 class NaiTextService implements TextGenService {
-  static const String _base = 'https://text.novelai.net';
-  static const String _legacyAlias = 'https://api.novelai.net';
+  static const String _textHost = 'https://text.novelai.net';
 
   final Dio _dio = Dio();
   final String _apiKey;
+  final Random _rng = Random();
 
   NaiTextService(this._apiKey) {
     _dio.options.connectTimeout = const Duration(seconds: 60);
@@ -38,25 +45,37 @@ class NaiTextService implements TextGenService {
   @override
   String get providerId => 'novelai';
 
-  Map<String, String> get _headers => {
-        'Authorization': 'Bearer $_apiKey',
-        'Content-Type': 'application/json',
-        'Accept': 'application/json, text/event-stream',
-      };
+  // ─── URLs ─────────────────────────────────────────────────────────────────
 
-  /// Host to use for a given model. Kayra/Erato live on `text.novelai.net`;
-  /// everything else (Clio, GLM) is served by the legacy `api.novelai.net`
-  /// alias — both are documented to work, this just matches NovelAI's own
-  /// routing.
-  String _hostFor(String model) {
-    final m = model.toLowerCase();
-    if (m.contains('kayra') || m.contains('erato')) return _base;
-    return _legacyAlias;
+  String _urlFor(String model, {required bool stream}) {
+    if (isChatStyleModel(model)) {
+      // NovelAI's OpenAI-compatible completions endpoint. Streaming is toggled
+      // by `"stream": true` in the body, not a separate path.
+      return '$_textHost/oa/v1/completions';
+    }
+    return stream
+        ? '$_textHost/ai/generate-stream'
+        : '$_textHost/ai/generate';
   }
 
-  String _generateUrl(String model) => '${_hostFor(model)}/ai/generate';
-  String _generateStreamUrl(String model) =>
-      '${_hostFor(model)}/ai/generate-stream';
+  // ─── headers ──────────────────────────────────────────────────────────────
+
+  String _correlationId() {
+    const alphabet =
+        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    return String.fromCharCodes(
+        List.generate(6, (_) => alphabet.codeUnitAt(_rng.nextInt(alphabet.length))));
+  }
+
+  Map<String, String> _headers({required bool stream}) => {
+        'Authorization': 'Bearer $_apiKey',
+        'Content-Type': 'application/json',
+        'Accept': stream
+            ? 'text/event-stream, application/json'
+            : 'application/json',
+        'x-correlation-id': _correlationId(),
+        'x-initiated-at': DateTime.now().toUtc().toIso8601String(),
+      };
 
   void _requireToken() {
     if (_apiKey.trim().isEmpty) {
@@ -74,28 +93,37 @@ class NaiTextService implements TextGenService {
     return code == 429 || (code != null && code >= 500 && code < 600);
   }
 
+  Map<String, dynamic> _bodyFor(TextGenRequest req, {required bool stream}) {
+    return req.isChatStyle
+        ? req.toCompletionsJson(stream: stream)
+        : req.toLegacyJson();
+  }
+
   // ─── non-streaming ────────────────────────────────────────────────────────
 
   @override
   Future<String> generate(TextGenRequest req) async {
     _requireToken();
-    final body = req.toJson();
+    final url = _urlFor(req.model, stream: false);
+    final body = _bodyFor(req, stream: false);
     for (int attempt = 0; attempt < 3; attempt++) {
       try {
         final response = await _dio.post(
-          _generateUrl(req.model),
+          url,
           data: body,
-          options: Options(headers: _headers, responseType: ResponseType.json),
+          options: Options(
+              headers: _headers(stream: false),
+              responseType: ResponseType.json),
         );
         return _extractOutput(response.data, req);
       } on DioException catch (e) {
         if (_isRetryable(e) && attempt < 2) {
-          debugPrint('NaiTextService: retry ${attempt + 1} for generate');
+          debugPrint('NaiTextService: retry ${attempt + 1} for $url');
           await Future.delayed(Duration(seconds: (attempt + 1) * 2));
           continue;
         }
         final bodyStr = await _readBodyString(e.response?.data);
-        debugPrint('NaiTextService: /ai/generate failed '
+        debugPrint('NaiTextService: POST $url failed '
             '${e.response?.statusCode}: $bodyStr  (sent: ${jsonEncode(body)})');
         throw _exceptionForDio(e, bodyStr);
       }
@@ -103,7 +131,6 @@ class NaiTextService implements TextGenService {
     throw StateError('unreachable');
   }
 
-  /// Pulls the continuation text out of a non-stream response body.
   String _extractOutput(dynamic data, TextGenRequest req) {
     dynamic decoded = data;
     if (data is String) {
@@ -119,11 +146,8 @@ class NaiTextService implements TextGenService {
       return _extractOutput(utf8.decode(data, allowMalformed: true), req);
     }
 
-    // If the body carried an explicit error message, surface it.
     if (decoded is Map && decoded['error'] is String) {
       final err = (decoded['error'] as String).trim();
-      // An empty/"end of stream" error alongside no output is benign-ish; only
-      // throw if there's actually nothing usable.
       final text = extractGeneratedText(decoded);
       if ((text == null || text.isEmpty) && err.isNotEmpty) {
         throw TextGenException('NovelAI generation error: $err');
@@ -150,16 +174,15 @@ class NaiTextService implements TextGenService {
     StreamSubscription<List<int>>? sub;
     var cancelled = false;
     var emittedAnything = false;
-    final body = req.toJson();
+    final url = _urlFor(req.model, stream: true);
+    final body = _bodyFor(req, stream: true);
 
     Future<void> fallbackToNonStream(Object? streamError) async {
       if (cancelled || controller.isClosed) return;
       try {
         final out = await generate(req);
         if (!cancelled && !controller.isClosed) {
-          if (out.isNotEmpty) {
-            controller.add(out);
-          }
+          if (out.isNotEmpty) controller.add(out);
           await controller.close();
         }
       } on TextGenException catch (te) {
@@ -180,9 +203,11 @@ class NaiTextService implements TextGenService {
     Future<void> run() async {
       try {
         final response = await _dio.post<ResponseBody>(
-          _generateStreamUrl(req.model),
+          url,
           data: body,
-          options: Options(headers: _headers, responseType: ResponseType.stream),
+          options: Options(
+              headers: _headers(stream: true),
+              responseType: ResponseType.stream),
         );
 
         final rb = response.data;
@@ -232,7 +257,7 @@ class NaiTextService implements TextGenService {
         }
 
         final decoder = const Utf8Decoder(allowMalformed: true);
-        final bodyBytes = <int>[]; // kept in case the body is plain JSON
+        final bodyBytes = <int>[];
         final completer = Completer<void>();
         sub = rb.stream.listen(
           (bytes) {
@@ -268,15 +293,14 @@ class NaiTextService implements TextGenService {
           return;
         }
 
-        // Nothing came through as SSE — maybe the server returned a plain JSON
-        // body (chat one-shot, or just doesn't stream for this model). Try to
-        // parse what we buffered, then fall back to /ai/generate.
         if (!emittedAnything) {
+          // Nothing came through as SSE — maybe the server returned a plain
+          // JSON body (some deployments don't stream). Try to parse what we
+          // buffered, then fall back to the non-stream call.
           final raw = utf8.decode(bodyBytes, allowMalformed: true).trim();
-          if ((!looksLikeStream || raw.startsWith('{') || raw.startsWith('['))) {
+          if (!looksLikeStream || raw.startsWith('{') || raw.startsWith('[')) {
             try {
-              final decoded = json.decode(raw);
-              final out = extractGeneratedText(decoded);
+              final out = extractGeneratedText(json.decode(raw));
               if (out != null && out.isNotEmpty) {
                 var text = out;
                 if (!req.returnFullText &&
@@ -301,8 +325,7 @@ class NaiTextService implements TextGenService {
         final bodyStr = await _readBodyString(e.response?.data);
         if (e.response?.statusCode == 200 && bodyStr != null) {
           try {
-            final decoded = json.decode(bodyStr.trim());
-            final out = extractGeneratedText(decoded);
+            final out = extractGeneratedText(json.decode(bodyStr.trim()));
             if (out != null && out.isNotEmpty && !controller.isClosed) {
               controller.add(out);
               await controller.close();
@@ -310,18 +333,17 @@ class NaiTextService implements TextGenService {
             }
           } catch (_) {}
         }
-        debugPrint('NaiTextService: /ai/generate-stream failed '
+        debugPrint('NaiTextService: POST $url failed '
             '${e.response?.statusCode}: $bodyStr  (sent: ${jsonEncode(body)})');
-        // If we never streamed anything, the non-stream endpoint might still
-        // work (or give a clearer error) — but only if this wasn't an auth/
-        // billing rejection, which would just repeat.
         final code = e.response?.statusCode;
+        // For ambiguous server-side errors (not auth/billing/bad-request), the
+        // non-stream endpoint might still work — try it once.
         if (!emittedAnything &&
+            code != 400 &&
             code != 401 &&
             code != 402 &&
             code != 403 &&
-            code != null &&
-            code != 400) {
+            code != null) {
           await fallbackToNonStream(_exceptionForDio(e, bodyStr));
           return;
         }
@@ -352,8 +374,6 @@ class NaiTextService implements TextGenService {
 
   // ─── error helpers ────────────────────────────────────────────────────────
 
-  /// Builds a clear, typed [TextGenException] from a [DioException] given the
-  /// already-materialized response body string.
   TextGenException _exceptionForDio(DioException e, String? body) {
     final code = e.response?.statusCode;
     final detail = _serverMessage(body) ?? _trimBody(body);
@@ -400,8 +420,7 @@ class NaiTextService implements TextGenService {
   }
 
   /// Materializes a response body into a string, draining a `ResponseBody`
-  /// stream if necessary (which is what Dio leaves there for `ResponseType
-  /// .stream` requests). Never throws.
+  /// stream if necessary. Never throws.
   Future<String?> _readBodyString(dynamic data) async {
     if (data == null) return null;
     try {

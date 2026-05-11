@@ -47,12 +47,14 @@ const List<String> kPhraseRepPenOptions = <String>[
 
 /// Model ids known to work with the NovelAI text API.
 ///
-/// `glm-4-6` (and NovelAI's "Xialong" GLM-4.6 finetune) use a chat/completions
-/// style body; `kayra-v1` / `clio-v1` / `llama-3-erato-v1` use the legacy
+/// `glm-4-6` / `glm-4-5` / `xialong-v1` use the OpenAI-compatible completions
+/// endpoint; `kayra-v1` / `clio-v1` / `llama-3-erato-v1` use the legacy
 /// `{input, parameters}` body. The panel also allows a free-text override since
 /// NovelAI ships new finetunes under ids that change.
 const List<String> kKnownTextModels = <String>[
   'glm-4-6',
+  'glm-4-5',
+  'xialong-v1',
   'llama-3-erato-v1',
   'kayra-v1',
   'clio-v1',
@@ -74,21 +76,12 @@ bool isChatStyleModel(String model) {
       m.contains('chat');
 }
 
-/// One message in a chat-style request.
-class ChatMessage {
-  /// `system` | `user` | `assistant`.
-  final String role;
-  final String content;
-  const ChatMessage(this.role, this.content);
-
-  Map<String, dynamic> toJson() => {'role': role, 'content': content};
-}
-
 /// Tunable sampling parameters.
 ///
 /// Covers both the legacy `parameters` object (Kayra/Clio/Erato) and the
-/// chat-style params (GLM). Only the relevant subset is serialized for each
-/// transport — see [toLegacyParametersJson] and [toChatJson].
+/// OpenAI-compatible completions params (GLM/Xialong). Only the relevant subset
+/// is serialized for each transport — see [toLegacyParametersJson] and
+/// [TextGenRequest.toCompletionsJson].
 class TextGenParams {
   // — Shared / chat-style —
   final double temperature;
@@ -245,9 +238,9 @@ class TextGenParams {
         'force_emotion': false,
       };
 
-  /// The chat-style param fields merged into the top-level request body for GLM
-  /// models (NovelAI's docs: `{ model, temperature?, max_tokens?, top_p?,
-  /// top_k?, frequency_penalty?, presence_penalty?, min_p?, stop? }`).
+  /// The OpenAI-completions param fields for GLM/Xialong. (The full body is
+  /// assembled by [TextGenRequest.toCompletionsJson]; this is just the param
+  /// subset, kept for tests/inspection.)
   Map<String, dynamic> toChatJson() => {
         'temperature': temperature,
         'max_tokens': maxLength,
@@ -330,16 +323,17 @@ class TextGenParams {
 
 /// A single text-generation request.
 ///
-/// [input] is the raw text. For chat-style models it becomes a single
-/// `{role: 'user', content: input}` message (plus [systemPrompt] as a leading
-/// `system` message if non-empty); for legacy models it's sent verbatim as
-/// `input`. NAI text models *continue* text — they don't follow chat turns —
-/// so the default mapping is deliberately a single user message, not a
-/// multi-turn conversation.
+/// [input] is the raw text the model should continue. NAI text models
+/// *continue* text — they don't follow chat turns. For GLM-style models we send
+/// it as the `prompt` of NovelAI's OpenAI-compatible **completions** endpoint
+/// (`POST text.novelai.net/oa/v1/completions`); for legacy models (Kayra/Clio/
+/// Erato) it's the `input` of `POST text.novelai.net/ai/generate`.
 ///
-/// [stopStrings] is a *client-side* post-process (the chat API does take a
-/// `stop` array, which we also forward, but the client-side truncation is the
-/// reliable v1 behaviour).
+/// [systemPrompt], if set, is prepended to the prompt (the completions endpoint
+/// has no separate system role).
+///
+/// [stopStrings] is forwarded as the `stop` array (GLM) and *also* enforced
+/// client-side (the reliable v1 behaviour, and the only one for legacy models).
 class TextGenRequest {
   final String input;
   final String model;
@@ -347,8 +341,8 @@ class TextGenRequest {
   final List<String>? stopStrings;
   final String systemPrompt;
 
-  /// Whether to keep the echoed `input` if the server prepends it (legacy
-  /// endpoint only echoes when asked; defaults to false — continuation only).
+  /// Whether to keep the echoed `input` if the server prepends it (defaults to
+  /// false — we only want the continuation).
   final bool returnFullText;
 
   const TextGenRequest({
@@ -362,30 +356,46 @@ class TextGenRequest {
 
   bool get isChatStyle => isChatStyleModel(model);
 
-  List<ChatMessage> get messages => [
-        if (systemPrompt.trim().isNotEmpty) ChatMessage('system', systemPrompt),
-        ChatMessage('user', input),
-      ];
+  /// The full prompt string (system prefix + input).
+  String get prompt =>
+      systemPrompt.trim().isEmpty ? input : '${systemPrompt.trim()}\n$input';
 
-  /// JSON body for a legacy `{input, model, parameters}` request.
+  List<String>? get cleanStops {
+    final s = stopStrings;
+    if (s == null) return null;
+    final out = s.where((x) => x.isNotEmpty).toList();
+    return out.isEmpty ? null : out;
+  }
+
+  /// JSON body for a legacy `{input, model, parameters}` request
+  /// (`/ai/generate(-stream)`, Kayra/Clio/Erato).
   Map<String, dynamic> toLegacyJson() => {
         'input': input,
         'model': model,
         'parameters': params.toLegacyParametersJson(),
       };
 
-  /// JSON body for a GLM-style chat request.
-  Map<String, dynamic> toChatJson() => {
+  /// JSON body for the OpenAI-compatible completions endpoint
+  /// (`/oa/v1/completions`, GLM/Xialong). [stream] toggles SSE.
+  Map<String, dynamic> toCompletionsJson({bool stream = false}) => {
+        'prompt': prompt,
         'model': model,
-        'messages': messages.map((m) => m.toJson()).toList(),
-        ...params.toChatJson(),
-        if (stopStrings != null && stopStrings!.isNotEmpty)
-          'stop': stopStrings!.where((s) => s.isNotEmpty).toList(),
+        'max_tokens': params.maxLength,
+        'temperature': params.temperature,
+        'top_p': params.topP,
+        if (params.topK > 0) 'top_k': params.topK,
+        if (params.minP > 0.0) 'min_p': params.minP,
+        if (params.frequencyPenalty != 0.0)
+          'frequency_penalty': params.frequencyPenalty,
+        if (params.presencePenalty != 0.0)
+          'presence_penalty': params.presencePenalty,
+        if (cleanStops != null) 'stop': cleanStops,
+        'stream': stream,
       };
 
-  /// Picks the right body for [model].
+  /// Picks the right *non-stream* body for [model] (used by [toJson] and tests).
   Map<String, dynamic> toJson() =>
-      isChatStyle ? toChatJson() : toLegacyJson();
+      isChatStyle ? toCompletionsJson(stream: false) : toLegacyJson();
 
   /// Returns the index of the earliest stop string in [text], or -1 if none of
   /// [stopStrings] occur. Empty stop strings are ignored.

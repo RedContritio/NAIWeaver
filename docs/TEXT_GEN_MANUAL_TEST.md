@@ -1,80 +1,75 @@
 # Text Generation — manual test checklist
 
 The Text Gen tool (Tools Hub → **Text Gen**) talks to NovelAI's text API,
-reusing the same `pst-` token as image generation.
+reusing the same `pst-` token as image generation. There are **two transports**,
+picked from the selected model:
 
-NovelAI has **two text APIs** and the panel picks one based on the selected
-model:
+| Models | Endpoint | Request body | Non-stream response | Stream |
+|---|---|---|---|---|
+| `glm-4-6`, `glm-4-5`, `xialong-v1` (and other GLM/Xialong/chat ids) | `POST text.novelai.net/oa/v1/completions` | `{ prompt, model, max_tokens, temperature, top_p, [top_k, min_p, frequency_penalty, presence_penalty, stop], stream }` | `{ "choices": [ { "text": "…" } ] }` | SSE: `data: {"choices":[{"text":"…"}]}` lines, ending `data: [DONE]` |
+| `kayra-v1`, `clio-v1`, `llama-3-erato-v1` (legacy) | `POST text.novelai.net/ai/generate` (`-stream` for SSE) | `{ input, model, parameters: { use_string:true, temperature, max_length, min_length, top_k/top_p/top_a/typical_p, tail_free_sampling, repetition_penalty*, phrase_rep_pen, generate_until_sentence, order, force_emotion:false } }` | `{ "output": "…" }` | SSE: `data: {"token":"…","ptr":N,"final":bool}` |
 
-| Models | Transport | Request body | Non-stream response |
-|---|---|---|---|
-| `glm-4-6` (and GLM/"Xialong" finetunes) | `POST {host}/ai/generate` (and `/ai/generate-stream`) | chat-style: `{ model, messages:[{role,content}], temperature, max_tokens, top_p, top_k?, frequency_penalty?, presence_penalty?, min_p?, stop? }` | `{ "choices": [ { "text": "…" } ] }` |
-| `kayra-v1`, `clio-v1`, `llama-3-erato-v1` (legacy) | same paths | `{ input, model, parameters:{ use_string:true, temperature, max_length, min_length, top_k/top_p/top_a/typical_p, tail_free_sampling, repetition_penalty*, phrase_rep_pen, generate_until_sentence, order, force_emotion:false } }` | `{ "output": "…" }` |
+Headers on every request: `Authorization: Bearer <pst- token>`, `Content-Type:
+application/json`, plus `x-correlation-id` / `x-initiated-at` (matching NovelAI's
+own client). NAI text models *continue* text — the panel sends the input as the
+`prompt` (a single text block), not a chat conversation.
 
-Host routing: `kayra-v1`/`llama-3-erato-v1` → `text.novelai.net`; everything
-else (Clio, GLM) → `api.novelai.net` (the documented legacy alias). Streaming
-events: legacy emits `{"token":"…","ptr":N,"final":bool}`; chat emits
-OpenAI-style `{"choices":[{"delta":{"content":"…"}}]}` chunks (exact shape not
-publicly documented — the SSE parser handles both, and `generateStream` falls
-back to the non-stream `/ai/generate` call if it can't parse a stream).
-
-> ⚠️ The GLM chat wire format here is **reverse-engineered from NovelAI's
-> scripting-API docs** (`api.v1.generate` → `messages` + OpenAI-ish params →
-> `choices[0].text`). The exact raw HTTP route/streaming chunk shape isn't
-> officially published. The non-streaming `/ai/generate` path is the primary
-> one; iterate against the debug log (`NaiTextService: /ai/generate failed
-> <code>: <body> (sent: …)`) if a request is rejected.
+> Sources for the GLM/`/oa/` route + body shape: NovelAI's published
+> `script-types.d.ts` (`GenerationParams` / `GenerationChoice` / `model:
+> "glm-4-6" | "xialong-v1"`), the `GALIAIS/NovelAI2api` Go bridge
+> (`POST {textBase}/oa/v1/completions` with `{prompt, model, max_tokens,
+> temperature, top_p, stop, stream}` → `{choices:[{text}]}`, SSE `data:` lines +
+> `[DONE]`), and the NovelAI Swagger spec for the legacy `/ai/generate` body.
+> SillyTavern / `Aedial/novelai-api` / `LlmKira/novelai-python` don't implement
+> the GLM route yet.
 >
-> **Status:** _not yet verified end-to-end against a live account._ Automated
-> tests cover the request/response shaping, SSE parsing (legacy + chat chunks),
-> client-side stop-string truncation, and the panel widget with a fake service.
+> **Status:** _route + body verified against docs/clients; not yet run
+> end-to-end against a live account._ Automated tests cover request/response
+> shaping (both transports), SSE parsing (legacy `{token}` + OpenAI `{choices}`
+> chunks), client-side stop-string truncation, and the panel widget with a fake
+> service.
 
 ## Checklist (needs a valid `pst-` token in Settings)
 
 - [ ] **GLM happy path.** Input `The old lighthouse keeper said,`, model
       `glm-4-6`, max length `150` → a plausible continuation appears in the
-      Output area (streamed if the server streams, otherwise as one chunk),
-      and it lands in the History list.
+      Output area (streamed if the server streams, otherwise as one chunk) and
+      lands in the History list.
 
-- [ ] **No token set.** Clear the API key, click **Generate** → clear "NovelAI
-      token not set" error, no crash, spinner clears.
+- [ ] **No token set.** Clear the API key, **Generate** → clear "NovelAI token
+      not set" error, no crash, spinner clears.
 
 - [ ] **Bad token → 401.** Set `pst-bogus`, **Generate** → clear "NovelAI
       rejected the token (401)…" message.
 
-- [ ] **Server-message surfacing.** If anything 4xx's, the snackbar/inline error
-      shows the server's `message` field, and the debug console prints
-      `NaiTextService: …failed <code>: <body> (sent: …)`. Paste that back if it
-      fails — it tells us exactly which field/route the server didn't like.
+- [ ] **Server-message surfacing.** On any 4xx, the inline error / snackbar
+      shows the server's `message`, and the debug console prints
+      `NaiTextService: POST <url> failed <code>: <body>  (sent: <body>)`. Paste
+      that back if a request fails.
 
-- [ ] **Long output on a capped tier.** With a free/Tablet token, max length
-      `400`, **Generate** → either short output (tier cap) or a clear 402/403
-      message; no crash, no hang.
+- [ ] **Long output on a capped tier.** Free/Tablet token, max length `400`,
+      **Generate** → either short output (tier cap) or a clear 402/403 message;
+      no crash, no hang.
 
 - [ ] **Cancel mid-stream.** Start a generation, **Cancel** while tokens arrive
       → stream stops, partial output retained, `isGenerating` false, nothing
       appends afterwards.
 
-- [ ] **Continue.** After a generation, click **Continue** → previous output is
-      appended to Input, Output clears, a new generation runs from the extended
-      prompt.
+- [ ] **Continue.** After a generation, **Continue** → previous output appended
+      to Input, Output cleared, new generation runs from the extended prompt.
 
-- [ ] **Stop string.** Parameters → turn **Generate until sentence end** off
-      (legacy models) / leave default (GLM passes `stop`), put `.` in Stop
-      strings, **Generate** from `She opened the door` → output truncated at the
-      first period (client-side, regardless of model).
+- [ ] **Stop string.** Parameters → put `.` in Stop strings (GLM also passes it
+      as `stop`; legacy relies on client-side truncation) → output truncated at
+      the first period.
 
-- [ ] **Legacy model.** Switch model to `kayra-v1` or `clio-v1` and **Generate**
-      → uses the `{input, parameters}` body; works on tiers that still allow it,
-      or returns a clear error (NovelAI is deprecating Kayra for subscribers).
+- [ ] **Legacy model.** Switch to `kayra-v1` or `clio-v1`, **Generate** → uses
+      the `{input, parameters}` body on `/ai/generate`; works on tiers that
+      still allow it (NovelAI is deprecating Kayra for subscribers) or returns a
+      clear error.
 
-- [ ] **Custom model.** Model dropdown → **Custom…**, type a GLM finetune id
-      (e.g. NovelAI's "Xialong" variant from their docs) → name pattern routes
-      it through the chat path.
+- [ ] **Custom model.** Model dropdown → **Custom…**, type `xialong-v1` (or
+      another GLM finetune id) → name pattern routes it through `/oa/v1/completions`.
 
-- [ ] **Copy.** With output present, **Copy** → "Copied to clipboard" snackbar +
-      clipboard holds the text.
-
-- [ ] **Presets / history.** Preset → "Deterministic (low temp)" drops
-      temperature to 0.6; clicking a History entry restores
-      input/model/params/output.
+- [ ] **Copy / presets / history.** **Copy** → "Copied to clipboard"; preset
+      "Deterministic (low temp)" drops temperature to 0.6; clicking a History
+      entry restores input/model/params/output.

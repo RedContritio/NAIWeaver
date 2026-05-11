@@ -135,7 +135,7 @@ void main() {
   });
 
   group('TextGenRequest', () {
-    test('chat-style model => messages body with choices-friendly shape', () {
+    test('chat-style model => OpenAI completions {prompt, model, ...} body', () {
       final req = TextGenRequest(
         input: 'The old lighthouse keeper said,',
         model: 'glm-4-6',
@@ -144,27 +144,54 @@ void main() {
       expect(req.isChatStyle, isTrue);
       final body = req.toJson();
       expect(body['model'], 'glm-4-6');
-      expect(body['messages'], isA<List>());
-      final messages = body['messages'] as List;
-      expect(messages, hasLength(1)); // single user message, no system by default
-      expect((messages.first as Map)['role'], 'user');
-      expect((messages.first as Map)['content'], 'The old lighthouse keeper said,');
-      expect(body['temperature'], 1.0);
+      expect(body['prompt'], 'The old lighthouse keeper said,');
       expect(body['max_tokens'], 150);
+      expect(body['temperature'], 1.0);
+      expect(body['top_p'], 1.0);
+      expect(body['stream'], isFalse);
+      // No legacy keys, no messages array.
       expect(body.containsKey('input'), isFalse);
       expect(body.containsKey('parameters'), isFalse);
+      expect(body.containsKey('messages'), isFalse);
+      // Zero-valued extras omitted.
+      expect(body.containsKey('top_k'), isFalse);
+      expect(body.containsKey('min_p'), isFalse);
+      expect(body.containsKey('frequency_penalty'), isFalse);
+      expect(body.containsKey('presence_penalty'), isFalse);
     });
 
-    test('system prompt becomes a leading system message', () {
+    test('toCompletionsJson(stream: true) sets "stream": true', () {
+      final body = const TextGenRequest(input: 'x', model: 'glm-4-6')
+          .toCompletionsJson(stream: true);
+      expect(body['stream'], isTrue);
+    });
+
+    test('completions body includes non-zero extras', () {
+      final req = TextGenRequest(
+        input: 'x',
+        model: 'glm-4-6',
+        params: const TextGenParams(
+          topK: 40,
+          minP: 0.05,
+          frequencyPenalty: 0.1,
+          presencePenalty: 0.2,
+        ),
+      );
+      final body = req.toJson();
+      expect(body['top_k'], 40);
+      expect(body['min_p'], 0.05);
+      expect(body['frequency_penalty'], 0.1);
+      expect(body['presence_penalty'], 0.2);
+    });
+
+    test('system prompt is prepended to the prompt', () {
       final req = TextGenRequest(
         input: 'Where am I?',
         model: 'glm-4-6',
         systemPrompt: 'You are a not-very-helpful assistant.',
       );
-      final messages = (req.toJson()['messages'] as List).cast<Map>();
-      expect(messages, hasLength(2));
-      expect(messages[0]['role'], 'system');
-      expect(messages[1]['role'], 'user');
+      expect(req.toJson()['prompt'],
+          'You are a not-very-helpful assistant.\nWhere am I?');
     });
 
     test('legacy model => {input, model, parameters} body', () {
@@ -182,7 +209,7 @@ void main() {
       expect((body['parameters'] as Map)['max_length'], 150);
     });
 
-    test('chat body forwards stop strings as a "stop" array', () {
+    test('completions body forwards stop strings as a "stop" array', () {
       final req = TextGenRequest(
         input: 'x',
         model: 'glm-4-6',
