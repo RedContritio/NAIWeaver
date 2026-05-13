@@ -96,6 +96,7 @@ flutter:
 
   assets:
     - assets/logo.png
+    - assets/character_eras.json
     - prompt_styles.json
     - Tags/high-frequency-tags-list.json
     - Tags/wiki-descriptions.json

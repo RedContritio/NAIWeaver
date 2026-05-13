@@ -34,6 +34,15 @@ class SavedCharacter {
   /// not used by NAI's tag-based image gen).
   final String characterDescription;
 
+  /// Optional long-form personality / "soul" document (second-person "You
+  /// are…"). Populated by the character generator; not used by image gen but
+  /// kept around so the persona is portable/editable. Empty for hand-built
+  /// characters.
+  final String soulMd;
+
+  /// One-sentence personality summary, if generated. Empty otherwise.
+  final String personalitySummary;
+
   final String artistTag;
   final String stylePrefix;
 
@@ -62,6 +71,8 @@ class SavedCharacter {
     this.nsfwBottom = '',
     this.nsfwAlways = '',
     this.characterDescription = '',
+    this.soulMd = '',
+    this.personalitySummary = '',
     this.artistTag = '',
     this.stylePrefix = '',
     this.themeAccent,
@@ -117,6 +128,8 @@ class SavedCharacter {
       nsfwBottom: s(tags['nsfwBottom']),
       nsfwAlways: s(tags['nsfwAlways']),
       characterDescription: s(json['characterDescription']),
+      soulMd: s(json['soulMd']),
+      personalitySummary: s(json['personalitySummary']),
       artistTag: s(json['artistTag']),
       stylePrefix: s(json['stylePrefix']),
       themeAccent: theme != null && theme['accent'] is String
@@ -150,6 +163,8 @@ class SavedCharacter {
           'nsfwAlways': nsfwAlways,
         },
         'characterDescription': characterDescription,
+        if (soulMd.isNotEmpty) 'soulMd': soulMd,
+        if (personalitySummary.isNotEmpty) 'personalitySummary': personalitySummary,
         'artistTag': artistTag,
         'stylePrefix': stylePrefix,
         if (themeAccent != null || themeAccentSecondary != null || themeBg != null)
@@ -174,6 +189,8 @@ class SavedCharacter {
     String? nsfwBottom,
     String? nsfwAlways,
     String? characterDescription,
+    String? soulMd,
+    String? personalitySummary,
     String? artistTag,
     String? stylePrefix,
     Object? themeAccent = _sentinel,
@@ -196,6 +213,8 @@ class SavedCharacter {
       nsfwBottom: nsfwBottom ?? this.nsfwBottom,
       nsfwAlways: nsfwAlways ?? this.nsfwAlways,
       characterDescription: characterDescription ?? this.characterDescription,
+      soulMd: soulMd ?? this.soulMd,
+      personalitySummary: personalitySummary ?? this.personalitySummary,
       artistTag: artistTag ?? this.artistTag,
       stylePrefix: stylePrefix ?? this.stylePrefix,
       themeAccent: themeAccent == _sentinel ? this.themeAccent : themeAccent as String?,

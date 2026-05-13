@@ -49,6 +49,7 @@ import 'features/tools/director_tools/providers/director_tools_notifier.dart';
 import 'features/tools/enhance/providers/enhance_notifier.dart';
 import 'features/text_gen/providers/text_gen_notifier.dart';
 import 'features/characters/providers/character_library_notifier.dart';
+import 'features/characters/gen/providers/character_gen_notifier.dart';
 import 'features/characters/services/character_library_service.dart';
 import 'features/characters/services/closet_service.dart';
 import 'core/widgets/tag_suggestion_overlay.dart';
@@ -205,6 +206,15 @@ void main() {
             service: characterLibraryService,
             closetService: closetService,
           )..loadAll(),
+        ),
+        ChangeNotifierProxyProvider2<CharacterLibraryNotifier, TextGenNotifier, CharacterGenNotifier>(
+          create: (context) => CharacterGenNotifier(
+            library: Provider.of<CharacterLibraryNotifier>(context, listen: false),
+            textGen: Provider.of<TextGenNotifier>(context, listen: false),
+          ),
+          update: (context, library, textGen, previous) =>
+              (previous ?? CharacterGenNotifier(library: library, textGen: textGen))
+                ..updateTextGen(textGen),
         ),
         Provider<TagService>.value(value: tagService),
         Provider<WildcardService>.value(value: wildcardService),

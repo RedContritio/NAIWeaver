@@ -95,6 +95,24 @@ class CharacterLibraryNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Imports a fully-formed [SavedCharacter] (e.g. from the character
+  /// generator) plus its starter [closet], persisting both. The character is
+  /// added (or replaced if the id already exists) and its closet stored
+  /// wholesale. Returns the saved character.
+  Future<SavedCharacter> importGeneratedCharacter(
+      SavedCharacter character, List<ClosetOutfit> closet) async {
+    await _service.save(character);
+    await _closetService.saveAll(character.id, closet);
+    _characters = [
+      for (final existing in _characters)
+        if (existing.id != character.id) existing,
+      character,
+    ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    _closets[character.id] = List<ClosetOutfit>.from(closet);
+    notifyListeners();
+    return character;
+  }
+
   Future<void> deleteCharacter(String id) async {
     await _service.delete(id);
     _characters = _characters.where((c) => c.id != id).toList();

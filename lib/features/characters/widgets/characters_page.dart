@@ -8,6 +8,9 @@ import '../../../core/widgets/color_picker_dialog.dart';
 import '../../../core/widgets/confirm_dialog.dart';
 import '../../generation/providers/generation_notifier.dart';
 import '../../text_gen/providers/text_gen_notifier.dart';
+import '../gen/providers/character_gen_notifier.dart';
+import '../gen/widgets/character_gen_dialog.dart';
+import '../gen/widgets/character_gen_progress_dialog.dart';
 import '../models/closet_outfit.dart';
 import '../models/saved_character.dart';
 import '../outfit/outfit_renderer.dart';
@@ -79,6 +82,20 @@ class _CharactersPageState extends State<CharactersPage> {
     );
   }
 
+  Future<void> _generateCharacter(BuildContext context) async {
+    final form = await CharacterGenDialog.show(context);
+    if (form == null || !context.mounted) return;
+    final id = await CharacterGenProgressDialog.run(context, form);
+    if (!context.mounted) return;
+    final notifier = context.read<CharacterGenNotifier>();
+    if (id != null) {
+      if (mounted) setState(() => _selectedId = id);
+      showAppSnackBar(context, 'Character generated'.toUpperCase());
+    } else if (notifier.lastError != null) {
+      showErrorSnackBar(context, notifier.lastError!);
+    }
+  }
+
   Widget _buildListPane(BuildContext context, VisionTokens t,
       CharacterLibraryNotifier lib, List<SavedCharacter> filtered,
       {required bool isMobile}) {
@@ -107,6 +124,17 @@ class _CharactersPageState extends State<CharactersPage> {
                   ),
                 ),
                 const SizedBox(width: 6),
+                Builder(builder: (ctx) {
+                  final canGen = ctx.watch<CharacterGenNotifier>().hasService;
+                  return IconButton(
+                    tooltip: canGen
+                        ? 'Generate a character'
+                        : 'Requires text generation (set an API key first)',
+                    icon: Icon(Icons.auto_awesome,
+                        color: canGen ? t.accent : t.textMinimal, size: 18),
+                    onPressed: canGen ? () => _generateCharacter(ctx) : null,
+                  );
+                }),
                 IconButton(
                   tooltip: 'New character',
                   icon: Icon(Icons.add, color: t.accent, size: 20),
@@ -216,9 +244,11 @@ class _CharacterEditorState extends State<_CharacterEditor> {
   late TextEditingController _artist;
   late TextEditingController _stylePrefix;
   late TextEditingController _description;
+  late TextEditingController _soul;
   late String _gender;
   bool _showNsfw = false;
   bool _showStyle = false;
+  bool _showSoul = false;
   String? _selectedOutfitId;
 
   static const _genders = ['', 'female', 'male', 'nonbinary'];
@@ -242,16 +272,18 @@ class _CharacterEditorState extends State<_CharacterEditor> {
     _artist = TextEditingController(text: c.artistTag);
     _stylePrefix = TextEditingController(text: c.stylePrefix);
     _description = TextEditingController(text: c.characterDescription);
+    _soul = TextEditingController(text: c.soulMd);
     _gender = _genders.contains(c.gender) ? c.gender : '';
     _showNsfw = c.nsfwTop.isNotEmpty || c.nsfwBottom.isNotEmpty || c.nsfwAlways.isNotEmpty;
     _showStyle = c.artistTag.isNotEmpty || c.stylePrefix.isNotEmpty || c.characterDescription.isNotEmpty;
+    _showSoul = c.soulMd.trim().isNotEmpty;
   }
 
   @override
   void dispose() {
     for (final c in [
       _name, _notes, _base, _face, _hair, _body,
-      _nsfwTop, _nsfwBottom, _nsfwAlways, _artist, _stylePrefix, _description,
+      _nsfwTop, _nsfwBottom, _nsfwAlways, _artist, _stylePrefix, _description, _soul,
     ]) {
       c.dispose();
     }
@@ -262,6 +294,7 @@ class _CharacterEditorState extends State<_CharacterEditor> {
         name: _name.text.trim(),
         gender: _gender,
         notes: _notes.text,
+        soulMd: _soul.text,
         baseTags: _base.text.trim(),
         faceTags: _face.text.trim(),
         hairTags: _hair.text.trim(),
@@ -429,6 +462,22 @@ class _CharacterEditorState extends State<_CharacterEditor> {
                   TagTextField(controller: _stylePrefix, label: 'style prefix', minLines: 1, maxLines: 1),
                   const SizedBox(height: 8),
                   _plainField(t, 'character description (natural language; not used by NAI image gen)', _description, maxLines: 3),
+                ],
+                const SizedBox(height: 10),
+                _expander(t, 'Personality / soul (optional)', _showSoul,
+                    () => setState(() => _showSoul = !_showSoul)),
+                if (_showSoul) ...[
+                  const SizedBox(height: 8),
+                  if (c.personalitySummary.trim().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(c.personalitySummary.trim(),
+                          style: TextStyle(
+                              color: t.textSecondary,
+                              fontSize: t.fontSize(11),
+                              fontStyle: FontStyle.italic)),
+                    ),
+                  _plainField(t, 'soul — long-form personality doc (not used by image gen)', _soul, maxLines: 14),
                 ],
                 const SizedBox(height: 14),
                 Container(
