@@ -426,11 +426,39 @@ class TextGenRequest {
         'parameters': params.toLegacyParametersJson(),
       };
 
-  /// JSON body for the OpenAI-compatible completions endpoint
+  /// JSON body for the OpenAI-compatible *completions* endpoint
   /// (`/oa/v1/completions`, GLM/Xialong). [stream] toggles SSE.
   Map<String, dynamic> toCompletionsJson({bool stream = false}) => {
         'prompt': prompt,
         'model': model,
+        'max_tokens': params.maxLength,
+        'temperature': params.temperature,
+        'top_p': params.topP,
+        if (params.topK > 0) 'top_k': params.topK,
+        if (params.minP > 0.0) 'min_p': params.minP,
+        if (params.frequencyPenalty != 0.0)
+          'frequency_penalty': params.frequencyPenalty,
+        if (params.presencePenalty != 0.0)
+          'presence_penalty': params.presencePenalty,
+        if (params.enableThinking) 'enable_thinking': true,
+        if (cleanStops != null) 'stop': cleanStops,
+        'stream': stream,
+      };
+
+  /// JSON body for the OpenAI-compatible *chat* completions endpoint
+  /// (`/oa/v1/chat/completions`, GLM/Xialong). This is the one that applies
+  /// GLM's chat template — which is where `enable_thinking` actually wires in
+  /// the `<think>…</think>` scaffolding — so we use it for thinking requests.
+  /// The input becomes a single `user` message (plus a `system` message from
+  /// [systemPrompt] if set), since NAI text models still continue rather than
+  /// converse.
+  Map<String, dynamic> toChatCompletionsJson({bool stream = false}) => {
+        'model': model,
+        'messages': [
+          if (systemPrompt.trim().isNotEmpty)
+            {'role': 'system', 'content': systemPrompt.trim()},
+          {'role': 'user', 'content': input},
+        ],
         'max_tokens': params.maxLength,
         'temperature': params.temperature,
         'top_p': params.topP,
@@ -533,25 +561,36 @@ TextGenResult? extractGeneratedResult(dynamic decoded) {
   if (choices is List && choices.isNotEmpty) {
     final c0 = choices.first;
     if (c0 is Map) {
+      // NovelAI's pre-split fields (api.v1.generate-style response).
       final parsedReasoning = c0['parsedReasoning'];
       final parsedContent = c0['parsedContent'];
       if (parsedContent is String && parsedContent.isNotEmpty) {
         return TextGenResult(
           text: parsedContent,
-          reasoning:
-              parsedReasoning is String ? parsedReasoning.trim() : '',
+          reasoning: parsedReasoning is String ? parsedReasoning.trim() : '',
         );
       }
-      final text = c0['text'];
-      if (text is String) return TextGenResult(text: text);
+      // Chat/completions: choices[0].message.{content, reasoning_content|reasoning}.
       final msg = c0['message'];
       if (msg is Map && msg['content'] is String) {
-        return TextGenResult(text: msg['content'] as String);
+        final r = msg['reasoning_content'] ?? msg['reasoning'];
+        return TextGenResult(
+          text: msg['content'] as String,
+          reasoning: r is String ? r.trim() : '',
+        );
       }
+      // Streamed chat delta: choices[0].delta.{content, reasoning_content}.
       final delta = c0['delta'];
       if (delta is Map && delta['content'] is String) {
-        return TextGenResult(text: delta['content'] as String);
+        final r = delta['reasoning_content'] ?? delta['reasoning'];
+        return TextGenResult(
+          text: delta['content'] as String,
+          reasoning: r is String ? r.trim() : '',
+        );
       }
+      // Plain completions: choices[0].text.
+      final text = c0['text'];
+      if (text is String) return TextGenResult(text: text);
     }
   }
   if (decoded['token'] is String) {

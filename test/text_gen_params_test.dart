@@ -225,6 +225,36 @@ void main() {
       expect(on['enable_thinking'], isTrue);
     });
 
+    test('chat-completions body wraps the input as a single user message', () {
+      final req = TextGenRequest(
+        input: 'Solve: 17 * 23',
+        model: 'glm-4-6',
+        systemPrompt: 'Be terse.',
+        params: const TextGenParams(enableThinking: true),
+      );
+      final body = req.toChatCompletionsJson();
+      expect(body['model'], 'glm-4-6');
+      final messages = (body['messages'] as List).cast<Map>();
+      expect(messages, hasLength(2));
+      expect(messages[0]['role'], 'system');
+      expect(messages[0]['content'], 'Be terse.');
+      expect(messages[1]['role'], 'user');
+      expect(messages[1]['content'], 'Solve: 17 * 23');
+      expect(body['enable_thinking'], isTrue);
+      expect(body['max_tokens'], 150);
+      expect(body.containsKey('prompt'), isFalse);
+    });
+
+    test('chat-completions body omits system message when none set', () {
+      final body = const TextGenRequest(
+        input: 'hi',
+        model: 'glm-4-6',
+        params: TextGenParams(enableThinking: true),
+      ).toChatCompletionsJson();
+      expect((body['messages'] as List), hasLength(1));
+      expect(((body['messages'] as List).first as Map)['role'], 'user');
+    });
+
     test('completions body forwards stop strings as a "stop" array', () {
       final req = TextGenRequest(
         input: 'x',

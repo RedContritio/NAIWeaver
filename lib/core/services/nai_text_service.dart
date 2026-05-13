@@ -9,13 +9,17 @@ import 'text_gen_service.dart';
 
 /// NovelAI text-generation backend.
 ///
-/// Two transports, picked from the model:
+/// Transports, picked from the model (and whether thinking is on):
 /// * **GLM / Xialong** → `POST text.novelai.net/oa/v1/completions`
-///   (NovelAI's OpenAI-compatible "completions" endpoint — body
-///   `{prompt, model, max_tokens, temperature, top_p, [top_k, min_p,
-///   frequency_penalty, presence_penalty, stop], stream}`; non-stream response
-///   `{"choices":[{"text":"…"}]}`; stream is SSE `data: {"choices":[{"text":
-///   "…"}]}` lines ending with `data: [DONE]`).
+///   (OpenAI-compatible "completions" — body `{prompt, model, max_tokens,
+///   temperature, top_p, [top_k, min_p, frequency_penalty, presence_penalty,
+///   stop], stream}`; non-stream `{"choices":[{"text":"…"}]}`; stream is SSE
+///   `data: {"choices":[{"text":"…"}]}` lines ending with `data: [DONE]`).
+/// * **GLM / Xialong with `enable_thinking`** → `POST text.novelai.net/oa/v1/chat/completions`
+///   (OpenAI chat-completions — the input becomes one `user` message so GLM's
+///   chat template, which is where `enable_thinking` inserts the
+///   `<think>…</think>` scaffolding, is applied; response
+///   `{"choices":[{"message":{"content":"…","reasoning_content":"…"}}]}`).
 /// * **Kayra / Clio / Erato** (legacy) → `POST text.novelai.net/ai/generate(-stream)`
 ///   (body `{input, model, parameters:{…}}`; response `{"output":"…"}`; stream
 ///   is SSE `data: {"token":"…","ptr":N,"final":bool}`).
@@ -47,11 +51,15 @@ class NaiTextService implements TextGenService {
 
   // ─── URLs ─────────────────────────────────────────────────────────────────
 
-  String _urlFor(String model, {required bool stream}) {
-    if (isChatStyleModel(model)) {
-      // NovelAI's OpenAI-compatible completions endpoint. Streaming is toggled
-      // by `"stream": true` in the body, not a separate path.
-      return '$_textHost/oa/v1/completions';
+  String _urlFor(TextGenRequest req, {required bool stream}) {
+    if (isChatStyleModel(req.model)) {
+      // GLM/Xialong via NovelAI's OpenAI-compatible endpoints. Streaming is
+      // toggled by `"stream": true` in the body, not a separate path.
+      // `enable_thinking` only wires in via GLM's chat template, which the
+      // *chat* completions endpoint applies — so route thinking requests there.
+      return req.params.enableThinking
+          ? '$_textHost/oa/v1/chat/completions'
+          : '$_textHost/oa/v1/completions';
     }
     return stream
         ? '$_textHost/ai/generate-stream'
@@ -94,9 +102,10 @@ class NaiTextService implements TextGenService {
   }
 
   Map<String, dynamic> _bodyFor(TextGenRequest req, {required bool stream}) {
-    return req.isChatStyle
-        ? req.toCompletionsJson(stream: stream)
-        : req.toLegacyJson();
+    if (!req.isChatStyle) return req.toLegacyJson();
+    return req.params.enableThinking
+        ? req.toChatCompletionsJson(stream: stream)
+        : req.toCompletionsJson(stream: stream);
   }
 
   // ─── non-streaming ────────────────────────────────────────────────────────
@@ -110,7 +119,7 @@ class NaiTextService implements TextGenService {
   @override
   Future<TextGenResult> generateStructured(TextGenRequest req) async {
     _requireToken();
-    final url = _urlFor(req.model, stream: false);
+    final url = _urlFor(req, stream: false);
     final body = _bodyFor(req, stream: false);
     for (int attempt = 0; attempt < 3; attempt++) {
       try {
@@ -121,6 +130,10 @@ class NaiTextService implements TextGenService {
               headers: _headers(stream: false),
               responseType: ResponseType.json),
         );
+        if (req.params.enableThinking) {
+          debugPrint('NaiTextService: thinking response from $url '
+              '(sent: ${jsonEncode(body)}) -> ${jsonEncode(response.data)}');
+        }
         return _extractResult(response.data, req);
       } on DioException catch (e) {
         if (_isRetryable(e) && attempt < 2) {
@@ -224,7 +237,7 @@ class NaiTextService implements TextGenService {
     StreamSubscription<List<int>>? sub;
     var cancelled = false;
     var emittedAnything = false;
-    final url = _urlFor(req.model, stream: true);
+    final url = _urlFor(req, stream: true);
     final body = _bodyFor(req, stream: true);
 
     Future<void> fallbackToNonStream(Object? streamError) async {
