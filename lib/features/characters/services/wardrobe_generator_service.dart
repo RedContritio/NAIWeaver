@@ -38,6 +38,7 @@ class WardrobeGeneratorService {
     String vibeHint = '',
     String model = kDefaultTextModel,
     int maxTokens = 150,
+    String? promptOverride,
   }) async {
     final batch = _batchSizeFor(maxTokens);
     final results = <GeneratedOutfit>[];
@@ -53,6 +54,7 @@ class WardrobeGeneratorService {
         vibeHint: vibeHint,
         model: model,
         maxTokens: maxTokens,
+        promptOverride: promptOverride,
       );
       if (got.isEmpty) break; // give up rather than loop forever
       results.addAll(got);
@@ -70,13 +72,23 @@ class WardrobeGeneratorService {
     required String vibeHint,
     required String model,
     required int maxTokens,
+    String? promptOverride,
   }) async {
-    final prompt = _buildPrompt(
-      count: count,
-      characterTags: characterTags.trim().isEmpty ? 'anime girl' : characterTags.trim(),
-      eraHint: eraHint,
-      vibeHint: vibeHint,
-    );
+    final body = characterTags.trim().isEmpty ? 'anime girl' : characterTags.trim();
+    final prompt = promptOverride != null
+        ? substituteWardrobePrompt(
+            template: promptOverride,
+            count: count,
+            characterTags: body,
+            eraHint: eraHint,
+            vibeHint: vibeHint,
+          )
+        : buildWardrobePrompt(
+            count: count,
+            characterTags: body,
+            eraHint: eraHint,
+            vibeHint: vibeHint,
+          );
 
     String raw = await _service.generate(TextGenRequest(
       input: prompt,
@@ -87,7 +99,7 @@ class WardrobeGeneratorService {
       ),
     ));
 
-    var parsed = _extractOutfits(raw);
+    var parsed = extractWardrobeOutfits(raw);
 
     // If truncated and nothing salvageable, try one continuation pass.
     if (parsed.isEmpty) {
@@ -97,7 +109,7 @@ class WardrobeGeneratorService {
           model: model,
           params: TextGenParams.glmDefault().copyWith(temperature: 0.7, maxLength: maxTokens),
         ));
-        parsed = _extractOutfits('$raw$cont');
+        parsed = extractWardrobeOutfits('$raw$cont');
       } catch (_) {}
     }
 
@@ -109,29 +121,33 @@ class WardrobeGeneratorService {
         ),
     ];
   }
+}
 
-  // -- Prompt (verbatim port of bri.'s _WARDROBE_GENERATE_PROMPT, no-meet-cute
-  //    path; underwear_rule = the generic non-historical case unless an era
-  //    hint is given) ---------------------------------------------------------
+// -- Prompt builder (verbatim port of bri.'s _WARDROBE_GENERATE_PROMPT,
+//    no-meet-cute path; underwear_rule = the generic non-historical case unless
+//    an era hint is given) ---------------------------------------------------
+//
+// Pulled out to a top-level function so the lab harness can call it without
+// a TextGenService. The class delegates to this.
 
-  String _buildPrompt({
-    required int count,
-    required String characterTags,
-    required String eraHint,
-    required String vibeHint,
-  }) {
-    final eraContext = eraHint.isEmpty
-        ? ''
-        : 'Era / setting: $eraHint — make every outfit period-correct for this era.\n';
-    final vibeContext = vibeHint.isEmpty ? '' : 'Overall vibe: $vibeHint\n';
-    final underwearRule = eraHint.isEmpty
-        ? '(No underwear rule — modern character. Base layers like "cotton bra"/"cotton panties" are fine but hidden under outer clothing.)'
-        : 'BASE LAYER RULE (HARD CONSTRAINT): Every outfit MUST include era-appropriate base layer(s) authentic to $eraHint. '
-            'FORBIDDEN: modern bras or panties of any kind (cotton, lace, satin, sports, thong, bralette, boyshorts). '
-            'Use historical undergarments (chemise, loincloth, corset, petticoat, bloomers, etc.) as appropriate to the period and social class. '
-            'If the COLOR RULE examples mention bras/panties, IGNORE them — that rule\'s examples are for modern characters; this character is not modern.';
+String buildWardrobePrompt({
+  required int count,
+  required String characterTags,
+  String eraHint = '',
+  String vibeHint = '',
+}) {
+  final eraContext = eraHint.isEmpty
+      ? ''
+      : 'Era / setting: $eraHint — make every outfit period-correct for this era.\n';
+  final vibeContext = vibeHint.isEmpty ? '' : 'Overall vibe: $vibeHint\n';
+  final underwearRule = eraHint.isEmpty
+      ? '(No underwear rule — modern character. Base layers like "cotton bra"/"cotton panties" are fine but hidden under outer clothing.)'
+      : 'BASE LAYER RULE (HARD CONSTRAINT): Every outfit MUST include era-appropriate base layer(s) authentic to $eraHint. '
+          'FORBIDDEN: modern bras or panties of any kind (cotton, lace, satin, sports, thong, bralette, boyshorts). '
+          'Use historical undergarments (chemise, loincloth, corset, petticoat, bloomers, etc.) as appropriate to the period and social class. '
+          'If the COLOR RULE examples mention bras/panties, IGNORE them — that rule\'s examples are for modern characters; this character is not modern.';
 
-    return '''You are a fashion designer creating outfits for an anime character. Generate $count distinct outfits suitable for different weather conditions and seasons.
+  return '''You are a fashion designer creating outfits for an anime character. Generate $count distinct outfits suitable for different weather conditions and seasons.
 
 Character body & appearance (BACKGROUND ONLY — DO NOT repeat these in `tags`. `tags` is a clothing manifest, nothing else): $characterTags
 $vibeContext${eraContext}For each outfit, provide:
@@ -165,97 +181,116 @@ $underwearRule
 
 Respond with ONLY valid JSON: {"outfits": [...]}
 No markdown fences, no explanation.''';
+}
+
+/// Substitute `{count}`, `{character_tags}`, `{era_hint}`, `{vibe_hint}`,
+/// `{era_context}`, `{vibe_context}`, `{underwear_rule}` placeholders in a
+/// loose template (so lab prompts can be edited from disk).
+String substituteWardrobePrompt({
+  required String template,
+  required int count,
+  required String characterTags,
+  String eraHint = '',
+  String vibeHint = '',
+}) {
+  final eraContext = eraHint.isEmpty
+      ? ''
+      : 'Era / setting: $eraHint — make every outfit period-correct for this era.\n';
+  final vibeContext = vibeHint.isEmpty ? '' : 'Overall vibe: $vibeHint\n';
+  return template
+      .replaceAll('{count}', '$count')
+      .replaceAll('{character_tags}', characterTags)
+      .replaceAll('{era_hint}', eraHint)
+      .replaceAll('{vibe_hint}', vibeHint)
+      .replaceAll('{era_context}', eraContext)
+      .replaceAll('{vibe_context}', vibeContext);
+}
+
+// -- Robust JSON extraction (ported from bri.'s _extract_json /
+//    _repair_truncated_wardrobe_json). Top-level for lab harness reuse. -------
+
+List<Map<String, dynamic>> extractWardrobeOutfits(String raw) {
+  final data = _extractWardrobeJson(raw);
+  if (data == null) return const [];
+  if (data is List) {
+    return data.whereType<Map>().map((m) => m.cast<String, dynamic>()).toList();
   }
-
-  // -- Robust JSON extraction (ported from bri.'s _extract_json /
-  //    _repair_truncated_wardrobe_json) ---------------------------------------
-
-  List<Map<String, dynamic>> _extractOutfits(String raw) {
-    final data = _extractJson(raw);
-    if (data == null) return const [];
-    if (data is List) {
-      return data.whereType<Map>().map((m) => m.cast<String, dynamic>()).toList();
-    }
-    if (data is Map) {
-      for (final key in ['outfits', 'wardrobe', 'items', 'clothing']) {
-        final v = data[key];
-        if (v is List) {
-          return v.whereType<Map>().map((m) => m.cast<String, dynamic>()).toList();
-        }
-      }
-      for (final v in data.values) {
-        if (v is List) {
-          return v.whereType<Map>().map((m) => m.cast<String, dynamic>()).toList();
-        }
+  if (data is Map) {
+    for (final key in ['outfits', 'wardrobe', 'items', 'clothing']) {
+      final v = data[key];
+      if (v is List) {
+        return v.whereType<Map>().map((m) => m.cast<String, dynamic>()).toList();
       }
     }
-    return const [];
+    for (final v in data.values) {
+      if (v is List) {
+        return v.whereType<Map>().map((m) => m.cast<String, dynamic>()).toList();
+      }
+    }
   }
+  return const [];
+}
 
-  dynamic _extractJson(String raw) {
-    var text = raw.trim();
-    // strip <think>…</think>
-    final split = splitThinkBlock(text);
-    text = split.answer.trim();
-    // strip markdown fences
-    text = text.replaceFirst(RegExp(r'^```(?:json)?\s*\n?'), '');
-    text = text.replaceFirst(RegExp(r'\n?```\s*$'), '');
-    text = text.trim();
-    try {
-      return jsonDecode(text);
-    } catch (_) {}
-    // scan for first { or [
-    for (var i = 0; i < text.length; i++) {
-      final ch = text[i];
-      if (ch == '{' || ch == '[') {
-        final fragment = text.substring(i);
-        try {
-          return jsonDecode(fragment);
-        } catch (_) {}
-        final repaired = _repairTruncated(fragment);
-        if (repaired != null) return repaired;
-        break;
-      }
-    }
-    if (kDebugMode) debugPrint('WardrobeGeneratorService: no valid JSON in response');
-    return null;
-  }
-
-  dynamic _repairTruncated(String text) {
-    var lastComplete = -1;
-    var depth = 0;
-    var inStr = false;
-    var escape = false;
-    for (var i = 0; i < text.length; i++) {
-      final ch = text[i];
-      if (escape) {
-        escape = false;
-        continue;
-      }
-      if (ch == '\\') {
-        escape = true;
-        continue;
-      }
-      if (ch == '"') {
-        inStr = !inStr;
-        continue;
-      }
-      if (inStr) continue;
-      if (ch == '{') {
-        depth++;
-      } else if (ch == '}') {
-        depth--;
-        if (depth >= 0) lastComplete = i;
-      }
-    }
-    if (lastComplete < 0) return null;
-    final truncated = text.substring(0, lastComplete + 1);
-    for (final suffix in [']}', ']}}', '']) {
+dynamic _extractWardrobeJson(String raw) {
+  var text = raw.trim();
+  final split = splitThinkBlock(text);
+  text = split.answer.trim();
+  text = text.replaceFirst(RegExp(r'^```(?:json)?\s*\n?'), '');
+  text = text.replaceFirst(RegExp(r'\n?```\s*$'), '');
+  text = text.trim();
+  try {
+    return jsonDecode(text);
+  } catch (_) {}
+  for (var i = 0; i < text.length; i++) {
+    final ch = text[i];
+    if (ch == '{' || ch == '[') {
+      final fragment = text.substring(i);
       try {
-        final result = jsonDecode(truncated + suffix);
-        if (result is Map || result is List) return result;
+        return jsonDecode(fragment);
       } catch (_) {}
+      final repaired = _repairTruncatedWardrobe(fragment);
+      if (repaired != null) return repaired;
+      break;
     }
-    return null;
   }
+  if (kDebugMode) debugPrint('WardrobeGeneratorService: no valid JSON in response');
+  return null;
+}
+
+dynamic _repairTruncatedWardrobe(String text) {
+  var lastComplete = -1;
+  var depth = 0;
+  var inStr = false;
+  var escape = false;
+  for (var i = 0; i < text.length; i++) {
+    final ch = text[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch == '\\') {
+      escape = true;
+      continue;
+    }
+    if (ch == '"') {
+      inStr = !inStr;
+      continue;
+    }
+    if (inStr) continue;
+    if (ch == '{') {
+      depth++;
+    } else if (ch == '}') {
+      depth--;
+      if (depth >= 0) lastComplete = i;
+    }
+  }
+  if (lastComplete < 0) return null;
+  final truncated = text.substring(0, lastComplete + 1);
+  for (final suffix in [']}', ']}}', '']) {
+    try {
+      final result = jsonDecode(truncated + suffix);
+      if (result is Map || result is List) return result;
+    } catch (_) {}
+  }
+  return null;
 }

@@ -1,0 +1,101 @@
+You are a character designer creating Danbooru-style appearance tags for one fictional anime character. Return ONLY the appearance tags below — no personality, no backstory, no clothing, no scene.
+
+USER DESCRIPTION (the user's own words about who they want — honor it where it conflicts with anything else):
+{user_description}
+
+CONSTRAINTS:
+- GENDER: {gender}
+- AGE RANGE: {age_range}
+- PERIOD: {period}
+- LOCATION: {location} ({location_type})
+- NSFW: {nsfw_mode}
+{vibe_context}{era_context}{nsfw_block}
+TAG VOCABULARY (these are canonical Danbooru tags — PREFER tags from these lists. If you need a concept not on a list, it MUST be an existing Danbooru tag — never an invented English compound):
+
+BASE (identity markers — ethnicity via skin/marks, NOT nationality):
+  1girl, 1boy, 1other, dark skin, dark-skinned female, dark-skinned male, pale skin, tan,
+  freckles, mole, mole under eye, mole under mouth, glasses, eyepatch, scar, scar on face,
+  scar across eye, tattoo, piercing, ear piercing, nose piercing, lip piercing,
+  tongue piercing, eyebrow piercing, navel piercing, nipple piercing, forehead mark,
+  birthmark, asian
+  Age-specific (USE ONLY when age clearly fits — these are 40+, do NOT use for characters in
+  their 20s or 30s): mature female, old, old woman, old man
+
+FACE (Danbooru eye-shape vocabulary is sparse — use what exists):
+  Eye SHAPE (pick at most one): tsurime (sharp/upward), tareme (soft/droopy),
+    jitome (half-lidded/judgmental), sanpaku, upturned eyes, downturned eyes,
+    narrowed eyes, half-closed eyes
+  Eye COLOR: blue eyes, red eyes, brown eyes, green eyes, purple eyes, yellow eyes,
+    pink eyes, black eyes, grey eyes, aqua eyes, orange eyes, heterochromia
+  Eyebrows: thick eyebrows
+  Eyelashes: eyelashes, long eyelashes
+  Lips/mouth: thick lips, lipstick
+  Nose: pointy nose
+  Other: forehead, animal ears, pointy ears, cat ears, fox ears
+
+HAIR:
+  Color: black hair, blonde hair, brown hair, light brown hair, blue hair, white hair,
+    pink hair, multicolored hair, grey hair, purple hair, red hair, green hair,
+    orange hair, two-tone hair, silver hair, platinum blonde hair
+  Length: short hair, medium hair, long hair, very long hair, absurdly long hair
+  Style: straight hair, wavy hair, curly hair, messy hair, hime cut, bob cut, pixie cut,
+    drill hair, twintails, ponytail, side ponytail, high ponytail, low ponytail,
+    hair bun, single hair bun, double bun, braid, single braid, twin braids,
+    french braid, crown braid, updo, sidelocks
+  Bangs: blunt bangs, parted bangs, swept bangs, asymmetrical bangs, no bangs,
+    hair over one eye, hair between eyes
+
+BODY:
+  Build (female): petite, curvy, plump, skinny, muscular female, toned
+  Build (male): muscular, muscular male, abs, toned
+  Height: tall, tall female
+  Chest (female): flat chest, small breasts, medium breasts, large breasts,
+    huge breasts, gigantic breasts, sagging breasts
+  Proportions: thick thighs, thigh gap, wide hips, narrow waist, long legs,
+    broad shoulders
+
+THINGS THAT ARE NOT DANBOORU TAGS — DO NOT EMIT:
+  ❌ Nationality words: "japanese", "chinese", "korean", "british", "italian",
+     "english", "caucasian", "european", "roman". Use skin tone + facial features instead.
+  ❌ Invented eye shapes: "hooded eyes", "monolid eyes", "almond eyes", "narrow eyes".
+     Use tsurime/tareme/jitome/sanpaku/upturned eyes/downturned eyes/narrowed eyes.
+  ❌ Invented facial structure: "high cheekbones", "sharp jawline", "oval face",
+     "square jaw", "pointed chin", "baby face".
+  ❌ Invented eyebrows: "thin eyebrows", "arched eyebrows", "straight eyebrows".
+     Only "thick eyebrows" is canonical.
+  ❌ Invented hair tags: "center part", "center parting", "side part", "side-part",
+     "shoulder-length", "waist-length", "unkempt hair", "dark brown hair", "auburn hair",
+     "gray hair" (Danbooru spells it "grey hair").
+  ❌ Invented body tags: "slim" (use petite/skinny), "narrow shoulders", "bony shoulders",
+     "v-shaped body", "large build", "lean build", "average height".
+  ❌ Invented skin tones: "olive skin", "tanned skin", "fair skin". Use "tan" or "pale skin".
+  ❌ Compound prose: "slightly bony shoulders", "deeply set eyes", "intense eyes".
+  ❌ Age phrasing: "20yo" is NOT a Danbooru tag. Drop it. Use "mature female"/"old" if old.
+
+Output ONLY this JSON, no markdown fences, no commentary:
+
+{
+  "name": "<full proper name, culturally appropriate for the location; first + last where natural>",
+  "gender": "<one of: female, male, nonbinary — pick what fits the character>",
+  "tags": {
+    "base": "<strict danbooru tags from BASE list above, comma-separated. 3-6 tags. MUST include 1girl/1boy/1other. NO nationality words, NO age phrases like 20yo.>",
+    "face": "<strict danbooru tags from FACE list above, comma-separated. 4-7 tags. Pick ONE eye shape, ONE eye color, plus eyelashes/eyebrows/lips/etc. NO 'high cheekbones', NO 'sharp jawline', NO invented compounds.>",
+    "hair": "<strict danbooru tags from HAIR list above, comma-separated. 3-5 tags. Pick ONE color, ONE length, optionally ONE style + ONE bangs.>",
+    "body": "<strict danbooru tags from BODY list above, comma-separated. 3-5 tags. Pick ONE build, ONE chest size (if female), plus proportions/height as appropriate.>",
+    "nsfw_top": "{nsfw_top_hint}",
+    "nsfw_bottom": "{nsfw_bottom_hint}",
+    "nsfw_always": "{nsfw_always_hint}",
+    "nsfw": ""
+  }
+}
+
+RULES:
+- INCLUDE ALL EIGHT TAG KEYS in the output, even when their value is the empty string "". You MUST emit `nsfw_top`, `nsfw_bottom`, `nsfw_always`, and `nsfw` even when NSFW is OFF — set them to "" (empty string), do NOT omit them.
+- Every value in `tags` is a comma-separated string of STRICT DANBOORU TAGS — prefer the vocabulary lists above. No natural-language sentences. No prose. No adjectives stacked into invented compounds.
+- NO CLOTHING in any of the tag buckets. None. Clothing is a separate generation step.
+- NO expressions, poses, gestures, scenes, lighting, or camera terms. "stern face", "smiling", "frowning" are EXPRESSIONS, not features — omit them.
+- Honor the USER DESCRIPTION first. If it says "redhead with freckles", `hair` MUST contain "red hair" and `base` MUST contain "freckles".
+- The character should feel grounded in the LOCATION via skin tone and facial features, NOT nationality tags.
+- For historical PERIOD, use only features a person of that era would have. No modern piercings/dyed-hair-colors for ancient eras.
+
+Respond with ONLY the JSON object above. No markdown fences. No explanation before or after. Emit EXACTLY ONE JSON object — do not regenerate it, do not emit revised versions, do not provide alternatives. After the closing `}` of the JSON, write the literal token `<<END>>` on its own line and STOP.

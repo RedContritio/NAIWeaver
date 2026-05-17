@@ -2,6 +2,9 @@
 CLAUDE.md
 .claude/
 
+# Prompt-lab run dumps (per-run JSON outputs)
+lab/runs/
+
 # Miscellaneous
 *.class
 *.log

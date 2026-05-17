@@ -239,3 +239,89 @@ Respond with ONLY valid JSON, no markdown fences.''';
   static String _jsonStringList(List<String> items) =>
       '[${items.map((s) => '"$s"').join(', ')}]';
 }
+
+// -- v2 lean character-gen prompt (appearance tags only) ----------------------
+//
+// See docs/CHARACTER_FEATURES_PLAN.md §4. Produces JSON of shape:
+//   {name, gender, tags:{base, face, hair, body, nsfw_top, nsfw_bottom,
+//    nsfw_always, nsfw}}
+// — nothing else. ~400–600 output tokens, no truncation risk at any tier.
+//
+// Templated to a file so the lab can iterate: lab/prompts/character.lean.v1.txt.
+// Placeholders below match that template; keep them in sync.
+
+/// Fill the placeholders in a lean-character prompt template.
+///
+/// Recognised placeholders (all literal, no escapes):
+///   {user_description}     — free-text description, empty string if none
+///   {gender}               — "any" | "female" | "male" | "nonbinary"
+///   {age_range}            — e.g. "20s", "30s", "any"
+///   {period}               — `CharacterEra.periodDisplay`
+///   {location}             — free text or "a place you choose"
+///   {location_type}        — "pick something that fits" | "real-or-fictional, as written"
+///   {nsfw_mode}            — "ON" | "OFF"
+///   {vibe_context}         — pre-formatted line (empty if no vibe)
+///   {era_context}          — pre-formatted block from [eraBlockFor]
+///   {nsfw_block}           — pre-formatted block describing the four NSFW slots
+///   {nsfw_top_hint}        — the bucket hint inside the JSON example for nsfw_top
+///   {nsfw_bottom_hint}     — ditto, nsfw_bottom
+///   {nsfw_always_hint}     — ditto, nsfw_always
+String substituteLeanCharacterPrompt({
+  required String template,
+  String userDescription = '',
+  String gender = 'any',
+  String ageRange = '20s',
+  required CharacterEra era,
+  String locationName = '',
+  String vibeHint = '',
+  bool nsfw = false,
+}) {
+  final loc = locationName.trim().isEmpty ? 'a place you choose' : locationName.trim();
+  final locType = locationName.trim().isEmpty
+      ? 'pick something that fits'
+      : 'real-or-fictional, as written';
+  final vibeContext = vibeHint.trim().isEmpty ? '' : 'Overall vibe: $vibeHint\n';
+  final eraBlock = eraBlockFor(era, locationName);
+  final eraContext = eraBlock.trim().isEmpty || eraBlock.trim() == 'Modern day -- no era constraints.'
+      ? ''
+      : '$eraBlock\n';
+  final nsfwMode = nsfw ? 'ON' : 'OFF';
+
+  // NSFW slot guidance — when off, the model fills four empty strings.
+  final nsfwBlock = nsfw
+      ? 'NSFW SLOTS (the four nsfw_* keys): pick 0-3 strict danbooru tags per bucket that fit this character. '
+          '`nsfw_top` covers chest/belly intimate details. `nsfw_bottom` covers groin/butt intimate details. '
+          '`nsfw_always` covers always-visible intimate features (usually empty). '
+          'Leave `nsfw` as "" (legacy fallback). Empty is valid for any of the first three.\n'
+      : 'NSFW SLOTS: NSFW is OFF for this generation. Leave nsfw_top, nsfw_bottom, nsfw_always, and nsfw ALL as empty strings ("").\n';
+
+  final topHint = nsfw
+      ? '<chest/belly intimate-detail tags — 0-3 strict danbooru, or empty>'
+      : '';
+  final bottomHint = nsfw
+      ? '<groin/butt intimate-detail tags — 0-3 strict danbooru, or empty>'
+      : '';
+  final alwaysHint = nsfw
+      ? '<always-visible intimate-feature tags — usually empty>'
+      : '';
+
+  final userDesc = userDescription.trim().isEmpty
+      ? '(none — choose freely within the constraints below)'
+      : userDescription.trim();
+
+  return template
+      .replaceAll('{user_description}', userDesc)
+      .replaceAll('{gender}', gender)
+      .replaceAll('{age_range}', ageRange)
+      .replaceAll('{period}', era.periodDisplay)
+      .replaceAll('{location}', loc)
+      .replaceAll('{location_type}', locType)
+      .replaceAll('{nsfw_mode}', nsfwMode)
+      .replaceAll('{vibe_context}', vibeContext)
+      .replaceAll('{era_context}', eraContext)
+      .replaceAll('{nsfw_block}', nsfwBlock)
+      .replaceAll('{nsfw_top_hint}', topHint)
+      .replaceAll('{nsfw_bottom_hint}', bottomHint)
+      .replaceAll('{nsfw_always_hint}', alwaysHint);
+}
+

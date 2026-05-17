@@ -6,7 +6,8 @@ three pieces of work, in dependency order:
 
 1. **LLM (NovelAI text) scaffolding** — ✅ **DONE** (commits `a0f06dc → 1c83508`)
 2. **Characters module + Wardrobe + Outfit-state mode** — ✅ **DONE** (Phase A + B, commit `6ad941f`)
-3. **AI character generation (encounter pipeline / `soul_md`)** — ✅ **DONE** (`lib/features/characters/gen/`)
+3. **AI character generation (encounter pipeline / `soul_md`)** — ⚠️ **SHIPPED but SCOPED DOWN** — see §4. The encounter-style pipeline in `lib/features/characters/gen/` is being replaced for the headline UX by a leaner appearance-only flow. The existing code still works and is staying in the repo for reference / soul-doc users, but it is NOT the path new UI work is targeting.
+4. **Lean character-gen + per-outfit prompt + modeling mode** — 🚧 **IN PROGRESS** — the v2 spec; what the app is actually shipping next.
 
 Source of truth for the original implementations is `D:\bri` — that path is
 readable from a Claude Code session in this repo, so when porting a prompt or a
@@ -407,6 +408,110 @@ point) before writing code.
 ```
 
 </details>
+
+---
+
+---
+
+## 4. Lean character-gen + per-outfit prompt + modeling mode — IN PROGRESS
+
+The v2 spec. The encounter-style soul_md flow shipped in §3 produces a 9k-char JSON blob that GLM-4.6 routinely truncates at 2000 max_tokens, and most of those fields (soul_md, reaction_patterns, theme, meet_cute, preview_scene, aliases, personality_summary, character_description) aren't actually useful for the headline UX. Replace the headline path with three small generators.
+
+### 4.1 Lean character-gen (appearance only)
+
+**Input UI**
+- Free-text description (one textarea — "freckled redhead barista with a nose ring, late 20s, slim build")
+- Structured fields, kept from the existing dialog: gender, age range, era, location, NSFW toggle, image style. These anchor the model; the free text steers it.
+
+**Output** — strict Danbooru tags, nothing else. JSON shape:
+```json
+{
+  "name": "...",
+  "gender": "female|male|nonbinary",
+  "tags": {
+    "base": "1girl, 20yo, ...",
+    "face": "...",
+    "hair": "...",
+    "body": "...",
+    "nsfw_top": "...",
+    "nsfw_bottom": "...",
+    "nsfw_always": "...",
+    "nsfw": ""
+  }
+}
+```
+- `nsfw_top` / `nsfw_bottom` / `nsfw_always` / `nsfw` follow bri's split (`nsfw` is the legacy fallback, leave empty). All four are empty strings when the NSFW toggle is off.
+- No `soul_md`, `reaction_patterns`, `character_description`, `personality_summary`, `theme`, `meet_cute`, `preview_scene`, `aliases`, `outfit_tags`. None of them.
+
+**Implementation**
+- New prompt builder (in `character_gen_prompts.dart` or a new file) — `buildLeanGeneration(inputs)` — returning a prompt that asks for ONLY the JSON above plus respects the free-text input.
+- New service path on `CharacterGenService` — `generateAppearanceOnly(form)` — that calls the LLM once, parses, and returns a partial `SavedCharacter` (no soul_md / theme / etc.). Existing `generateFull(form)` for soul_md flow stays callable for users who want it.
+- `SavedCharacter`'s `soulMd`, `personalitySummary`, `theme`, `characterDescription` are already nullable / optional — confirm that, leave them blank on the lean path.
+- Persist via the same `CharacterLibraryNotifier.importGeneratedCharacter` (the import is already field-agnostic).
+
+**Why it works on GLM at 2000 tokens**
+- The whole JSON above is maybe 400–600 tokens. No truncation risk at any tier. No chunked-continuation loop needed.
+- All 7 NSFW slots ship per call; no second completion pass.
+
+### 4.2 Per-outfit prompt area
+
+A textarea on the character page that takes free text ("cozy winter coffee shop fit") and produces ONE outfit JSON. No seasons / weather / activities / temperature_range / slots / primary fields — just:
+```json
+{
+  "name": "...",
+  "tags": "..."
+}
+```
+
+**Implementation**
+- New prompt builder in `wardrobe_generator_service.dart` (or a sibling file): `buildSingleOutfitPrompt({characterTags, userPrompt, eraHint})`. Same TAG SCOPE / COLOR / PATTERN-COMPOUND / CHEST-COVERAGE rules as the wardrobe prompt — those are still right; they just apply to one outfit.
+- New service method `WardrobeGeneratorService.generateOne(...)` returning `GeneratedOutfit?`. JSON shape change: parser must accept `{name, tags}` directly (top-level object, not wrapped in `{"outfits":[...]}`).
+- The new outfit gets appended to the character's closet via the existing `ClosetService`.
+- UI: a small free-text input in the Wardrobe sub-section of the character editor, "Add outfit from prompt" button, progress indicator while the call runs, snackbar on success.
+
+### 4.3 Modeling mode (per-garment state → image prompt)
+
+A new generation mode that takes outfit tags + per-garment state flags and produces an image prompt that reflects those states. NOT an LLM call — this is pure mechanical assembly using the **existing** outfit-slot model (`lib/features/characters/outfit/`).
+
+**What's already there (reuse — do NOT reimplement)**
+- The 10 slots and 8 states are already defined in `outfit/outfit_slots.dart`.
+- `outfit/outfit_classifier.dart` already parses raw tags → per-slot items.
+- `outfit/outfit_renderer.dart` already renders `items + states → (tags, isDishevelled)` with per-state verb tags, removal canonicalisation, and concealment.
+- `widgets/outfit_state_panel.dart` already exposes per-slot state dropdowns with valid-state-only filtering, dress two-half model, concealed-underwear greying, accessory expansion, "Apply to prompt" button.
+
+**What's new in modeling mode**
+- A first-class "modeling mode" entry point on the character page (today the outfit-state panel is a sub-section of the editor). Modeling mode = a dedicated screen where the user picks a character + outfit, then sees the outfit-state panel front-and-centre alongside a live render and a "Generate image" button.
+- The image prompt sent to the NAI image path = `artistTag (if any) + bodyTags + renderItemsToTags(items) + (isDishevelled ? "nsfw" : "")`. That's already what `renderItemsToTags` returns; modeling mode just wires it through.
+- Saving / loading "scene presets" — a named (character, outfit, statesPerSlot) tuple — is the natural follow-up if users want to revisit a partially-removed look. Defer until requested.
+
+**State flags (already in `OutfitSlotState`)**
+- `intact` — fully worn
+- `unbuttoned` — open at the closure (shirts, blouses, jackets)
+- `open` — pulled open further than unbuttoned (coats, cardigans)
+- `lifted` — pushed up (skirts, dresses)
+- `pulled_down` — pulled below the waist / pulled down off shoulders depending on slot
+- `aside` — moved to one side without removal (panties aside)
+- `around_ankles` — bottoms / panties around the ankles
+- `removed` — gone (becomes a nudity tag)
+
+The valid-state set per slot is defined in `outfit/outfit_slots.dart`; the UI already enforces it.
+
+### 4.4 What happens to §3 (the soul_md pipeline)
+
+- Stays in the repo (`lib/features/characters/gen/`) as-is. No file deletions.
+- The ✨ button on the Characters page currently invokes the full soul_md flow. **Plan**: change it to invoke the lean flow by default, with a "Generate with personality (soul_md)" option behind a More-actions menu for users who want the full pipeline.
+- `SavedCharacter.soulMd` / `personalitySummary` / `theme` / `characterDescription` remain in the model so existing characters round-trip cleanly.
+
+### 4.5 Order of work
+
+1. Lean character-gen prompt + service path + audit fixture (this is what the lab is iterating on now).
+2. Swap the ✨ button to lean-by-default; keep soul_md behind a menu.
+3. Per-outfit prompt input + parser + UI.
+4. Modeling mode screen (mostly UI work — the rendering pipeline is done).
+
+### 4.6 Lab harness target
+
+The prompt lab at `lab/` is the iteration surface for §4.1 (lean character-gen) and §4.2 (per-outfit prompt). The existing scenarios and audit are still relevant — the audit already catches the things we care about for tags (color, chest coverage, smuggle, tag count, parse failures). The audit's character-level checks for `soul_md` / `reaction_patterns` / `theme` should be relaxed or made opt-in once the lean prompt lands so audit findings don't fire on dropped fields.
 
 ---
 

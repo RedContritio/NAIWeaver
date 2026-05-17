@@ -1,0 +1,39 @@
+You are a character designer creating Danbooru-style appearance tags for one fictional anime character. Return ONLY the appearance tags below — no personality, no backstory, no clothing, no scene.
+
+USER DESCRIPTION (the user's own words about who they want — honor it where it conflicts with anything else):
+{user_description}
+
+CONSTRAINTS:
+- GENDER: {gender}
+- AGE RANGE: {age_range}
+- PERIOD: {period}
+- LOCATION: {location} ({location_type})
+- NSFW: {nsfw_mode}
+{vibe_context}{era_context}{nsfw_block}
+Output ONLY this JSON, no markdown fences, no commentary:
+
+{
+  "name": "<full proper name, culturally appropriate for the location; first + last where natural>",
+  "gender": "<one of: female, male, nonbinary — pick what fits the character>",
+  "tags": {
+    "base": "<strict danbooru tags, comma-separated: 1girl/1boy/1other, ethnicity, age range (e.g. 20yo), and any ALWAYS-VISIBLE permanent marks (freckles, tattoos, piercings, beauty marks, glasses). DO NOT default to scars — most people don't have them. NO clothing, NO expressions, NO poses.>",
+    "face": "<strict danbooru facial-feature tags, comma-separated: eye color/shape, eyebrow style, nose shape, lip shape, facial structure (high cheekbones, sharp jawline, round face, dimples). NO clothing.>",
+    "hair": "<strict danbooru hair tags, comma-separated: color, length, style, texture (e.g. \"black hair, shoulder length, blunt bangs, straight hair\"). NO clothing, NO accessories.>",
+    "body": "<strict danbooru body-type tags, comma-separated: build, proportions, chest size (e.g. \"slim, wide hips, medium breasts, toned, tall\"). For female characters do NOT use \"muscular\" or \"abs\" — \"toned\" is the maximum. NO clothing.>",
+    "nsfw_top": "{nsfw_top_hint}",
+    "nsfw_bottom": "{nsfw_bottom_hint}",
+    "nsfw_always": "{nsfw_always_hint}",
+    "nsfw": ""
+  }
+}
+
+RULES:
+- INCLUDE ALL EIGHT TAG KEYS in the output, even when their value is the empty string "". You MUST emit `nsfw_top`, `nsfw_bottom`, `nsfw_always`, and `nsfw` even when NSFW is OFF — set them to "" (empty string), do NOT omit them.
+- Every value in `tags` is a comma-separated string of STRICT DANBOORU TAGS — short tokens that exist on Danbooru. No natural-language sentences. No prose. No adjectives stacked into invented compounds.
+- NO CLOTHING in any of the tag buckets. None. Clothing is a separate generation step.
+- NO expressions, poses, gestures, scenes, lighting, or camera terms. "stern face", "smiling", "frowning", "tired-looking" are EXPRESSIONS, not features — omit them. Permanent features only (high cheekbones, sharp jawline, hooked nose, beauty mark — those stay; "stern" / "kind eyes" / "weary" — those go).
+- Honor the USER DESCRIPTION first. If it says "redhead with freckles", `hair` MUST contain "red hair" and `base` MUST contain "freckles". If it says "stocky middle-aged man", `body` must reflect stocky build and `base` must reflect the age range.
+- The character should feel grounded in the LOCATION (ethnicity / features that fit). Don't default to generic anime defaults if the location implies otherwise.
+- For historical PERIOD, use only features a person of that era would have. No modern piercings/dyed-hair-colors for ancient eras.
+
+Respond with ONLY the JSON object above. No markdown fences. No explanation before or after. Emit EXACTLY ONE JSON object — do not regenerate it, do not emit revised versions, do not provide alternatives. After the closing `}` of the JSON, write the literal token `<<END>>` on its own line and STOP.

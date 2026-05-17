@@ -1,0 +1,34 @@
+You are a fashion designer creating outfits for an anime character. Generate {count} distinct outfits suitable for different weather conditions and seasons.
+
+Character body & appearance (BACKGROUND ONLY — DO NOT repeat these in `tags`. `tags` is a clothing manifest, nothing else): {character_tags}
+{vibe_context}{era_context}For each outfit, provide:
+- name: A short, evocative name (e.g. "Winter Cozy", "Summer Festival", "Rainy Day Chic")
+- tags: Danbooru-style CLOTHING tags, comma-separated (e.g. "cream knit sweater, turtleneck, long sleeves, navy pleated skirt, charcoal tights, brown ankle boots")
+- seasons: Array of seasons this outfit suits ["spring", "summer", "fall", "winter"]
+- weather: Array of weather conditions ["clear", "cloudy", "rain", "snow", "storm", "hot", "cold", "mild", "fog", "humid"]
+- activities: Array of activities ["casual", "indoor", "outdoor", "formal", "studying", "exercise", "shopping", "date"]
+- temperature_range: [min_celsius, max_celsius] range where this outfit is comfortable
+- slots: Optional time-slot hint ["morning"|"daytime"|"evening"|"sleep"], or [] for any. Use ["sleep"] for pajamas only.
+- primary: OPTIONAL boolean. Set to true on EXACTLY ONE outfit (or omit entirely from all).
+
+TAG SCOPE — CRITICAL: `tags` lists CLOTHING ONLY. Each outfit should be 4–7 garment tags total (base layer + outer pieces + footwear). Do NOT stack three robes "for layering" — pick ONE outer garment per outfit.
+
+EXCLUDE entirely from `tags` (these belong to the character or scene, not the outfit):
+- Body: hair, eyes, skin, build, breasts, shoulders, thighs, scars, freckles, mineral stains, broken nose, broad face, etc.
+- Pose / expression: smile, asymmetrical smile, hand shielding eyes, hunched shoulders, crossed arms, etc.
+- Weather sensations: wind-flushed cheeks, sweat-gleamed, rain-streamed, visible breath, mist-breath, shivering, sodden, water-darkened, cling of wet linen, mud on calves, etc.
+- Environment / time / mood: morning light, afternoon, brazier-warmed, festive, discreet, etc.
+- Generic descriptors: "ancient greek clothes", "practical workwear", "elegant draping", "warm layered fabrics" — these are categories, not garments. Drop them.
+
+IMPORTANT: Tags must be danbooru-style tags that work well with NovelAI image generation. Focus on specific clothing items, materials, and styles. Cover a variety of weather and seasons across the {count} outfits.
+
+COLOR RULE: EVERY clothing item MUST include an explicit color tag. Never write just "sweater" — write "cream knit sweater". Never write just "skirt" — write "navy pleated skirt". Use specific color names (cream, ivory, charcoal, burgundy, olive, slate blue, rust, sage, taupe) not just "white" or "black". Colors make outfits coherent and distinct in generated images.
+
+PATTERN/COMPOUND RULE: use canonical Danbooru compounds ("denim jacket", "leather boots", "ribbed sweater", "cable knit", "turtleneck", "plaid skirt", "floral print dress", "polka dot blouse", "striped shirt", "lace trim", "satin slip"). Do NOT invent vague material tokens ("linen blouse", "corduroy pants", "chiffon top", "velvet dress") — those are unindexed and the image model ignores them.
+
+CHEST COVERAGE RULE (HARD CONSTRAINT): Whenever the outfit includes an OUTER torso layer — jacket, cardigan, blazer, coat, cloak, cape, surcoat, tabard, hauberk, breastplate, cuirass, plate armor — it MUST also include a base TOP garment layered between the bra and that outer layer (shirt, blouse, t-shirt, tank top, sweater, gambeson, doublet, tunic, etc.). A bra alone under an open jacket is forbidden — open or unbuttoned outerwear must reveal a real shirt, not skin-on-bra. EXEMPTION: this rule does not apply when the outfit's outer layer is loungewear (robe, bathrobe, kimono, negligee, peignoir) and the time slot is "sleep" — in that case bra/lingerie under an open robe is allowed and period-appropriate.
+
+(No underwear rule — modern character. Base layers like "cotton bra"/"cotton panties" are fine but hidden under outer clothing.)
+
+Respond with ONLY valid JSON: {"outfits": [...]}
+No markdown fences, no explanation.
