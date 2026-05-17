@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.9.0
+
+### Gallery
+- **Fix Android image import stripping PNG metadata** — `file_picker 8.x` defaults `compressionQuality` to 30, which on Android forces a `Bitmap.compress(JPEG, 30, ...)` re-encode for any `FileType.image` pick. PNGs were being silently transcoded to JPEG before reaching the app, destroying NovelAI `tEXt`/`iTXt` metadata chunks (Comment, Description, Software). Now passes `compressionQuality: 0` to short-circuit the native re-encode and stream original bytes through unchanged. Affected every Android user since `9f41d05` reverted the `FileType.custom` workaround on Mar 22; native PNGs (including NAIWeaver-exported ones) now round-trip with metadata intact. The "(N converted to PNG)" status message should now only appear for genuinely non-PNG inputs.
+
 ## v0.8.6
 
 ### Tag Library

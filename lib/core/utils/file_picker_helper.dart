@@ -23,6 +23,7 @@ Future<FilePickerResult?> pickImageFiles({
       type: FileType.any,
       allowMultiple: allowMultiple,
       withData: withData,
+      compressionQuality: 0,
     );
     if (result == null) return null;
     final filtered = result.files.where((f) {
@@ -36,6 +37,10 @@ Future<FilePickerResult?> pickImageFiles({
     type: FileType.image,
     allowMultiple: allowMultiple,
     withData: withData,
+    // file_picker 8.x defaults compressionQuality to 30, which forces a
+    // JPEG re-encode on Android for image/* MIME and destroys PNG metadata
+    // chunks (NovelAI Comment, etc.). Disable to preserve original bytes.
+    compressionQuality: 0,
   );
 }
 
