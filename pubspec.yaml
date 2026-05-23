@@ -100,10 +100,14 @@ flutter:
     - prompt_styles.json
     - Tags/high-frequency-tags-list.json
     - Tags/wiki-descriptions.json
+    - assets/midi/anime/
+    - assets/midi/game/
     - assets/midi/jazz/
     - assets/midi/meme/
     - assets/midi/rock/
     - assets/soundfonts/
+    - assets/photoshoot/poses.json
+    - assets/photoshoot/environments.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
