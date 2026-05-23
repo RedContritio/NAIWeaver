@@ -14,7 +14,9 @@ import '../gen/widgets/character_gen_progress_dialog.dart';
 import '../models/closet_outfit.dart';
 import '../models/saved_character.dart';
 import '../outfit/outfit_renderer.dart';
+import '../outfit/outfit_slots.dart';
 import '../outfit/widgets/outfit_state_panel.dart';
+import '../photoshoot/photoshoot_screen.dart';
 import '../providers/character_library_notifier.dart';
 import '../services/wardrobe_generator_service.dart';
 import 'outfit_editor_sheet.dart';
@@ -99,6 +101,8 @@ class _CharactersPageState extends State<CharactersPage> {
   Widget _buildListPane(BuildContext context, VisionTokens t,
       CharacterLibraryNotifier lib, List<SavedCharacter> filtered,
       {required bool isMobile}) {
+    final rowVerticalPad = isMobile ? 14.0 : 10.0;
+    final rowHorizontalPad = isMobile ? 14.0 : 12.0;
     return Container(
       color: t.surfaceMid,
       child: Column(
@@ -156,16 +160,21 @@ class _CharactersPageState extends State<CharactersPage> {
                     itemBuilder: (_, i) {
                       final c = filtered[i];
                       final primary = lib.primaryOutfitFor(c.id);
+                      final outfitCount = lib.closetFor(c.id).length;
                       final isSel = c.id == _selectedId;
                       Color swatch = t.accent;
                       if (c.themeAccent != null) {
                         final parsed = _parseHex(c.themeAccent!);
                         if (parsed != null) swatch = parsed;
                       }
+                      final primaryDishevelled = primary != null &&
+                          primary.items != null &&
+                          anyNonIntact(primary.items!.cast<String, dynamic>());
                       return InkWell(
                         onTap: () => setState(() => _selectedId = c.id),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: rowHorizontalPad, vertical: rowVerticalPad),
                           decoration: BoxDecoration(
                             color: isSel ? t.borderSubtle : Colors.transparent,
                             border: Border(
@@ -186,15 +195,61 @@ class _CharactersPageState extends State<CharactersPage> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(c.name.isEmpty ? '(unnamed)' : c.name,
-                                        style: TextStyle(
-                                            color: isSel ? t.textPrimary : t.textSecondary,
-                                            fontSize: t.fontSize(12),
-                                            fontWeight: isSel ? FontWeight.bold : FontWeight.normal)),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            c.name.isEmpty ? '(unnamed)' : c.name,
+                                            style: TextStyle(
+                                                color: isSel ? t.textPrimary : t.textSecondary,
+                                                fontSize: t.fontSize(isMobile ? 13 : 12),
+                                                fontWeight: isSel ? FontWeight.bold : FontWeight.normal),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        if (outfitCount > 0) ...[
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 5, vertical: 1),
+                                            decoration: BoxDecoration(
+                                              color: t.background.withValues(alpha: 0.4),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              '$outfitCount',
+                                              style: TextStyle(
+                                                  color: t.textMinimal,
+                                                  fontSize: t.fontSize(8),
+                                                  fontWeight: FontWeight.bold),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
                                     if (primary != null)
-                                      Text(primary.name,
-                                          style: TextStyle(
-                                              color: t.textMinimal, fontSize: t.fontSize(9))),
+                                      Row(
+                                        children: [
+                                          Flexible(
+                                            child: Text(primary.name,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                    color: t.textMinimal,
+                                                    fontSize: t.fontSize(9))),
+                                          ),
+                                          if (primaryDishevelled) ...[
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              width: 6,
+                                              height: 6,
+                                              decoration: BoxDecoration(
+                                                color: t.accentDanger,
+                                                borderRadius: BorderRadius.circular(3),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
                                   ],
                                 ),
                               ),
@@ -370,6 +425,24 @@ class _CharacterEditorState extends State<_CharacterEditor> {
                   ),
                   onSubmitted: (_) => _save(lib),
                 ),
+              ),
+              IconButton(
+                tooltip: 'Photoshoot',
+                icon: Icon(Icons.photo_camera_outlined, size: 18, color: t.accent),
+                onPressed: lib.primaryOutfitFor(c.id) == null
+                    ? null
+                    : () async {
+                        await _save(lib);
+                        if (!context.mounted) return;
+                        final outfit = lib.primaryOutfitFor(c.id);
+                        if (outfit == null) return;
+                        Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => PhotoshootScreen(
+                            characterId: c.id,
+                            initialOutfitId: outfit.id,
+                          ),
+                        ));
+                      },
               ),
               IconButton(
                 tooltip: 'Save',
@@ -646,6 +719,7 @@ class _WardrobeSectionState extends State<_WardrobeSection> {
     final c = lib.characterById(widget.characterId);
     final textGen = context.watch<TextGenNotifier>();
     final hasTextGen = textGen.hasService;
+    final mobile = isMobile(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -692,6 +766,28 @@ class _WardrobeSectionState extends State<_WardrobeSection> {
             child: Text('No outfits yet — add one or generate a set.',
                 style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(10))),
           )
+        else if (mobile)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final o in closet) ...[
+                _OutfitCard(
+                  outfit: o,
+                  isPrimary: c?.primaryOutfitId == o.id,
+                  isSelected: widget.selectedOutfitId == o.id,
+                  mobile: true,
+                  onTapState: () => widget.onSelectOutfit(
+                      widget.selectedOutfitId == o.id ? null : o.id),
+                  onWear: () => _wear(o, c),
+                  onEdit: () => _editOutfit(context, lib, o, c?.primaryOutfitId == o.id),
+                  onSetPrimary: () => lib.setPrimaryOutfit(
+                      widget.characterId, c?.primaryOutfitId == o.id ? null : o.id),
+                  onDelete: () => _confirmDelete(context, lib, o),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ],
+          )
         else
           Wrap(
             spacing: 10,
@@ -702,38 +798,45 @@ class _WardrobeSectionState extends State<_WardrobeSection> {
                   outfit: o,
                   isPrimary: c?.primaryOutfitId == o.id,
                   isSelected: widget.selectedOutfitId == o.id,
+                  mobile: false,
                   onTapState: () => widget.onSelectOutfit(
                       widget.selectedOutfitId == o.id ? null : o.id),
-                  onWear: () {
-                    final r = (o.items != null && o.items!.isNotEmpty)
-                        ? renderItemsToTags(o.items!.cast<String, dynamic>())
-                        : applyConcealment(o.tags);
-                    final body = c == null ? '' : c.derivedBodyTags;
-                    final combined = [
-                      if (body.isNotEmpty) body,
-                      if (r.tags.isNotEmpty) r.tags,
-                    ].join(', ');
-                    widget.onApplyToPrompt(combined, r.isDishevelled);
-                  },
+                  onWear: () => _wear(o, c),
                   onEdit: () => _editOutfit(context, lib, o, c?.primaryOutfitId == o.id),
                   onSetPrimary: () => lib.setPrimaryOutfit(
                       widget.characterId, c?.primaryOutfitId == o.id ? null : o.id),
-                  onDelete: () async {
-                    final ok = await showConfirmDialog(context,
-                        title: 'Delete outfit',
-                        message: 'Delete "${o.name}"?',
-                        confirmLabel: 'Delete',
-                        confirmColor: t.accentDanger);
-                    if (ok == true) {
-                      if (widget.selectedOutfitId == o.id) widget.onSelectOutfit(null);
-                      await lib.deleteOutfit(widget.characterId, o.id);
-                    }
-                  },
+                  onDelete: () => _confirmDelete(context, lib, o),
                 ),
             ],
           ),
       ],
     );
+  }
+
+  void _wear(ClosetOutfit o, SavedCharacter? c) {
+    final r = (o.items != null && o.items!.isNotEmpty)
+        ? renderItemsToTags(o.items!.cast<String, dynamic>())
+        : applyConcealment(o.tags);
+    final body = c == null ? '' : c.derivedBodyTags;
+    final combined = [
+      if (body.isNotEmpty) body,
+      if (r.tags.isNotEmpty) r.tags,
+    ].join(', ');
+    widget.onApplyToPrompt(combined, r.isDishevelled);
+  }
+
+  Future<void> _confirmDelete(
+      BuildContext context, CharacterLibraryNotifier lib, ClosetOutfit o) async {
+    final t = context.t;
+    final ok = await showConfirmDialog(context,
+        title: 'Delete outfit',
+        message: 'Delete "${o.name}"?',
+        confirmLabel: 'Delete',
+        confirmColor: t.accentDanger);
+    if (ok == true) {
+      if (widget.selectedOutfitId == o.id) widget.onSelectOutfit(null);
+      await lib.deleteOutfit(widget.characterId, o.id);
+    }
   }
 
   void _newOutfit(BuildContext context, CharacterLibraryNotifier lib) {
@@ -811,6 +914,7 @@ class _OutfitCard extends StatelessWidget {
   final ClosetOutfit outfit;
   final bool isPrimary;
   final bool isSelected;
+  final bool mobile;
   final VoidCallback onTapState;
   final VoidCallback onWear;
   final VoidCallback onEdit;
@@ -821,6 +925,7 @@ class _OutfitCard extends StatelessWidget {
     required this.outfit,
     required this.isPrimary,
     required this.isSelected,
+    required this.mobile,
     required this.onTapState,
     required this.onWear,
     required this.onEdit,
@@ -841,7 +946,7 @@ class _OutfitCard extends StatelessWidget {
       if (outfit.slots.isNotEmpty) outfit.slots.join('/'),
     ];
     return Container(
-      width: 240,
+      width: mobile ? null : 240,
       decoration: BoxDecoration(
         color: t.surfaceMid,
         borderRadius: BorderRadius.circular(6),
@@ -903,7 +1008,11 @@ class _OutfitCard extends StatelessWidget {
                 const Spacer(),
                 InkWell(
                   onTap: onDelete,
-                  child: Icon(Icons.delete_outline, size: 14, color: t.accentDanger),
+                  child: Padding(
+                    padding: EdgeInsets.all(mobile ? 6 : 2),
+                    child: Icon(Icons.delete_outline,
+                        size: mobile ? 18 : 14, color: t.accentDanger),
+                  ),
                 ),
               ],
             ),
@@ -919,13 +1028,16 @@ class _OutfitCard extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        padding: EdgeInsets.symmetric(
+            horizontal: mobile ? 10 : 6, vertical: mobile ? 8 : 3),
         decoration: BoxDecoration(
           color: color.withValues(alpha: highlighted ? 0.2 : 0.1),
           borderRadius: BorderRadius.circular(3),
           border: Border.all(color: color.withValues(alpha: 0.4)),
         ),
-        child: Text(label, style: TextStyle(color: color, fontSize: t.fontSize(8), letterSpacing: 0.5)),
+        child: Text(label,
+            style: TextStyle(
+                color: color, fontSize: t.fontSize(mobile ? 10 : 8), letterSpacing: 0.5)),
       ),
     );
   }
