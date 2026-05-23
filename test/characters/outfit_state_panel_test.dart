@@ -8,7 +8,8 @@ import 'package:naiweaver/features/characters/outfit/widgets/outfit_state_panel.
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-Future<void> _pump(WidgetTester tester, Widget child) async {
+Future<void> _pump(WidgetTester tester, Widget child,
+    {Size size = const Size(800, 1000), double textScale = 1.0}) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
   final prefsService = PreferencesService(prefs, const FlutterSecureStorage());
@@ -17,9 +18,28 @@ Future<void> _pump(WidgetTester tester, Widget child) async {
       providers: [
         ChangeNotifierProvider<ThemeNotifier>(create: (_) => ThemeNotifier(prefsService)),
       ],
-      child: MaterialApp(home: Scaffold(body: SingleChildScrollView(child: child))),
+      child: MaterialApp(
+        home: MediaQuery(
+          data: MediaQueryData(size: size, textScaler: TextScaler.linear(textScale)),
+          child: Scaffold(body: SingleChildScrollView(child: child)),
+        ),
+      ),
     ),
   );
+  await tester.pumpAndSettle();
+}
+
+/// Drives the new "state pill + bottom-sheet picker" UI to put the named slot
+/// into [chosenState]. Picks the first matching pill by label text.
+Future<void> _setSlotState(WidgetTester tester, String pillLabel, String chosenState) async {
+  // The pill displays the current state label, e.g. "intact". We tap the first
+  // one matching `pillLabel` to open the bottom sheet.
+  final pill = find.text(pillLabel).first;
+  await tester.tap(pill);
+  await tester.pumpAndSettle();
+  // Bottom sheet shows each valid state as a tap row; pick the one matching
+  // [chosenState] (which is the human-readable label, e.g. "unbuttoned").
+  await tester.tap(find.text(chosenState).last);
   await tester.pumpAndSettle();
 }
 
@@ -46,28 +66,18 @@ void main() {
       ),
     );
 
-    // Intact: rendered tags should contain the garments and no nsfw.
     expect(find.textContaining('white shirt'), findsWidgets);
     expect(find.text('DISHEVELLED'), findsNothing);
 
-    // Change the top to "unbuttoned" via the dropdown.
-    // There are several DropdownButton<String>; the first slot row is `top`.
-    final dropdowns = find.byType(DropdownButton<String>);
-    expect(dropdowns, findsWidgets);
-    await tester.tap(dropdowns.first);
-    await tester.pumpAndSettle();
-    // Tap the "unbuttoned" menu item.
-    await tester.tap(find.text('unbuttoned').last);
-    await tester.pumpAndSettle();
+    // Each garment row shows an "intact" pill — tap the first to open the
+    // bottom-sheet picker (the top slot row renders first by kRenderOrder).
+    await _setSlotState(tester, 'intact', 'unbuttoned');
 
-    // The rendered-tags readout should now mention the verb tag, and the panel
-    // should flag DISHEVELLED.
     expect(find.textContaining('unbuttoned shirt'), findsWidgets);
     expect(find.text('DISHEVELLED'), findsOneWidget);
     expect(changed, isNotNull);
     expect(changed!.items, isNotNull);
 
-    // Apply to prompt.
     await tester.tap(find.text('APPLY TO PROMPT'));
     await tester.pumpAndSettle();
     expect(appliedTags, isNotNull);
@@ -85,15 +95,53 @@ void main() {
         onApplyToPrompt: (_, _) {},
       ),
     );
-    final dropdowns = find.byType(DropdownButton<String>);
-    await tester.tap(dropdowns.first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('open').last);
-    await tester.pumpAndSettle();
+
+    await _setSlotState(tester, 'intact', 'open');
     expect(find.text('DISHEVELLED'), findsOneWidget);
 
-    await tester.tap(find.text('RESET'));
+    // Overflow menu hosts the reset.
+    await tester.tap(find.byIcon(Icons.more_horiz));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reset to intact'));
     await tester.pumpAndSettle();
     expect(find.text('DISHEVELLED'), findsNothing);
+  });
+
+  testWidgets('renders cleanly on a 360dp Android-sized frame at textScale 1.3',
+      (tester) async {
+    final outfit = ClosetOutfit.create(
+      name: 'Mobile Fit',
+      tags:
+          'navy blazer, white shirt, black skirt, white panties, black tights, black boots',
+    );
+    await _pump(
+      tester,
+      OutfitStatePanel(
+        outfit: outfit,
+        onChanged: (_) {},
+        onApplyToPrompt: (_, _) {},
+      ),
+      size: const Size(360, 800),
+      textScale: 1.3,
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('OUTFIT STATE'), findsOneWidget);
+    expect(find.text('APPLY TO PROMPT'), findsOneWidget);
+  });
+
+  testWidgets('persistent: false swaps the primary button label', (tester) async {
+    final outfit = ClosetOutfit.create(name: 'F', tags: 'white shirt');
+    await _pump(
+      tester,
+      OutfitStatePanel(
+        outfit: outfit,
+        persistent: false,
+        onChanged: (_) {},
+        onApplyToPrompt: (_, _) {},
+      ),
+    );
+    expect(find.text('APPLY TO PROMPT'), findsNothing);
+    expect(find.text('USE THESE TAGS'), findsOneWidget);
   });
 }
