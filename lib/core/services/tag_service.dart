@@ -13,10 +13,13 @@ class DanbooruTag {
   final String? matchedAlias;
 
   /// For `typeName == 'saved_character'`: the pre-expanded tag string inserted
-  /// at the cursor when this suggestion is picked (body tags + outfit tags via
-  /// concealment, comma-joined; `nsfw` appended if dishevelled). Null for
-  /// ordinary tags / wildcards.
+  /// at the cursor when this suggestion is picked. The default `expansion`
+  /// honours the outfit's saved state (concealment + `nsfw` if dishevelled);
+  /// [flatExpansion] is the alternative that uses the raw outfit tags with no
+  /// state routing. The suggestion overlay's per-insertion "honor state"
+  /// toggle picks between the two.
   final String? expansion;
+  final String? flatExpansion;
 
   DanbooruTag({
     required this.tag,
@@ -27,6 +30,7 @@ class DanbooruTag {
     this.aliases = const [],
     this.matchedAlias,
     this.expansion,
+    this.flatExpansion,
   });
 
   DanbooruTag copyWith({
@@ -38,6 +42,7 @@ class DanbooruTag {
     List<String>? aliases,
     String? Function()? matchedAlias,
     String? Function()? expansion,
+    String? Function()? flatExpansion,
   }) {
     return DanbooruTag(
       tag: tag ?? this.tag,
@@ -48,6 +53,7 @@ class DanbooruTag {
       aliases: aliases ?? this.aliases,
       matchedAlias: matchedAlias != null ? matchedAlias() : this.matchedAlias,
       expansion: expansion != null ? expansion() : this.expansion,
+      flatExpansion: flatExpansion != null ? flatExpansion() : this.flatExpansion,
     );
   }
 

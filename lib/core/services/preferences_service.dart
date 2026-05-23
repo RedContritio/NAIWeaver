@@ -44,6 +44,7 @@ class PreferencesService {
   static const String _keyCharacterPresets = 'character_presets';
   static const String _keyShowTooltips = 'show_tooltips';
   static const String _keyHideTagValues = 'hide_tag_values';
+  static const String _keyHonorOutfitState = 'honor_outfit_state';
   static const String _keyUiStylesExpanded = 'ui_styles_expanded';
   static const String _keyUiCharShowTitle = 'ui_char_show_title';
   static const String _keyUiCharShowUc = 'ui_char_show_uc';
@@ -359,6 +360,17 @@ class PreferencesService {
 
   Future<void> setHideTagValues(bool value) async {
     await _prefs.setBool(_keyHideTagValues, value);
+  }
+
+  /// When true, inserting a `[OCNAME (OUTFITNAME)]` autocomplete entry routes
+  /// the outfit through the outfit-state renderer (concealment + `nsfw` append
+  /// if dishevelled). When false (default), the flat tag string is inserted.
+  /// Per-insertion toggle in the suggestion overlay; this stores the
+  /// most-recent value as a UX convenience.
+  bool get honorOutfitState => _prefs.getBool(_keyHonorOutfitState) ?? false;
+
+  Future<void> setHonorOutfitState(bool value) async {
+    await _prefs.setBool(_keyHonorOutfitState, value);
   }
 
   // — UI State Persistence —

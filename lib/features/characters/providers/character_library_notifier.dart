@@ -13,9 +13,13 @@ class CharacterSuggestion {
   /// Display label, e.g. "Yuki" or "Yuki (Rainy Day Chic)".
   final String label;
 
-  /// The text inserted at the cursor when picked (body tags + outfit tags run
-  /// through concealment, comma-joined; `nsfw` appended if dishevelled).
+  /// State-aware expansion (concealment + `nsfw` if dishevelled). Used when
+  /// the per-insertion "honor state" toggle is on.
   final String expansion;
+
+  /// Flat expansion: body tags + raw outfit tags. Used when "honor state" is
+  /// off (the default).
+  final String flatExpansion;
 
   /// For ranking — the character's name lowercased.
   final String nameKey;
@@ -23,6 +27,7 @@ class CharacterSuggestion {
   const CharacterSuggestion({
     required this.label,
     required this.expansion,
+    required this.flatExpansion,
     required this.nameKey,
   });
 }
@@ -213,6 +218,21 @@ class CharacterLibraryNotifier extends ChangeNotifier {
     return parts.join(', ');
   }
 
+  /// The "honor state off" expansion: identical to [expansionFor] except the
+  /// outfit is inserted as its raw tag string, with no concealment, no
+  /// state-aware rendering, and no implicit `nsfw` append.
+  String flatExpansionFor(SavedCharacter c, ClosetOutfit? outfit) {
+    final body = c.derivedBodyTags;
+    final outfitTags = outfit?.tags.trim() ?? '';
+    final parts = <String>[
+      if (c.stylePrefix.trim().isNotEmpty) c.stylePrefix.trim(),
+      if (body.isNotEmpty) body,
+      if (outfitTags.isNotEmpty) outfitTags,
+      if (c.artistTag.trim().isNotEmpty) c.artistTag.trim(),
+    ];
+    return parts.join(', ');
+  }
+
   /// All autocomplete entries whose character name (or name+outfit) contains
   /// [query] (case-insensitive). Returns both a bare `[Name]` entry (→ primary
   /// outfit) and one entry per closet outfit.
@@ -230,6 +250,7 @@ class CharacterLibraryNotifier extends ChangeNotifier {
         out.add(CharacterSuggestion(
           label: c.name,
           expansion: expansionFor(c, primary),
+          flatExpansion: flatExpansionFor(c, primary),
           nameKey: nameKey,
         ));
       }
@@ -240,6 +261,7 @@ class CharacterLibraryNotifier extends ChangeNotifier {
           out.add(CharacterSuggestion(
             label: outfitLabel,
             expansion: expansionFor(c, o),
+            flatExpansion: flatExpansionFor(c, o),
             nameKey: nameKey,
           ));
         }
@@ -259,6 +281,7 @@ class CharacterLibraryNotifier extends ChangeNotifier {
               count: 0,
               typeName: 'saved_character',
               expansion: s.expansion,
+              flatExpansion: s.flatExpansion,
             ))
         .toList();
   }
