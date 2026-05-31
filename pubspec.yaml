@@ -64,6 +64,11 @@ dependencies:
   window_manager: ^0.4.3
   flutter_markdown_plus: ^1.0.3
   markdown: ^7.2.2
+  web: ^1.1.1
+  # SAF (Storage Access Framework) for writing exports to a removable SD card
+  # on Android. Pinned to the 2.x line (3.x requires AGP 9 / Flutter 3.44+).
+  saf_util: ">=2.2.0 <3.0.0"
+  saf_stream: ">=2.0.0 <3.0.0"
 
 dev_dependencies:
   flutter_test:
@@ -108,6 +113,7 @@ flutter:
     - assets/soundfonts/
     - assets/photoshoot/poses.json
     - assets/photoshoot/environments.json
+    - assets/prompts/character.lean.v2.txt
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

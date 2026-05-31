@@ -14,6 +14,8 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/utils/app_snackbar.dart';
 import '../../../core/utils/unique_file_path.dart';
+import '../../../core/utils/web_download.dart';
+import '../../../core/services/saf_export_service.dart';
 import '../../../core/services/preferences_service.dart';
 import '../../../core/services/novel_ai_service.dart';
 import '../../../core/services/nai_text_service.dart';
@@ -584,6 +586,24 @@ class GenerationNotifier extends ChangeNotifier {
 
   Future<void> saveCurrentImage() async {
     if (_state.generatedImage == null || _lastMetadata == null) return;
+
+    // Web has no filesystem; trigger a browser download of the image (with
+    // metadata injected) instead so the SAVE button isn't a silent no-op.
+    if (kIsWeb) {
+      final baseName = _buildFileName(_lastMetadata!);
+      final bytesWithMetadata = await compute(injectMetadata, {
+        'bytes': _state.generatedImage!,
+        'metadata': _lastMetadata!,
+      });
+      final ok = downloadBytes(bytesWithMetadata, '$baseName.png');
+      if (ok) {
+        _imageSaved = true;
+        _lastSavedBasename = '$baseName.png';
+        notifyListeners();
+      }
+      return;
+    }
+
     final savedFile = await _saveToDisk(_state.generatedImage!, _lastMetadata!);
     if (savedFile != null) {
       _galleryNotifier?.addFile(savedFile, DateTime.now());
@@ -660,9 +680,24 @@ class GenerationNotifier extends ChangeNotifier {
       // If a custom export folder is set, write directly there (any platform)
       final customFolder = _prefs.exportFolderPath;
       if (customFolder.isNotEmpty && !kIsWeb) {
+        // For a SAF (SD-card) target, verify we still hold the write grant —
+        // the card may have been removed or permission revoked. A clear message
+        // beats the cryptic PathAccessException users used to see (issue #13).
+        if (SafExportService.isSafUri(customFolder) &&
+            !await SafExportService.instance.hasWriteAccess(customFolder)) {
+          if (context.mounted) {
+            showAppSnackBar(context,
+                'EXPORT FOLDER UNAVAILABLE — RE-PICK IT IN SETTINGS',
+                color: const Color(0xFFF44336));
+          }
+          return;
+        }
         await _exportToFolder(_state.generatedImage!, customFolder, exportName);
         if (context.mounted) {
-          showAppSnackBar(context, 'SAVED TO ${p.basename(customFolder).toUpperCase()}', color: const Color(0xFF4CAF50));
+          final label = SafExportService.isSafUri(customFolder)
+              ? 'SD CARD'
+              : p.basename(customFolder).toUpperCase();
+          showAppSnackBar(context, 'SAVED TO $label', color: const Color(0xFF4CAF50));
         }
         return;
       }
@@ -703,6 +738,12 @@ class GenerationNotifier extends ChangeNotifier {
   }
 
   Future<void> _exportToFolder(Uint8List bytes, String folderPath, String fileName) async {
+    // A SAF tree URI (content://…) targets a folder we can only reach through
+    // the Storage Access Framework — e.g. a removable SD card (issue #13).
+    if (SafExportService.isSafUri(folderPath)) {
+      await SafExportService.instance.writePng(folderPath, fileName, bytes);
+      return;
+    }
     final dir = Directory(folderPath);
     if (!await dir.exists()) await dir.create(recursive: true);
     final file = File(p.join(folderPath, '$fileName.png'));
@@ -769,6 +810,23 @@ class GenerationNotifier extends ChangeNotifier {
     _state = _state.copyWith(characterPresets: updated);
     notifyListeners();
     await _characterManager.persistPresets(updated);
+  }
+
+  /// Merges imported character presets (from a backup pack) into the current
+  /// set, keyed by id, and persists. Used by the pack importer.
+  Future<void> importCharacterPresets(List<CharacterPreset> incoming) async {
+    final merged = List<CharacterPreset>.from(_state.characterPresets);
+    for (final preset in incoming) {
+      final idx = merged.indexWhere((p) => p.id == preset.id);
+      if (idx >= 0) {
+        merged[idx] = preset;
+      } else {
+        merged.add(preset);
+      }
+    }
+    _state = _state.copyWith(characterPresets: merged);
+    notifyListeners();
+    await _characterManager.persistPresets(merged);
   }
 
   void applyCharacterPreset(int charIndex, CharacterPreset preset) {
@@ -1044,6 +1102,11 @@ class GenerationNotifier extends ChangeNotifier {
 
   void applyTagSuggestion(DanbooruTag tag) {
     TagSuggestionHelper.applyTag(promptController, tag);
+    // A saved character inserted into the GLOBAL prompt routes its negative
+    // tags to the GLOBAL negative prompt.
+    if (tag.typeName == 'saved_character') {
+      TagSuggestionHelper.appendNegatives(negativePromptController, tag.negativeExpansion);
+    }
     _state = _state.copyWith(tagSuggestions: [], currentTagQuery: "");
     notifyListeners();
   }

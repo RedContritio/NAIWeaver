@@ -11,6 +11,7 @@ import 'package:gal/gal.dart';
 import 'package:provider/provider.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/services/preferences_service.dart';
+import '../../../core/services/saf_export_service.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../../core/widgets/confirm_dialog.dart';
 import '../../../core/utils/app_snackbar.dart';
@@ -308,8 +309,35 @@ class _ImageDetailViewState extends State<ImageDetailView>
     try {
       final sourceFile = item.file;
       final fileName = p.basename(sourceFile.path);
+      final customFolder = prefs.exportFolderPath;
 
-      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      // Honor a user-chosen export folder on mobile (previously ignored — the
+      // detail-view export always went to the device gallery, symptom #1 of #13).
+      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS) && customFolder.isNotEmpty) {
+        if (SafExportService.isSafUri(customFolder) &&
+            !await SafExportService.instance.hasWriteAccess(customFolder)) {
+          if (mounted) {
+            showErrorSnackBar(context, context.l.galleryExportFailed(
+                'Export folder unavailable — re-pick it in Settings'));
+          }
+          return;
+        }
+        var bytes = await sourceFile.readAsBytes();
+        if (prefs.stripMetadataOnExport) {
+          bytes = stripMetadata(bytes);
+        }
+        final name = p.basenameWithoutExtension(sourceFile.path);
+        if (SafExportService.isSafUri(customFolder)) {
+          await SafExportService.instance.writePng(customFolder, name, bytes);
+        } else {
+          final dir = Directory(customFolder);
+          if (!await dir.exists()) await dir.create(recursive: true);
+          await File(p.join(customFolder, fileName)).writeAsBytes(bytes);
+        }
+        if (mounted) {
+          showAppSnackBar(context, context.l.gallerySavedToDevice, color: t.accent);
+        }
+      } else if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
         final hasAccess = await Gal.hasAccess();
         if (!hasAccess) await Gal.requestAccess();
         var bytes = await sourceFile.readAsBytes();

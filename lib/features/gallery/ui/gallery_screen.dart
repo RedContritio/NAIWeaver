@@ -12,6 +12,7 @@ import 'package:gal/gal.dart';
 import 'package:provider/provider.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/services/preferences_service.dart';
+import '../../../core/services/saf_export_service.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../../core/widgets/confirm_dialog.dart';
 import '../../../core/widgets/progress_dialog.dart';
@@ -182,9 +183,40 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
   Future<void> _bulkExport(List<GalleryItem> selectedItems) async {
     final t = context.tRead;
+    final prefs = context.read<PreferencesService>();
     try {
-      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-        final album = context.read<PreferencesService>().exportAlbumName;
+      // Honor a user-chosen export folder on mobile (previously ignored — the
+      // bulk export always went to the device gallery, symptom #1 of #13).
+      final customFolder = prefs.exportFolderPath;
+      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS) && customFolder.isNotEmpty) {
+        if (SafExportService.isSafUri(customFolder) &&
+            !await SafExportService.instance.hasWriteAccess(customFolder)) {
+          if (mounted) {
+            showErrorSnackBar(context, context.l.galleryExportFailed(
+                'Export folder unavailable — re-pick it in Settings'));
+          }
+          _exitSelectionMode();
+          return;
+        }
+        int copied = 0;
+        for (final item in selectedItems) {
+          var bytes = await item.file.readAsBytes();
+          bytes = await _maybeStripMetadata(bytes);
+          final name = p.basenameWithoutExtension(item.file.path);
+          if (SafExportService.isSafUri(customFolder)) {
+            await SafExportService.instance.writePng(customFolder, name, bytes);
+          } else {
+            final dir = Directory(customFolder);
+            if (!await dir.exists()) await dir.create(recursive: true);
+            await File(p.join(customFolder, item.basename)).writeAsBytes(bytes);
+          }
+          copied++;
+        }
+        if (mounted) {
+          showAppSnackBar(context, context.l.gallerySavedToDeviceCount(copied, selectedItems.length), color: t.accent);
+        }
+      } else if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+        final album = prefs.exportAlbumName;
         final hasAccess = await Gal.hasAccess();
         if (!hasAccess) await Gal.requestAccess();
         int saved = 0;

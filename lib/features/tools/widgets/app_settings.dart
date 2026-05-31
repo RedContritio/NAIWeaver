@@ -10,6 +10,7 @@ import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/l10n/locale_notifier.dart';
 import '../../../core/services/path_service.dart';
 import '../../../core/services/preferences_service.dart';
+import '../../../core/services/saf_export_service.dart';
 import '../../../core/services/update_service.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../../core/theme/theme_notifier.dart';
@@ -589,6 +590,17 @@ class _AppSettingsState extends State<AppSettings> {
     );
   }
 
+  /// Human-readable label for the stored export folder. SAF tree URIs are
+  /// ugly (`content://…/tree/XXXX-XXXX%3ANAIWeaver`), so show the decoded
+  /// trailing folder segment; plain filesystem paths are shown as-is.
+  String _exportFolderLabel(String path) {
+    if (!SafExportService.isSafUri(path)) return path;
+    final decoded = Uri.decodeComponent(path);
+    final lastColon = decoded.lastIndexOf(':');
+    final tail = lastColon >= 0 ? decoded.substring(lastColon + 1) : decoded;
+    return tail.isEmpty ? 'SD CARD' : 'SD: $tail';
+  }
+
   Widget _buildExportFolderPicker(VisionTokens t) {
     final prefs = context.read<PreferencesService>();
     final l = context.l;
@@ -618,7 +630,9 @@ class _AppSettingsState extends State<AppSettings> {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      currentPath.isEmpty ? l.settingsExportFolderDefault : currentPath,
+                      currentPath.isEmpty
+                          ? l.settingsExportFolderDefault
+                          : _exportFolderLabel(currentPath),
                       style: TextStyle(
                         fontSize: t.fontSize(9),
                         color: currentPath.isEmpty ? t.textDisabled : t.textSecondary,
@@ -630,6 +644,17 @@ class _AppSettingsState extends State<AppSettings> {
                 const SizedBox(width: 8),
                 InkWell(
                   onTap: () async {
+                    // On Android, pick via SAF so the chosen folder can live on
+                    // a removable SD card (plain filesystem writes can't reach
+                    // it under scoped storage — issue #13).
+                    if (SafExportService.isSupported) {
+                      final folder = await SafExportService.instance.pickFolder();
+                      if (folder != null) {
+                        await prefs.setExportFolderPath(folder.uri);
+                        setLocalState(() {});
+                      }
+                      return;
+                    }
                     final dir = await FilePicker.platform.getDirectoryPath(
                       dialogTitle: l.settingsExportFolder,
                     );
@@ -1457,7 +1482,10 @@ class _AppSettingsState extends State<AppSettings> {
 
   Widget _buildCreditsSection(VisionTokens t) {
     final l = context.l;
-    const names = ['Brudda', 'Uragan', 'Glockamoli', 'Perry Argoneco', 'Deadly Ham', 'baisumang'];
+    const names = ['Brudda', 'Uragan', 'Glockamoli', 'Perry Argoneco', 'Deadly Ham', 'baisumang', 'andreiagmu'];
+    const linkedNames = {
+      'andreiagmu': 'https://github.com/andreiagmu',
+    };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -1481,13 +1509,25 @@ class _AppSettingsState extends State<AppSettings> {
           for (final name in names)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Text(
-                name,
-                style: TextStyle(
-                  color: t.headerText,
-                  fontSize: t.fontSize(11),
-                ),
-              ),
+              child: linkedNames.containsKey(name)
+                  ? InkWell(
+                      onTap: () => _confirmOpenExternalLink(t, linkedNames[name]!),
+                      child: Text(
+                        name,
+                        style: TextStyle(
+                          color: t.accent,
+                          fontSize: t.fontSize(11),
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    )
+                  : Text(
+                      name,
+                      style: TextStyle(
+                        color: t.headerText,
+                        fontSize: t.fontSize(11),
+                      ),
+                    ),
             ),
           const SizedBox(height: 8),
           Text(
@@ -1594,6 +1634,64 @@ class _AppSettingsState extends State<AppSettings> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _confirmOpenExternalLink(VisionTokens t, String url) {
+    final l = context.l;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: t.surfaceHigh,
+        title: Text(
+          'OPEN EXTERNAL LINK',
+          style: TextStyle(
+            fontSize: t.fontSize(10),
+            letterSpacing: 2,
+            color: t.textSecondary,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'You are about to leave NAIWeaver and open a new window:',
+              style: TextStyle(
+                color: t.textPrimary,
+                fontSize: t.fontSize(11),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              url,
+              style: TextStyle(
+                color: t.accent,
+                fontSize: t.fontSize(11),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              l.commonCancel.toUpperCase(),
+              style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9)),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              launchUrl(Uri.parse(url));
+            },
+            child: Text(
+              'OPEN LINK',
+              style: TextStyle(color: t.accent, fontSize: t.fontSize(9)),
+            ),
+          ),
+        ],
       ),
     );
   }
