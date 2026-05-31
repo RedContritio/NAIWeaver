@@ -372,39 +372,16 @@ class _DirectorViewState extends State<DirectorView> {
               ),
             ],
           ),
-          if (slot.actionTag != null)
+          if (slot.actionTags.isNotEmpty)
              Padding(
                padding: const EdgeInsets.only(top: 16.0),
-               child: Container(
-                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                 decoration: BoxDecoration(
-                   color: t.accentCascade.withValues(alpha: 0.1),
-                   borderRadius: BorderRadius.circular(4),
-                   border: Border.all(color: t.accentCascade.withValues(alpha: 0.2)),
-                 ),
-                 child: Row(
-                   mainAxisSize: MainAxisSize.min,
-                   children: [
-                     Icon(Icons.link, size: 12, color: t.accentCascade),
-                     const SizedBox(width: 8),
-                     Text(
-                       slot.actionTag!.toUpperCase(),
-                       style: TextStyle(color: t.accentCascade, fontSize: t.fontSize(9), fontWeight: FontWeight.w900, letterSpacing: 1),
-                     ),
-                     const SizedBox(width: 8),
-                     InkWell(
-                       onTap: () {
-                         final updatedSlots = List<BeatCharacterSlot>.from(beat.characterSlots);
-                         updatedSlots[index] = slot.copyWith(clearActionTag: true);
-                         notifier.updateActiveBeat(beat.copyWith(characterSlots: updatedSlots));
-                       },
-                       child: Padding(
-                         padding: const EdgeInsets.all(4.0),
-                         child: Icon(Icons.close, size: 12, color: t.accentCascade),
-                       ),
-                     ),
-                   ],
-                 ),
+               child: Wrap(
+                 spacing: 8,
+                 runSpacing: 8,
+                 children: [
+                   for (final tag in slot.actionTags)
+                     _buildActionChip(context, beat, notifier, index, slot, tag),
+                 ],
                ),
              ),
         ],
@@ -494,20 +471,68 @@ class _DirectorViewState extends State<DirectorView> {
               final tag = interaction.type == InteractionType.mutual
                   ? 'mutual#${interaction.actionName}'
                   : 'source#${interaction.actionName}';
-              updatedSlots[idx] = updatedSlots[idx].copyWith(actionTag: tag);
+              updatedSlots[idx] = _appendActionTag(updatedSlots[idx], tag);
             }
           }
           for (final idx in interaction.targetCharacterIndices) {
             if (idx < updatedSlots.length) {
-              updatedSlots[idx] = updatedSlots[idx].copyWith(actionTag: 'target#${interaction.actionName}');
+              updatedSlots[idx] = _appendActionTag(
+                  updatedSlots[idx], 'target#${interaction.actionName}');
             }
           }
 
           notifier.updateActiveBeat(beat.copyWith(characterSlots: updatedSlots));
         },
         onDelete: () {
-           // Simplified delete for now
+          // Deletion is handled per-tag from the slot's action chips.
         },
+      ),
+    );
+  }
+
+  /// Appends [tag] to a slot's action tags, de-duplicating so re-linking the
+  /// same action does not stack identical entries.
+  BeatCharacterSlot _appendActionTag(BeatCharacterSlot slot, String tag) {
+    if (slot.actionTags.contains(tag)) return slot;
+    return slot.copyWith(actionTags: [...slot.actionTags, tag]);
+  }
+
+  /// A single removable action-tag chip for a character slot. Tapping the
+  /// close icon removes only that tag, leaving any others intact.
+  Widget _buildActionChip(BuildContext context, CascadeBeat beat,
+      CascadeNotifier notifier, int index, BeatCharacterSlot slot, String tag) {
+    final t = context.t;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: t.accentCascade.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: t.accentCascade.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.link, size: 12, color: t.accentCascade),
+          const SizedBox(width: 8),
+          Text(
+            tag.toUpperCase(),
+            style: TextStyle(color: t.accentCascade, fontSize: t.fontSize(9), fontWeight: FontWeight.w900, letterSpacing: 1),
+          ),
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: () {
+              final updatedSlots = List<BeatCharacterSlot>.from(beat.characterSlots);
+              updatedSlots[index] = slot.copyWith(
+                actionTags: slot.actionTags.where((e) => e != tag).toList(),
+              );
+              notifier.updateActiveBeat(beat.copyWith(characterSlots: updatedSlots));
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(4.0),
+              child: Icon(Icons.close, size: 12, color: t.accentCascade),
+            ),
+          ),
+        ],
       ),
     );
   }

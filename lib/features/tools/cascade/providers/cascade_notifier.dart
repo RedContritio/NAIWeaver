@@ -225,7 +225,7 @@ class CascadeNotifier extends ChangeNotifier {
     final clonedBeat = CascadeBeat(
       characterSlots: sourceBeat.characterSlots.map((s) => BeatCharacterSlot(
         position: s.position,
-        actionTag: s.actionTag,
+        actionTags: List.of(s.actionTags),
         positivePrompt: s.positivePrompt,
         negativePrompt: s.negativePrompt,
       )).toList(),

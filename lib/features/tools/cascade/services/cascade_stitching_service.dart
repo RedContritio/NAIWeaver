@@ -89,12 +89,12 @@ class CascadeStitchingService {
       final slot = beat.characterSlots[i];
       final appearance = appearances[i];
 
-      // Final Character Prompt = [ActionTag] + [UserCharacterAppearance] + [SlotPositivePrompt]
-      // Note: actionTag should be in format "source#action", "target#action", or "mutual#action"
+      // Final Character Prompt = [ActionTags] + [UserCharacterAppearance] + [SlotPositivePrompt]
+      // Note: each action tag is in format "source#action", "target#action", or "mutual#action".
       // NovelAIService handles these prefixes if they are in the character prompt.
       final List<String> charPromptParts = [];
-      if (slot.actionTag != null && slot.actionTag!.isNotEmpty) {
-        charPromptParts.add(slot.actionTag!);
+      for (final tag in slot.actionTags) {
+        if (tag.isNotEmpty) charPromptParts.add(tag);
       }
       if (appearance.trim().isNotEmpty) {
         charPromptParts.add(appearance.trim());

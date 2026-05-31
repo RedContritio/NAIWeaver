@@ -2,44 +2,57 @@ import '../../../generation/models/nai_character.dart';
 
 class BeatCharacterSlot {
   final NaiCoordinate position;
-  /// The action tag, e.g., "source#hugging", "target#hugging", "mutual#holding hands"
-  /// Can be null if no specific interaction is defined for this slot.
-  final String? actionTag;
-  
+
+  /// The action tags for this slot, e.g. "source#hugging", "target#hugging",
+  /// "mutual#holding hands". A slot can hold multiple interactions at once
+  /// (e.g. a character that is the source of one action and the target of
+  /// another). Empty when no interaction is defined for this slot.
+  final List<String> actionTags;
+
   final String positivePrompt;
   final String negativePrompt;
 
   BeatCharacterSlot({
     required this.position,
-    this.actionTag,
+    this.actionTags = const [],
     this.positivePrompt = "",
     this.negativePrompt = "",
   });
 
-  factory BeatCharacterSlot.fromJson(Map<String, dynamic> json) => BeatCharacterSlot(
-        position: NaiCoordinate.fromJson(json['position']),
-        actionTag: json['actionTag'],
-        positivePrompt: json['positivePrompt'] ?? "",
-        negativePrompt: json['negativePrompt'] ?? "",
-      );
+  factory BeatCharacterSlot.fromJson(Map<String, dynamic> json) {
+    // Backward-compatible: detect the legacy single-string `actionTag` field
+    // vs the new `actionTags` list. Old saved cascades carry `actionTag`.
+    final List<String> tags;
+    if (json.containsKey('actionTags')) {
+      tags = (json['actionTags'] as List?)?.cast<String>() ?? const [];
+    } else {
+      final legacy = json['actionTag'] as String?;
+      tags = (legacy != null && legacy.isNotEmpty) ? [legacy] : const [];
+    }
+    return BeatCharacterSlot(
+      position: NaiCoordinate.fromJson(json['position']),
+      actionTags: tags,
+      positivePrompt: json['positivePrompt'] ?? "",
+      negativePrompt: json['negativePrompt'] ?? "",
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'position': position.toJson(),
-        'actionTag': actionTag,
+        'actionTags': actionTags,
         'positivePrompt': positivePrompt,
         'negativePrompt': negativePrompt,
       };
 
   BeatCharacterSlot copyWith({
     NaiCoordinate? position,
-    String? actionTag,
-    bool clearActionTag = false,
+    List<String>? actionTags,
     String? positivePrompt,
     String? negativePrompt,
   }) {
     return BeatCharacterSlot(
       position: position ?? this.position,
-      actionTag: clearActionTag ? null : (actionTag ?? this.actionTag),
+      actionTags: actionTags ?? this.actionTags,
       positivePrompt: positivePrompt ?? this.positivePrompt,
       negativePrompt: negativePrompt ?? this.negativePrompt,
     );
