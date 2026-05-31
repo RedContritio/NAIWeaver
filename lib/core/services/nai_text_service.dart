@@ -130,7 +130,7 @@ class NaiTextService implements TextGenService {
               headers: _headers(stream: false),
               responseType: ResponseType.json),
         );
-        if (req.params.enableThinking) {
+        if (kDebugMode && req.params.enableThinking) {
           debugPrint('NaiTextService: thinking response from $url '
               '(sent: ${jsonEncode(body)}) -> ${jsonEncode(response.data)}');
         }
@@ -143,7 +143,8 @@ class NaiTextService implements TextGenService {
         }
         final bodyStr = await _readBodyString(e.response?.data);
         debugPrint('NaiTextService: POST $url failed '
-            '${e.response?.statusCode}: $bodyStr  (sent: ${jsonEncode(body)})');
+            '${e.response?.statusCode}: $bodyStr'
+            '${kDebugMode ? '  (sent: ${jsonEncode(body)})' : ''}');
         throw _exceptionForDio(e, bodyStr);
       }
     }
@@ -397,7 +398,8 @@ class NaiTextService implements TextGenService {
           } catch (_) {}
         }
         debugPrint('NaiTextService: POST $url failed '
-            '${e.response?.statusCode}: $bodyStr  (sent: ${jsonEncode(body)})');
+            '${e.response?.statusCode}: $bodyStr'
+            '${kDebugMode ? '  (sent: ${jsonEncode(body)})' : ''}');
         final code = e.response?.statusCode;
         // For ambiguous server-side errors (not auth/billing/bad-request), the
         // non-stream endpoint might still work — try it once.

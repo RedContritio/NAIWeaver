@@ -64,6 +64,11 @@ output/
 # Director reference images
 references/
 
+# Saved-character runtime data (personas, closets) — app writes these to the
+# working dir during dev; they are user data, not source. Anchored to repo root
+# so it never matches lib/features/characters or test/characters.
+/characters/
+
 # Stray nested folder
 2.0/
 
@@ -87,6 +92,9 @@ soundfonts/
 # Dev/test files
 *.mid
 *.sf2
+# ...but product jukebox MIDI under assets/midi/ ships in-repo (like the .kar
+# songs), so un-ignore it. Stray dev/test .mid elsewhere stays ignored.
+!assets/midi/**/*.mid
 test_itxt.dart
 EXAMPLEINPAINTED.png
 
