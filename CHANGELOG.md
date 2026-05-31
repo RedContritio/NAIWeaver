@@ -2,8 +2,63 @@
 
 ## v0.9.0
 
+### Characters
+- **Saved character library** — build reusable personas with split appearance buckets (base / face / hair / body, plus NSFW sub-buckets) and a per-character closet of outfits. Each character is stored locally as one JSON file with its closet kept separately, so wardrobes stay portable and editable. Clothing never lives on the character — it lives in the closet.
+- **AI character generation** — a ✨ generator drafts a character and a starter wardrobe from a vibe + era + location. Ships with ~50 historical era presets (Age of Ramesses through the modern day) for period-correct results, and a lean appearance-only prompt that emits canonical Danbooru tags instead of invented English phrases. The old soul-md continuation pipeline (which truncated on lower-tier token budgets) is gone; generation is now a single bounded call with a `<<END>>` stop string.
+- **Wardrobe generator** — generates era- and vibe-appropriate outfits with garment-only tag scope and a curated color palette. Undergarment rules are now gender- and era-aware: a male historical character gets period base layers (loincloth, braies, linen undershirt) instead of feminine undergarment tags, and a modern character gets the right modern base layer. Bra dressing-state fix: the stale `aside` state is gone (`bra aside` isn't a real tag); `lifted` → `bra lift`, `pulled_down` → `bra pull`, legacy `aside` remaps to `bra pull`.
+- **Outfit state** — each outfit tracks per-slot dressing state (intact, unbuttoned, open, lifted, pulled down, aside, around ankles, removed) with automatic concealment so layered pieces only surface when the outer garment moves. The state panel is mobile-first: garment cards with tap-to-open state pills.
+- **Insert characters anywhere via autocomplete** — saved characters appear as `[Name]` and `[Name (Outfit)]` entries in the tag autocomplete, ranked above ordinary Danbooru tags. Picking one expands into the full body + outfit tag block. An inline **honor outfit state** toggle in the suggestion overlay switches between the flat tag string (default) and the state-rendered expansion (concealment + `nsfw` when dishevelled).
+- **Per-character & per-outfit negative tags** — attach negatives to a character or a specific outfit. On insertion the combined, de-duplicated negatives route to the right field automatically: the global negative prompt, or a per-character UC field when the character is inserted inside a character editor.
+- **Photoshoot mode** — pick a character + outfit, dress them in-place for the session (ephemeral by default, with an explicit "save state to outfit" button), choose a style plus curated pose and environment presets, preview the assembled prompt, and generate through the existing image pipeline — without disturbing the saved closet. Pose/environment libraries are SFW-only in this release.
+
+### Text Generation
+- **NovelAI text models** — a new Text Gen tool with a continue-style multiline input, model picker, full parameter controls (temperature, max length, top-P/K, repetition + phrase-repetition penalties), client-side stop strings, live streaming output, and a local history.
+- **Model-aware transport** — GLM/Xialong models route through `/oa/v1/completions` (and GLM-4.6 through the chat-style `/oa/v1/chat/completions`), while legacy Kayra/Clio/Erato models use `/ai/generate`. Uses the same `pst-` token as image generation.
+- **Reasoning mode** — for GLM models, an "enable thinking" switch routes through the chat endpoint so the model's `<think>…</think>` block is surfaced in a collapsible Reasoning section alongside the answer.
+
+### Export & Sharing
+- **Export to an SD card (Android)** — choose a removable-SD-card folder as your export target via the system folder picker. The write grant survives reboots, and exports stream straight to the card through the Storage Access Framework, which plain `dart:io` file writes can't reach under Android scoped storage (#13). Gallery bulk export and image-detail save route to SAF vs `dart:io` based on whether the stored folder is a `content://` tree URI, and re-check the grant before each write.
+- **Web image download** — generated images can now be saved on the web build via a standard `<a download>` browser download.
+
+### Packs & Backup
+- **Bigger `.vpack` backups** — packs now bundle your custom themes, gallery albums, and an app/jukebox settings blob in addition to presets, styles, wildcards, references, vibes, and character presets, with new manifest counts and a restart hint on import. The settings blob is allowlisted on both export and import — the API key, PIN hash, and folder paths are intentionally excluded, so a malicious pack can't inject arbitrary preferences.
+
+### Generation UX
+- **Enable/disable vibes & references** — a toggle pill on vibe-transfer and director-reference chips/editors lets you switch an item off without deleting it. The `enabled` flag round-trips through JSON (defaults true on legacy data) and disabled items are skipped at generation time.
+- **Type exact slider values** — tap any slider's number to type a precise value, including beyond the soft range up to a hard cap, mirroring NovelAI.
+
+### Cascade
+- **Multi-interaction beat slots** — a cascade beat slot can now hold multiple interaction tags at once (e.g. `source#hugging`, `target#hugging`, `mutual#holding hands`) instead of a single one.
+
+### Inpainting & Canvas
+- **Discard partial stroke on pinch-zoom** — when a one-finger stroke is interrupted by a second finger starting a pinch-zoom, the partial stroke is discarded instead of being committed to the inpaint mask or canvas layer.
+
+### Jukebox
+- **Anime & game song categories** — new anime and game MIDI tracks, bundled in-repo alongside the existing songs.
+
 ### Gallery
 - **Fix Android image import stripping PNG metadata** — `file_picker 8.x` defaults `compressionQuality` to 30, which on Android forces a `Bitmap.compress(JPEG, 30, ...)` re-encode for any `FileType.image` pick. PNGs were being silently transcoded to JPEG before reaching the app, destroying NovelAI `tEXt`/`iTXt` metadata chunks (Comment, Description, Software). Now passes `compressionQuality: 0` to short-circuit the native re-encode and stream original bytes through unchanged. Affected every Android user since `9f41d05` reverted the `FileType.custom` workaround on Mar 22; native PNGs (including NAIWeaver-exported ones) now round-trip with metadata intact. The "(N converted to PNG)" status message should now only appear for genuinely non-PNG inputs.
+
+### Fixes
+- **Touch drag-to-scroll on long prompts** — a mouse wheel on Android no longer skips multiple lines in multi-line prompt fields; drag-scroll is now gated to touch and stylus input (#14).
+- **Desktop window** — guard against an invisible window restored from stale saved bounds.
+
+### Security & Privacy
+- **No prompt content in release logs** — the text-generation service's request-body debug logging is now gated behind debug builds, so user prompt content no longer lands in release-build logs. (The auth token was never in the request body.)
+- **Saved-character data stays local** — runtime character data (personas, closets) written to the working directory during development is gitignored and never enters version control.
+
+### Code Quality
+- **Test coverage** — new suites across the Characters and Text Gen modules (outfit classifier / renderer / delta, wardrobe generator, negative-tag routing, character generation, SSE parsing, parameter mapping), plus pack-backup round-trip, exportable-settings allowlist, cascade beats, and a prompt-iteration lab harness. Full suite passing.
+- **Analyzer clean** — zero errors, warnings, or infos.
+
+### Localization
+- New strings localized for EN, JA, ZH (Text Gen panel, pack sections, character UI).
+
+### Notes
+- New dependencies: `web`, and `saf_util` / `saf_stream` (pinned to the 2.x line) for Android SD-card export.
+
+### Contributors
+- [@andreiagmu](https://github.com/andreiagmu)
 
 ## v0.8.6
 
