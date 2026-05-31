@@ -177,6 +177,16 @@ class Img2ImgNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Discards the in-progress stroke without committing it to the mask.
+  /// Used when a second finger lands and the gesture becomes a pinch-zoom, so
+  /// the partial one-finger stroke doesn't get left on the mask.
+  void cancelStroke() {
+    if (_currentStrokePoints == null && _activeStroke == null) return;
+    _currentStrokePoints = null;
+    _activeStroke = null;
+    notifyListeners();
+  }
+
   /// Returns current in-progress stroke for live preview rendering.
   /// Returns the same object instance across the stroke's lifetime so that
   /// identityHashCode-based caching in MaskCanvas works correctly.

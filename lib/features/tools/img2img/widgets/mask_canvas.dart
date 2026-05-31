@@ -364,6 +364,11 @@ class _MaskCanvasState extends State<MaskCanvas> {
           child: Listener(
             onPointerDown: (event) {
               setState(() => _pointerCount++);
+              // Second finger down → this is a pinch-zoom, not a paint stroke.
+              // Discard any partial one-finger stroke so it isn't left behind.
+              if (_pointerCount >= 2) {
+                notifier.cancelStroke();
+              }
               if (event.buttons & kMiddleMouseButton != 0) {
                 setState(() => _middleMouseHeld = true);
               }
@@ -391,8 +396,12 @@ class _MaskCanvasState extends State<MaskCanvas> {
                   : SystemMouseCursors.none,
               child: InteractiveViewer(
                 transformationController: _zoomController,
-                panEnabled: isPanMode,
-                scaleEnabled: false, // all zoom handled via _onPointerSignal
+                // Pan when explicitly in pan mode (space / middle-mouse).
+                // Pinch (2+ fingers) drives both scale and pan so mobile users
+                // can zoom; painting is already suppressed while pinching, so
+                // there is no gesture-arena conflict with the brush.
+                panEnabled: isPanMode || _isPinching,
+                scaleEnabled: _isPinching, // mouse-wheel zoom still via _onPointerSignal
                 boundaryMargin: const EdgeInsets.all(double.infinity),
                 minScale: 0.25,
                 maxScale: 16.0,

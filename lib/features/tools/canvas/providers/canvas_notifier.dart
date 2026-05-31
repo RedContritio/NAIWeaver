@@ -371,6 +371,15 @@ class CanvasNotifier extends ChangeNotifier {
     _pushAction(AddStrokeAction(layerId: activeLayer.id, stroke: stroke));
   }
 
+  /// Discards the in-progress stroke without committing it to the active layer.
+  /// Used when a second finger lands and the gesture becomes a pinch-zoom, so
+  /// the partial one-finger stroke doesn't get left on the canvas.
+  void cancelStroke() {
+    if (_currentStrokePoints == null) return;
+    _currentStrokePoints = null;
+    notifyListeners();
+  }
+
   /// Returns current in-progress stroke for live preview rendering.
   PaintStroke? get activeStroke {
     if (_currentStrokePoints == null || _currentStrokePoints!.isEmpty) {

@@ -53,6 +53,8 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
   final FocusNode _textKeyboardFocusNode = FocusNode();
   bool _spaceHeld = false;
   bool _middleMouseHeld = false;
+  int _pointerCount = 0;
+  bool get _isPinching => _pointerCount >= 2;
 
   // Image layer cache
   final Map<String, ui.Image> _imageLayerCache = {};
@@ -253,8 +255,16 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
             children: [
               Listener(
                 onPointerDown: (event) {
+                  setState(() => _pointerCount++);
                   if (event.buttons & kMiddleMouseButton != 0) {
                     setState(() => _middleMouseHeld = true);
+                  }
+                  // Second finger down → this is a pinch-zoom, not a paint
+                  // stroke. Discard any partial one-finger stroke so it isn't
+                  // committed to the layer.
+                  if (_pointerCount >= 2) {
+                    notifier.cancelStroke();
+                    return;
                   }
                   // For draw-style tools, begin the stroke immediately on
                   // pointer-down (no slop wait) so the brush registers from
@@ -273,9 +283,11 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
                   notifier.beginStroke(normalized);
                 },
                 onPointerUp: (event) {
+                  setState(() => _pointerCount = (_pointerCount - 1).clamp(0, 1 << 30));
                   if (_middleMouseHeld) setState(() => _middleMouseHeld = false);
                 },
                 onPointerCancel: (event) {
+                  setState(() => _pointerCount = (_pointerCount - 1).clamp(0, 1 << 30));
                   if (_middleMouseHeld) setState(() => _middleMouseHeld = false);
                 },
                 onPointerSignal: (event) {
@@ -289,22 +301,26 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
                       : SystemMouseCursors.none,
                   child: InteractiveViewer(
                     transformationController: _zoomController,
-                    panEnabled: isPanMode,
-                    scaleEnabled: false, // we handle zoom via scroll wheel
+                    // Pan when explicitly in pan mode (space / middle-mouse).
+                    // Pinch (2+ fingers) drives both scale and pan so mobile
+                    // users can zoom; painting is suppressed while pinching, so
+                    // there is no gesture-arena conflict with the brush.
+                    panEnabled: isPanMode || _isPinching,
+                    scaleEnabled: _isPinching, // mouse-wheel zoom still via _onPointerSignal
                     boundaryMargin: const EdgeInsets.all(double.infinity),
                     minScale: 0.25,
                     maxScale: 16.0,
                     child: GestureDetector(
-                      onTapUp: isPanMode
+                      onTapUp: (isPanMode || _isPinching)
                           ? null
                           : (details) => _onTapUp(details, notifier),
-                      onPanStart: isPanMode
+                      onPanStart: (isPanMode || _isPinching)
                           ? null
                           : (details) => _onPanStart(details, notifier),
-                      onPanUpdate: isPanMode
+                      onPanUpdate: (isPanMode || _isPinching)
                           ? null
                           : (details) => _onPanUpdate(details, notifier),
-                      onPanEnd: isPanMode
+                      onPanEnd: (isPanMode || _isPinching)
                           ? null
                           : (_) => _onPanEnd(notifier),
                       onScaleStart: !isPanMode ? null : (_) {},
