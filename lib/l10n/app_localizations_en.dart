@@ -1373,6 +1373,31 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String packCharacterPresetsSection(int selected, int total) {
+    return 'CHARACTER PRESETS ($selected/$total)';
+  }
+
+  @override
+  String packThemesSection(int selected, int total) {
+    return 'THEMES ($selected/$total)';
+  }
+
+  @override
+  String packAlbumsSection(int selected, int total) {
+    return 'ALBUMS ($selected/$total)';
+  }
+
+  @override
+  String get packSettingsSection => 'APP & JUKEBOX SETTINGS';
+
+  @override
+  String get packSettingsItem => 'App & jukebox settings';
+
+  @override
+  String get packImportRestartHint =>
+      'Imported. Restart the app to fully apply settings and themes.';
+
+  @override
   String get packExportSuccess => 'Pack exported successfully';
 
   @override

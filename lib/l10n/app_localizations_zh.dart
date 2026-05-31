@@ -1337,6 +1337,30 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String packCharacterPresetsSection(int selected, int total) {
+    return '角色预设 ($selected/$total)';
+  }
+
+  @override
+  String packThemesSection(int selected, int total) {
+    return '主题 ($selected/$total)';
+  }
+
+  @override
+  String packAlbumsSection(int selected, int total) {
+    return '相册 ($selected/$total)';
+  }
+
+  @override
+  String get packSettingsSection => '应用与点唱机设置';
+
+  @override
+  String get packSettingsItem => '应用与点唱机设置';
+
+  @override
+  String get packImportRestartHint => '已导入。请重启应用以完全应用设置和主题。';
+
+  @override
   String get packExportSuccess => '包导出成功';
 
   @override

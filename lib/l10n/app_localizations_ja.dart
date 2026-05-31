@@ -1342,6 +1342,31 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String packCharacterPresetsSection(int selected, int total) {
+    return 'キャラクタープリセット ($selected/$total)';
+  }
+
+  @override
+  String packThemesSection(int selected, int total) {
+    return 'テーマ ($selected/$total)';
+  }
+
+  @override
+  String packAlbumsSection(int selected, int total) {
+    return 'アルバム ($selected/$total)';
+  }
+
+  @override
+  String get packSettingsSection => 'アプリ・ジュークボックス設定';
+
+  @override
+  String get packSettingsItem => 'アプリ・ジュークボックス設定';
+
+  @override
+  String get packImportRestartHint =>
+      'インポートしました。設定とテーマを完全に適用するにはアプリを再起動してください。';
+
+  @override
   String get packExportSuccess => 'パックをエクスポートしました';
 
   @override

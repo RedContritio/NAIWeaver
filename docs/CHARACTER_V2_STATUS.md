@@ -33,7 +33,87 @@ The end state: a user types in the Characters tab, generates a character + wardr
 | Modeling mode UI (front-and-center outfit-state screen) | 🚧 deferred until other items land | rendering pipeline is already done |
 | Soul_md pipeline (encounter style) | ⚠️ keep callable via menu | not the default flow |
 
-## What we did this session (2026-05-17)
+## What we did this session — turn 4 (2026-05-17, wardrobe v3.1 + audit hardening)
+
+### Audit hardening (zero LLM cost)
+
+`lab/audit.dart`:
+- **`_baseTops` expanded** with `dress, gown, tunic, tunica, stola, chiton, peplos` so historical/draped single-garment looks (long dress + cardigan, stola + palla, tunica + cloak, chiton + cape) no longer false-flag `chestCoverage`.
+- **`_attributeTokens` allow-list added** (`hooded, floor-length, ankle-high, knee-length, high-waisted, off-shoulder, cropped, fitted, plunging, flat, heeled, open, sleeveless, scoop, v-neck`). When a tag's non-colour tokens are ALL in this set, `unknownTagToken` passes it. Stops the `high-waisted` / `hooded` / `floor-length` warnings v3 was throwing.
+- **`_eraToleratedTags` allow-list added** for period vocab NAI handles but high-frequency-tags-list.json doesn't index (`stola, palla, tunica, subligaculum, pallium, calcei, fibula, torque, peplos, himation, hauberk, gambeson, doublet, shendyt`). Pax Romana warnings collapsed from 8 → ~0 on the v3 dumps under the new audit.
+- **`_canonicalSupplement`** (`tights, stockings, pajama set, rain boots`) — verified each against `high-frequency-tags-list.json` first. Treated as canonical for the trailing-N-gram check. `silver bracelet` was dropped (`pearl bracelet` IS canonical but `silver bracelet` isn't, and isn't widely-rendered enough to allow-list).
+- Unit tests in `test/lab/audit_test.dart` cover every new branch + non-regression cases.
+- New one-shot `test/lab/reaudit_v3_runs_test.dart` re-scores the v3 baseline dumps under the post-hardening audit (anchor for v3.1).
+
+Baseline shifts under updated audit:
+| run set | pre-Task-B audit | post-Task-B audit |
+|---|---|---|
+| v1 (3 scenarios, in-code prompt) | 12 blocking / 27 warnings | 10 blocking / 17 warnings |
+| v3 (3 scenarios, wardrobe.v3.txt) | 6 blocking / 12 warnings | 5 blocking / 1 warning |
+
+The v3 warning drop is the audit being right rather than the prompt being better — v3 was already producing tidy period-correct output; the previous audit was conflating "didn't match canonical token-by-token" with "actually bad."
+
+### wardrobe.v3.1 — single-sentence color tightening
+
+`lab/prompts/wardrobe.v3.1.txt`: identical to v3 except one added sentence in the `tags` description:
+
+> "This applies to footwear and accessories too — 'leather boots' alone is NOT enough; write 'brown leather boots'. Same for slippers, sandals, sneakers, straw hat, etc."
+
+Motivation: every remaining v3 missingColor blocking finding (`flat sandals`, `slippers`, `leather boots`, `straw hat`) was footwear or accessories. The base COLOR RULE was phrased in terms of sweater/skirt examples and GLM was dropping colour on footwear specifically.
+
+### v3.1 live run (4 scenarios, glm-4-6, max_tokens=2000)
+
+| scenario | v3 (post-Task-B audit) | v3.1 | delta |
+|---|---|---|---|
+| modern_tokyo_mysterious_f | 2 blocking, 1 warn | **0 blocking, 0 warn** | -2 / -1 |
+| victorian_zenith_f | 1 blocking, 0 warn | **0 blocking, 0 warn** | -1 / 0 |
+| pax_romana_intimidating_m | 2 blocking, 0 warn | **4 blocking, 1 warn** | +2 / +1 |
+| roaring_twenties_f (new) | n/a | **1 blocking, 1 warn** | new |
+| **TOTAL (3 overlapping)** | **5 blocking, 1 warn** | **4 blocking, 1 warn** | -1 / 0 |
+| **TOTAL (4 scenarios)** | n/a | **5 blocking, 2 warn** | n/a |
+
+Modern Tokyo and Victorian became fully clean. Roaring Twenties (transitional era vocab — bandeau / cloche hat / mary janes / oxfords) parsed cleanly with one residual `straw hat` slip. Pax Romana regressed: GLM rolled "wool tunica", "leather belt", "leather sandals", "hooded cloak" — all missing colour. Comparing prod vs `diagnostic_raw` for pax_romana: the diagnostic single-shot was much cleaner (`burgundy tunica`, `brown cloak`, `brown sandals`, only `leather boots` uncoloured), and prod just rolled badly. GLM-4.6 non-determinism at temp 0.8 striking again.
+
+### Promotion decision: NOT promoted
+
+Criteria check (4 scenarios):
+- ≤4 blocking findings — **5, fails by 1**
+- No parse failures — **pass** (22/22 outfits returned)
+- No new categories — **pass** (only missingColor + unknownTagToken)
+
+The single-sentence prompt change moved the needle clearly on three of four scenarios but didn't survive a non-deterministic re-roll on pax_romana. Not robust enough to lock in.
+
+### v3.2 proposal
+
+Two options, both targeted at the pax_romana failure mode (the model dropping colour on era-specific garments and on footwear when material is in the slot):
+
+1. **Move COLOR RULE earlier and bold it**, with explicit Roman example:
+   - Reorder so "Every GARMENT tag MUST include a colour" appears BEFORE the vocabulary blocks (right after the BACKGROUND ONLY line). Currently it's buried at the bottom of the FOR EACH OUTFIT block.
+   - Add a Roman-specific GOOD example next to the modern one:
+     `"crimson tunica, gold sandals, ivory palla, brown leather belt, gold head wreath"`
+   - Add a Roman-specific BAD example:
+     `"wool tunica, leather belt, leather sandals, hooded cloak"` — followed by "every one of these needs a colour."
+
+2. **Add a "MATERIAL IS NOT A COLOUR" line** to the COLOR VOCABULARY section:
+   - "Words like `wool`, `leather`, `linen`, `silk` are MATERIALS, not COLOURS. `wool tunica` is missing a colour. Write `cream wool tunica` or `cream tunica`."
+   - This catches the model substituting material for colour, which is the actual failure mode in the pax_romana run.
+
+I'd do both as a single v3.2 since they're tiny and complementary. The MATERIAL line is the one most likely to fix the specific regression. After v3.2 ships, re-run all 4 scenarios; if blocking ≤4 and no regressions on the 3 that were clean, promote.
+
+### Task D — batching investigation (closed)
+
+At `LAB_MAX_TOKENS=2000` and outfit counts ≤7, `_batchSizeFor(2000) = 7`, so prod and diagnostic_raw are both single-shot calls — they only differ because of GLM non-determinism at temp 0.8. Batching question is moot at maxTokens=2000. Re-open only if the Tablet-tier (maxTokens=200, batch=2) path needs validation, which can wait until someone runs that tier.
+
+### Files changed (this turn)
+
+- `lab/audit.dart` — `_baseTops` expansion + `_attributeTokens` + `_eraToleratedTags` + `_canonicalSupplement` + updated unknownTagToken branch
+- `lab/prompts/wardrobe.v3.1.txt` — new (footwear-color sentence)
+- `test/lab/audit_test.dart` — 14 new tests covering every Task B branch
+- `test/lab/reaudit_v3_runs_test.dart` — new (re-audit v3 dumps under post-Task-B audit)
+- `lab/runs/*_wardrobe_wardrobe.v3.1_2026-05-17T19-*.json` — 4 v3.1 run dumps
+- `docs/CHARACTER_V2_STATUS.md` — this section
+
+## What we did this session — turn 1 (2026-05-17, lean character-gen + audit canonical check)
 
 ### Lean character-gen (the headline pivot)
 
@@ -193,7 +273,7 @@ Pax Romana baseline output (`ivory linen tunic`, `cream silk chemise`, `terracot
 
 Outfit state respect is a **toggle, not a separate code path**. Two surfaces use the same underlying rendering:
 
-1. **Regular generation** — when `[OCNAME (OUTFITNAME)]` is inserted, the user can toggle "Honor outfit state" (off by default). With it off: expansion is the flat tag string. With it on: expansion routes through `outfit_renderer.renderItemsToTags()` using the outfit's current saved state (intact by default), plus the dishevelled `nsfw` append.
+1. **Regular generation** — when `[OCNAME (OUTFITNAME)]` is inserted, the user can toggle "Honor outfit state" (on by default). With it on: expansion routes through `outfit_renderer.renderItemsToTags()` using the outfit's current saved state (intact by default), plus the dishevelled `nsfw` append. With it off: expansion is the flat tag string.
 
 2. **Photoshoot mode** — a dedicated screen. Pick character + outfit. The outfit-state panel is front-and-centre and editable in-place (cycle each slot's state — intact, unbuttoned, open, lifted, pulled_down, aside, around_ankles, removed — the panel already exists in `outfit_state_panel.dart`). Select style (artist tag set), pose preset, environment preset. Renders the image prompt as `<style> + <character body tags> + <outfit rendered via outfit_renderer at current states> + <pose preset> + <environment preset>`, `nsfw` appended if dishevelled. Generates via existing image-gen path.
 

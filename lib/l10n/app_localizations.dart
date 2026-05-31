@@ -2584,6 +2584,42 @@ abstract class AppLocalizations {
   /// **'SAVED VIBES ({selected}/{total})'**
   String packSavedVibesSection(int selected, int total);
 
+  /// No description provided for @packCharacterPresetsSection.
+  ///
+  /// In en, this message translates to:
+  /// **'CHARACTER PRESETS ({selected}/{total})'**
+  String packCharacterPresetsSection(int selected, int total);
+
+  /// No description provided for @packThemesSection.
+  ///
+  /// In en, this message translates to:
+  /// **'THEMES ({selected}/{total})'**
+  String packThemesSection(int selected, int total);
+
+  /// No description provided for @packAlbumsSection.
+  ///
+  /// In en, this message translates to:
+  /// **'ALBUMS ({selected}/{total})'**
+  String packAlbumsSection(int selected, int total);
+
+  /// No description provided for @packSettingsSection.
+  ///
+  /// In en, this message translates to:
+  /// **'APP & JUKEBOX SETTINGS'**
+  String get packSettingsSection;
+
+  /// No description provided for @packSettingsItem.
+  ///
+  /// In en, this message translates to:
+  /// **'App & jukebox settings'**
+  String get packSettingsItem;
+
+  /// No description provided for @packImportRestartHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Imported. Restart the app to fully apply settings and themes.'**
+  String get packImportRestartHint;
+
   /// No description provided for @packExportSuccess.
   ///
   /// In en, this message translates to:

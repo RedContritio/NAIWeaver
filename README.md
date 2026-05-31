@@ -196,6 +196,7 @@ These projects were great resources and inspiration:
 ## Contributors
 
 - [@baisumang](https://github.com/baisumang) — Simplified Chinese translation
+- [@andreiagmu](https://github.com/andreiagmu)
 
 ## License
 
