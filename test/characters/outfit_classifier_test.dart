@@ -21,6 +21,26 @@ void main() {
       expect(items.containsKey('top'), isTrue);
     });
 
+    test("men's underwear routes to the panties slot", () {
+      // The pelvic base-layer slot is `panties` regardless of gender, so the
+      // pull/aside/removed state machine drives male undergarments too.
+      for (final tag in const [
+        'plaid boxers',
+        'navy boxer briefs',
+        'grey briefs',
+        'natural linen braies',
+      ]) {
+        final items = classifyOutfitTags('$tag, white shirt, blue jeans');
+        expect(items.containsKey('panties'), isTrue,
+            reason: '"$tag" should classify to the panties slot');
+      }
+    });
+
+    test("men's undershirt routes to the bra (chest base-layer) slot", () {
+      final items = classifyOutfitTags('white linen undershirt, blue jeans');
+      expect(items.containsKey('bra'), isTrue);
+    });
+
     test('bloomers ambiguity: gym → bottom, plain → panties', () {
       final gym = classifyOutfitTags('gym bloomers, white shirt');
       expect(gym.containsKey('bottom'), isTrue);

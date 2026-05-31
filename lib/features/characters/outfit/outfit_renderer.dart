@@ -172,13 +172,18 @@ String _renderBottom(String garment, String base, String state) {
 }
 
 String _renderBra(String garment, String base, String state) {
+  // `bra lift` = pushed up above the breasts; `bra pull` = pulled down below
+  // them. There is no `bra aside` tag on Danbooru — legacy `aside` records
+  // remap to the exposing `bra pull`.
   switch (state) {
     case 'intact':
       return base;
+    case 'lifted':
+      return '$base, bra lift';
     case 'pulled_down':
       return '$base, bra pull';
     case 'aside':
-      return '$base, bra aside';
+      return '$base, bra pull';
   }
   return base;
 }

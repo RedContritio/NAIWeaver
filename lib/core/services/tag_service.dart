@@ -21,6 +21,12 @@ class DanbooruTag {
   final String? expansion;
   final String? flatExpansion;
 
+  /// For `typeName == 'saved_character'`: comma-separated negative tags to
+  /// inject into a negative-prompt target when this suggestion is picked. The
+  /// callback that handles selection decides where they go (global negative
+  /// prompt vs. a character's UC field) — see the per-context handlers.
+  final String? negativeExpansion;
+
   DanbooruTag({
     required this.tag,
     required this.count,
@@ -31,6 +37,7 @@ class DanbooruTag {
     this.matchedAlias,
     this.expansion,
     this.flatExpansion,
+    this.negativeExpansion,
   });
 
   DanbooruTag copyWith({
@@ -43,6 +50,7 @@ class DanbooruTag {
     String? Function()? matchedAlias,
     String? Function()? expansion,
     String? Function()? flatExpansion,
+    String? Function()? negativeExpansion,
   }) {
     return DanbooruTag(
       tag: tag ?? this.tag,
@@ -54,6 +62,7 @@ class DanbooruTag {
       matchedAlias: matchedAlias != null ? matchedAlias() : this.matchedAlias,
       expansion: expansion != null ? expansion() : this.expansion,
       flatExpansion: flatExpansion != null ? flatExpansion() : this.flatExpansion,
+      negativeExpansion: negativeExpansion != null ? negativeExpansion() : this.negativeExpansion,
     );
   }
 

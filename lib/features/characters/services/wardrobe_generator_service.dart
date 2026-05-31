@@ -36,9 +36,11 @@ class WardrobeGeneratorService {
     required int count,
     String eraHint = '',
     String vibeHint = '',
+    String gender = '',
     String model = kDefaultTextModel,
     int maxTokens = 150,
     String? promptOverride,
+    List<String>? stopStrings,
   }) async {
     final batch = _batchSizeFor(maxTokens);
     final results = <GeneratedOutfit>[];
@@ -52,9 +54,11 @@ class WardrobeGeneratorService {
         count: n,
         eraHint: eraHint,
         vibeHint: vibeHint,
+        gender: gender,
         model: model,
         maxTokens: maxTokens,
         promptOverride: promptOverride,
+        stopStrings: stopStrings,
       );
       if (got.isEmpty) break; // give up rather than loop forever
       results.addAll(got);
@@ -70,9 +74,11 @@ class WardrobeGeneratorService {
     required int count,
     required String eraHint,
     required String vibeHint,
+    required String gender,
     required String model,
     required int maxTokens,
     String? promptOverride,
+    List<String>? stopStrings,
   }) async {
     final body = characterTags.trim().isEmpty ? 'anime girl' : characterTags.trim();
     final prompt = promptOverride != null
@@ -82,17 +88,20 @@ class WardrobeGeneratorService {
             characterTags: body,
             eraHint: eraHint,
             vibeHint: vibeHint,
+            gender: gender,
           )
         : buildWardrobePrompt(
             count: count,
             characterTags: body,
             eraHint: eraHint,
             vibeHint: vibeHint,
+            gender: gender,
           );
 
     String raw = await _service.generate(TextGenRequest(
       input: prompt,
       model: model,
+      stopStrings: stopStrings,
       params: TextGenParams.glmDefault().copyWith(
         temperature: 0.8,
         maxLength: maxTokens,
@@ -107,6 +116,7 @@ class WardrobeGeneratorService {
         final cont = await _service.generate(TextGenRequest(
           input: '$prompt\n$raw\n\nContinue the JSON array from where you left off. Output ONLY the remaining JSON.',
           model: model,
+          stopStrings: stopStrings,
           params: TextGenParams.glmDefault().copyWith(temperature: 0.7, maxLength: maxTokens),
         ));
         parsed = extractWardrobeOutfits('$raw$cont');
@@ -135,17 +145,13 @@ String buildWardrobePrompt({
   required String characterTags,
   String eraHint = '',
   String vibeHint = '',
+  String gender = '',
 }) {
   final eraContext = eraHint.isEmpty
       ? ''
       : 'Era / setting: $eraHint — make every outfit period-correct for this era.\n';
   final vibeContext = vibeHint.isEmpty ? '' : 'Overall vibe: $vibeHint\n';
-  final underwearRule = eraHint.isEmpty
-      ? '(No underwear rule — modern character. Base layers like "cotton bra"/"cotton panties" are fine but hidden under outer clothing.)'
-      : 'BASE LAYER RULE (HARD CONSTRAINT): Every outfit MUST include era-appropriate base layer(s) authentic to $eraHint. '
-          'FORBIDDEN: modern bras or panties of any kind (cotton, lace, satin, sports, thong, bralette, boyshorts). '
-          'Use historical undergarments (chemise, loincloth, corset, petticoat, bloomers, etc.) as appropriate to the period and social class. '
-          'If the COLOR RULE examples mention bras/panties, IGNORE them — that rule\'s examples are for modern characters; this character is not modern.';
+  final underwearRule = underwearRuleFor(eraHint: eraHint, gender: gender);
 
   return '''You are a fashion designer creating outfits for an anime character. Generate $count distinct outfits suitable for different weather conditions and seasons.
 
@@ -183,27 +189,243 @@ Respond with ONLY valid JSON: {"outfits": [...]}
 No markdown fences, no explanation.''';
 }
 
+// -- Underwear / base-layer rule (port of bri.'s _build_era_context underwear
+//    branch + _MODERN_UNDERWEAR_RULE[_MALE] + _HISTORICAL_UNDERWEAR_RULE_MALE +
+//    _PERIOD_UNDERWEAR_HINTS) --------------------------------------------------
+//
+// WHY THIS EXISTS: the old in-code rule was merely *permissive* for modern
+// characters ("base layers ... are fine") so GLM simply omitted bras/panties,
+// leaving the outfit-state system with nothing to undress. bri requires them as
+// the first tags. It also switches to men's underwear for male characters
+// (the old rule was female-shaped) and to period-correct base layers for
+// historical eras.
+
+const String _modernUnderwearRuleFemale =
+    'UNDERWEAR RULE (HARD CONSTRAINT): EVERY outfit MUST include a bra and panties '
+    '(or equivalent base layer) as the FIRST TWO tags — e.g. "white cotton bra, '
+    'white cotton panties, ...". Match the outfit\'s vibe: plain cotton for '
+    'casual, lace under lingerie-adjacent looks, sports bra ONLY for athletic '
+    'outfits. These base layers are hidden under outer clothing in generated '
+    'images and only surface when an outer garment is moved or removed.';
+
+const String _modernUnderwearRuleMale =
+    'UNDERWEAR RULE (HARD CONSTRAINT): EVERY outfit MUST include men\'s underwear — '
+    'boxers, briefs, or boxer briefs — as the FIRST tag (e.g. "navy boxer briefs", '
+    '"grey briefs", "plaid boxers"). Match the outfit\'s vibe — plain cotton for '
+    'casual, athletic compression shorts ONLY for athletic outfits. Do NOT include '
+    'a bra, sports bra, bralette, panties, thong, or any feminine undergarment. If '
+    'the COLOR RULE examples mention bras/panties, IGNORE them — that rule\'s '
+    'examples are for female characters; this character is male.';
+
+/// True if [gender] denotes a male character (drives the men's-underwear rule).
+bool _isMaleGender(String gender) {
+  final g = gender.trim().toLowerCase();
+  return g == 'male' || g == 'm' || g == 'man' || g == 'boy';
+}
+
+/// Period-correct female base-layer hint for [eraHint], or '' if the era is
+/// unknown (caller falls back to the generic historical rule). Port of bri.'s
+/// `_PERIOD_UNDERWEAR_HINTS`, matched loosely against the era hint the same way
+/// [eraClothingVocabularyFor] is.
+String periodUnderwearHintFor(String eraHint) {
+  final key = eraHint.toLowerCase();
+  if (key.contains('greek')) {
+    return 'a linen loincloth (perizoma) and optionally a sarashi-style breast '
+        'band (e.g. "white linen loincloth", "linen chest sarashi"). Many women '
+        'wore no breast support at all — omitting it is also period-correct. '
+        'Do NOT use modern bras or panties.';
+  }
+  if (key.contains('roman') || key.contains('pax')) {
+    return 'a linen loincloth (subligaculum) and a sarashi-style breast band '
+        'representing the strophium (e.g. "white linen loincloth", "linen chest '
+        'sarashi"). Do NOT use modern bras or panties.';
+  }
+  if (key.contains('egypt')) {
+    return 'a simple linen loincloth or shendyt-style wrap (e.g. "white linen '
+        'loincloth", "white shendyt"). Egyptian women typically wore no separate '
+        'breast garment — omit it. Do NOT use modern bras or panties.';
+  }
+  if (key.contains('medieval')) {
+    return 'a single linen chemise worn next to the skin as both undergarment '
+        'and base layer (e.g. "white linen chemise"). Medieval women generally '
+        'had no separate panty-equivalent — the chemise alone is correct. '
+        'Do NOT use modern bras or panties.';
+  }
+  if (key.contains('renaissance')) {
+    return 'a linen chemise plus a corset as the structural base layer '
+        '(e.g. "white linen chemise", "ivory laced corset"). No separate '
+        'panty-equivalent — chemise alone covers the lower body. Do NOT use '
+        'modern bras or panties.';
+  }
+  if (key.contains('victorian')) {
+    return 'period-correct layers: a corset, a linen chemise, a petticoat, and '
+        'bloomers (e.g. "ivory laced corset", "white linen chemise", "white '
+        'cotton petticoat", "white knee-length bloomers"). Do NOT use modern '
+        'bras or panties — the brassiere was not invented until ~1914.';
+  }
+  if (key.contains('early modern') ||
+      key.contains('georgian') ||
+      key.contains('regency')) {
+    return 'a linen chemise, optional corset, and a petticoat (e.g. "white '
+        'linen chemise", "cream laced corset", "white cotton petticoat"). '
+        'Drawers were uncommon for women until late in the period. Do NOT use '
+        'modern bras or panties.';
+  }
+  if (key.contains('1920') ||
+      key.contains('twenties') ||
+      key.contains('early 20th')) {
+    return 'a brassiere or chemise plus bloomers or early panties (e.g. "white '
+        'cotton brassiere", "white knee-length bloomers"; flapper-era is fine '
+        'with "white silk bandeau bra" and "ivory tap pants"). Avoid clearly '
+        'post-1950s shapes.';
+  }
+  if (key.contains('1980') ||
+      key.contains('1990') ||
+      key.contains('late 20th')) {
+    return 'a normal bra and panties (e.g. "white cotton bra", "navy seamless '
+        'panties"). Modern is fine here.';
+  }
+  if (key.contains('ancient') || key.contains('antiquity')) {
+    return 'a linen loincloth and (optionally) a sarashi-style chest wrap '
+        '(e.g. "white linen loincloth", "linen chest sarashi"). Do NOT use '
+        'modern bras or panties — they did not exist.';
+  }
+  return '';
+}
+
+/// Builds the gender- and era-appropriate base-layer rule. Modern (empty era)
+/// returns the hard bra+panties (female) or boxers/briefs (male) rule; a
+/// historical era returns a period-correct rule from [periodUnderwearHintFor]
+/// (female) or the generic men's rule (male).
+String underwearRuleFor({required String eraHint, required String gender}) {
+  final isMale = _isMaleGender(gender);
+  final era = eraHint.trim();
+
+  if (era.isEmpty) {
+    return isMale ? _modernUnderwearRuleMale : _modernUnderwearRuleFemale;
+  }
+
+  if (isMale) {
+    // Period dicts are female-shaped (corset / chemise-shift / bloomers / chest
+    // wrap); a male historical character gets the generic men's rule.
+    return 'BASE LAYER RULE (HARD CONSTRAINT): Every outfit MUST include a men\'s '
+        'base layer authentic to $era and the character\'s social class — e.g. a '
+        'linen loincloth, braies/braccae, a knee-length linen undershirt worn '
+        'next to the skin, drawers, or a breechcloth, as fits the period '
+        '(e.g. "white linen loincloth", "natural linen braies", "white linen '
+        'undershirt"). These base layers are hidden from generated images while '
+        'outer clothing covers them and only surface if outer garments are moved '
+        'or removed. FORBIDDEN base-layer tags for this character — DO NOT '
+        'include any: "bra", "sports bra", "bralette", "panties", "thong", '
+        '"boyshorts", "corset", "bloomers", "petticoat", "sarashi", "chest wrap", '
+        'or any feminine undergarment. If the COLOR RULE examples mention '
+        'bras/panties, IGNORE them — that rule\'s examples are for modern female '
+        'characters; this character is neither.';
+  }
+
+  final hint = periodUnderwearHintFor(era);
+  if (hint.isNotEmpty) {
+    return 'BASE LAYER RULE (HARD CONSTRAINT): For $era, the base layer MUST be '
+        '$hint These base layers are hidden from generated images while outer '
+        'clothing covers them and only surface if outer garments are moved or '
+        'removed during a scene. Match fabric and color to the character\'s '
+        'social class and the outfit\'s vibe.\n'
+        'FORBIDDEN base-layer tags for this era — DO NOT include any of these in '
+        '`tags`: "bra", "panties", "cotton bra", "cotton panties", "lace bra", '
+        '"lace panties", "sports bra", "thong", "boyshorts", "bralette", '
+        '"underwear" (the modern English word). If the COLOR RULE examples '
+        'mention bras/panties, IGNORE them — that rule\'s examples are for modern '
+        'characters; this character is not modern.';
+  }
+
+  // Historical but no specific hint — generic warning rather than the modern
+  // bra+panties rule.
+  return 'BASE LAYER RULE (HARD CONSTRAINT): Every outfit MUST include '
+      'era-appropriate base layer(s) authentic to $era. FORBIDDEN: modern bras '
+      'or panties of any kind (cotton, lace, satin, sports, thong, bralette, '
+      'boyshorts). Use historical undergarments (chemise, loincloth, corset, '
+      'petticoat, bloomers, etc.) as appropriate to the period and social class. '
+      'If the COLOR RULE examples mention bras/panties, IGNORE them — that '
+      'rule\'s examples are for modern characters; this character is not modern.';
+}
+
 /// Substitute `{count}`, `{character_tags}`, `{era_hint}`, `{vibe_hint}`,
-/// `{era_context}`, `{vibe_context}`, `{underwear_rule}` placeholders in a
+/// `{era_context}`, `{vibe_context}`, `{era_vocabulary}` placeholders in a
 /// loose template (so lab prompts can be edited from disk).
+///
+/// `{era_vocabulary}` is filled from [eraClothingVocabularyFor] — a port of
+/// bri.'s `_PERIOD_CLOTHING_HINTS`. Modern eras get an empty string. Wardrobe
+/// v3 uses this to seed period-correct garment vocab without inventing tags.
 String substituteWardrobePrompt({
   required String template,
   required int count,
   required String characterTags,
   String eraHint = '',
   String vibeHint = '',
+  String gender = '',
 }) {
   final eraContext = eraHint.isEmpty
       ? ''
       : 'Era / setting: $eraHint — make every outfit period-correct for this era.\n';
   final vibeContext = vibeHint.isEmpty ? '' : 'Overall vibe: $vibeHint\n';
+  final eraVocabulary = eraClothingVocabularyFor(eraHint);
+  final underwearRule = underwearRuleFor(eraHint: eraHint, gender: gender);
   return template
       .replaceAll('{count}', '$count')
       .replaceAll('{character_tags}', characterTags)
       .replaceAll('{era_hint}', eraHint)
       .replaceAll('{vibe_hint}', vibeHint)
       .replaceAll('{era_context}', eraContext)
-      .replaceAll('{vibe_context}', vibeContext);
+      .replaceAll('{vibe_context}', vibeContext)
+      .replaceAll('{era_vocabulary}', eraVocabulary)
+      .replaceAll('{underwear_rule}', underwearRule);
+}
+
+/// Era-appropriate clothing vocabulary block. Port of bri.'s
+/// `_PERIOD_CLOTHING_HINTS` (`D:\bri\app\dashboard\routes\wardrobe_routes.py`).
+/// Matches an era hint loosely against the bri key set; modern / unknown
+/// eras return an empty string (caller is expected to drop the line).
+///
+/// `stola`, `palla`, `subligaculum`, `pallium`, `calcei`, `fibula`, `torque`
+/// are kept even though they are not canonical Danbooru tags — they are
+/// period-correct, and NAI 4.5's Flux decoder handles them. The audit will
+/// surface them as `unknownTagToken` warnings, not findings.
+String eraClothingVocabularyFor(String eraHint) {
+  if (eraHint.trim().isEmpty) return '';
+  final key = eraHint.toLowerCase();
+  String? hits;
+  if (key.contains('greek')) {
+    hits = 'chiton, peplos, himation, sandals, head wreath, tiara';
+  } else if (key.contains('roman') || key.contains('pax')) {
+    hits = 'toga, stola, chiton, sandals, cloak, head wreath, pallium, palla, '
+        'tunica, subligaculum';
+  } else if (key.contains('egypt')) {
+    hits = 'long dress, usekh collar, sandals, shendyt, loincloth';
+  } else if (key.contains('ancient')) {
+    hits = 'toga, chiton, sandals, cloak, head wreath, tiara';
+  } else if (key.contains('medieval')) {
+    hits = 'long dress, surcoat, cloak, leather belt, wimple, ankle boots';
+  } else if (key.contains('renaissance')) {
+    hits = 'long dress, corset, chemise, cloak, ankle boots';
+  } else if (key.contains('victorian')) {
+    hits = 'long dress, corset, chemise, petticoat, bloomers, bonnet, '
+        'ankle boots, parasol';
+  } else if (key.contains('early modern') || key.contains('georgian') ||
+      key.contains('regency')) {
+    hits = 'waistcoat, ascot, top hat, empire waist, long dress, chemise, '
+        'petticoat';
+  } else if (key.contains('1920') || key.contains('twenties') ||
+      key.contains('early 20th')) {
+    hits = 'long dress, cloche hat, mary janes, fur scarf, newsboy cap, '
+        'oxfords, bandeau';
+  } else if (key.contains('1980') || key.contains('1990') ||
+      key.contains('late 20th')) {
+    hits = 'denim jacket, leather jacket, scrunchie';
+  }
+  if (hits == null) return '';
+  return 'ERA-SPECIFIC VOCABULARY for $eraHint — prefer these period-correct '
+      'garments where possible (a few are non-canonical Danbooru tags but NAI '
+      'renders them):\n  $hits\n\n';
 }
 
 // -- Robust JSON extraction (ported from bri.'s _extract_json /

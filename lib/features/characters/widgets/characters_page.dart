@@ -293,6 +293,7 @@ class _CharacterEditorState extends State<_CharacterEditor> {
   late TextEditingController _face;
   late TextEditingController _hair;
   late TextEditingController _body;
+  late TextEditingController _negativeTags;
   late TextEditingController _nsfwTop;
   late TextEditingController _nsfwBottom;
   late TextEditingController _nsfwAlways;
@@ -321,6 +322,7 @@ class _CharacterEditorState extends State<_CharacterEditor> {
     _face = TextEditingController(text: c.faceTags);
     _hair = TextEditingController(text: c.hairTags);
     _body = TextEditingController(text: c.bodyTags_);
+    _negativeTags = TextEditingController(text: c.negativeTags);
     _nsfwTop = TextEditingController(text: c.nsfwTop);
     _nsfwBottom = TextEditingController(text: c.nsfwBottom);
     _nsfwAlways = TextEditingController(text: c.nsfwAlways);
@@ -337,7 +339,7 @@ class _CharacterEditorState extends State<_CharacterEditor> {
   @override
   void dispose() {
     for (final c in [
-      _name, _notes, _base, _face, _hair, _body,
+      _name, _notes, _base, _face, _hair, _body, _negativeTags,
       _nsfwTop, _nsfwBottom, _nsfwAlways, _artist, _stylePrefix, _description, _soul,
     ]) {
       c.dispose();
@@ -354,6 +356,7 @@ class _CharacterEditorState extends State<_CharacterEditor> {
         faceTags: _face.text.trim(),
         hairTags: _hair.text.trim(),
         bodyTags: _body.text.trim(),
+        negativeTags: _negativeTags.text.trim(),
         nsfwTop: _nsfwTop.text.trim(),
         nsfwBottom: _nsfwBottom.text.trim(),
         nsfwAlways: _nsfwAlways.text.trim(),
@@ -514,6 +517,8 @@ class _CharacterEditorState extends State<_CharacterEditor> {
                 TagTextField(controller: _hair, label: 'hair — colour, length, style, texture', minLines: 1, maxLines: 2),
                 const SizedBox(height: 10),
                 TagTextField(controller: _body, label: 'body — build, proportions, chest', minLines: 1, maxLines: 2),
+                const SizedBox(height: 10),
+                TagTextField(controller: _negativeTags, label: 'negative — injected into the UC when this character is used', minLines: 1, maxLines: 2),
                 const SizedBox(height: 10),
                 _expander(t, 'NSFW sub-buckets (optional)', _showNsfw,
                     () => setState(() => _showNsfw = !_showNsfw)),

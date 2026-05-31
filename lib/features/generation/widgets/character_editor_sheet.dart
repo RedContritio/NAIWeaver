@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../../core/widgets/tag_suggestion_overlay.dart';
+import '../../../core/widgets/touch_scroll_wrap.dart';
 import '../../../core/services/tag_service.dart';
 import '../providers/generation_notifier.dart';
 import '../../characters/providers/character_library_notifier.dart';
@@ -224,22 +225,24 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
             ),
           ),
           const SizedBox(height: 12),
-          TextFormField(
-            controller: _promptController,
-            focusNode: _promptFocusNode,
-            style: TextStyle(fontSize: t.fontSize(13), color: t.textSecondary, height: 1.4),
-            decoration: InputDecoration(
-              hintText: 'ENTER TAGS',
-              hintStyle: TextStyle(fontSize: t.fontSize(9), color: t.textMinimal, letterSpacing: 2),
-              fillColor: t.borderSubtle,
-              filled: true,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.textMinimal)),
-              contentPadding: const EdgeInsets.all(16),
+          TouchScrollWrap(
+            child: TextFormField(
+              controller: _promptController,
+              focusNode: _promptFocusNode,
+              style: TextStyle(fontSize: t.fontSize(13), color: t.textSecondary, height: 1.4),
+              decoration: InputDecoration(
+                hintText: 'ENTER TAGS',
+                hintStyle: TextStyle(fontSize: t.fontSize(9), color: t.textMinimal, letterSpacing: 2),
+                fillColor: t.borderSubtle,
+                filled: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.textMinimal)),
+                contentPadding: const EdgeInsets.all(16),
+              ),
+              maxLines: 3,
+              minLines: 1,
             ),
-            maxLines: 3,
-            minLines: 1,
           ),
           TagSuggestionOverlay(
             suggestions: _promptSuggestions,
@@ -256,22 +259,24 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
             ),
           ),
           const SizedBox(height: 12),
-          TextFormField(
-            controller: _ucController,
-            focusNode: _ucFocusNode,
-            style: TextStyle(fontSize: t.fontSize(13), color: t.textSecondary, height: 1.4),
-            decoration: InputDecoration(
-              hintText: 'ENTER TAGS',
-              hintStyle: TextStyle(fontSize: t.fontSize(9), color: t.textMinimal, letterSpacing: 2),
-              fillColor: t.borderSubtle,
-              filled: true,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.textMinimal)),
-              contentPadding: const EdgeInsets.all(16),
+          TouchScrollWrap(
+            child: TextFormField(
+              controller: _ucController,
+              focusNode: _ucFocusNode,
+              style: TextStyle(fontSize: t.fontSize(13), color: t.textSecondary, height: 1.4),
+              decoration: InputDecoration(
+                hintText: 'ENTER TAGS',
+                hintStyle: TextStyle(fontSize: t.fontSize(9), color: t.textMinimal, letterSpacing: 2),
+                fillColor: t.borderSubtle,
+                filled: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.textMinimal)),
+                contentPadding: const EdgeInsets.all(16),
+              ),
+              maxLines: 3,
+              minLines: 1,
             ),
-            maxLines: 3,
-            minLines: 1,
           ),
           TagSuggestionOverlay(
             suggestions: _ucSuggestions,

@@ -42,6 +42,7 @@ class OutfitEditorSheet extends StatefulWidget {
 class _OutfitEditorSheetState extends State<OutfitEditorSheet> {
   late TextEditingController _name;
   late TextEditingController _tags;
+  late TextEditingController _negativeTags;
   late Set<String> _seasons;
   late Set<String> _weather;
   late Set<String> _activities;
@@ -54,6 +55,7 @@ class _OutfitEditorSheetState extends State<OutfitEditorSheet> {
     super.initState();
     _name = TextEditingController(text: widget.outfit.name);
     _tags = TextEditingController(text: widget.outfit.tags);
+    _negativeTags = TextEditingController(text: widget.outfit.negativeTags);
     _seasons = widget.outfit.seasons.toSet();
     _weather = widget.outfit.weather.toSet();
     _activities = widget.outfit.activities.toSet();
@@ -70,6 +72,7 @@ class _OutfitEditorSheetState extends State<OutfitEditorSheet> {
   void dispose() {
     _name.dispose();
     _tags.dispose();
+    _negativeTags.dispose();
     super.dispose();
   }
 
@@ -77,6 +80,7 @@ class _OutfitEditorSheetState extends State<OutfitEditorSheet> {
     final updated = widget.outfit.copyWith(
       name: _name.text.trim().isEmpty ? 'Outfit' : _name.text.trim(),
       tags: _tags.text.trim(),
+      negativeTags: _negativeTags.text.trim(),
       seasons: _seasons.toList(),
       weather: _weather.toList(),
       activities: _activities.toList(),
@@ -128,6 +132,14 @@ class _OutfitEditorSheetState extends State<OutfitEditorSheet> {
                         hint: 'cream knit sweater, navy pleated skirt, charcoal tights, brown ankle boots',
                         minLines: 2,
                         maxLines: 4,
+                      ),
+                      const SizedBox(height: 12),
+                      TagTextField(
+                        controller: _negativeTags,
+                        label: 'Negative tags (optional)',
+                        hint: 'bad anatomy, extra straps',
+                        minLines: 1,
+                        maxLines: 3,
                       ),
                       const SizedBox(height: 12),
                       _chips(t, 'SEASONS', ClosetOutfit.kSeasons, _seasons),

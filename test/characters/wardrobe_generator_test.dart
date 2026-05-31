@@ -79,4 +79,80 @@ void main() {
     expect(out.length, 4);
     expect(out.map((o) => o.outfit.name), ['a', 'b', 'c', 'd']);
   });
+
+  group('underwear rule', () {
+    test('modern female: hard bra + panties requirement', () {
+      final rule = underwearRuleFor(eraHint: '', gender: 'female');
+      expect(rule.contains('HARD CONSTRAINT'), isTrue);
+      expect(rule.toLowerCase().contains('bra'), isTrue);
+      expect(rule.toLowerCase().contains('panties'), isTrue);
+      // It must REQUIRE them, not merely permit them.
+      expect(rule.toLowerCase().contains('must include'), isTrue);
+    });
+
+    test('empty / nonbinary gender defaults to the female bra+panties rule', () {
+      for (final g in const ['', 'nonbinary']) {
+        final rule = underwearRuleFor(eraHint: '', gender: g);
+        expect(rule.toLowerCase().contains('bra and panties'), isTrue,
+            reason: 'gender "$g" should default to the bra+panties rule');
+      }
+    });
+
+    test('modern male: men\'s underwear, no feminine garments', () {
+      final rule = underwearRuleFor(eraHint: '', gender: 'male');
+      expect(rule.toLowerCase().contains('boxers'), isTrue);
+      expect(rule.toLowerCase().contains('briefs'), isTrue);
+      // Must steer away from a bra/panties wardrobe for a male character.
+      expect(rule.toLowerCase().contains('do not include'), isTrue);
+    });
+
+    test('historical female era pulls a period-correct base-layer hint', () {
+      final victorian = underwearRuleFor(eraHint: 'Victorian', gender: 'female');
+      expect(victorian.toLowerCase().contains('corset'), isTrue);
+      expect(victorian.toLowerCase().contains('chemise'), isTrue);
+      // Modern bras/panties forbidden in-period.
+      expect(victorian.contains('FORBIDDEN'), isTrue);
+    });
+
+    test('historical male era uses the generic men\'s base-layer rule', () {
+      final rule = underwearRuleFor(eraHint: 'Victorian', gender: 'male');
+      expect(rule.toLowerCase().contains('loincloth') ||
+          rule.toLowerCase().contains('braies') ||
+          rule.toLowerCase().contains('undershirt'), isTrue);
+      // The female period hint (corset / chemise / petticoat) is NOT prescribed
+      // for a male character — it appears only in the FORBIDDEN list.
+      final corsetIdx = rule.toLowerCase().indexOf('corset');
+      if (corsetIdx >= 0) {
+        expect(rule.contains('FORBIDDEN'), isTrue);
+        expect(corsetIdx, greaterThan(rule.indexOf('FORBIDDEN')),
+            reason: 'corset must appear only inside the FORBIDDEN list');
+      }
+    });
+
+    test('unknown historical era falls back to the generic historical rule', () {
+      final rule = underwearRuleFor(eraHint: 'Atlantean Bronze Age', gender: 'female');
+      expect(rule.contains('HARD CONSTRAINT'), isTrue);
+      expect(rule.toLowerCase().contains('era-appropriate'), isTrue);
+    });
+
+    test('buildWardrobePrompt embeds the gender-correct underwear rule', () {
+      final female = buildWardrobePrompt(count: 3, characterTags: '1girl', gender: 'female');
+      expect(female.toLowerCase().contains('bra and panties'), isTrue);
+
+      final male = buildWardrobePrompt(count: 3, characterTags: '1boy', gender: 'male');
+      expect(male.toLowerCase().contains('boxers'), isTrue);
+    });
+
+    test('substituteWardrobePrompt fills the {underwear_rule} placeholder', () {
+      final out = substituteWardrobePrompt(
+        template: 'X {underwear_rule} Y',
+        count: 1,
+        characterTags: '1girl',
+        gender: 'female',
+      );
+      expect(out.startsWith('X '), isTrue);
+      expect(out.endsWith(' Y'), isTrue);
+      expect(out.toLowerCase().contains('bra and panties'), isTrue);
+    });
+  });
 }

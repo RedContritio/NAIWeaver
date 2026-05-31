@@ -46,6 +46,12 @@ class SavedCharacter {
   final String artistTag;
   final String stylePrefix;
 
+  /// Character-level negative tags (comma-separated). Injected into the negative
+  /// prompt when this character is inserted via autocomplete — routed to the
+  /// global negative prompt for a `[Name]` in the main prompt, or to a
+  /// character's UC field when inserted inside a per-character prompt.
+  final String negativeTags;
+
   /// Optional UI tint {accent, accentSecondary, bg} as hex strings.
   final String? themeAccent;
   final String? themeAccentSecondary;
@@ -75,6 +81,7 @@ class SavedCharacter {
     this.personalitySummary = '',
     this.artistTag = '',
     this.stylePrefix = '',
+    this.negativeTags = '',
     this.themeAccent,
     this.themeAccentSecondary,
     this.themeBg,
@@ -132,6 +139,7 @@ class SavedCharacter {
       personalitySummary: s(json['personalitySummary']),
       artistTag: s(json['artistTag']),
       stylePrefix: s(json['stylePrefix']),
+      negativeTags: s(json['negativeTags']),
       themeAccent: theme != null && theme['accent'] is String
           ? theme['accent'] as String
           : null,
@@ -167,6 +175,7 @@ class SavedCharacter {
         if (personalitySummary.isNotEmpty) 'personalitySummary': personalitySummary,
         'artistTag': artistTag,
         'stylePrefix': stylePrefix,
+        if (negativeTags.isNotEmpty) 'negativeTags': negativeTags,
         if (themeAccent != null || themeAccentSecondary != null || themeBg != null)
           'theme': {
             if (themeAccent != null) 'accent': themeAccent,
@@ -193,6 +202,7 @@ class SavedCharacter {
     String? personalitySummary,
     String? artistTag,
     String? stylePrefix,
+    String? negativeTags,
     Object? themeAccent = _sentinel,
     Object? themeAccentSecondary = _sentinel,
     Object? themeBg = _sentinel,
@@ -217,6 +227,7 @@ class SavedCharacter {
       personalitySummary: personalitySummary ?? this.personalitySummary,
       artistTag: artistTag ?? this.artistTag,
       stylePrefix: stylePrefix ?? this.stylePrefix,
+      negativeTags: negativeTags ?? this.negativeTags,
       themeAccent: themeAccent == _sentinel ? this.themeAccent : themeAccent as String?,
       themeAccentSecondary: themeAccentSecondary == _sentinel
           ? this.themeAccentSecondary

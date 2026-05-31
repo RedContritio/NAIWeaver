@@ -50,7 +50,10 @@ const Map<String, Set<String>> kValidStates = <String, Set<String>>{
     'around_ankles',
     'removed'
   },
-  'bra': {'intact', 'pulled_down', 'aside', 'removed'},
+  // `lifted` = pushed up above the breasts; `pulled_down` = pulled below them.
+  // There is no `bra aside` on Danbooru, so the bra slot does NOT allow `aside`
+  // (legacy `aside` data is remapped to the exposing `pulled_down` at render).
+  'bra': {'intact', 'lifted', 'pulled_down', 'removed'},
   'panties': {'intact', 'pulled_down', 'aside', 'around_ankles', 'removed'},
   'outerwear': {'intact', 'unbuttoned', 'open', 'removed'},
   'armor': {'intact', 'removed'},

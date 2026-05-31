@@ -81,6 +81,36 @@ void main() {
       expect(r.tags.contains('nude'), isFalse);
     });
 
+    test('bra lifted → "bra lift" (not "bra aside")', () {
+      // top removed so the bra is revealed; lifted = pushed up above breasts.
+      final items = classifyOutfitTags('white shirt, red bra, blue jeans');
+      (items['top'] as Map)['state'] = 'removed';
+      (items['bra'] as Map)['state'] = 'lifted';
+      final r = renderItemsToTags(items);
+      expect(r.tags.contains('bra lift'), isTrue);
+      expect(r.tags.contains('bra aside'), isFalse);
+      expect(r.isDishevelled, isTrue);
+    });
+
+    test('bra pulled_down → "bra pull"', () {
+      final items = classifyOutfitTags('white shirt, red bra, blue jeans');
+      (items['top'] as Map)['state'] = 'removed';
+      (items['bra'] as Map)['state'] = 'pulled_down';
+      final r = renderItemsToTags(items);
+      expect(r.tags.contains('bra pull'), isTrue);
+    });
+
+    test('legacy bra "aside" data remaps to the exposing "bra pull"', () {
+      // Older saved closets may still carry state:"aside" on a bra. There is no
+      // "bra aside" Danbooru tag, so it must render as "bra pull".
+      final items = classifyOutfitTags('white shirt, red bra, blue jeans');
+      (items['top'] as Map)['state'] = 'removed';
+      (items['bra'] as Map)['state'] = 'aside';
+      final r = renderItemsToTags(items);
+      expect(r.tags.contains('bra pull'), isTrue);
+      expect(r.tags.contains('bra aside'), isFalse);
+    });
+
     test('visible intact bra suppresses "topless"', () {
       // top removed but a visible bra (no concealing outer layer) → no topless.
       final items = classifyOutfitTags('white shirt, red bra, blue jeans');

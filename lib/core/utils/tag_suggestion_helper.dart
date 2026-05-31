@@ -205,4 +205,38 @@ class TagSuggestionHelper {
       selection: TextSelection.collapsed(offset: newBeforeCursor.length),
     );
   }
+
+  /// Appends comma-separated [negatives] to a negative-prompt [controller],
+  /// skipping any tag already present (case-insensitive). Used to route a saved
+  /// character's negative tags to the appropriate negative target when its
+  /// autocomplete entry is picked. No-op when [negatives] is blank.
+  static void appendNegatives(TextEditingController controller, String? negatives) {
+    final toAdd = (negatives ?? '').trim();
+    if (toAdd.isEmpty) return;
+
+    final existing = controller.text;
+    final existingKeys = existing
+        .split(',')
+        .map((s) => s.trim().toLowerCase())
+        .where((s) => s.isNotEmpty)
+        .toSet();
+
+    final fresh = <String>[];
+    for (final part in toAdd.split(',')) {
+      final tag = part.trim();
+      if (tag.isEmpty) continue;
+      if (existingKeys.add(tag.toLowerCase())) fresh.add(tag);
+    }
+    if (fresh.isEmpty) return;
+
+    final joined = fresh.join(', ');
+    final needsSep = existing.trim().isNotEmpty && !existing.trimRight().endsWith(',');
+    final newText = existing.trim().isEmpty
+        ? '$joined, '
+        : '${existing.trimRight()}${needsSep ? ', ' : ' '}$joined, ';
+    controller.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: newText.length),
+    );
+  }
 }

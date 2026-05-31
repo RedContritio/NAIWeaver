@@ -59,6 +59,16 @@ const Map<String, String> _seedTagToSlot = <String, String>{
   'knickers': 'panties', 'drawers': 'panties',
   'pantalettes': 'panties', 'pantalets': 'panties',
   'tap pants': 'panties',
+  // men's underwear (modern + historical) — the pelvic base layer for male
+  // characters. Routes to the `panties` slot so the same pull/aside/removed
+  // state machine drives them (the slot is "pelvic base layer", not gendered).
+  'boxers': 'panties', 'boxer briefs': 'panties', 'boxer shorts': 'panties',
+  "men's briefs": 'panties', 'mens briefs': 'panties',
+  'trunks': 'panties', 'underwear trunks': 'panties',
+  'braies': 'panties', 'braccae': 'panties', 'breechcloth': 'panties',
+  // men's torso base layer (worn next to the skin under outer tops). Routes to
+  // the `bra` slot — the chest base-layer slot — same as `sarashi`.
+  'undershirt': 'bra', 'linen undershirt': 'bra',
   'brassiere': 'bra',
   'corset cover': 'bra',
   'bandeau bra': 'bra',

@@ -52,9 +52,7 @@ class _CharacterGenProgressDialogState extends State<CharacterGenProgressDialog>
       case CharacterGenStep.preparing:
         return 0.05;
       case CharacterGenStep.generating:
-        return 0.25;
-      case CharacterGenStep.completing:
-        return 0.45;
+        return 0.35;
       case CharacterGenStep.wardrobe:
         if (p.total != null && p.total! > 0 && p.current != null) {
           return 0.55 + 0.35 * (p.current! / p.total!);

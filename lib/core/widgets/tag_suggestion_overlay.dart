@@ -227,15 +227,11 @@ class _TagSuggestionOverlayState extends State<TagSuggestionOverlay> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: honor
-                ? const Color(0xFF7AD7A0).withValues(alpha: 0.25)
-                : t.surfaceMid,
+            color: t.surfaceMid,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: honor
-                  ? const Color(0xFF7AD7A0)
-                  : t.borderSubtle,
-              width: honor ? 1.5 : 1,
+              color: honor ? t.borderStrong : t.borderSubtle,
+              width: 1,
             ),
           ),
           child: Row(
@@ -244,15 +240,15 @@ class _TagSuggestionOverlayState extends State<TagSuggestionOverlay> {
               Icon(
                 honor ? Icons.check_box_outlined : Icons.check_box_outline_blank,
                 size: 13,
-                color: honor ? const Color(0xFF7AD7A0) : t.textTertiary,
+                color: honor ? t.textSecondary : t.textTertiary,
               ),
               const SizedBox(width: 4),
               Text(
                 'honor outfit state',
                 style: TextStyle(
-                  color: honor ? const Color(0xFF7AD7A0) : t.textTertiary,
+                  color: honor ? t.textSecondary : t.textTertiary,
                   fontSize: t.fontSize(9),
-                  fontWeight: honor ? FontWeight.bold : FontWeight.normal,
+                  fontWeight: FontWeight.normal,
                   letterSpacing: 0.5,
                 ),
               ),

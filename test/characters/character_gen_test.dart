@@ -50,143 +50,82 @@ class ScriptedTextGenService implements TextGenService {
       TextGenResult(text: await generate(req));
 }
 
-// A reasonably complete "good" main-generation response.
-const _goodCharacterJson = '''
+// A lean-shape response: only name, gender, and tag buckets — NO personality,
+// NO soul_md, NO outfit_tags (clothing is the wardrobe step's job).
+const _leanCharacterJson = '''
 {
-  "name": "Mara Vel/Mara",
+  "name": "Mara Velho",
   "gender": "female",
-  "aliases": "Goes by Mara; signs notes 'M.V.'",
-  "soul_md": "You are Mara Velho, twenty-eight, a tide-pool naturalist in a small coastal town. You wake before dawn most days. Your hands are always a little salt-cracked. You speak in short bursts when something delights you and trail off when it doesn't. There was a year you spent away, in the city, and you came back changed. You are wary with strangers and disarmingly direct with people you trust. You never lie about the sea. When you are nervous you over-narrate. You are not a manic pixie and you are not a wise mentor. You are a person who counts barnacles.",
-  "reaction_patterns": {
-    "nervous": "She narrates whatever's in front of her, naming species under her breath.",
-    "angry": "Goes very quiet, voice drops a register, words get clipped.",
-    "attracted": "Brings you things — a shell, a smooth stone — without explaining why.",
-    "sad": "Disappears to the tide pools alone before sunrise.",
-    "scared": "Plants her feet, stops blinking, asks fast practical questions.",
-    "embarrassed": "Laughs once, sharp, then changes the subject to the weather.",
-    "happy": "Talks twice as fast, hands moving, half in Portuguese."
-  },
-  "character_description": "A Portuguese woman in her late twenties with a wiry, sun-weathered build and freckled olive skin. Shoulder-length dark brown hair, usually salt-stiff and pushed back. Hazel eyes, a slightly crooked nose, and a small scar on her left thumb.",
   "tags": {
-    "base": "1girl, portuguese, 20yo, freckles",
-    "face": "hazel eyes, crooked nose, thin lips, sharp jawline",
-    "hair": "dark brown hair, shoulder length, messy hair, straight hair",
-    "body": "slim, toned, small breasts, tall",
+    "base": "1girl, tan, freckles",
+    "face": "hazel eyes, tareme, eyelashes",
+    "hair": "dark brown hair, medium hair, messy hair, straight hair",
+    "body": "petite, toned, small breasts, tall",
     "nsfw_top": "",
     "nsfw_bottom": "",
     "nsfw_always": "",
     "nsfw": ""
-  },
-  "outfit_tags": "olive cotton shirt, rolled sleeves, navy work shorts, brown leather sandals, woven straw hat",
-  "preview_scene": "gentle smile, crouching, holding seashell, tide pool, rocky shore, upper body",
-  "personality_summary": "A salt-cracked tide-pool naturalist who can name two hundred shore species but forgets her own birthday.",
-  "theme": { "accent": "#2da89e", "accent_secondary": "#e8b04a", "bg": "#0a1414" },
-  "meet_cute": "You crouch beside a tide pool at dawn and a woman two rocks over says, without looking up, 'Don't — that one stings.' The air smells of kelp and cold stone."
+  }
 }
 ''';
 
 void main() {
-  // --------------------------------------------------------------------
-  // soul_md truncation detection (ported from bri.'s _soul_md_truncated)
-  // --------------------------------------------------------------------
-  group('soulMdTruncated', () {
-    test('empty / whitespace-only is truncated', () {
-      expect(CharacterGenService.soulMdTruncated(''), isTrue);
-      expect(CharacterGenService.soulMdTruncated('   \n  '), isTrue);
-    });
-    test('ending mid-sentence is truncated', () {
-      expect(CharacterGenService.soulMdTruncated('You are a person who counts'), isTrue);
-      expect(CharacterGenService.soulMdTruncated('You are a person who counts,'), isTrue);
-      expect(CharacterGenService.soulMdTruncated('You are a person who counts barnacles and'), isTrue);
-    });
-    test('ending on sentence-final punctuation is complete', () {
-      expect(CharacterGenService.soulMdTruncated('You count barnacles.'), isFalse);
-      expect(CharacterGenService.soulMdTruncated('Do you?'), isFalse);
-      expect(CharacterGenService.soulMdTruncated('Stop!'), isFalse);
-      expect(CharacterGenService.soulMdTruncated('"she said."'), isFalse);
-      expect(CharacterGenService.soulMdTruncated('and that was that. \n\n'), isFalse);
-    });
+  // Common test setup — the service loads the lean prompt template from the
+  // asset bundle; inject a stub so tests don't need rootBundle plumbing.
+  setUp(() {
+    CharacterGenService.setLeanTemplateForTesting(
+      'STUB TEMPLATE — gender:{gender} period:{period} location:{location}',
+    );
+  });
+
+  tearDown(() {
+    CharacterGenService.setLeanTemplateForTesting(null);
   });
 
   // --------------------------------------------------------------------
   // JSON parsing / repair
   // --------------------------------------------------------------------
   group('parseCharacterJson', () {
-    test('parses a clean object', () {
-      final m = CharacterGenService.parseCharacterJsonForTesting(_goodCharacterJson);
+    test('parses a clean lean-shape object', () {
+      final m = CharacterGenService.parseCharacterJsonForTesting(_leanCharacterJson);
       expect(m, isNotNull);
-      expect((m!['name'] as String).contains('Mara'), isTrue);
+      expect(m!['name'], 'Mara Velho');
       expect(m['gender'], 'female');
-      expect(m['soul_md'], isA<String>());
+      expect(m['tags'], isA<Map>());
+      expect((m['tags'] as Map)['base'], contains('1girl'));
     });
 
     test('strips ```json fences', () {
-      final wrapped = '```json\n$_goodCharacterJson\n```';
+      final wrapped = '```json\n$_leanCharacterJson\n```';
       final m = CharacterGenService.parseCharacterJsonForTesting(wrapped);
       expect(m, isNotNull);
-      expect(m!['soul_md'], isA<String>());
+      expect(m!['name'], 'Mara Velho');
+    });
+
+    test('strips a trailing <<END>> sentinel', () {
+      final wrapped = '$_leanCharacterJson\n<<END>>';
+      final m = CharacterGenService.parseCharacterJsonForTesting(wrapped);
+      expect(m, isNotNull);
+      expect(m!['name'], 'Mara Velho');
     });
 
     test('strips a leading <think> block', () {
-      final wrapped = '<think>let me design this person...</think>\n$_goodCharacterJson';
+      final wrapped = '<think>let me design this person...</think>\n$_leanCharacterJson';
       final m = CharacterGenService.parseCharacterJsonForTesting(wrapped);
       expect(m, isNotNull);
-      expect((m!['name'] as String).contains('Mara'), isTrue);
+      expect(m!['name'], 'Mara Velho');
     });
 
-    test('repairs JSON cut off mid-string', () {
-      // Truncate inside the soul_md value.
-      const truncated = '{"name": "Kai", "soul_md": "You are Kai, a fisherman. You wake before dawn and you ';
+    test('repairs JSON cut off mid-string (recovers name)', () {
+      const truncated = '{"name": "Kai", "gender": "male", "tags": {"base": "1boy, ';
       final m = CharacterGenService.parseCharacterJsonForTesting(truncated);
       expect(m, isNotNull);
       expect(m!['name'], 'Kai');
-      expect((m['soul_md'] as String).startsWith('You are Kai'), isTrue);
     });
 
-    test('repairs JSON cut off after a key, mid-object (recovers earlier keys)', () {
-      const truncated = '{"name": "Lena", "soul_md": "You are Lena. Done.", "tags": {"base": "1girl, 20yo", "face": "blue eyes';
-      final m = CharacterGenService.parseCharacterJsonForTesting(truncated);
-      expect(m, isNotNull);
-      expect(m!['name'], 'Lena');
-      expect(m['soul_md'], 'You are Lena. Done.');
-    });
-
-    test('returns null when there is no name+soul_md', () {
+    test('returns null when there is no name', () {
       expect(CharacterGenService.parseCharacterJsonForTesting('not json at all'), isNull);
       expect(CharacterGenService.parseCharacterJsonForTesting('{"foo": 1, "bar": 2}'), isNull);
-    });
-
-    test('loose parse accepts any object (for the completion pass)', () {
-      final m = CharacterGenService.parseLooseJsonForTesting('{"personality_summary": "A baker."}');
-      expect(m, isNotNull);
-      expect(m!['personality_summary'], 'A baker.');
-    });
-
-    test('loose parse repairs a truncated completion object', () {
-      const truncated = '{"soul_md_completion": " and that is the whole of it.", "personality_summary": "A wandering';
-      final m = CharacterGenService.parseLooseJsonForTesting(truncated);
-      expect(m, isNotNull);
-      expect(m!['soul_md_completion'], ' and that is the whole of it.');
-    });
-  });
-
-  // --------------------------------------------------------------------
-  // continuation stitching
-  // --------------------------------------------------------------------
-  group('joinContinuation', () {
-    test('inserts a space when joining would glue two words', () {
-      expect(CharacterGenService.joinContinuationForTesting('the keeper', 'said nothing.'),
-          'the keeper said nothing.');
-    });
-    test('does not double-space across existing whitespace', () {
-      expect(CharacterGenService.joinContinuationForTesting('the keeper ', 'said.'),
-          'the keeper said.');
-      expect(CharacterGenService.joinContinuationForTesting('end of line.', '\nNew para.'),
-          'end of line.\nNew para.');
-    });
-    test('handles empties', () {
-      expect(CharacterGenService.joinContinuationForTesting('', 'abc'), 'abc');
-      expect(CharacterGenService.joinContinuationForTesting('abc', ''), 'abc');
     });
   });
 
@@ -226,58 +165,26 @@ void main() {
       expect(hist, contains('KNOWLEDGE BOUNDARY'));
       expect(hist, contains('The Black Death Arrives'));
       expect(hist, contains('Florence'));
-      final addendum = soulAddendumFor(medieval, 'Florence');
-      expect(addendum, contains('KNOWLEDGE BOUNDARY'));
-      expect(addendum, contains('5-8 specific'));
     });
 
-    test('generation prompt embeds the vibe + era blocks and the field schema', () {
-      const era = CharacterEra(id: 'roaring-twenties', year: 1925, label: 'The Roaring Twenties', moment: 'Jazz spills out of every doorway.');
-      final prompt = CharacterGenPrompts.buildGeneration(CharacterGenPromptInputs(
+    test('lean prompt substitution fills the placeholders', () {
+      const era = CharacterEra(id: 'roaring-twenties', year: 1925, label: 'The Roaring Twenties');
+      final prompt = substituteLeanCharacterPrompt(
+        template:
+            'GENDER:{gender} PERIOD:{period} LOCATION:{location} NSFW:{nsfw_mode}\n{vibe_context}{era_context}{nsfw_block}',
         gender: 'female',
-        vibe: 'Mysterious',
-        vibeGuidance: '',
         era: era,
         locationName: 'Berlin',
-        nsfw: false,
-      ));
-      expect(prompt, contains('GENDER: female'));
-      expect(prompt, contains('PERIOD: The Roaring Twenties'));
-      expect(prompt, contains('Berlin'));
-      expect(prompt, contains('Jazz spills out of every doorway.'));
-      expect(prompt, contains('"soul_md"'));
-      expect(prompt, contains('"reaction_patterns"'));
-      expect(prompt, contains('"outfit_tags"'));
-      expect(prompt, contains('Respond with ONLY valid JSON'));
-      // NSFW off => the schema tells the model to leave the nsfw_* buckets empty.
-      expect(prompt, contains('leave all four empty'));
-    });
-
-    test('completion prompt asks only for the listed fields', () {
-      final p = CharacterGenPrompts.buildCompletion(
-        name: 'Mara',
-        locationName: 'Lisbon',
-        periodDisplay: 'modern day',
-        vibe: 'Friendly',
-        soulExcerpt: '…counts barnacles.',
-        soulNeedsCompletion: false,
-        fieldNames: const ['outfit_tags', 'preview_scene'],
+        vibeHint: 'Mysterious',
         nsfw: false,
       );
-      expect(p, contains('["outfit_tags", "preview_scene"]'));
-      expect(p, contains('do not regenerate it'));
-      final p2 = CharacterGenPrompts.buildCompletion(
-        name: 'Mara',
-        locationName: 'Lisbon',
-        periodDisplay: 'modern day',
-        vibe: 'Friendly',
-        soulExcerpt: '…and then',
-        soulNeedsCompletion: true,
-        fieldNames: const ['soul_md_completion', 'outfit_tags'],
-        nsfw: false,
-      );
-      expect(p2, contains('CUT OFF mid-sentence'));
-      expect(p2, contains('soul_md_completion'));
+      expect(prompt, contains('GENDER:female'));
+      expect(prompt, contains('PERIOD:The Roaring Twenties'));
+      expect(prompt, contains('LOCATION:Berlin'));
+      expect(prompt, contains('NSFW:OFF'));
+      expect(prompt, contains('Overall vibe: Mysterious'));
+      expect(prompt, contains('KNOWLEDGE BOUNDARY'));
+      expect(prompt, contains('Leave nsfw_top, nsfw_bottom, nsfw_always, and nsfw ALL as empty strings'));
     });
   });
 
@@ -285,10 +192,10 @@ void main() {
   // full pipeline via the service (with a scripted fake)
   // --------------------------------------------------------------------
   group('CharacterGenService.generate', () {
-    final modernEra = const CharacterEra(id: 'present-day', year: 2026, label: 'Present Day');
+    const modernEra = CharacterEra(id: 'present-day', year: 2026, label: 'Present Day');
 
-    test('one good response + no wardrobe → a fully populated SavedCharacter', () async {
-      final svc = ScriptedTextGenService([_goodCharacterJson]);
+    test('one good response + no wardrobe → a populated appearance-only SavedCharacter', () async {
+      final svc = ScriptedTextGenService([_leanCharacterJson]);
       final gen = CharacterGenService(svc, maxTokens: 4096);
       final result = await gen.generate(CharacterGenForm(
         vibe: kCharacterVibes.first,
@@ -297,63 +204,88 @@ void main() {
         wardrobeCount: 0,
       ));
       final c = result.character;
-      expect(c.name.contains('Mara'), isTrue);
+      expect(c.name, 'Mara Velho');
       expect(c.gender, 'female');
       expect(c.baseTags, contains('1girl'));
       expect(c.faceTags, contains('hazel eyes'));
       expect(c.hairTags, contains('dark brown hair'));
-      expect(c.bodyTags_, contains('slim'));
-      expect(c.soulMd, contains('You are Mara'));
-      expect(CharacterGenService.soulMdTruncated(c.soulMd), isFalse);
-      expect(c.personalitySummary, contains('naturalist'));
-      expect(c.characterDescription, contains('Portuguese woman'));
-      expect(c.themeAccent, '#2DA89E');
-      expect(c.notes, contains('Reaction patterns:'));
-      // The meet outfit became the primary closet entry.
-      expect(result.closet, isNotEmpty);
-      expect(result.closet.first.tags, contains('olive cotton shirt'));
-      expect(c.primaryOutfitId, result.closet.first.id);
+      expect(c.bodyTags_, contains('petite'));
+
+      // The lean path emits NO personality / NO clothing.
+      expect(c.soulMd, isEmpty);
+      expect(c.personalitySummary, isEmpty);
+      expect(c.characterDescription, isEmpty);
+      expect(c.notes, isEmpty);
+      expect(c.themeAccent, isNull);
+      // No meet outfit — the closet is empty unless the wardrobe step ran.
+      expect(result.closet, isEmpty);
+      expect(c.primaryOutfitId, isNull);
 
       // Round-trips through JSON.
       final round = SavedCharacter.fromJson(jsonDecode(jsonEncode(c.toJson())));
       expect(round.name, c.name);
-      expect(round.soulMd, c.soulMd);
-      expect(round.personalitySummary, c.personalitySummary);
-      expect(round.themeAccent, c.themeAccent);
+      expect(round.baseTags, c.baseTags);
+      expect(round.soulMd, isEmpty);
     });
 
-    test('truncated soul_md → chunked continuation loop fires and stitches a complete doc', () async {
-      // 1st response: a character with a soul_md cut off mid-sentence.
-      const partial = '{"name": "Rua", "soul_md": "You are Rua, a clockmaker. You speak slowly. You";'
-          ' "tags": {"base": "1girl, 25yo", "face": "grey eyes", "hair": "black hair", "body": "average build"},'
-          ' "outfit_tags": "grey wool waistcoat, white shirt, black trousers, leather shoes",'
-          ' "preview_scene": "neutral expression, workbench, upper body",'
-          ' "personality_summary": "A clockmaker who hears time differently.",'
-          ' "character_description": "A woman in her mid-twenties with a slight frame.",'
-          ' "reaction_patterns": {"nervous": "winds a pocket watch", "angry": "quiet", "attracted": "gives gears", "sad": "works late", "scared": "freezes", "embarrassed": "coughs", "happy": "hums"},'
-          ' "theme": {"accent": "#888888", "accent_secondary": "#cccccc", "bg": "#101010"}}';
-      // 2nd & 3rd responses: continuation chunks; the 3rd ends the sentence.
-      final svc = ScriptedTextGenService([
-        partial,
-        ' choose your words like you choose a balance spring — carefully, and only after',
-        ' a long pause. That is who you are.',
-      ]);
-      // maxTokens small so the loop is the realistic path; but big enough that
-      // 3 calls suffice.
-      final gen = CharacterGenService(svc, maxTokens: 150);
+    test('NSFW off → nsfw_* buckets are dropped even if the model returns them', () async {
+      const withNsfw = '''
+{
+  "name": "Test",
+  "gender": "female",
+  "tags": {
+    "base": "1girl",
+    "face": "blue eyes",
+    "hair": "blonde hair",
+    "body": "petite",
+    "nsfw_top": "should-be-dropped",
+    "nsfw_bottom": "should-be-dropped",
+    "nsfw_always": "should-be-dropped",
+    "nsfw": ""
+  }
+}
+''';
+      final svc = ScriptedTextGenService([withNsfw]);
+      final gen = CharacterGenService(svc, maxTokens: 4096);
       final result = await gen.generate(CharacterGenForm(
         vibe: kCharacterVibes.first,
         era: modernEra,
         wardrobeCount: 0,
+        nsfw: false,
       ));
-      // First response wasn't even valid JSON as written above (note the stray
-      // ';') — the repair path recovers name + the partial soul_md, then the
-      // continuation loop finishes the sentence.
-      expect(result.character.soulMd, startsWith('You are Rua, a clockmaker.'));
-      expect(result.character.soulMd, endsWith('That is who you are.'));
-      expect(CharacterGenService.soulMdTruncated(result.character.soulMd), isFalse);
-      // At least the initial call + ≥1 continuation.
-      expect(svc.calls, greaterThanOrEqualTo(2));
+      expect(result.character.nsfwTop, isEmpty);
+      expect(result.character.nsfwBottom, isEmpty);
+      expect(result.character.nsfwAlways, isEmpty);
+    });
+
+    test('NSFW on → nsfw_* buckets are persisted from the model output', () async {
+      const withNsfw = '''
+{
+  "name": "Test",
+  "gender": "female",
+  "tags": {
+    "base": "1girl",
+    "face": "blue eyes",
+    "hair": "blonde hair",
+    "body": "petite",
+    "nsfw_top": "nipples",
+    "nsfw_bottom": "pubic hair",
+    "nsfw_always": "",
+    "nsfw": ""
+  }
+}
+''';
+      final svc = ScriptedTextGenService([withNsfw]);
+      final gen = CharacterGenService(svc, maxTokens: 4096);
+      final result = await gen.generate(CharacterGenForm(
+        vibe: kCharacterVibes.first,
+        era: modernEra,
+        wardrobeCount: 0,
+        nsfw: true,
+      ));
+      expect(result.character.nsfwTop, 'nipples');
+      expect(result.character.nsfwBottom, 'pubic hair');
+      expect(result.character.nsfwAlways, isEmpty);
     });
 
     test('no usable JSON at all → throws TextGenException', () async {
@@ -366,7 +298,7 @@ void main() {
     });
 
     test('cancellation between steps aborts cleanly', () async {
-      final svc = ScriptedTextGenService([_goodCharacterJson], delay: const Duration(milliseconds: 30));
+      final svc = ScriptedTextGenService([_leanCharacterJson], delay: const Duration(milliseconds: 30));
       final gen = CharacterGenService(svc, maxTokens: 4096);
       final token = CharacterGenCancelToken();
       final fut = gen.generate(
@@ -399,8 +331,8 @@ void main() {
       if (await tmp.exists()) await tmp.delete(recursive: true);
     });
 
-    test('generate() saves the character + closet and exposes the id', () async {
-      final textGen = TextGenNotifier()..updateService(ScriptedTextGenService([_goodCharacterJson]));
+    test('generate() saves the character and exposes the id', () async {
+      final textGen = TextGenNotifier()..updateService(ScriptedTextGenService([_leanCharacterJson]));
       final notifier = CharacterGenNotifier(library: library, textGen: textGen);
       expect(notifier.hasService, isTrue);
 
@@ -413,17 +345,16 @@ void main() {
       expect(notifier.lastError, isNull);
       expect(notifier.lastGeneratedId, id);
 
-      // The character is in the in-memory library...
       final c = library.characterById(id!);
       expect(c, isNotNull);
-      expect(c!.name.contains('Mara'), isTrue);
-      expect(library.closetFor(id), isNotEmpty);
+      expect(c!.name, 'Mara Velho');
+      expect(c.soulMd, isEmpty);
 
-      // ...and was written to disk.
       final file = File('${tmp.path}/$id.json');
       expect(await file.exists(), isTrue);
       final onDisk = SavedCharacter.fromJson(jsonDecode(await file.readAsString()));
-      expect(onDisk.soulMd, contains('You are Mara'));
+      expect(onDisk.name, 'Mara Velho');
+      expect(onDisk.baseTags, contains('1girl'));
     });
 
     test('generate() with no service set surfaces an error and writes nothing', () async {
@@ -440,7 +371,7 @@ void main() {
 
     test('cancel() during a run leaves no character behind', () async {
       final textGen = TextGenNotifier()
-        ..updateService(ScriptedTextGenService([_goodCharacterJson], delay: const Duration(milliseconds: 40)));
+        ..updateService(ScriptedTextGenService([_leanCharacterJson], delay: const Duration(milliseconds: 40)));
       final notifier = CharacterGenNotifier(library: library, textGen: textGen);
       final fut = notifier.generate(CharacterGenForm(
         vibe: kCharacterVibes.first,

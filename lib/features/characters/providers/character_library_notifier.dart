@@ -21,6 +21,10 @@ class CharacterSuggestion {
   /// off (the default).
   final String flatExpansion;
 
+  /// Combined negative tags (character-level + the chosen outfit's), to inject
+  /// into a negative-prompt target. Empty when none are set.
+  final String negativeExpansion;
+
   /// For ranking — the character's name lowercased.
   final String nameKey;
 
@@ -28,6 +32,7 @@ class CharacterSuggestion {
     required this.label,
     required this.expansion,
     required this.flatExpansion,
+    required this.negativeExpansion,
     required this.nameKey,
   });
 }
@@ -218,6 +223,26 @@ class CharacterLibraryNotifier extends ChangeNotifier {
     return parts.join(', ');
   }
 
+  /// Combined negative tags for a character + optional outfit: the character's
+  /// own [SavedCharacter.negativeTags] followed by the outfit's, de-duplicated
+  /// and comma-joined. Empty when neither has any.
+  String negativeExpansionFor(SavedCharacter c, ClosetOutfit? outfit) {
+    final seen = <String>{};
+    final out = <String>[];
+    void add(String raw) {
+      for (final part in raw.split(',')) {
+        final tag = part.trim();
+        if (tag.isEmpty) continue;
+        final key = tag.toLowerCase();
+        if (seen.add(key)) out.add(tag);
+      }
+    }
+
+    add(c.negativeTags);
+    if (outfit != null) add(outfit.negativeTags);
+    return out.join(', ');
+  }
+
   /// The "honor state off" expansion: identical to [expansionFor] except the
   /// outfit is inserted as its raw tag string, with no concealment, no
   /// state-aware rendering, and no implicit `nsfw` append.
@@ -251,6 +276,7 @@ class CharacterLibraryNotifier extends ChangeNotifier {
           label: c.name,
           expansion: expansionFor(c, primary),
           flatExpansion: flatExpansionFor(c, primary),
+          negativeExpansion: negativeExpansionFor(c, primary),
           nameKey: nameKey,
         ));
       }
@@ -262,6 +288,7 @@ class CharacterLibraryNotifier extends ChangeNotifier {
             label: outfitLabel,
             expansion: expansionFor(c, o),
             flatExpansion: flatExpansionFor(c, o),
+            negativeExpansion: negativeExpansionFor(c, o),
             nameKey: nameKey,
           ));
         }
@@ -282,6 +309,8 @@ class CharacterLibraryNotifier extends ChangeNotifier {
               typeName: 'saved_character',
               expansion: s.expansion,
               flatExpansion: s.flatExpansion,
+              negativeExpansion:
+                  s.negativeExpansion.isEmpty ? null : s.negativeExpansion,
             ))
         .toList();
   }

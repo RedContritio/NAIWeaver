@@ -8,6 +8,8 @@ import '../../../core/theme/vision_tokens.dart';
 import '../../../core/widgets/confirm_dialog.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/tag_suggestion_overlay.dart';
+import '../../../core/widgets/touch_scroll_wrap.dart';
+import '../../../core/utils/tag_suggestion_helper.dart';
 import '../../../core/services/tag_service.dart';
 import '../../../core/services/preferences_service.dart';
 import '../models/nai_character.dart';
@@ -445,7 +447,11 @@ class _CharacterCardState extends State<_CharacterCard> {
     setState(() => _ucSuggestions = suggestions);
   }
 
-  void _onTagSelected(TextEditingController controller, DanbooruTag tag) {
+  void _onTagSelected(
+    TextEditingController controller,
+    DanbooruTag tag, {
+    TextEditingController? negativeTarget,
+  }) {
     final insertText = tag.typeName == 'saved_character'
         ? ((tag.expansion != null && tag.expansion!.trim().isNotEmpty)
             ? tag.expansion!.trim()
@@ -461,6 +467,18 @@ class _CharacterCardState extends State<_CharacterCard> {
     controller.selection = TextSelection.fromPosition(
       TextPosition(offset: newText.length),
     );
+    // A saved character inserted into this character's PROMPT routes its
+    // negative tags to this character's own UC field, not the global negative.
+    if (tag.typeName == 'saved_character' &&
+        negativeTarget != null &&
+        (tag.negativeExpansion ?? '').trim().isNotEmpty) {
+      TagSuggestionHelper.appendNegatives(negativeTarget, tag.negativeExpansion);
+      // Reveal the UC field so the injected negatives are visible.
+      if (!_showUc) {
+        setState(() => _showUc = true);
+        context.read<PreferencesService>().setUiCharShowUc(true);
+      }
+    }
   }
 
   Future<void> _confirmDelete(BuildContext context) async {
@@ -616,25 +634,31 @@ class _CharacterCardState extends State<_CharacterCard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Prompt field
-                        TextField(
-                          controller: _promptController,
-                          maxLines: 3,
-                          minLines: 2,
-                          style: TextStyle(fontSize: t.fontSize(11), color: t.textSecondary, height: 1.4),
-                          decoration: InputDecoration(
-                            hintText: l.charEditorPromptHint.toUpperCase(),
-                            hintStyle: TextStyle(fontSize: t.fontSize(9), color: t.textMinimal),
-                            fillColor: t.surfaceHigh,
-                            filled: true,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
-                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.borderMedium)),
-                            contentPadding: const EdgeInsets.all(12),
+                        TouchScrollWrap(
+                          child: TextField(
+                            controller: _promptController,
+                            maxLines: 3,
+                            minLines: 2,
+                            style: TextStyle(fontSize: t.fontSize(11), color: t.textSecondary, height: 1.4),
+                            decoration: InputDecoration(
+                              hintText: l.charEditorPromptHint.toUpperCase(),
+                              hintStyle: TextStyle(fontSize: t.fontSize(9), color: t.textMinimal),
+                              fillColor: t.surfaceHigh,
+                              filled: true,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.borderMedium)),
+                              contentPadding: const EdgeInsets.all(12),
+                            ),
                           ),
                         ),
                         if (_promptSuggestions.isNotEmpty)
                           TagSuggestionOverlay(
                             suggestions: _promptSuggestions,
-                            onTagSelected: (tag) => _onTagSelected(_promptController, tag),
+                            onTagSelected: (tag) => _onTagSelected(
+                              _promptController,
+                              tag,
+                              negativeTarget: _ucController,
+                            ),
                           ),
 
                         // Sub-section toggle chips
@@ -714,19 +738,21 @@ class _CharacterCardState extends State<_CharacterCard> {
                         // UC section
                         if (_showUc) ...[
                           const SizedBox(height: 10),
-                          TextField(
-                            controller: _ucController,
-                            maxLines: 2,
-                            minLines: 1,
-                            style: TextStyle(fontSize: t.fontSize(11), color: t.textSecondary, height: 1.4),
-                            decoration: InputDecoration(
-                              hintText: l.charEditorUcHint.toUpperCase(),
-                              hintStyle: TextStyle(fontSize: t.fontSize(9), color: t.textMinimal),
-                              fillColor: t.surfaceHigh,
-                              filled: true,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
-                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.borderMedium)),
-                              contentPadding: const EdgeInsets.all(12),
+                          TouchScrollWrap(
+                            child: TextField(
+                              controller: _ucController,
+                              maxLines: 2,
+                              minLines: 1,
+                              style: TextStyle(fontSize: t.fontSize(11), color: t.textSecondary, height: 1.4),
+                              decoration: InputDecoration(
+                                hintText: l.charEditorUcHint.toUpperCase(),
+                                hintStyle: TextStyle(fontSize: t.fontSize(9), color: t.textMinimal),
+                                fillColor: t.surfaceHigh,
+                                filled: true,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
+                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.borderMedium)),
+                                contentPadding: const EdgeInsets.all(12),
+                              ),
                             ),
                           ),
                           if (_ucSuggestions.isNotEmpty)

@@ -11,6 +11,10 @@ class ClosetOutfit {
   /// Comma-separated Danbooru CLOTHING tags only (4–7 garments typically).
   final String tags;
 
+  /// Outfit-level negative tags (comma-separated). Appended to the character's
+  /// own negative tags when this specific outfit is inserted via autocomplete.
+  final String negativeTags;
+
   final List<String> seasons; // subset of spring/summer/fall/winter
   final List<String> weather; // subset of clear/cloudy/rain/snow/storm/hot/cold/mild/fog/humid
   final List<String> activities; // subset of casual/indoor/outdoor/formal/studying/exercise/shopping/date
@@ -37,6 +41,7 @@ class ClosetOutfit {
     required this.id,
     required this.name,
     this.tags = '',
+    this.negativeTags = '',
     List<String>? seasons,
     List<String>? weather,
     List<String>? activities,
@@ -106,6 +111,7 @@ class ClosetOutfit {
           : _genId(),
       name: json['name'] is String ? json['name'] as String : '',
       tags: json['tags'] is String ? json['tags'] as String : '',
+      negativeTags: json['negativeTags'] is String ? json['negativeTags'] as String : '',
       seasons: _strList(json['seasons'], allow: kSeasons),
       weather: _strList(json['weather'], allow: kWeather),
       activities: _strList(json['activities'], allow: kActivities),
@@ -124,6 +130,7 @@ class ClosetOutfit {
         'id': id,
         'name': name,
         'tags': tags,
+        if (negativeTags.isNotEmpty) 'negativeTags': negativeTags,
         'seasons': seasons,
         'weather': weather,
         'activities': activities,
@@ -137,6 +144,7 @@ class ClosetOutfit {
   ClosetOutfit copyWith({
     String? name,
     String? tags,
+    String? negativeTags,
     List<String>? seasons,
     List<String>? weather,
     List<String>? activities,
@@ -150,6 +158,7 @@ class ClosetOutfit {
       id: id,
       name: name ?? this.name,
       tags: tags ?? this.tags,
+      negativeTags: negativeTags ?? this.negativeTags,
       seasons: seasons ?? this.seasons,
       weather: weather ?? this.weather,
       activities: activities ?? this.activities,
@@ -176,6 +185,9 @@ class ClosetOutfit {
       id: _genId(),
       name: json['name'] is String ? (json['name'] as String).trim() : 'Outfit',
       tags: json['tags'] is String ? (json['tags'] as String).trim() : '',
+      negativeTags: json['negativeTags'] is String
+          ? (json['negativeTags'] as String).trim()
+          : (json['negative_tags'] is String ? (json['negative_tags'] as String).trim() : ''),
       seasons: _strList(json['seasons'], allow: kSeasons),
       weather: _strList(json['weather'], allow: kWeather),
       activities: _strList(json['activities'], allow: kActivities),
