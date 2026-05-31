@@ -1,0 +1,105 @@
+You are a fashion designer creating outfits for an anime character. Generate {count} distinct outfits suitable for different weather conditions and seasons. Return ONLY the JSON object below — no commentary, no rule-checking afterward.
+
+Character body & appearance (BACKGROUND ONLY — DO NOT repeat these in `tags`. `tags` is a clothing manifest, nothing else): {character_tags}
+{vibe_context}{era_context}{era_vocabulary}
+
+VOCABULARY BLOCKS — prefer tags from these lists. Concepts not on the list MUST be real Danbooru tags (never invented English compounds).
+
+TOPS:
+  shirt, blouse, t-shirt, dress shirt, polo shirt, tank top, camisole, crop top,
+  sweater, knit sweater, turtleneck, turtleneck sweater, cardigan, sweater vest,
+  hoodie, sweatshirt, vest, waistcoat, halter top, tube top, off-shoulder shirt,
+  striped shirt, lace blouse, ribbed sweater, cable knit, henley, pullover
+
+BOTTOMS:
+  skirt, pleated skirt, plaid skirt, miniskirt, long skirt, pencil skirt,
+  pants, jeans, shorts, leggings, tights, pantyhose, cargo pants, sweatpants,
+  jodhpurs, capri pants, short shorts, denim shorts, harem pants, flared pants
+
+DRESSES & ONE-PIECE:
+  dress, sundress, evening gown, slip dress, wrap dress, shift dress,
+  kimono, yukata, robe, bathrobe, nightgown, negligee, pajamas, pajama set
+
+OUTERWEAR:
+  jacket, denim jacket, leather jacket, blazer, cardigan, coat, overcoat,
+  trench coat, raincoat, parka, duster, cloak, hooded cloak, cape, poncho,
+  shawl, surcoat, tabard, breastplate, cuirass
+
+FOOTWEAR:
+  boots, ankle boots, leather boots, combat boots, knee boots, thigh boots,
+  high heels, stiletto heels, mary janes, oxfords, loafers, sneakers,
+  sandals, slippers, flats, geta, rubber boots
+
+ACCESSORIES:
+  scarf, gloves, hat, beanie, beret, fedora, bonnet, top hat, straw hat,
+  headband, head wreath, choker, necklace, pearl necklace, earrings,
+  bracelet, ring, belt, sash, tie, ascot, obi, tabi, umbrella, parasol
+
+ATTRIBUTE TAGS (use FREELY — these are canonical Danbooru attribute tags that
+describe a garment without needing a colour. Do NOT prepend a colour to them):
+  long sleeves, short sleeves, sleeveless, high collar, scoop neck, v-neck,
+  off-shoulder, plunging neckline, lace trim, ribbon trim, floral print,
+  polka dot, plaid, striped, hooded, floor-length, ankle-high, knee-length,
+  high-waisted, cropped, open front, fitted
+
+COLOR VOCABULARY (curated allow-list — safe palette that NAI renders cleanly.
+Do NOT use "tan" or "chestnut" — they drift between hair/skin/leather):
+  white, black, grey, ivory, cream, beige, khaki, brown, burgundy, red,
+  crimson, pink, rose, peach, salmon, coral, orange, mustard, yellow, gold,
+  olive, sage, mint, green, forest, teal, turquoise, aqua, blue, navy,
+  cobalt, indigo, purple, violet, plum, lavender, charcoal, slate, silver,
+  rust, denim, wine, pearl
+
+THINGS THAT ARE NOT DANBOORU TAGS — DO NOT EMIT:
+  ❌ Parentheticals: "iron cuirass (lorica musculata)", "boots (knee-high)".
+     Just write the tag, no aside.
+  ❌ Prose descriptors: "water-darkened linen clinging to thighs",
+     "wind-tossed hair", "mineral-stained forearms", "brazier-warmed".
+  ❌ Body parts, hair, skin, eyes, build, scars, freckles — those belong to
+     the character, not the outfit. Even attribute-form ("broken nose",
+     "broad face") is out.
+  ❌ Pose / expression: "smile", "crossed arms", "hand shielding eyes".
+  ❌ Weather sensations: "wind-flushed", "sweat-gleamed", "rain-soaked",
+     "shivering", "visible breath".
+  ❌ Environment / mood: "morning light", "afternoon", "festive", "discreet",
+     "firelit", "twilight".
+  ❌ Categories instead of garments: "ancient greek clothes", "practical
+     workwear", "elegant draping", "warm layered fabrics".
+  ❌ Stacking three outer layers "for layering" — pick ONE outer per outfit.
+
+FOR EACH OUTFIT, provide:
+- name: A short, evocative name (e.g. "Winter Cozy", "Summer Festival", "Rainy Day Chic")
+- tags: Danbooru-style CLOTHING tags, comma-separated. 4–7 tags total
+  (base layer + outer pieces + footwear). Every GARMENT tag MUST include a
+  colour from the COLOR VOCABULARY (e.g. "cream knit sweater", "navy pleated
+  skirt"). This applies to footwear and accessories too — "leather boots"
+  alone is NOT enough; write "brown leather boots". Same for slippers,
+  sandals, sneakers, straw hat, etc. ATTRIBUTE tags from the ATTRIBUTE TAGS
+  list above do NOT need a colour ("long sleeves", "high collar" are fine
+  standalone).
+- seasons: Array — any of ["spring", "summer", "fall", "winter"]
+- weather: Array — any of ["clear", "cloudy", "rain", "snow", "storm", "hot", "cold", "mild", "fog", "humid"]
+- activities: Array — any of ["casual", "indoor", "outdoor", "formal", "studying", "exercise", "shopping", "date"]
+- temperature_range: [min_celsius, max_celsius]
+- slots: Optional ["morning"|"daytime"|"evening"|"sleep"], or [] for any. Use ["sleep"] for pajamas only.
+- primary: OPTIONAL boolean. Set to true on EXACTLY ONE outfit (or omit from all).
+
+GOOD example of `tags` (colour + garment, attribute tags standalone, no smuggle):
+  "cream knit sweater, long sleeves, navy pleated skirt, black tights, brown ankle boots"
+
+BAD example — DO NOT DO THIS:
+  "rust-dyed wool himation, water-darkened linen clinging to thighs, sweat-gleamed shoulders, mineral-stained forearms, broken nose, wind-flushed cheeks"
+
+CHEST COVERAGE RULE (HARD CONSTRAINT): Whenever the outfit includes an OUTER
+torso layer — jacket, cardigan, blazer, coat, cloak, cape, surcoat, tabard,
+breastplate, cuirass — it MUST also include a base TOP garment between the
+bra and that outer layer (shirt, blouse, t-shirt, tank top, sweater,
+turtleneck, gambeson, doublet, tunic). EXEMPTION: loungewear (robe, kimono,
+negligee) with slot "sleep" — bra/lingerie under an open robe is fine.
+
+Cover a variety of weather and seasons across the {count} outfits.
+
+Respond with ONLY valid JSON: {"outfits": [...]}
+No markdown fences, no explanation. After the closing `}` of the JSON object,
+write the literal token `<<END>>` on its own line and STOP. Do NOT emit a
+self-review, do NOT regenerate the JSON, do NOT provide alternatives.

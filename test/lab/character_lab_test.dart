@@ -381,6 +381,10 @@ Future<void> _runWardrobe({
 
   print('\n[wardrobe ${scenario.id} v=$promptVersion] prompt: ${prompt.length} chars');
 
+  // Stop string is only honored when an override prompt is in play (the v1
+  // in-code prompt doesn't emit <<END>>). Same convention as main-gen.
+  final stopStrings = promptOverride != null ? const ['<<END>>'] : null;
+
   // Diagnostic pass: fire ONE direct call against the same prompt so we
   // capture the raw GLM response. This is independent of the prod path below
   // and is for "what did the model actually emit" forensics. Use the same
@@ -390,6 +394,7 @@ Future<void> _runWardrobe({
     diagnosticRaw = await service.generate(TextGenRequest(
       input: prompt,
       model: model,
+      stopStrings: stopStrings,
       params: TextGenParams.glmDefault().copyWith(
         temperature: 0.8,
         maxLength: maxTokens,
@@ -412,6 +417,7 @@ Future<void> _runWardrobe({
     model: model,
     maxTokens: maxTokens,
     promptOverride: promptOverride,
+    stopStrings: stopStrings,
   );
   final dt = DateTime.now().difference(t0);
   print('  got ${outfits.length} outfit(s) in ${dt.inMilliseconds}ms');

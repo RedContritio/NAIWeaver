@@ -8,55 +8,104 @@
 import 'dart:convert';
 import 'dart:io';
 //
-// Categories of violation:
-//   • forbiddenMaterial   — uses "linen X", "silk X" (other than satin), etc.
+// Categories — split into BLOCKING findings and informational WARNINGS.
+//
+// Blocking findings (image will look wrong, the prompt failed):
 //   • chestCoverage       — outer torso layer with no base top (and not sleep)
 //   • tagCountLow/High    — fewer than 4 or more than 7 garment tags
-//   • missingColor        — at least one tag has no recognised colour token
+//   • missingColor        — a tag with a recognised garment word but no colour
 //   • smuggle             — body/pose/weather/environment token leaked in
+//   • empty               — outfit has zero tags
 //
-// Returns a Report with per-outfit findings and a summary tally.
+// Informational warnings (NAI 4.5 handles these; surfacing for review only):
+//   • forbiddenMaterial   — "linen X", "silk X" etc. NAI 4.5's Flux decoder
+//                           handles these, but kept visible as drift signal.
+//   • unknownTagToken     — token (after stripping colors) doesn't resolve to
+//                           a canonical Danbooru tag via any trailing N-gram.
+
+enum AuditSeverity { finding, warning }
 
 class OutfitFinding {
   final String outfitName;
   final String category;
   final String detail; // human-readable
-  const OutfitFinding(this.outfitName, this.category, this.detail);
+  final AuditSeverity severity;
+  const OutfitFinding(
+    this.outfitName,
+    this.category,
+    this.detail, {
+    this.severity = AuditSeverity.finding,
+  });
 
   @override
-  String toString() => '[$category] "$outfitName": $detail';
+  String toString() {
+    final tag = severity == AuditSeverity.warning ? 'warn' : category;
+    return severity == AuditSeverity.warning
+        ? '[warn:$category] "$outfitName": $detail'
+        : '[$tag] "$outfitName": $detail';
+  }
 }
 
 class OutfitReport {
+  /// All entries — blocking findings AND informational warnings — preserved
+  /// here for backwards-compat with existing callers that iterate `findings`.
+  /// Use [blocking] / [warnings] for severity-aware consumption.
   final List<OutfitFinding> findings;
   final int outfitCount;
   const OutfitReport(this.findings, this.outfitCount);
 
+  List<OutfitFinding> get blocking =>
+      [for (final f in findings) if (f.severity == AuditSeverity.finding) f];
+  List<OutfitFinding> get warnings =>
+      [for (final f in findings) if (f.severity == AuditSeverity.warning) f];
+
   Map<String, int> get tally {
     final t = <String, int>{};
-    for (final f in findings) {
+    for (final f in blocking) {
       t[f.category] = (t[f.category] ?? 0) + 1;
     }
     return t;
   }
 
-  bool get isClean => findings.isEmpty;
+  Map<String, int> get warningTally {
+    final t = <String, int>{};
+    for (final f in warnings) {
+      t[f.category] = (t[f.category] ?? 0) + 1;
+    }
+    return t;
+  }
+
+  bool get isClean => blocking.isEmpty;
 
   String formatted() {
     final buf = StringBuffer();
-    buf.writeln('Audited $outfitCount outfit(s). ${findings.length} finding(s).');
-    if (findings.isEmpty) {
+    final block = blocking;
+    final warn = warnings;
+    buf.writeln(
+        'Audited $outfitCount outfit(s). ${block.length} blocking, ${warn.length} warning(s).');
+    if (block.isEmpty && warn.isEmpty) {
       buf.writeln('  Clean.');
       return buf.toString();
     }
-    final t = tally;
-    buf.writeln('  Tally:');
-    for (final e in t.entries) {
-      buf.writeln('    ${e.key}: ${e.value}');
+    if (block.isNotEmpty) {
+      buf.writeln('  Findings tally:');
+      for (final e in tally.entries) {
+        buf.writeln('    ${e.key}: ${e.value}');
+      }
+      buf.writeln('  Findings:');
+      for (final f in block) {
+        buf.writeln('    $f');
+      }
     }
-    buf.writeln('  Details:');
-    for (final f in findings) {
-      buf.writeln('    $f');
+    if (warn.isNotEmpty) {
+      buf.writeln('  Warnings tally:');
+      for (final e in warningTally.entries) {
+        buf.writeln('    ${e.key}: ${e.value}');
+      }
+      buf.writeln('  Warnings:');
+      for (final f in warn) {
+        buf.writeln('    $f');
+      }
     }
     return buf.toString();
   }
@@ -94,7 +143,11 @@ const Set<String> _outerLayers = {
   'duster',
 };
 
-// Acceptable base TOP garments that satisfy chest coverage.
+// Acceptable base TOP garments that satisfy chest coverage. Includes
+// historical/draped single-garment dresses (stola, tunica, peplos, chiton,
+// gown) where the dress IS the base layer under a cloak/coat/cardigan.
+// Loungewear (robe/kimono/yukata) is intentionally NOT here — those have a
+// different role and are handled via the [_loungewear] + sleep-slot exemption.
 const Set<String> _baseTops = {
   'shirt',
   'blouse',
@@ -107,6 +160,12 @@ const Set<String> _baseTops = {
   'gambeson',
   'doublet',
   'tunic',
+  'tunica',
+  'stola',
+  'chiton',
+  'peplos',
+  'dress',
+  'gown',
   'pullover',
   'henley',
   'camisole',
@@ -128,11 +187,12 @@ const Set<String> _loungewear = {
   'nightdress',
 };
 
-// Recognised colour tokens. Conservative list — better to flag a possible
-// miss than miss a real one. Extend as needed.
+// Recognised colour tokens. `tan` and `chestnut` are intentionally NOT here:
+// NAI 4.5 confuses them between skin/hair tone and garment/leather. Use
+// brown/beige/khaki instead.
 const Set<String> _colors = {
   'white', 'black', 'grey', 'gray', 'red', 'blue', 'green', 'yellow', 'orange',
-  'purple', 'pink', 'brown', 'beige', 'tan', 'gold', 'silver', 'bronze', 'cream',
+  'purple', 'pink', 'brown', 'beige', 'gold', 'silver', 'bronze', 'cream',
   'ivory', 'charcoal', 'burgundy', 'olive', 'slate', 'rust', 'sage', 'taupe',
   'navy', 'mustard', 'plum', 'lavender', 'mint', 'teal', 'turquoise', 'crimson',
   'scarlet', 'maroon', 'indigo', 'violet', 'rose', 'peach', 'coral', 'salmon',
@@ -141,13 +201,108 @@ const Set<String> _colors = {
   'ash', 'midnight', 'denim',
 };
 
-// Tokens that should NEVER appear in `tags` (clothing manifest only).
-// Compact starter list — these are the most common smuggled bodies / poses /
-// weather / environments. Audit flags but doesn't fail; some are judgement calls.
+// Garment-word tokens that, when present in a tag, require a recognised
+// colour. Tags WITHOUT a garment word (attribute-only: "long sleeves",
+// "high collar", "scoop neck", "lace trim", "hooded", "floor-length") don't
+// need a colour — Danbooru has many of these as standalone attribute tags.
+const Set<String> _garmentTokens = {
+  // Tops
+  'shirt', 't-shirt', 'tshirt', 'blouse', 'tank', 'tanktop', 'camisole',
+  'crop', 'sweater', 'turtleneck', 'pullover', 'henley', 'polo', 'hoodie',
+  'sweatshirt', 'cardigan', 'vest', 'waistcoat', 'bodysuit', 'leotard',
+  'bra', 'bralette', 'bandeau',
+  // Bottoms
+  'skirt', 'pants', 'trousers', 'jeans', 'shorts', 'leggings', 'tights',
+  'pantyhose', 'stockings', 'jodhpurs', 'breeches', 'sweatpants',
+  // Dresses / one-piece / sleepwear
+  'dress', 'gown', 'sundress', 'kimono', 'yukata', 'robe', 'bathrobe',
+  'negligee', 'peignoir', 'nightgown', 'nightdress', 'pajamas', 'pajama',
+  'slip',
+  // Outerwear
+  'jacket', 'blazer', 'coat', 'overcoat', 'trench', 'raincoat', 'parka',
+  'duster', 'cloak', 'cape', 'poncho', 'shawl', 'surcoat', 'tabard',
+  'hauberk', 'breastplate', 'cuirass',
+  // Footwear
+  'boots', 'shoes', 'sneakers', 'loafers', 'sandals', 'slippers', 'heels',
+  'pumps', 'mary', 'oxfords', 'geta', 'calcei',
+  // Accessories that benefit from a color
+  'hat', 'beanie', 'beret', 'fedora', 'bonnet', 'cap', 'scarf', 'gloves',
+  'mittens', 'tie', 'ascot', 'belt', 'sash', 'obi', 'umbrella', 'parasol',
+  // Historical base layers
+  'chemise', 'corset', 'petticoat', 'bloomers', 'tunic', 'tunica', 'toga',
+  'stola', 'chiton', 'peplos', 'himation', 'gambeson', 'doublet', 'palla',
+  'subligaculum', 'loincloth', 'shendyt', 'wimple',
+};
+
+// Canonical Danbooru attribute words that don't standalone-search in our
+// high-frequency JSON but appear inside compounds and are legitimate
+// attribute-only tags. When a wardrobe tag's non-colour tokens are ALL in
+// this set, the audit's unknownTagToken check passes it through.
+//
+// Example: a bare tag `high-waisted` or `hooded` is a valid attribute tag
+// even though `high-waisted` isn't in high-frequency-tags-list.json on its
+// own (the canonical entry tends to be the compound, like `high-waisted
+// skirt`).
+const Set<String> _attributeTokens = {
+  'hooded',
+  'floor-length',
+  'ankle-high',
+  'knee-length',
+  'high-waisted',
+  'off-shoulder',
+  'cropped',
+  'fitted',
+  'plunging',
+  'flat',
+  'heeled',
+  'open',
+  'sleeveless',
+  'scoop',
+  'v-neck',
+};
+
+// Era-specific vocabulary words that NAI 4.5's Flux decoder handles well but
+// that are not present in our canonical Danbooru list. Same treatment as
+// [_attributeTokens]: a tag whose non-colour tokens are ALL in this set
+// passes the unknownTagToken check.
+//
+// These are the period-correct garment words shipped by
+// `eraClothingVocabularyFor()` in `wardrobe_generator_service.dart` —
+// keep the two in sync.
+const Set<String> _eraToleratedTags = {
+  'stola',
+  'palla',
+  'tunica',
+  'subligaculum',
+  'pallium',
+  'calcei',
+  'fibula',
+  'torque',
+  'peplos',
+  'himation',
+  'hauberk',
+  'gambeson',
+  'doublet',
+  'shendyt',
+};
+
+// Tags that are widely rendered cleanly by NAI but happen not to be in the
+// canonical high-frequency JSON. Treated as canonical for the trailing-N-gram
+// check. Each entry was verified against the JSON file before adding.
+const Set<String> _canonicalSupplement = {
+  'tights',
+  'stockings',
+  'pajama set',
+  'rain boots',
+};
+
+// Tokens that should NEVER appear in `tags` (clothing manifest only). All
+// matched WHOLE-WORD via regex below — substring matching used to false-flag
+// `scarf` for containing `scar`, `tweed` for containing nothing useful, etc.
 const List<String> _smuggleTokens = [
   // body parts
   'hair', 'eyes', 'eye color', 'breasts', 'cleavage', 'thighs', 'shoulders',
-  'skin', 'face', 'lips', 'cheeks', 'freckles', 'scars', 'scar', 'mineral',
+  'skin', 'face', 'lips', 'cheeks', 'freckles', 'scars', 'scar',
   'broken nose', 'broad face',
   // poses / expressions
   'smile', 'smirk', 'crossed arms', 'hunched', 'leaning', 'arms crossed',
@@ -159,6 +314,9 @@ const List<String> _smuggleTokens = [
   // environment / mood
   'morning light', 'afternoon light', 'brazier-warmed', 'festive', 'discreet',
   'twilight', 'firelit',
+  // bri-style smuggle compounds (substring on these is safe because they're
+  // already compound phrases that don't collide with garments)
+  'mineral stain', 'mineral-stained',
 ];
 
 class _OutfitView {
@@ -201,10 +359,61 @@ bool _hasColor(String tag) {
   return false;
 }
 
+bool _hasGarmentWord(String tag) {
+  for (final g in _garmentTokens) {
+    if (RegExp(r'\b' + RegExp.escape(g) + r'\b').hasMatch(tag)) return true;
+  }
+  return false;
+}
+
+/// Whole-word smuggle check. Substring matching used to false-flag `scarf`
+/// for containing `scar` and `tweed` for nothing useful. Multi-word smuggles
+/// (e.g. `mineral stain`) match as substrings since they're already compound
+/// phrases that don't collide with single garment words.
+String? _smuggleHit(String tag) {
+  for (final s in _smuggleTokens) {
+    if (s.contains(' ') || s.contains('-')) {
+      // Compound — substring is safe.
+      if (tag.contains(s)) return s;
+    } else {
+      if (RegExp(r'\b' + RegExp.escape(s) + r'\b').hasMatch(tag)) return s;
+    }
+  }
+  return null;
+}
+
+/// Splits a single tag like "cream knit sweater" into ["cream","knit","sweater"].
+List<String> _tokenize(String tag) =>
+    tag.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
+
+/// Strips leading colour tokens off a tokenized tag, returning the
+/// non-colour remainder (e.g. ["knit","sweater"] for "cream knit sweater",
+/// ["plaid","scarf"] for "burgundy plaid scarf").
+List<String> _stripLeadingColors(List<String> tokens) {
+  var i = 0;
+  while (i < tokens.length && _colors.contains(tokens[i])) {
+    i++;
+  }
+  return tokens.sublist(i);
+}
+
+/// True if any trailing N-gram of [tokens] (joined with spaces) is in
+/// [canonical]. E.g. for ["knit","sweater"] checks "knit sweater" then
+/// "sweater" — either match suffices.
+bool _anyTrailingNgramCanonical(List<String> tokens, Set<String> canonical) {
+  for (var start = 0; start < tokens.length; start++) {
+    final candidate = tokens.sublist(start).join(' ');
+    if (canonical.contains(candidate)) return true;
+  }
+  return false;
+}
+
 /// Audits a list of outfits (wardrobe-gen JSON shape) for prompt-rule
-/// violations. Returns a [Report].
+/// violations. Returns an [OutfitReport]. Some categories are demoted to
+/// [AuditSeverity.warning] — see [OutfitReport.blocking] vs [warnings].
 OutfitReport auditOutfits(List<Map<String, dynamic>> outfits) {
   final findings = <OutfitFinding>[];
+  final canonical = loadCanonicalTags();
 
   for (final o in outfits) {
     final v = _viewOf(o);
@@ -230,26 +439,27 @@ OutfitReport auditOutfits(List<Map<String, dynamic>> outfits) {
       ));
     }
 
-    // Forbidden materials
+    // Forbidden materials — WARNING (NAI 4.5 Flux decoder handles these).
     for (final tag in v.tagList) {
       for (final mat in _forbiddenMaterials) {
-        // "satin slip" is canonical and allowed; anything else "silk X" is not.
-        // The rule lists "satin" as INDEXED, so allow it.
+        // "satin slip" is canonical and allowed; "satin" IS indexed.
         if (RegExp(r'\b' + mat + r'\b').hasMatch(tag)) {
           findings.add(OutfitFinding(
             v.name,
             'forbiddenMaterial',
-            '"$tag" uses unindexed material "$mat"',
+            '"$tag" uses non-Danbooru material "$mat" (NAI handles it; review)',
+            severity: AuditSeverity.warning,
           ));
           break;
         }
       }
     }
 
-    // Missing color (per-tag)
+    // Missing color — only when the tag contains a recognised garment word.
+    // Attribute-only tags (`long sleeves`, `high collar`, `lace trim`,
+    // `hooded`, `floor-length`) are legitimate without colours.
     for (final tag in v.tagList) {
-      // skip very short / common base layer tokens that rarely have a color
-      // e.g. "loincloth" alone is fine for an era piece, but flag for review.
+      if (!_hasGarmentWord(tag)) continue;
       if (!_hasColor(tag)) {
         findings.add(OutfitFinding(
           v.name,
@@ -272,17 +482,57 @@ OutfitReport auditOutfits(List<Map<String, dynamic>> outfits) {
       ));
     }
 
-    // Smuggled body/pose/weather/env tokens
+    // Smuggled body/pose/weather/env tokens — whole-word match.
     for (final tag in v.tagList) {
-      for (final s in _smuggleTokens) {
-        if (tag.contains(s)) {
+      final hit = _smuggleHit(tag);
+      if (hit != null) {
+        findings.add(OutfitFinding(
+          v.name,
+          'smuggle',
+          '"$tag" contains "$hit" (body/pose/weather/env)',
+        ));
+      }
+    }
+
+    // unknownTagToken — WARNING. Parentheticals always flag; other tags pass
+    // when ANY trailing N-gram (after stripping leading colours) is in the
+    // canonical Danbooru list OR [_canonicalSupplement]. Tags whose remaining
+    // tokens are ALL attribute words ([_attributeTokens]) or ALL era-tolerated
+    // period vocab ([_eraToleratedTags]) also pass. Skip entirely if the
+    // canonical file is not loadable (lab harness might be invoked from a
+    // different working dir).
+    if (canonical != null) {
+      for (final tag in v.tagList) {
+        if (tag.contains('(') || tag.contains(')')) {
           findings.add(OutfitFinding(
             v.name,
-            'smuggle',
-            '"$tag" contains "$s" (body/pose/weather/env)',
+            'unknownTagToken',
+            '"$tag" contains parentheses (invented compound)',
+            severity: AuditSeverity.warning,
           ));
-          break;
+          continue;
         }
+        // Whole-tag canonical / supplement hit is the cheap path.
+        if (canonical.contains(tag)) continue;
+        if (_canonicalSupplement.contains(tag)) continue;
+        final tokens = _tokenize(tag);
+        if (tokens.isEmpty) continue;
+        final remaining = _stripLeadingColors(tokens);
+        if (remaining.isEmpty) continue; // pure colour token, fine
+        if (_anyTrailingNgramCanonical(remaining, canonical)) continue;
+        if (_anyTrailingNgramCanonical(remaining, _canonicalSupplement)) continue;
+        // Allow-list pass: every non-colour token is an attribute word or an
+        // era-tolerated period garment.
+        if (remaining.every((t) =>
+            _attributeTokens.contains(t) || _eraToleratedTags.contains(t))) {
+          continue;
+        }
+        findings.add(OutfitFinding(
+          v.name,
+          'unknownTagToken',
+          '"$tag" has no canonical Danbooru tag in trailing tokens',
+          severity: AuditSeverity.warning,
+        ));
       }
     }
   }
