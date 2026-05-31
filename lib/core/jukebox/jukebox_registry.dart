@@ -131,6 +131,11 @@ class JukeboxRegistry {
     JukeboxSong(id: 'the_world', title: 'The WORLD', artist: 'Nightmare', category: SongCategory.anime, assetPath: 'assets/midi/anime/the_world.mid'),
     JukeboxSong(id: 'again_yui', title: 'Again', artist: 'YUI', category: SongCategory.anime, assetPath: 'assets/midi/anime/again_yui.mid'),
     JukeboxSong(id: 'change_the_world', title: 'Change the World', artist: 'V6', category: SongCategory.anime, assetPath: 'assets/midi/anime/change_wld.mid'),
+
+    // --- Game ---
+    JukeboxSong(id: 'planet_force_title', title: 'Title Theme', artist: 'Planet Force', category: SongCategory.game, assetPath: 'assets/midi/game/md_title.mid'),
+    JukeboxSong(id: 'rpgmaker_field03', title: 'Field 03', artist: 'RPG Maker', category: SongCategory.game, assetPath: 'assets/midi/game/field03.mid'),
+    JukeboxSong(id: 'tondemo_houki_2_obstacle', title: 'Obstacle', artist: 'Tondemo Houki 2', category: SongCategory.game, assetPath: 'assets/midi/game/obstacle.mid'),
   ];
 
   static List<JukeboxSong> songsByCategory(SongCategory category) {

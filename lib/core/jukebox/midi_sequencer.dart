@@ -190,7 +190,12 @@ class MidiSequencer {
       if (evt.type == 0xC0) {
         _synth.programChange(evt.channel, evt.data1);
       } else if (evt.type == 0xB0) {
-        _synth.controlChange(evt.channel, evt.data1, evt.data2);
+        if (evt.data1 == 7) {
+          final scaled = (evt.data2 * volumeScale).round().clamp(0, 127);
+          _synth.controlChange(evt.channel, evt.data1, scaled);
+        } else {
+          _synth.controlChange(evt.channel, evt.data1, evt.data2);
+        }
       }
     }
 
