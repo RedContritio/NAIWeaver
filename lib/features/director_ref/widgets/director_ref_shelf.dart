@@ -37,6 +37,7 @@ class DirectorRefShelf extends StatelessWidget {
         onTypeChanged: (t) => notifier.updateType(ref.id, t),
         onStrengthChanged: (v) => notifier.updateStrength(ref.id, v),
         onFidelityChanged: (v) => notifier.updateFidelity(ref.id, v),
+        onToggleEnabled: () => notifier.toggleEnabled(ref.id),
         onRemove: () => notifier.removeReference(ref.id),
       ),
     );

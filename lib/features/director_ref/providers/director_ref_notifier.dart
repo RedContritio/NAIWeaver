@@ -84,6 +84,16 @@ class DirectorRefNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Toggles whether a reference is included in generation. The processed
+  /// image data is retained, so re-enabling does not re-process the image.
+  void toggleEnabled(String id) {
+    _references = _references.map((r) {
+      if (r.id == id) return r.copyWith(enabled: !r.enabled);
+      return r;
+    }).toList();
+    notifyListeners();
+  }
+
   /// Replaces all references wholesale (used when applying a preset).
   /// Re-processes each reference to derive processedBase64 from originalImageBytes.
   Future<void> setReferences(List<DirectorReference> refs) async {
@@ -119,7 +129,8 @@ class DirectorRefNotifier extends ChangeNotifier {
   /// Assembles the 5 parallel arrays for API injection.
   /// Returns null if no references are set.
   DirectorRefPayload? buildPayload() {
-    if (_references.isEmpty) return null;
+    final active = _references.where((r) => r.enabled).toList();
+    if (active.isEmpty) return null;
 
     final images = <String>[];
     final descriptions = <Map<String, dynamic>>[];
@@ -127,7 +138,7 @@ class DirectorRefNotifier extends ChangeNotifier {
     final secondaryStrengths = <double>[];
     final infoExtracted = <double>[];
 
-    for (final ref in _references) {
+    for (final ref in active) {
       images.add(ref.processedBase64);
       descriptions.add({
         'caption': {

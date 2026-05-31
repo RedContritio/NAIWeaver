@@ -9,6 +9,11 @@ class VibeTransfer {
   final double strength;
   final double infoExtracted;
 
+  /// Whether this vibe is included in the generation payload. Disabled vibes
+  /// stay in the list (and keep their encoded vector) but are filtered out of
+  /// [VibeTransferNotifier.buildPayload], so toggling never re-encodes.
+  final bool enabled;
+
   VibeTransfer({
     required this.id,
     required this.originalImageBytes,
@@ -16,11 +21,13 @@ class VibeTransfer {
     required this.vibeVectorBase64,
     this.strength = 0.6,
     this.infoExtracted = 1.0,
+    this.enabled = true,
   });
 
   VibeTransfer copyWith({
     double? strength,
     double? infoExtracted,
+    bool? enabled,
   }) {
     return VibeTransfer(
       id: id,
@@ -29,6 +36,7 @@ class VibeTransfer {
       vibeVectorBase64: vibeVectorBase64,
       strength: strength ?? this.strength,
       infoExtracted: infoExtracted ?? this.infoExtracted,
+      enabled: enabled ?? this.enabled,
     );
   }
 
@@ -38,6 +46,7 @@ class VibeTransfer {
         'vibeVectorBase64': vibeVectorBase64,
         'strength': strength,
         'infoExtracted': infoExtracted,
+        'enabled': enabled,
       };
 
   factory VibeTransfer.fromJson(Map<String, dynamic> json) {
@@ -49,6 +58,7 @@ class VibeTransfer {
       vibeVectorBase64: json['vibeVectorBase64'] as String,
       strength: (json['strength'] as num?)?.toDouble() ?? 0.6,
       infoExtracted: (json['infoExtracted'] as num?)?.toDouble() ?? 1.0,
+      enabled: json['enabled'] as bool? ?? true,
     );
   }
 }

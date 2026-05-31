@@ -178,6 +178,7 @@ class _RefSection extends StatelessWidget {
         onTypeChanged: (v) => notifier.updateType(ref.id, v),
         onStrengthChanged: (v) => notifier.updateStrength(ref.id, v),
         onFidelityChanged: (v) => notifier.updateFidelity(ref.id, v),
+        onToggleEnabled: () => notifier.toggleEnabled(ref.id),
         onRemove: () => notifier.removeReference(ref.id),
       ),
     );
@@ -197,6 +198,7 @@ class _RefSection extends StatelessWidget {
                 imageBytes: ref.originalImageBytes,
                 borderColor: _refBorderColor(ref.type, t),
                 icon: _refIcon(ref.type),
+                enabled: ref.enabled,
                 onTap: () => _openEditor(context, notifier, ref),
                 onLongPress: () => notifier.removeReference(ref.id),
               ),
@@ -276,6 +278,7 @@ class _VibeSection extends StatelessWidget {
         vibe: vibe,
         onStrengthChanged: (v) => notifier.updateStrength(vibe.id, v),
         onInfoExtractedChanged: (v) => notifier.updateInfoExtracted(vibe.id, v),
+        onToggleEnabled: () => notifier.toggleEnabled(vibe.id),
         onRemove: () => notifier.removeVibe(vibe.id),
       ),
     );
@@ -294,6 +297,7 @@ class _VibeSection extends StatelessWidget {
               child: _RailChip(
                 imageBytes: vibe.originalImageBytes,
                 borderColor: t.accent,
+                enabled: vibe.enabled,
                 onTap: () => _openEditor(context, notifier, vibe),
                 onLongPress: () => notifier.removeVibe(vibe.id),
               ),
@@ -316,6 +320,7 @@ class _RailChip extends StatelessWidget {
   final dynamic imageBytes;
   final Color borderColor;
   final IconData? icon;
+  final bool enabled;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
 
@@ -323,6 +328,7 @@ class _RailChip extends StatelessWidget {
     required this.imageBytes,
     required this.borderColor,
     this.icon,
+    this.enabled = true,
     required this.onTap,
     required this.onLongPress,
   });
@@ -330,34 +336,46 @@ class _RailChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
+    final disabled = !enabled;
+    final border = disabled ? t.textDisabled : borderColor;
     return GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
-      child: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: borderColor, width: 1.5),
-          image: DecorationImage(
-            image: MemoryImage(imageBytes),
-            fit: BoxFit.cover,
-            filterQuality: FilterQuality.medium,
+      child: Opacity(
+        opacity: disabled ? 0.4 : 1.0,
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: border, width: 1.5),
+            image: DecorationImage(
+              image: MemoryImage(imageBytes),
+              fit: BoxFit.cover,
+              filterQuality: FilterQuality.medium,
+              colorFilter: disabled
+                  ? const ColorFilter.mode(Colors.grey, BlendMode.saturation)
+                  : null,
+            ),
           ),
-        ),
-        child: icon != null
-            ? Align(
-                alignment: Alignment.bottomRight,
-                child: Container(
-                  padding: const EdgeInsets.all(1),
-                  decoration: BoxDecoration(
-                    color: t.background.withValues(alpha: 0.7),
-                    borderRadius: const BorderRadius.only(topLeft: Radius.circular(3)),
+          child: (icon != null || disabled)
+              ? Align(
+                  alignment: Alignment.bottomRight,
+                  child: Container(
+                    padding: const EdgeInsets.all(1),
+                    decoration: BoxDecoration(
+                      color: t.background.withValues(alpha: 0.7),
+                      borderRadius: const BorderRadius.only(topLeft: Radius.circular(3)),
+                    ),
+                    child: Icon(
+                      disabled ? Icons.visibility_off : icon,
+                      size: 10,
+                      color: border,
+                    ),
                   ),
-                  child: Icon(icon, size: 10, color: borderColor),
-                ),
-              )
-            : null,
+                )
+              : null,
+        ),
       ),
     );
   }

@@ -12,6 +12,7 @@ import '../../../core/theme/theme_notifier.dart';
 import '../../../core/theme/vision_tokens.dart';
 import '../../../core/widgets/custom_resolution_dialog.dart';
 import '../../../core/widgets/confirm_dialog.dart';
+import '../../../core/widgets/editable_slider_value.dart';
 import '../../../core/widgets/vision_slider.dart';
 import '../../../core/services/styles.dart';
 import '../../gallery/providers/gallery_notifier.dart';
@@ -446,7 +447,7 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
 
   Widget _buildStepsScale(GenerationNotifier notifier, GenerationState state, bool mobile, VisionTokens t, {bool compact = false}) {
     Widget stepsSlider = _buildCompactSlider(context, context.l.panelSteps.toUpperCase(), state.steps, 1, 50, 1, (v) => notifier.updateSettings(steps: v), t, warnAbove: 28);
-    Widget scaleSlider = _buildCompactSlider(context, context.l.panelScale.toUpperCase(), state.scale, 1.0, 30.0, 0.5, (v) => notifier.updateSettings(scale: v), t);
+    Widget scaleSlider = _buildCompactSlider(context, context.l.panelScale.toUpperCase(), state.scale, 1.0, 30.0, 0.5, (v) => notifier.updateSettings(scale: v), t, hardMax: 100.0, warnAbove: 30);
 
     if (mobile || compact) {
       return Column(
@@ -983,9 +984,13 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
     }
   }
 
-  Widget _buildCompactSlider(BuildContext context, String label, double value, double min, double max, double step, Function(double) onChanged, VisionTokens t, {double? warnAbove}) {
+  Widget _buildCompactSlider(BuildContext context, String label, double value, double min, double max, double step, Function(double) onChanged, VisionTokens t, {double? warnAbove, double? hardMin, double? hardMax}) {
     final mobile = isMobile(context);
     final isWarning = warnAbove != null && value > warnAbove;
+    final isInteger = step >= 1;
+    // The slider itself stays on [min, max]; if the typed value exceeds the
+    // soft max, pin the thumb to the end so the track stays valid.
+    final sliderValue = value.clamp(min, max).toDouble();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -993,13 +998,22 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(label, style: TextStyle(fontSize: t.fontSize(mobile ? 12 : 9), fontWeight: FontWeight.bold, letterSpacing: 1, color: t.secondaryText)),
-            Text(step >= 1 ? value.toInt().toString() : value.toStringAsFixed(1),
-              style: TextStyle(fontSize: t.fontSize(mobile ? 13 : 10), fontWeight: FontWeight.bold, color: isWarning ? t.accentDanger : t.textSecondary)),
+            EditableSliderValue(
+              value: value,
+              softMin: min,
+              softMax: max,
+              hardMin: hardMin,
+              hardMax: hardMax,
+              isInteger: isInteger,
+              decimals: 1,
+              onChanged: onChanged,
+              style: TextStyle(fontSize: t.fontSize(mobile ? 13 : 10), fontWeight: FontWeight.bold, color: isWarning ? t.accentDanger : t.textSecondary),
+            ),
           ],
         ),
         const SizedBox(height: 4),
         VisionSlider(
-          value: value,
+          value: sliderValue,
           min: min,
           max: max,
           divisions: ((max - min) / step).toInt(),
@@ -1009,7 +1023,7 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
           thumbRadius: mobile ? 8 : 4,
           overlayRadius: mobile ? 16 : 0,
           trackHeight: 1,
-          onChanged: (v) => onChanged(step >= 1 ? v.roundToDouble() : double.parse(v.toStringAsFixed(1))),
+          onChanged: (v) => onChanged(isInteger ? v.roundToDouble() : double.parse(v.toStringAsFixed(1))),
         ),
       ],
     );

@@ -78,6 +78,16 @@ class VibeTransferNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Toggles whether a vibe is included in generation. The encoded vector is
+  /// retained, so re-enabling never triggers another encode round-trip.
+  void toggleEnabled(String id) {
+    _vibes = _vibes.map((v) {
+      if (v.id == id) return v.copyWith(enabled: !v.enabled);
+      return v;
+    }).toList();
+    notifyListeners();
+  }
+
   void setVibes(List<VibeTransfer> vibes) {
     _vibes = vibes;
     _idCounter = vibes.length;
@@ -90,13 +100,14 @@ class VibeTransferNotifier extends ChangeNotifier {
   }
 
   VibeTransferPayload? buildPayload() {
-    if (_vibes.isEmpty) return null;
+    final active = _vibes.where((v) => v.enabled).toList();
+    if (active.isEmpty) return null;
 
     final vectors = <String>[];
     final strengths = <double>[];
     final infoExtracted = <double>[];
 
-    for (final vibe in _vibes) {
+    for (final vibe in active) {
       vectors.add(vibe.vibeVectorBase64);
       strengths.add(vibe.strength);
       infoExtracted.add(vibe.infoExtracted);

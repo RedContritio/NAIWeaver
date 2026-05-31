@@ -17,41 +17,51 @@ class VibeTransferChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
+    final disabled = !vibe.enabled;
+    final accent = disabled ? t.textDisabled : t.accentVibeTransfer;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 3),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         onLongPress: onLongPress,
-        child: Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: t.accentVibeTransfer, width: 1.5),
-            image: DecorationImage(
-              image: MemoryImage(vibe.processedPreview),
-              fit: BoxFit.cover,
-              filterQuality: FilterQuality.medium,
-            ),
-          ),
-          child: Align(
-            alignment: Alignment.bottomRight,
-            child: Container(
-              padding: const EdgeInsets.all(1),
-              decoration: BoxDecoration(
-                color: t.background.withValues(alpha: 0.7),
-                borderRadius:
-                    const BorderRadius.only(topLeft: Radius.circular(3)),
+        child: Opacity(
+          opacity: disabled ? 0.4 : 1.0,
+          child: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: accent, width: 1.5),
+              image: DecorationImage(
+                image: MemoryImage(vibe.processedPreview),
+                fit: BoxFit.cover,
+                filterQuality: FilterQuality.medium,
+                colorFilter: disabled
+                    ? const ColorFilter.mode(Colors.grey, BlendMode.saturation)
+                    : null,
               ),
-              child: Text(
-                'V',
-                style: TextStyle(
-                  fontSize: 8,
-                  fontWeight: FontWeight.w900,
-                  color: t.accentVibeTransfer,
-                  letterSpacing: 0,
+            ),
+            child: Align(
+              alignment: Alignment.bottomRight,
+              child: Container(
+                padding: const EdgeInsets.all(1),
+                decoration: BoxDecoration(
+                  color: t.background.withValues(alpha: 0.7),
+                  borderRadius:
+                      const BorderRadius.only(topLeft: Radius.circular(3)),
                 ),
+                child: disabled
+                    ? Icon(Icons.visibility_off, size: 10, color: accent)
+                    : Text(
+                        'V',
+                        style: TextStyle(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w900,
+                          color: accent,
+                          letterSpacing: 0,
+                        ),
+                      ),
               ),
             ),
           ),

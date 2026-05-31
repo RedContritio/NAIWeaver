@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/widgets/editable_slider_value.dart';
+import '../../../core/widgets/enabled_toggle.dart';
 import '../../../core/widgets/vision_slider.dart';
 import '../models/director_reference.dart';
 
@@ -21,6 +23,7 @@ class DirectorRefEditorSheet extends StatefulWidget {
   final Function(DirectorReferenceType) onTypeChanged;
   final Function(double) onStrengthChanged;
   final Function(double) onFidelityChanged;
+  final VoidCallback onToggleEnabled;
   final VoidCallback onRemove;
 
   const DirectorRefEditorSheet({
@@ -29,6 +32,7 @@ class DirectorRefEditorSheet extends StatefulWidget {
     required this.onTypeChanged,
     required this.onStrengthChanged,
     required this.onFidelityChanged,
+    required this.onToggleEnabled,
     required this.onRemove,
   });
 
@@ -40,6 +44,7 @@ class _DirectorRefEditorSheetState extends State<DirectorRefEditorSheet> {
   late DirectorReferenceType _type;
   late double _strength;
   late double _fidelity;
+  late bool _enabled;
 
   @override
   void initState() {
@@ -47,6 +52,7 @@ class _DirectorRefEditorSheetState extends State<DirectorRefEditorSheet> {
     _type = widget.reference.type;
     _strength = widget.reference.strength;
     _fidelity = widget.reference.fidelity;
+    _enabled = widget.reference.enabled;
   }
 
   Color _colorForType(BuildContext context, DirectorReferenceType type) {
@@ -89,14 +95,28 @@ class _DirectorRefEditorSheetState extends State<DirectorRefEditorSheet> {
                   color: t.textPrimary,
                 ),
               ),
-              IconButton(
-                onPressed: () {
-                  widget.onRemove();
-                  Navigator.pop(context);
-                },
-                icon: Icon(Icons.delete_outline, color: t.accentDanger, size: 18),
-                constraints: const BoxConstraints(),
-                padding: EdgeInsets.zero,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  EnabledToggle(
+                    enabled: _enabled,
+                    accent: _colorForType(context, _type),
+                    onTap: () {
+                      setState(() => _enabled = !_enabled);
+                      widget.onToggleEnabled();
+                    },
+                  ),
+                  const SizedBox(width: 12),
+                  IconButton(
+                    onPressed: () {
+                      widget.onRemove();
+                      Navigator.pop(context);
+                    },
+                    icon: Icon(Icons.delete_outline, color: t.accentDanger, size: 18),
+                    constraints: const BoxConstraints(),
+                    padding: EdgeInsets.zero,
+                  ),
+                ],
               ),
             ],
           ),
@@ -218,8 +238,12 @@ class _DirectorRefEditorSheetState extends State<DirectorRefEditorSheet> {
                 color: t.textDisabled,
               ),
             ),
-            Text(
-              value.toStringAsFixed(2),
+            EditableSliderValue(
+              value: value,
+              softMin: 0.0,
+              softMax: 1.0,
+              decimals: 2,
+              onChanged: onChanged,
               style: TextStyle(
                 fontSize: t.fontSize(10),
                 color: t.textTertiary,
@@ -230,7 +254,7 @@ class _DirectorRefEditorSheetState extends State<DirectorRefEditorSheet> {
         ),
         const SizedBox(height: 4),
         VisionSlider.subtle(
-          value: value,
+          value: value.clamp(0.0, 1.0),
           onChanged: onChanged,
           t: t,
           min: 0.0,

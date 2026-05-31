@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/widgets/editable_slider_value.dart';
+import '../../../core/widgets/enabled_toggle.dart';
 import '../../../core/widgets/vision_slider.dart';
 import '../models/vibe_transfer.dart';
 
@@ -8,6 +10,7 @@ class VibeTransferEditorSheet extends StatefulWidget {
   final VibeTransfer vibe;
   final Function(double) onStrengthChanged;
   final Function(double) onInfoExtractedChanged;
+  final VoidCallback onToggleEnabled;
   final VoidCallback onRemove;
 
   const VibeTransferEditorSheet({
@@ -15,6 +18,7 @@ class VibeTransferEditorSheet extends StatefulWidget {
     required this.vibe,
     required this.onStrengthChanged,
     required this.onInfoExtractedChanged,
+    required this.onToggleEnabled,
     required this.onRemove,
   });
 
@@ -25,12 +29,14 @@ class VibeTransferEditorSheet extends StatefulWidget {
 class _VibeTransferEditorSheetState extends State<VibeTransferEditorSheet> {
   late double _strength;
   late double _infoExtracted;
+  late bool _enabled;
 
   @override
   void initState() {
     super.initState();
     _strength = widget.vibe.strength;
     _infoExtracted = widget.vibe.infoExtracted;
+    _enabled = widget.vibe.enabled;
   }
 
   @override
@@ -61,14 +67,28 @@ class _VibeTransferEditorSheetState extends State<VibeTransferEditorSheet> {
                   color: t.textPrimary,
                 ),
               ),
-              IconButton(
-                onPressed: () {
-                  widget.onRemove();
-                  Navigator.pop(context);
-                },
-                icon: Icon(Icons.delete_outline, color: t.accentDanger, size: 18),
-                constraints: const BoxConstraints(),
-                padding: EdgeInsets.zero,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  EnabledToggle(
+                    enabled: _enabled,
+                    accent: t.accentVibeTransfer,
+                    onTap: () {
+                      setState(() => _enabled = !_enabled);
+                      widget.onToggleEnabled();
+                    },
+                  ),
+                  const SizedBox(width: 12),
+                  IconButton(
+                    onPressed: () {
+                      widget.onRemove();
+                      Navigator.pop(context);
+                    },
+                    icon: Icon(Icons.delete_outline, color: t.accentDanger, size: 18),
+                    constraints: const BoxConstraints(),
+                    padding: EdgeInsets.zero,
+                  ),
+                ],
               ),
             ],
           ),
@@ -138,8 +158,12 @@ class _VibeTransferEditorSheetState extends State<VibeTransferEditorSheet> {
                 color: t.textDisabled,
               ),
             ),
-            Text(
-              value.toStringAsFixed(2),
+            EditableSliderValue(
+              value: value,
+              softMin: 0.0,
+              softMax: 1.0,
+              decimals: 2,
+              onChanged: onChanged,
               style: TextStyle(
                 fontSize: t.fontSize(10),
                 color: t.textTertiary,
@@ -150,7 +174,7 @@ class _VibeTransferEditorSheetState extends State<VibeTransferEditorSheet> {
         ),
         const SizedBox(height: 4),
         VisionSlider(
-          value: value,
+          value: value.clamp(0.0, 1.0),
           onChanged: onChanged,
           min: 0.0,
           max: 1.0,

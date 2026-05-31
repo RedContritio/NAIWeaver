@@ -39,6 +39,11 @@ class DirectorReference {
   final double strength;
   final double fidelity;
 
+  /// Whether this reference is included in the generation payload. Disabled
+  /// references stay in the list but are filtered out of
+  /// [DirectorRefNotifier.buildPayload].
+  final bool enabled;
+
   DirectorReference({
     required this.id,
     required this.originalImageBytes,
@@ -46,6 +51,7 @@ class DirectorReference {
     this.type = DirectorReferenceType.character,
     this.strength = 0.6,
     this.fidelity = 0.5,
+    this.enabled = true,
   });
 
   DirectorReference copyWith({
@@ -53,6 +59,7 @@ class DirectorReference {
     double? strength,
     double? fidelity,
     String? processedBase64,
+    bool? enabled,
   }) {
     return DirectorReference(
       id: id,
@@ -61,6 +68,7 @@ class DirectorReference {
       type: type ?? this.type,
       strength: strength ?? this.strength,
       fidelity: fidelity ?? this.fidelity,
+      enabled: enabled ?? this.enabled,
     );
   }
 
@@ -70,6 +78,7 @@ class DirectorReference {
         'type': type.name,
         'strength': strength,
         'fidelity': fidelity,
+        'enabled': enabled,
       };
 
   factory DirectorReference.fromJson(Map<String, dynamic> json) {
@@ -85,6 +94,7 @@ class DirectorReference {
       type: type,
       strength: (json['strength'] as num?)?.toDouble() ?? 0.6,
       fidelity: (json['fidelity'] as num?)?.toDouble() ?? 0.5,
+      enabled: json['enabled'] as bool? ?? true,
     );
   }
 }
