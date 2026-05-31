@@ -198,6 +198,23 @@ class ThemeNotifier extends ChangeNotifier {
     return newConfig;
   }
 
+  // — Import user themes from a backup pack —
+  /// Merges imported themes into the user-theme list, keyed by id. Always
+  /// forces [isBuiltIn] false so a pack can never spoof a built-in theme.
+  Future<void> addOrReplaceUserThemes(List<AppThemeConfig> themes) async {
+    for (final incoming in themes) {
+      final theme = incoming.copyWith(isBuiltIn: false);
+      final idx = _userThemes.indexWhere((t) => t.id == theme.id);
+      if (idx >= 0) {
+        _userThemes[idx] = theme;
+      } else {
+        _userThemes.add(theme);
+      }
+    }
+    await _persist();
+    notifyListeners();
+  }
+
   // — Update an existing user theme —
   Future<void> updateUserTheme(AppThemeConfig config) async {
     final idx = _userThemes.indexWhere((t) => t.id == config.id);

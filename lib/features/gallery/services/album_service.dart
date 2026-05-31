@@ -53,6 +53,26 @@ class AlbumService {
     _saveAlbums();
   }
 
+  /// Merges imported albums into the existing set, keyed by id. On an id match
+  /// the image membership is unioned (additive and self-healing) rather than
+  /// overwritten, so a restore never drops locally-added images.
+  Future<void> addOrReplaceAlbums(List<GalleryAlbum> incoming) async {
+    for (final album in incoming) {
+      final idx = _albums.indexWhere((a) => a.id == album.id);
+      if (idx >= 0) {
+        final merged = Set<String>.from(_albums[idx].imageBasenames)
+          ..addAll(album.imageBasenames);
+        _albums[idx] = _albums[idx].copyWith(
+          name: album.name,
+          imageBasenames: merged,
+        );
+      } else {
+        _albums.add(album);
+      }
+    }
+    await _saveAlbums();
+  }
+
   void renameAlbum(String id, String newName) {
     final idx = _albums.indexWhere((a) => a.id == id);
     if (idx >= 0) {

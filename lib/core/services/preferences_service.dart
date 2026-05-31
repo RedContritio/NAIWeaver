@@ -362,12 +362,12 @@ class PreferencesService {
     await _prefs.setBool(_keyHideTagValues, value);
   }
 
-  /// When true, inserting a `[OCNAME (OUTFITNAME)]` autocomplete entry routes
-  /// the outfit through the outfit-state renderer (concealment + `nsfw` append
-  /// if dishevelled). When false (default), the flat tag string is inserted.
-  /// Per-insertion toggle in the suggestion overlay; this stores the
-  /// most-recent value as a UX convenience.
-  bool get honorOutfitState => _prefs.getBool(_keyHonorOutfitState) ?? false;
+  /// When true (default), inserting a `[OCNAME (OUTFITNAME)]` autocomplete
+  /// entry routes the outfit through the outfit-state renderer (concealment
+  /// + `nsfw` append if dishevelled). When false, the flat tag string is
+  /// inserted. Per-insertion toggle in the suggestion overlay; this stores
+  /// the most-recent value as a UX convenience.
+  bool get honorOutfitState => _prefs.getBool(_keyHonorOutfitState) ?? true;
 
   Future<void> setHonorOutfitState(bool value) async {
     await _prefs.setBool(_keyHonorOutfitState, value);
@@ -463,6 +463,89 @@ class PreferencesService {
     await _prefs.setDouble(_keyWindowW, w);
     await _prefs.setDouble(_keyWindowH, h);
     await _prefs.setBool(_keyWindowMax, maximized);
+  }
+
+  // — Portable settings backup (pack export/import) —
+  //
+  // An explicit allowlist of literal SharedPreferences keys that are safe to
+  // include in a shareable `.vpack` backup. This deliberately EXCLUDES:
+  //   • security-sensitive data — API key (secure storage), PIN hash/salt/
+  //     version, biometric flag;
+  //   • device-local state — window bounds, custom output/export folder paths,
+  //     last-opened tool;
+  //   • the active theme pointers (`active_theme_*`) — restored via the themes
+  //     pack category instead, since the active id may not exist on the target;
+  //   • gallery membership / id pointers that self-heal or reference local files.
+  static const List<String> _exportableSettingKeys = [
+    // App settings (general)
+    _keyAutoSave, _keyShowDirectorRefShelf, _keyShowVibeTransferShelf,
+    _keyBrightTheme, _keyShowEditButton, _keyShowBgRemovalButton,
+    _keyShowUpscaleButton, _keyShowEnhanceButton, _keyShowDirectorToolsButton,
+    _keyShowExportButton, _keyShowCopyButton, _keyAutoExportToDevice,
+    _keyExportAlbumName, _keySettingsSectionOrder, _keySmartStyleImport,
+    _keyRememberSession, _keyLocale, _keyFurryMode, _keyUseCurated,
+    _keyImg2ImgImportPrompt, _keyShowSeedControl, _keyShowAnlasTracker,
+    _keyCanvasAutoSave, _keyCustomResolutions, _keyCharacterEditorMode,
+    _keyShowTooltips, _keyHideTagValues, _keyHonorOutfitState,
+    _keyUiStylesExpanded, _keyUiCharShowTitle, _keyUiCharShowUc,
+    _keyUiCharShowPosition, _keyUiCharShowPresets,
+    _keyRefLastStrength, _keyRefLastFidelity,
+    _keySidebarLayoutMode, _keySidebarPromptPosition, _keySidebarWidthMode,
+    // Gallery prefs (non file-path, non-membership)
+    'demo_positive_prefix', 'demo_negative_prefix', 'gallery_grid_columns',
+    'strip_metadata_on_export', 'slideshow_configs',
+    // Jukebox (settings + opaque blobs like high scores / song durations)
+    'jukebox_volume', 'jukebox_soundfont_id', 'jukebox_shuffle',
+    'jukebox_repeat', 'jukebox_song_durations',
+    'jukebox_karaoke_highlight_color', 'jukebox_karaoke_upcoming_color',
+    'jukebox_karaoke_next_line_color', 'jukebox_karaoke_font_family',
+    'jukebox_karaoke_font_scale', 'jukebox_show_mini_lyric',
+    'jukebox_show_karaoke_in_panel', 'jukebox_visualizer_color',
+    'jukebox_visualizer_style', 'jukebox_viz_intensity', 'jukebox_viz_speed',
+    'jukebox_viz_density', 'jukebox_high_scores', 'jukebox_keyboard_volume',
+  ];
+
+  // Keys stored as doubles. JSON serialization collapses whole-number doubles
+  // (e.g. 1.0) to ints, so on import we must coerce int → double for these,
+  // otherwise the matching getDouble() call throws a type error.
+  static const Set<String> _doubleSettingKeys = {
+    _keyRefLastStrength, _keyRefLastFidelity,
+    'jukebox_volume', 'jukebox_karaoke_font_scale', 'jukebox_viz_intensity',
+    'jukebox_viz_speed', 'jukebox_viz_density', 'jukebox_keyboard_volume',
+  };
+
+  /// Snapshot of allowlisted settings for inclusion in a backup pack.
+  /// Only keys that are actually set are emitted.
+  Map<String, Object> exportableSettings() {
+    final out = <String, Object>{};
+    for (final key in _exportableSettingKeys) {
+      final value = _prefs.get(key);
+      if (value != null) out[key] = value;
+    }
+    return out;
+  }
+
+  /// Restores allowlisted settings from a backup pack. Keys not on the
+  /// allowlist are ignored, and values are written by their runtime type.
+  Future<void> importSettings(Map<String, Object> data) async {
+    for (final entry in data.entries) {
+      if (!_exportableSettingKeys.contains(entry.key)) continue;
+      final key = entry.key;
+      final value = entry.value;
+      if (_doubleSettingKeys.contains(key) && value is num) {
+        await _prefs.setDouble(key, value.toDouble());
+      } else if (value is bool) {
+        await _prefs.setBool(key, value);
+      } else if (value is int) {
+        await _prefs.setInt(key, value);
+      } else if (value is double) {
+        await _prefs.setDouble(key, value);
+      } else if (value is String) {
+        await _prefs.setString(key, value);
+      } else if (value is List) {
+        await _prefs.setStringList(key, value.cast<String>());
+      }
+    }
   }
 
   // — Delegating getters for backward compatibility —

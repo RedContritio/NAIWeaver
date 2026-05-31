@@ -17,7 +17,11 @@ import '../../../core/utils/app_snackbar.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/services/presets.dart';
 import '../../../core/services/styles.dart';
+import '../../../core/theme/app_theme_config.dart';
+import '../../../core/theme/theme_notifier.dart';
+import '../../gallery/models/gallery_album.dart';
 import '../../gallery/providers/gallery_notifier.dart';
+import '../../generation/models/character_preset.dart';
 import '../../generation/providers/generation_notifier.dart';
 import '../providers/wildcard_notifier.dart';
 
@@ -113,6 +117,12 @@ class _PackManagerState extends State<PackManager> {
     final wildcard = context.read<WildcardNotifier>();
     final libPath = context.read<PathService>().referenceLibraryFilePath;
 
+    // Portable backup data sourced from in-memory providers / prefs.
+    final characterPresets = gen.state.characterPresets;
+    final userThemes = context.read<ThemeNotifier>().userThemes;
+    final galleryAlbums = context.read<GalleryNotifier>().albums;
+    final settings = context.read<PreferencesService>().exportableSettings();
+
     // Load current data
     final presets = await PresetStorage.loadPresets(gen.presetsFilePath);
     final styles = await StyleStorage.loadStyles(gen.stylesFilePath);
@@ -139,6 +149,10 @@ class _PackManagerState extends State<PackManager> {
         wildcardFiles: wcFiles,
         savedRefs: library.directorRefs,
         savedVibes: library.vibeTransfers,
+        characterPresets: characterPresets,
+        userThemes: userThemes,
+        galleryAlbums: galleryAlbums,
+        settings: settings,
       ),
     );
   }
@@ -248,6 +262,10 @@ class _ExportDialog extends StatefulWidget {
   final List<File> wildcardFiles;
   final List<SavedDirectorRef> savedRefs;
   final List<SavedVibeTransfer> savedVibes;
+  final List<CharacterPreset> characterPresets;
+  final List<AppThemeConfig> userThemes;
+  final List<GalleryAlbum> galleryAlbums;
+  final Map<String, Object> settings;
 
   const _ExportDialog({
     required this.presets,
@@ -255,6 +273,10 @@ class _ExportDialog extends StatefulWidget {
     required this.wildcardFiles,
     this.savedRefs = const [],
     this.savedVibes = const [],
+    this.characterPresets = const [],
+    this.userThemes = const [],
+    this.galleryAlbums = const [],
+    this.settings = const {},
   });
 
   @override
@@ -269,6 +291,10 @@ class _ExportDialogState extends State<_ExportDialog> {
   late Set<int> _selectedWildcards;
   late Set<int> _selectedSavedRefs;
   late Set<int> _selectedSavedVibes;
+  late Set<int> _selectedCharacterPresets;
+  late Set<int> _selectedThemes;
+  late Set<int> _selectedAlbums;
+  late bool _includeSettings;
   bool _exporting = false;
 
   @override
@@ -279,6 +305,10 @@ class _ExportDialogState extends State<_ExportDialog> {
     _selectedWildcards = Set.from(List.generate(widget.wildcardFiles.length, (i) => i));
     _selectedSavedRefs = Set.from(List.generate(widget.savedRefs.length, (i) => i));
     _selectedSavedVibes = Set.from(List.generate(widget.savedVibes.length, (i) => i));
+    _selectedCharacterPresets = Set.from(List.generate(widget.characterPresets.length, (i) => i));
+    _selectedThemes = Set.from(List.generate(widget.userThemes.length, (i) => i));
+    _selectedAlbums = Set.from(List.generate(widget.galleryAlbums.length, (i) => i));
+    _includeSettings = widget.settings.isNotEmpty;
   }
 
   @override
@@ -392,6 +422,55 @@ class _ExportDialogState extends State<_ExportDialog> {
                   _checkTile(widget.savedVibes[i].name, _selectedSavedVibes.contains(i), (v) {
                     setState(() => v! ? _selectedSavedVibes.add(i) : _selectedSavedVibes.remove(i));
                   }, t, mobile),
+                const SizedBox(height: 12),
+              ],
+              if (widget.characterPresets.isNotEmpty) ...[
+                _sectionHeader(l.packCharacterPresetsSection(_selectedCharacterPresets.length, widget.characterPresets.length), t,
+                  allSelected: _selectedCharacterPresets.length == widget.characterPresets.length,
+                  onToggle: () => setState(() {
+                    if (_selectedCharacterPresets.length == widget.characterPresets.length) { _selectedCharacterPresets.clear(); }
+                    else { _selectedCharacterPresets = Set.from(List.generate(widget.characterPresets.length, (i) => i)); }
+                  }),
+                ),
+                for (int i = 0; i < widget.characterPresets.length; i++)
+                  _checkTile(widget.characterPresets[i].name, _selectedCharacterPresets.contains(i), (v) {
+                    setState(() => v! ? _selectedCharacterPresets.add(i) : _selectedCharacterPresets.remove(i));
+                  }, t, mobile),
+                const SizedBox(height: 12),
+              ],
+              if (widget.userThemes.isNotEmpty) ...[
+                _sectionHeader(l.packThemesSection(_selectedThemes.length, widget.userThemes.length), t,
+                  allSelected: _selectedThemes.length == widget.userThemes.length,
+                  onToggle: () => setState(() {
+                    if (_selectedThemes.length == widget.userThemes.length) { _selectedThemes.clear(); }
+                    else { _selectedThemes = Set.from(List.generate(widget.userThemes.length, (i) => i)); }
+                  }),
+                ),
+                for (int i = 0; i < widget.userThemes.length; i++)
+                  _checkTile(widget.userThemes[i].name, _selectedThemes.contains(i), (v) {
+                    setState(() => v! ? _selectedThemes.add(i) : _selectedThemes.remove(i));
+                  }, t, mobile),
+                const SizedBox(height: 12),
+              ],
+              if (widget.galleryAlbums.isNotEmpty) ...[
+                _sectionHeader(l.packAlbumsSection(_selectedAlbums.length, widget.galleryAlbums.length), t,
+                  allSelected: _selectedAlbums.length == widget.galleryAlbums.length,
+                  onToggle: () => setState(() {
+                    if (_selectedAlbums.length == widget.galleryAlbums.length) { _selectedAlbums.clear(); }
+                    else { _selectedAlbums = Set.from(List.generate(widget.galleryAlbums.length, (i) => i)); }
+                  }),
+                ),
+                for (int i = 0; i < widget.galleryAlbums.length; i++)
+                  _checkTile(widget.galleryAlbums[i].name, _selectedAlbums.contains(i), (v) {
+                    setState(() => v! ? _selectedAlbums.add(i) : _selectedAlbums.remove(i));
+                  }, t, mobile),
+                const SizedBox(height: 12),
+              ],
+              if (widget.settings.isNotEmpty) ...[
+                _sectionHeader(l.packSettingsSection, t),
+                _checkTile(l.packSettingsItem, _includeSettings, (v) {
+                  setState(() => _includeSettings = v ?? false);
+                }, t, mobile),
               ],
             ],
           ),
@@ -466,6 +545,9 @@ class _ExportDialogState extends State<_ExportDialog> {
 
       final selectedSavedRefs = _selectedSavedRefs.map((i) => widget.savedRefs[i]).toList();
       final selectedSavedVibes = _selectedSavedVibes.map((i) => widget.savedVibes[i]).toList();
+      final selectedCharacterPresets = _selectedCharacterPresets.map((i) => widget.characterPresets[i]).toList();
+      final selectedThemes = _selectedThemes.map((i) => widget.userThemes[i]).toList();
+      final selectedAlbums = _selectedAlbums.map((i) => widget.galleryAlbums[i]).toList();
 
       final packBytes = PackService.exportPack(
         name: _nameController.text.trim(),
@@ -475,6 +557,10 @@ class _ExportDialogState extends State<_ExportDialog> {
         wildcards: wildcards,
         savedRefs: selectedSavedRefs,
         savedVibes: selectedSavedVibes,
+        characterPresets: selectedCharacterPresets,
+        userThemes: selectedThemes,
+        galleryAlbums: selectedAlbums,
+        settings: _includeSettings ? widget.settings : const {},
       );
 
       final savePath = await FilePicker.platform.saveFile(
@@ -519,6 +605,10 @@ class _ImportDialogState extends State<_ImportDialog> {
   late Set<String> _selectedWildcards;
   late Set<int> _selectedSavedRefs;
   late Set<int> _selectedSavedVibes;
+  late Set<int> _selectedCharacterPresets;
+  late Set<int> _selectedThemes;
+  late Set<int> _selectedAlbums;
+  late bool _includeSettings;
   bool _importing = false;
 
   @override
@@ -529,6 +619,10 @@ class _ImportDialogState extends State<_ImportDialog> {
     _selectedWildcards = Set.from(widget.contents.wildcards.keys);
     _selectedSavedRefs = Set.from(List.generate(widget.contents.savedRefs.length, (i) => i));
     _selectedSavedVibes = Set.from(List.generate(widget.contents.savedVibes.length, (i) => i));
+    _selectedCharacterPresets = Set.from(List.generate(widget.contents.characterPresets.length, (i) => i));
+    _selectedThemes = Set.from(List.generate(widget.contents.userThemes.length, (i) => i));
+    _selectedAlbums = Set.from(List.generate(widget.contents.galleryAlbums.length, (i) => i));
+    _includeSettings = widget.contents.settings.isNotEmpty;
   }
 
   @override
@@ -537,7 +631,7 @@ class _ImportDialogState extends State<_ImportDialog> {
     final l = context.l;
     final mobile = isMobile(context);
     final m = widget.contents.manifest;
-    final total = _selectedPresets.length + _selectedStyles.length + _selectedWildcards.length + _selectedSavedRefs.length + _selectedSavedVibes.length;
+    final total = _selectedPresets.length + _selectedStyles.length + _selectedWildcards.length + _selectedSavedRefs.length + _selectedSavedVibes.length + _selectedCharacterPresets.length + _selectedThemes.length + _selectedAlbums.length + (_includeSettings ? 1 : 0);
 
     return AlertDialog(
       backgroundColor: t.surfaceHigh,
@@ -594,6 +688,37 @@ class _ImportDialogState extends State<_ImportDialog> {
                   _checkTile(widget.contents.savedVibes[i].name, _selectedSavedVibes.contains(i), (v) {
                     setState(() => v! ? _selectedSavedVibes.add(i) : _selectedSavedVibes.remove(i));
                   }, t, mobile),
+                const SizedBox(height: 12),
+              ],
+              if (widget.contents.characterPresets.isNotEmpty) ...[
+                _sectionHeader(l.packCharacterPresetsSection(_selectedCharacterPresets.length, widget.contents.characterPresets.length), t),
+                for (int i = 0; i < widget.contents.characterPresets.length; i++)
+                  _checkTile(widget.contents.characterPresets[i].name, _selectedCharacterPresets.contains(i), (v) {
+                    setState(() => v! ? _selectedCharacterPresets.add(i) : _selectedCharacterPresets.remove(i));
+                  }, t, mobile),
+                const SizedBox(height: 12),
+              ],
+              if (widget.contents.userThemes.isNotEmpty) ...[
+                _sectionHeader(l.packThemesSection(_selectedThemes.length, widget.contents.userThemes.length), t),
+                for (int i = 0; i < widget.contents.userThemes.length; i++)
+                  _checkTile(widget.contents.userThemes[i].name, _selectedThemes.contains(i), (v) {
+                    setState(() => v! ? _selectedThemes.add(i) : _selectedThemes.remove(i));
+                  }, t, mobile),
+                const SizedBox(height: 12),
+              ],
+              if (widget.contents.galleryAlbums.isNotEmpty) ...[
+                _sectionHeader(l.packAlbumsSection(_selectedAlbums.length, widget.contents.galleryAlbums.length), t),
+                for (int i = 0; i < widget.contents.galleryAlbums.length; i++)
+                  _checkTile(widget.contents.galleryAlbums[i].name, _selectedAlbums.contains(i), (v) {
+                    setState(() => v! ? _selectedAlbums.add(i) : _selectedAlbums.remove(i));
+                  }, t, mobile),
+                const SizedBox(height: 12),
+              ],
+              if (widget.contents.settings.isNotEmpty) ...[
+                _sectionHeader(l.packSettingsSection, t),
+                _checkTile(l.packSettingsItem, _includeSettings, (v) {
+                  setState(() => _includeSettings = v ?? false);
+                }, t, mobile),
               ],
             ],
           ),
@@ -643,6 +768,11 @@ class _ImportDialogState extends State<_ImportDialog> {
       final gen = context.read<GenerationNotifier>();
       final wildcard = context.read<WildcardNotifier>();
       final pathService = context.read<PathService>();
+      // Capture remaining notifiers before any await to avoid using
+      // BuildContext across async gaps.
+      final themeNotifier = context.read<ThemeNotifier>();
+      final galleryNotifier = context.read<GalleryNotifier>();
+      final prefs = context.read<PreferencesService>();
 
       // Import presets (replace existing by name)
       if (_selectedPresets.isNotEmpty) {
@@ -713,12 +843,43 @@ class _ImportDialogState extends State<_ImportDialog> {
         await ReferenceLibraryService.save(libPath, library);
       }
 
+      // Import character presets (merge by id)
+      if (_selectedCharacterPresets.isNotEmpty) {
+        final selected = _selectedCharacterPresets
+            .map((i) => widget.contents.characterPresets[i])
+            .toList();
+        await gen.importCharacterPresets(selected);
+      }
+
+      // Import user themes (merge by id)
+      if (_selectedThemes.isNotEmpty) {
+        final selected =
+            _selectedThemes.map((i) => widget.contents.userThemes[i]).toList();
+        await themeNotifier.addOrReplaceUserThemes(selected);
+      }
+
+      // Import gallery albums (merge by id, union membership)
+      if (_selectedAlbums.isNotEmpty) {
+        final selected =
+            _selectedAlbums.map((i) => widget.contents.galleryAlbums[i]).toList();
+        await galleryNotifier.importAlbums(selected);
+      }
+
+      // Import allowlisted app/jukebox settings blob
+      if (_includeSettings && widget.contents.settings.isNotEmpty) {
+        await prefs.importSettings(widget.contents.settings);
+      }
+
       // Refresh generation notifier to pick up new presets/styles
       gen.reloadPresetsAndStyles();
 
       if (mounted) {
         Navigator.pop(context);
-        showAppSnackBar(context, context.l.packImportSuccess);
+        // Settings and themes are snapshotted into notifiers at startup, so
+        // those categories fully apply on next launch — tell the user.
+        final needsRestart = _includeSettings && widget.contents.settings.isNotEmpty;
+        showAppSnackBar(context,
+            needsRestart ? context.l.packImportRestartHint : context.l.packImportSuccess);
       }
     } catch (e) {
       if (mounted) {

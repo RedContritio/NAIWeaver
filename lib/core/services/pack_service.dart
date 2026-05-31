@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import '../../features/gallery/models/gallery_album.dart';
 import '../../features/gallery/providers/gallery_notifier.dart';
+import '../../features/generation/models/character_preset.dart';
+import '../theme/app_theme_config.dart';
 import '../utils/image_utils.dart';
 import 'presets.dart';
 import 'reference_library_service.dart';
@@ -17,6 +19,10 @@ class PackManifest {
   final int wildcardCount;
   final int savedRefCount;
   final int savedVibeCount;
+  final int characterPresetCount;
+  final int userThemeCount;
+  final int galleryAlbumCount;
+  final bool hasSettings;
 
   PackManifest({
     required this.name,
@@ -27,6 +33,10 @@ class PackManifest {
     this.wildcardCount = 0,
     this.savedRefCount = 0,
     this.savedVibeCount = 0,
+    this.characterPresetCount = 0,
+    this.userThemeCount = 0,
+    this.galleryAlbumCount = 0,
+    this.hasSettings = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -38,6 +48,10 @@ class PackManifest {
         'wildcardCount': wildcardCount,
         'savedRefCount': savedRefCount,
         'savedVibeCount': savedVibeCount,
+        'characterPresetCount': characterPresetCount,
+        'userThemeCount': userThemeCount,
+        'galleryAlbumCount': galleryAlbumCount,
+        'hasSettings': hasSettings,
       };
 
   factory PackManifest.fromJson(Map<String, dynamic> json) => PackManifest(
@@ -49,6 +63,10 @@ class PackManifest {
         wildcardCount: json['wildcardCount'] as int? ?? 0,
         savedRefCount: json['savedRefCount'] as int? ?? 0,
         savedVibeCount: json['savedVibeCount'] as int? ?? 0,
+        characterPresetCount: json['characterPresetCount'] as int? ?? 0,
+        userThemeCount: json['userThemeCount'] as int? ?? 0,
+        galleryAlbumCount: json['galleryAlbumCount'] as int? ?? 0,
+        hasSettings: json['hasSettings'] as bool? ?? false,
       );
 }
 
@@ -59,6 +77,10 @@ class PackContents {
   final Map<String, String> wildcards; // filename → content
   final List<SavedDirectorRef> savedRefs;
   final List<SavedVibeTransfer> savedVibes;
+  final List<CharacterPreset> characterPresets;
+  final List<AppThemeConfig> userThemes;
+  final List<GalleryAlbum> galleryAlbums;
+  final Map<String, Object> settings; // allowlisted SharedPreferences blob
 
   PackContents({
     required this.manifest,
@@ -67,6 +89,10 @@ class PackContents {
     this.wildcards = const {},
     this.savedRefs = const [],
     this.savedVibes = const [],
+    this.characterPresets = const [],
+    this.userThemes = const [],
+    this.galleryAlbums = const [],
+    this.settings = const {},
   });
 }
 
@@ -80,6 +106,10 @@ class PackService {
     Map<String, String> wildcards = const {},
     List<SavedDirectorRef> savedRefs = const [],
     List<SavedVibeTransfer> savedVibes = const [],
+    List<CharacterPreset> characterPresets = const [],
+    List<AppThemeConfig> userThemes = const [],
+    List<GalleryAlbum> galleryAlbums = const [],
+    Map<String, Object> settings = const {},
   }) {
     final archive = Archive();
     int refIndex = 0;
@@ -142,6 +172,30 @@ class PackService {
       archive.addFile(ArchiveFile('saved_vibes/${_sanitize(savedVibes[i].name)}_$i.json', content.length, content));
     }
 
+    // Add character presets
+    for (int i = 0; i < characterPresets.length; i++) {
+      final content = utf8.encode(const JsonEncoder.withIndent('  ').convert(characterPresets[i].toJson()));
+      archive.addFile(ArchiveFile('character_presets/${_sanitize(characterPresets[i].name)}_$i.json', content.length, content));
+    }
+
+    // Add user themes
+    for (int i = 0; i < userThemes.length; i++) {
+      final content = utf8.encode(const JsonEncoder.withIndent('  ').convert(userThemes[i].toJson()));
+      archive.addFile(ArchiveFile('themes/${_sanitize(userThemes[i].name)}_$i.json', content.length, content));
+    }
+
+    // Add gallery albums
+    for (int i = 0; i < galleryAlbums.length; i++) {
+      final content = utf8.encode(const JsonEncoder.withIndent('  ').convert(galleryAlbums[i].toJson()));
+      archive.addFile(ArchiveFile('gallery_albums/${_sanitize(galleryAlbums[i].name)}_$i.json', content.length, content));
+    }
+
+    // Add allowlisted settings blob (single flat key→value map)
+    if (settings.isNotEmpty) {
+      final content = utf8.encode(const JsonEncoder.withIndent('  ').convert(settings));
+      archive.addFile(ArchiveFile('settings.json', content.length, content));
+    }
+
     // Generate manifest
     final manifest = PackManifest(
       name: name,
@@ -151,6 +205,10 @@ class PackService {
       wildcardCount: wildcards.length,
       savedRefCount: savedRefs.length,
       savedVibeCount: savedVibes.length,
+      characterPresetCount: characterPresets.length,
+      userThemeCount: userThemes.length,
+      galleryAlbumCount: galleryAlbums.length,
+      hasSettings: settings.isNotEmpty,
     );
     final manifestContent = utf8.encode(const JsonEncoder.withIndent('  ').convert(manifest.toJson()));
     archive.addFile(ArchiveFile('pack.json', manifestContent.length, manifestContent));
@@ -264,6 +322,58 @@ class PackService {
       }
     }
 
+    // Load character presets
+    final characterPresets = <CharacterPreset>[];
+    for (final file in archive) {
+      if (file.name.startsWith('character_presets/') && file.name.endsWith('.json') && file.isFile) {
+        final filename = file.name.replaceFirst('character_presets/', '');
+        if (filename.contains('..') || filename.contains('\\') || filename.contains(':') || filename.startsWith('/')) continue;
+        try {
+          final json = jsonDecode(utf8.decode(file.content as List<int>)) as Map<String, dynamic>;
+          characterPresets.add(CharacterPreset.fromJson(json));
+        } catch (_) {}
+      }
+    }
+
+    // Load user themes
+    final userThemes = <AppThemeConfig>[];
+    for (final file in archive) {
+      if (file.name.startsWith('themes/') && file.name.endsWith('.json') && file.isFile) {
+        final filename = file.name.replaceFirst('themes/', '');
+        if (filename.contains('..') || filename.contains('\\') || filename.contains(':') || filename.startsWith('/')) continue;
+        try {
+          final json = jsonDecode(utf8.decode(file.content as List<int>)) as Map<String, dynamic>;
+          userThemes.add(AppThemeConfig.fromJson(json));
+        } catch (_) {}
+      }
+    }
+
+    // Load gallery albums
+    final galleryAlbums = <GalleryAlbum>[];
+    for (final file in archive) {
+      if (file.name.startsWith('gallery_albums/') && file.name.endsWith('.json') && file.isFile) {
+        final filename = file.name.replaceFirst('gallery_albums/', '');
+        if (filename.contains('..') || filename.contains('\\') || filename.contains(':') || filename.startsWith('/')) continue;
+        try {
+          final json = jsonDecode(utf8.decode(file.content as List<int>)) as Map<String, dynamic>;
+          galleryAlbums.add(GalleryAlbum.fromJson(json));
+        } catch (_) {}
+      }
+    }
+
+    // Load allowlisted settings blob
+    var settings = <String, Object>{};
+    final settingsFile = archive.findFile('settings.json');
+    if (settingsFile != null) {
+      try {
+        final json = jsonDecode(utf8.decode(settingsFile.content as List<int>)) as Map<String, dynamic>;
+        for (final entry in json.entries) {
+          final v = entry.value;
+          if (v != null) settings[entry.key] = v as Object;
+        }
+      } catch (_) {}
+    }
+
     return PackContents(
       manifest: manifest,
       presets: presets,
@@ -271,6 +381,10 @@ class PackService {
       wildcards: wildcards,
       savedRefs: savedRefs,
       savedVibes: savedVibes,
+      characterPresets: characterPresets,
+      userThemes: userThemes,
+      galleryAlbums: galleryAlbums,
+      settings: settings,
     );
   }
 

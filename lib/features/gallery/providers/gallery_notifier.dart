@@ -498,6 +498,12 @@ class GalleryNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Merges imported albums (from a backup pack) into the gallery, keyed by id.
+  Future<void> importAlbums(List<GalleryAlbum> albums) async {
+    await _albumService.addOrReplaceAlbums(albums);
+    notifyListeners();
+  }
+
   void reorderAlbum(int oldIndex, int newIndex) {
     _albumService.reorderAlbum(oldIndex, newIndex);
     notifyListeners();
