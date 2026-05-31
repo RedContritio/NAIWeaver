@@ -48,6 +48,7 @@ class VibeTransferShelf extends StatelessWidget {
         vibe: vibeTransfer,
         onStrengthChanged: (v) => notifier.updateStrength(vibeTransfer.id, v),
         onInfoExtractedChanged: (v) => notifier.updateInfoExtracted(vibeTransfer.id, v),
+        onToggleEnabled: () => notifier.toggleEnabled(vibeTransfer.id),
         onRemove: () => notifier.removeVibe(vibeTransfer.id),
       ),
     );

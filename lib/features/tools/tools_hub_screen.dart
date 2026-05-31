@@ -35,6 +35,8 @@ class ToolsHubScreen extends StatefulWidget {
 class _ToolsHubScreenState extends State<ToolsHubScreen> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final FocusNode _toolsFocusNode = FocusNode();
+  final ScrollController _sidebarScrollController = ScrollController();
+  final ScrollController _drawerScrollController = ScrollController();
   bool _isSidebarExpanded = true;
   late String _activeToolId;
 
@@ -87,6 +89,8 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
   @override
   void dispose() {
     _toolsFocusNode.dispose();
+    _sidebarScrollController.dispose();
+    _drawerScrollController.dispose();
     super.dispose();
   }
 
@@ -153,8 +157,10 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
                     Divider(height: 1, color: t.borderMedium),
                     Expanded(
                       child: Scrollbar(
+                        controller: _drawerScrollController,
                         thumbVisibility: true,
                         child: ListView(
+                          controller: _drawerScrollController,
                           padding: EdgeInsets.zero,
                           children: tools.map((tool) {
                             final isActive = _activeToolId == tool.id;
@@ -224,8 +230,10 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
           const SizedBox(height: 16),
           Expanded(
             child: Scrollbar(
+              controller: _sidebarScrollController,
               thumbVisibility: false,
               child: ListView(
+                controller: _sidebarScrollController,
                 padding: EdgeInsets.zero,
                 children: tools.map((tool) => _buildSidebarItem(tool, t)).toList(),
               ),
