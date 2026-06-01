@@ -256,15 +256,17 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
               Listener(
                 onPointerDown: (event) {
                   setState(() => _pointerCount++);
-                  if (event.buttons & kMiddleMouseButton != 0) {
-                    setState(() => _middleMouseHeld = true);
-                  }
                   // Second finger down → this is a pinch-zoom, not a paint
                   // stroke. Discard any partial one-finger stroke so it isn't
-                  // committed to the layer.
+                  // committed to the layer, then bail before begin-stroke. The
+                  // middle-mouse check below is mouse-only and can't coincide
+                  // with a two-finger touch, so skipping it here is safe.
                   if (_pointerCount >= 2) {
                     notifier.cancelStroke();
                     return;
+                  }
+                  if (event.buttons & kMiddleMouseButton != 0) {
+                    setState(() => _middleMouseHeld = true);
                   }
                   // For draw-style tools, begin the stroke immediately on
                   // pointer-down (no slop wait) so the brush registers from
