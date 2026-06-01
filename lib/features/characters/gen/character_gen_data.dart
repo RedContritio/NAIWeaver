@@ -157,8 +157,14 @@ const List<CharacterVibe> kCharacterVibes = <CharacterVibe>[
         'restlessness, euphoric tangents, sudden withdrawals mid-conversation, an unsettling '
         'honesty that comes from someone who\'s stopped caring about normal social contracts.',
   ),
-  CharacterVibe(id: 'custom', name: 'Custom', hint: 'Define your own vibe below', isCustom: true),
+  kCustomCharacterVibe,
 ];
+
+/// The free-text "custom" vibe. The generate-character form now uses this for
+/// all input: the user types a vibe (or leaves it blank), and the text is
+/// passed through as [CharacterGenForm.customVibe].
+const CharacterVibe kCustomCharacterVibe =
+    CharacterVibe(id: 'custom', name: 'Custom', hint: 'Define your own vibe below', isCustom: true);
 
 CharacterVibe? vibeById(String id) {
   for (final v in kCharacterVibes) {

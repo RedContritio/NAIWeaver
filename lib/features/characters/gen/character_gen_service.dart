@@ -21,6 +21,10 @@ class CharacterGenForm {
   final String location; // free text; "" => model picks
   final bool nsfw;
   final CharacterImageStyle imageStyle;
+
+  /// Optional artist/style tag, applied directly to the generated character's
+  /// image prompt (becomes [SavedCharacter.artistTag]). "" => none.
+  final String artist;
   final int wardrobeCount;
 
   const CharacterGenForm({
@@ -32,6 +36,7 @@ class CharacterGenForm {
     this.location = '',
     this.nsfw = false,
     this.imageStyle = CharacterImageStyle.anime,
+    this.artist = '',
     this.wardrobeCount = 5,
   });
 }
@@ -241,6 +246,7 @@ class CharacterGenService {
       nsfwTop: form.nsfw ? _str(tags['nsfw_top']).trim() : '',
       nsfwBottom: form.nsfw ? _str(tags['nsfw_bottom']).trim() : '',
       nsfwAlways: form.nsfw ? _str(tags['nsfw_always']).trim() : '',
+      artistTag: form.artist.trim(),
       primaryOutfitId: primaryOutfitId,
     );
 

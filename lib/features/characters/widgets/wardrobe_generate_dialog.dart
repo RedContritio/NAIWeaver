@@ -30,7 +30,7 @@ class WardrobeGenerateDialog extends StatefulWidget {
 }
 
 class _WardrobeGenerateDialogState extends State<WardrobeGenerateDialog> {
-  double _count = 6;
+  double _count = 2;
   final _era = TextEditingController();
   final _vibe = TextEditingController();
 
@@ -62,9 +62,9 @@ class _WardrobeGenerateDialogState extends State<WardrobeGenerateDialog> {
                 style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9), letterSpacing: 1.5)),
             Slider(
               value: _count,
-              min: 3,
-              max: 14,
-              divisions: 11,
+              min: 1,
+              max: 3,
+              divisions: 2,
               activeColor: t.accent,
               label: '${_count.round()}',
               onChanged: (v) => setState(() => _count = v),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/theme_extensions.dart';
 import '../../../../core/theme/vision_tokens.dart';
+import '../../widgets/tag_text_field.dart';
 import '../character_gen_data.dart';
 import '../character_gen_service.dart';
 
@@ -27,20 +28,17 @@ class CharacterGenDialog extends StatefulWidget {
 
 class _CharacterGenDialogState extends State<CharacterGenDialog> {
   late String _gender;
-  late CharacterVibe _vibe;
   late CharacterEra _era;
   final _location = TextEditingController();
-  final _customVibe = TextEditingController();
-  final _addiction = TextEditingController();
+  final _vibe = TextEditingController();
   bool _nsfw = false;
-  CharacterImageStyle _imageStyle = CharacterImageStyle.anime;
-  double _wardrobeCount = 5;
+  final _artist = TextEditingController();
+  double _wardrobeCount = 2;
 
   @override
   void initState() {
     super.initState();
     _gender = 'any';
-    _vibe = kCharacterVibes.first;
     _era = widget.eras.firstWhere(
       (e) => e.isModern,
       orElse: () => widget.eras.isNotEmpty ? widget.eras.last : kFallbackEras.first,
@@ -50,15 +48,12 @@ class _CharacterGenDialogState extends State<CharacterGenDialog> {
   @override
   void dispose() {
     _location.dispose();
-    _customVibe.dispose();
-    _addiction.dispose();
+    _vibe.dispose();
+    _artist.dispose();
     super.dispose();
   }
 
-  bool get _valid {
-    if (_vibe.isCustom && _customVibe.text.trim().isEmpty) return false;
-    return true;
-  }
+  bool get _valid => true;
 
   @override
   Widget build(BuildContext context) {
@@ -79,38 +74,15 @@ class _CharacterGenDialogState extends State<CharacterGenDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // -- Vibe ---------------------------------------------------------
-            _label(t, 'VIBE'),
-            _dropdown<CharacterVibe>(
-              t,
-              value: _vibe,
-              items: kCharacterVibes,
-              labelOf: (v) => v.name,
-              onChanged: (v) => setState(() => _vibe = v ?? kCharacterVibes.first),
+            _label(t, 'VIBE (optional)'),
+            TextField(
+              controller: _vibe,
+              minLines: 1,
+              maxLines: 3,
+              style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(12)),
+              decoration: _deco(t,
+                  'describe the vibe — e.g. "weary war veteran turned baker" — blank lets the model pick'),
             ),
-            if (_vibe.hint.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Text(_vibe.hint,
-                    style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9), fontStyle: FontStyle.italic)),
-              ),
-            if (_vibe.isCustom) ...[
-              const SizedBox(height: 6),
-              TextField(
-                controller: _customVibe,
-                onChanged: (_) => setState(() {}),
-                style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(12)),
-                decoration: _deco(t, 'describe the vibe — e.g. "weary war veteran turned baker"'),
-              ),
-            ],
-            if (_vibe.hasAddictionSubject) ...[
-              const SizedBox(height: 6),
-              _label(t, 'ADDICTION SUBJECT (optional)'),
-              TextField(
-                controller: _addiction,
-                style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(12)),
-                decoration: _deco(t, 'e.g. opium, gambling, a person, adrenaline — blank lets the model pick'),
-              ),
-            ],
             const SizedBox(height: 12),
 
             // -- Gender + era -------------------------------------------------
@@ -177,32 +149,12 @@ class _CharacterGenDialogState extends State<CharacterGenDialog> {
               ],
             ),
             const SizedBox(height: 8),
-            _label(t, 'IMAGE STYLE'),
-            Row(
-              children: [
-                for (final s in CharacterImageStyle.values)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(s.label, style: TextStyle(fontSize: t.fontSize(10))),
-                      selected: _imageStyle == s,
-                      onSelected: (_) => setState(() => _imageStyle = s),
-                      selectedColor: t.accent.withValues(alpha: 0.25),
-                      backgroundColor: t.surfaceMid,
-                      labelStyle: TextStyle(color: _imageStyle == s ? t.accent : t.textTertiary),
-                      side: BorderSide(color: _imageStyle == s ? t.accent : t.borderSubtle),
-                    ),
-                  ),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                _imageStyle == CharacterImageStyle.realistic
-                    ? 'realistic — also fills the natural-language description'
-                    : 'anime — tag-based (what NAI image gen uses)',
-                style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9), fontStyle: FontStyle.italic),
-              ),
+            // -- Style --------------------------------------------------------
+            // Labelled "Style" but uses the danbooru artist-tag autosuggest.
+            TagTextField(
+              controller: _artist,
+              label: 'Style (optional)',
+              hint: 'e.g. an artist tag — blank lets the model pick',
             ),
             const SizedBox(height: 12),
 
@@ -211,15 +163,14 @@ class _CharacterGenDialogState extends State<CharacterGenDialog> {
             Slider(
               value: _wardrobeCount,
               min: 0,
-              max: 12,
-              divisions: 12,
+              max: 3,
+              divisions: 3,
               activeColor: t.accent,
               label: '${_wardrobeCount.round()}',
               onChanged: (v) => setState(() => _wardrobeCount = v),
             ),
             Text(
-              'plus the "meet" outfit (always generated). On a free/Tablet-tier '
-              'token, large counts are generated in small batches.',
+              'plus the "meet" outfit (always generated).',
               style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(8.5)),
             ),
           ],
@@ -244,15 +195,17 @@ class _CharacterGenDialogState extends State<CharacterGenDialog> {
   }
 
   void _submit() {
+    // The vibe is now a single free-text field. We route it through the
+    // built-in `custom` vibe so the form/service contract stays unchanged — a
+    // blank box collapses to an empty hint (model picks).
     Navigator.of(context).pop(CharacterGenForm(
       gender: _gender,
-      vibe: _vibe,
-      customVibe: _customVibe.text.trim(),
-      addictionSubject: _addiction.text.trim(),
+      vibe: kCustomCharacterVibe,
+      customVibe: _vibe.text.trim(),
       era: _era,
       location: _location.text.trim(),
       nsfw: _nsfw,
-      imageStyle: _imageStyle,
+      artist: _artist.text.trim(),
       wardrobeCount: _wardrobeCount.round(),
     ));
   }

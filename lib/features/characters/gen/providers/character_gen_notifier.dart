@@ -112,7 +112,7 @@ class CharacterGenNotifier extends ChangeNotifier {
 
   /// Default form, used to seed the dialog.
   CharacterGenForm defaultForm() => CharacterGenForm(
-        vibe: kCharacterVibes.first,
+        vibe: kCustomCharacterVibe,
         era: CharacterEraCatalogue.cachedOrFallback.firstWhere(
           (e) => e.isModern,
           orElse: () => CharacterEraCatalogue.cachedOrFallback.last,

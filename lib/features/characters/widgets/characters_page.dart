@@ -726,44 +726,62 @@ class _WardrobeSectionState extends State<_WardrobeSection> {
     final hasTextGen = textGen.hasService;
     final mobile = isMobile(context);
 
+    final generateButton = Tooltip(
+      message: hasTextGen
+          ? 'Generate outfits with text generation'
+          : 'Requires text generation (set an API key in Text Gen settings)',
+      child: TextButton.icon(
+        onPressed: (!hasTextGen || _generating)
+            ? null
+            : () => _generate(context, lib, c),
+        icon: _generating
+            ? SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(strokeWidth: 2, color: t.accent))
+            : Icon(Icons.auto_awesome, size: 14, color: hasTextGen ? t.accent : t.textMinimal),
+        label: Text(_generating ? 'GENERATING…' : '✨ GENERATE OUTFITS',
+            style: TextStyle(fontSize: t.fontSize(9), letterSpacing: 1)),
+      ),
+    );
+    final newOutfitButton = TextButton.icon(
+      onPressed: () => _newOutfit(context, lib),
+      icon: Icon(Icons.add, size: 14, color: t.accent),
+      label: Text('NEW OUTFIT', style: TextStyle(fontSize: t.fontSize(9), letterSpacing: 1)),
+    );
+    final title = Text('WARDROBE',
+        style: TextStyle(
+            color: t.textSecondary,
+            fontSize: t.titleSize(10),
+            letterSpacing: 3,
+            fontWeight: FontWeight.bold));
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text('WARDROBE',
-                style: TextStyle(
-                    color: t.textSecondary,
-                    fontSize: t.titleSize(10),
-                    letterSpacing: 3,
-                    fontWeight: FontWeight.bold)),
-            const Spacer(),
-            Tooltip(
-              message: hasTextGen
-                  ? 'Generate outfits with text generation'
-                  : 'Requires text generation (set an API key in Text Gen settings)',
-              child: TextButton.icon(
-                onPressed: (!hasTextGen || _generating)
-                    ? null
-                    : () => _generate(context, lib, c),
-                icon: _generating
-                    ? SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: t.accent))
-                    : Icon(Icons.auto_awesome, size: 14, color: hasTextGen ? t.accent : t.textMinimal),
-                label: Text(_generating ? 'GENERATING…' : '✨ GENERATE OUTFITS',
-                    style: TextStyle(fontSize: t.fontSize(9), letterSpacing: 1)),
-              ),
-            ),
-            const SizedBox(width: 6),
-            TextButton.icon(
-              onPressed: () => _newOutfit(context, lib),
-              icon: Icon(Icons.add, size: 14, color: t.accent),
-              label: Text('NEW OUTFIT', style: TextStyle(fontSize: t.fontSize(9), letterSpacing: 1)),
-            ),
-          ],
-        ),
+        // On mobile the title + both action buttons overflow a single row and
+        // truncate the labels, so let the buttons wrap onto their own line.
+        if (mobile)
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            alignment: WrapAlignment.spaceBetween,
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              title,
+              Wrap(spacing: 6, children: [generateButton, newOutfitButton]),
+            ],
+          )
+        else
+          Row(
+            children: [
+              title,
+              const Spacer(),
+              generateButton,
+              const SizedBox(width: 6),
+              newOutfitButton,
+            ],
+          ),
         const SizedBox(height: 8),
         if (closet.isEmpty)
           Padding(
@@ -893,6 +911,7 @@ class _WardrobeSectionState extends State<_WardrobeSection> {
         count: params.count,
         eraHint: params.eraHint,
         vibeHint: params.vibeHint,
+        gender: c.gender,
         model: textGen.model,
         maxTokens: textGen.params.maxLength,
       );
