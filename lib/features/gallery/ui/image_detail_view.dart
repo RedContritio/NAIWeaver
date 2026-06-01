@@ -314,8 +314,13 @@ class _ImageDetailViewState extends State<ImageDetailView>
       // Honor a user-chosen export folder on mobile (previously ignored — the
       // detail-view export always went to the device gallery, symptom #1 of #13).
       if (!kIsWeb && (Platform.isAndroid || Platform.isIOS) && customFolder.isNotEmpty) {
-        if (SafExportService.isSafUri(customFolder) &&
-            !await SafExportService.instance.hasWriteAccess(customFolder)) {
+        // A SAF target may have lost its grant (card removed / permission
+        // revoked); a legacy plain filesystem path is unreachable under Android
+        // scoped storage. Either way, guide the user to re-pick it (issue #13).
+        final unreachable = SafExportService.isStalePlainPath(customFolder) ||
+            (SafExportService.isSafUri(customFolder) &&
+                !await SafExportService.instance.hasWriteAccess(customFolder));
+        if (unreachable) {
           if (mounted) {
             showErrorSnackBar(context, context.l.galleryExportFailed(
                 'Export folder unavailable — re-pick it in Settings'));

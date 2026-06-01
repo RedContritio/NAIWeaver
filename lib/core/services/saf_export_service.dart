@@ -23,6 +23,17 @@ class SafExportService {
   /// SAF is only available on Android. Other platforms keep using `dart:io`.
   static bool get isSupported => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
+  /// True when [path] is a plain filesystem path that can no longer be written
+  /// directly because the platform requires SAF for arbitrary folders.
+  ///
+  /// On Android 11+ (scoped storage) the app holds no broad storage permission,
+  /// so a custom export folder stored as a bare filesystem path (e.g. carried
+  /// over from an older version or a desktop session) is unreachable and a
+  /// `dart:io` write would throw `PathAccessException`. Callers use this to
+  /// surface the "re-pick it in Settings" guidance instead (issue #13).
+  static bool isStalePlainPath(String path) =>
+      path.isNotEmpty && isSupported && !isSafUri(path);
+
   /// Opens the system folder picker and requests a persistable write grant.
   /// Returns the chosen folder, or null if the user cancelled.
   ///
@@ -49,9 +60,14 @@ class SafExportService {
 
   /// Writes [bytes] as `<fileName>.png` into the SAF tree [treeUri].
   /// A `.png` extension is appended if not already present.
+  ///
+  /// Passes `overwrite: true` so re-exporting the same image replaces the
+  /// existing file. Without it, `saf_stream` silently disambiguates to
+  /// `name (1).png`, `name (2).png`, … — diverging from the plain-filesystem
+  /// export path, which overwrites via `File.writeAsBytes`.
   Future<void> writePng(String treeUri, String fileName, Uint8List bytes) async {
     final name = fileName.toLowerCase().endsWith('.png') ? fileName : '$fileName.png';
-    await _stream.writeFileBytes(treeUri, name, 'image/png', bytes);
+    await _stream.writeFileBytes(treeUri, name, 'image/png', bytes, overwrite: true);
   }
 }
 

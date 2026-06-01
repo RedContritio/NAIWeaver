@@ -259,6 +259,12 @@ class GenerationNotifier extends ChangeNotifier {
   String? get lastSavedBasename => _lastSavedBasename;
   Uint8List? _previousImageBytes;
 
+  /// Filenames already triggered as web downloads this session. Web has no
+  /// filesystem to probe for collisions like [uniqueFilePath] does, so we track
+  /// emitted names here and apply the same `_(2)`, `_(3)`, … suffix convention
+  /// when [_buildFileName] yields a name we've handed out before.
+  final Set<String> _webDownloadedNames = {};
+
   Timer? _tagDebounce;
   Timer? _sessionSaveDebounce;
   bool _sessionReady = false;
@@ -590,13 +596,14 @@ class GenerationNotifier extends ChangeNotifier {
     // Web has no filesystem; trigger a browser download of the image (with
     // metadata injected) instead so the SAVE button isn't a silent no-op.
     if (kIsWeb) {
-      final baseName = _buildFileName(_lastMetadata!);
+      final baseName = _uniqueWebName(_buildFileName(_lastMetadata!));
       final bytesWithMetadata = await compute(injectMetadata, {
         'bytes': _state.generatedImage!,
         'metadata': _lastMetadata!,
       });
       final ok = downloadBytes(bytesWithMetadata, '$baseName.png');
       if (ok) {
+        _webDownloadedNames.add('$baseName.png');
         _imageSaved = true;
         _lastSavedBasename = '$baseName.png';
         notifyListeners();
@@ -681,10 +688,14 @@ class GenerationNotifier extends ChangeNotifier {
       final customFolder = _prefs.exportFolderPath;
       if (customFolder.isNotEmpty && !kIsWeb) {
         // For a SAF (SD-card) target, verify we still hold the write grant —
-        // the card may have been removed or permission revoked. A clear message
-        // beats the cryptic PathAccessException users used to see (issue #13).
-        if (SafExportService.isSafUri(customFolder) &&
-            !await SafExportService.instance.hasWriteAccess(customFolder)) {
+        // the card may have been removed or permission revoked. For a legacy
+        // plain filesystem path on Android, scoped storage makes it unreachable.
+        // Either way a clear message beats the cryptic PathAccessException
+        // users used to see (issue #13).
+        final unreachable = SafExportService.isStalePlainPath(customFolder) ||
+            (SafExportService.isSafUri(customFolder) &&
+                !await SafExportService.instance.hasWriteAccess(customFolder));
+        if (unreachable) {
           if (context.mounted) {
             showAppSnackBar(context,
                 'EXPORT FOLDER UNAVAILABLE — RE-PICK IT IN SETTINGS',
@@ -757,9 +768,15 @@ class GenerationNotifier extends ChangeNotifier {
           ? _buildFileName(_lastMetadata!)
           : 'Gen_${DateFormat('yyyyMMdd_HHmmssSSS').format(DateTime.now())}';
 
-      // Custom folder takes priority on all platforms
+      // Custom folder takes priority on all platforms — but a legacy plain
+      // filesystem path is unreachable under Android scoped storage (issue
+      // #13), so skip it and fall through to the device gallery rather than
+      // throwing a PathAccessException into the catch below (which would
+      // silently drop the auto-export).
       final customFolder = _prefs.exportFolderPath;
-      if (customFolder.isNotEmpty && !kIsWeb) {
+      if (customFolder.isNotEmpty &&
+          !kIsWeb &&
+          !SafExportService.isStalePlainPath(customFolder)) {
         await _exportToFolder(bytes, customFolder, exportName);
         return;
       }
@@ -1038,6 +1055,19 @@ class GenerationNotifier extends ChangeNotifier {
     } catch (_) {}
     // Fallback to timestamp
     return '${prefix}_${DateFormat('yyyyMMdd_HHmmssSSS').format(DateTime.now())}';
+  }
+
+  /// Returns [baseName] if it hasn't been downloaded this session, otherwise
+  /// appends `_(2)`, `_(3)`, … — the same convention as [uniqueFilePath], but
+  /// tracked in memory since web has no filesystem to probe. The returned name
+  /// is the bare base (no extension); the caller adds `.png`.
+  String _uniqueWebName(String baseName) {
+    if (!_webDownloadedNames.contains('$baseName.png')) return baseName;
+    var i = 2;
+    while (_webDownloadedNames.contains('${baseName}_($i).png')) {
+      i++;
+    }
+    return '${baseName}_($i)';
   }
 
   Future<File?> _saveToDisk(Uint8List bytes, Map<String, dynamic> metadata, {String prefix = 'Gen', String? timestamp}) async {
