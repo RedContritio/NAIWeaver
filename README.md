@@ -34,6 +34,12 @@ Apply the aesthetic "vibe" of reference images to generations. Each vibe has ind
 ### Cascade System
 Sequential scene generation. Define setting, placement, actions, emotion, and state for each scene. Once your story is made, use the Cast button to return to the main editor, add your characters, and watch them play out the scenes. Includes unsaved-changes detection with save/discard confirmation.
 
+### Characters
+Build reusable personas with split appearance buckets (base / face / hair / body, plus NSFW sub-buckets) and a per-character closet of outfits — each character is one local JSON file, with its closet stored separately so wardrobes stay portable. A ✨ generator drafts a character and a starter wardrobe from a free-text vibe + era + location (~50 historical era presets, period-correct undergarment rules that are gender- and era-aware) and an optional artist style tag. Outfits track per-slot dressing state (intact → removed) with automatic concealment of layered pieces. Saved characters appear in the tag autocomplete as `[Name]` and `[Name (Outfit)]`, expanding into the full body + outfit tag block, with per-character and per-outfit negative tags routed automatically. **Photoshoot mode** dresses a character in-place for a session — pull-up Dress / Scene / Prompt drawer, curated pose and environment presets, large image preview, and one-tap generate — without disturbing the saved closet. Requires Text Generation (a NovelAI text model) for the AI generators.
+
+### Text Generation
+A NovelAI text-model tool with a continue-style multiline input, model picker, full parameter controls (temperature, max length, top-P/K, repetition and phrase-repetition penalties), client-side stop strings, live streaming output, and a local history. Model-aware transport routes GLM/Xialong models through the OpenAI-style completions endpoint (GLM-4.6 through the chat endpoint) and legacy Kayra/Clio/Erato through `/ai/generate`, all on the same `pst-` token as image generation. For GLM models, an "enable thinking" switch surfaces the model's reasoning block in a collapsible section. Also powers the Characters and Wardrobe AI generators.
+
 ### On-Device ML Processing
 - Background removal, image upscaling, and interactive segmentation via ONNX Runtime
 - 8 downloadable ML models with SHA-256 integrity verification and device-aware recommendations
@@ -62,7 +68,7 @@ Sequential scene generation. Define setting, placement, actions, emotion, and st
 - Demo mode with PIN lock and biometric unlock for privacy
 - Android data protection: "Keep app data?" prompt on uninstall, auto-backup to Google Drive
 
-### Tools Hub (14 Tools)
+### Tools Hub (16 Tools)
 
 | Tool | Description |
 |---|---|
@@ -71,15 +77,17 @@ Sequential scene generation. Define setting, placement, actions, emotion, and st
 | **Preset Manager** | Full preset editor with characters, interactions, and reference management |
 | **Style Editor** | Prompt style templates with prefix, suffix, and negative content |
 | **Reference Manager** | Director Reference management with type, strength, and fidelity controls |
+| **Characters** | Saved-persona library with appearance buckets, per-character closets, outfit dressing-state, AI character/wardrobe generation, and photoshoot mode |
 | **Cascade Editor** | Multi-beat sequential scene generation with character slots and prompt stitching |
 | **Img2Img Editor** | Source image loading, canvas editor, custom resolutions, brush-based mask painting with customizable mask color, opacity, and patterns, and inpainting |
 | **Director Tools** | 6 server-side image augmentation tools (Remove BG, Line Art, Sketch, Colorize, Emotion, Declutter) |
 | **Enhance** | Quick img2img refinement with strength, noise, and scale controls |
-| **ML Models** | Download and manage on-device ML models for BG removal, upscaling, and segmentation |
 | **Slideshow** | Configurable image slideshow with transitions and Ken Burns effect from gallery or album sources |
-| **Packs** | Export/import presets, styles, wildcards, director refs, saved references, and vibe transfers as `.vpack` files |
+| **ML Models** | Download and manage on-device ML models for BG removal, upscaling, and segmentation |
+| **Text Gen** | NovelAI text-model generation with streaming output, parameter controls, reasoning mode, and local history |
+| **Packs** | Export/import presets, styles, wildcards, director refs, saved references, vibe transfers, characters, themes, gallery albums, and settings as `.vpack` files |
 | **Theme Builder** | 8 built-in themes + full custom theme editor with 17 configurable colors |
-| **Settings** | API key, auto-save, shelf visibility, quick action buttons, upscale backend, tooltips, locale, layout mode (widescreen sidebar), device export, and sidebar options |
+| **Settings** | API key, auto-save, shelf visibility, quick action buttons, upscale backend, tooltips, locale, layout mode (widescreen sidebar), device/SD-card export, and sidebar options |
 
 ### Localization
 English, Japanese, and Simplified Chinese out of the box. Extensible via `.arb` files — see [Contributing](#localization-1) for adding new languages.
@@ -152,10 +160,12 @@ lib/
   l10n/                        # ARB translation files (en, ja, zh)
   features/
     generation/                # Main generation UI, character editor, services
+    characters/                # Saved-character library, AI char/wardrobe gen, outfits, photoshoot
+    text_gen/                  # NovelAI text-model generation (streaming, reasoning, history)
     gallery/                   # Image gallery with albums, detail view, services
     director_ref/              # Director Reference system
     vibe_transfer/             # Vibe Transfer system
-    tools/                     # Tools Hub (14 tools)
+    tools/                     # Tools Hub (16 tools)
       canvas/                  # Multi-layer canvas editor with text/font tools
       cascade/                 # Multi-beat sequential generation
       director_tools/          # Director Tools (6 augmentation tools)

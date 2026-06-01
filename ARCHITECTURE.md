@@ -60,6 +60,8 @@ lib/
 │   │   └── l10n_extensions.dart           # BuildContext extension: `context.l` for localized strings
 │   ├── services/
 │   │   ├── novel_ai_service.dart          # NovelAI API client (Dio, ZIP decompression)
+│   │   ├── text_gen_service.dart          # NovelAI text-model client (model-aware transport, SSE streaming)
+│   │   ├── saf_export_service.dart        # Android Storage Access Framework export (SD-card writes, stale-path detection)
 │   │   ├── preferences_service.dart       # SharedPreferences wrapper (core preferences)
 │   │   ├── preferences/
 │   │   │   ├── gallery_preferences.dart   # Gallery-specific preferences
@@ -157,8 +159,47 @@ lib/
     │       ├── vibe_transfer_chip.dart     # Green-accented vibe thumbnail chip
     │       ├── vibe_transfer_editor_sheet.dart  # Modal editor (strength, info extracted)
     │       └── vibe_transfer_manager.dart  # Tools Hub management interface
+    ├── characters/                        # Saved-character library, AI generation, outfits, photoshoot
+    │   ├── models/
+    │   │   ├── saved_character.dart        # SavedCharacter: split appearance buckets, NSFW sub-buckets, negatives, artistTag
+    │   │   └── closet_outfit.dart          # ClosetOutfit: outfit slots, per-slot dressing state, negatives
+    │   ├── providers/
+    │   │   └── character_library_notifier.dart # Library + closet state; negative-tag expansion for insertion
+    │   ├── services/
+    │   │   ├── character_library_service.dart  # One-JSON-file-per-character persistence
+    │   │   ├── closet_service.dart             # Per-character closet persistence (separate from the character)
+    │   │   └── wardrobe_generator_service.dart # AI outfit gen with gender/era-aware undergarment rules
+    │   ├── outfit/
+    │   │   ├── outfit_slots.dart           # Garment slot taxonomy
+    │   │   ├── outfit_slots_data.dart      # Slot/layer concealment data
+    │   │   ├── outfit_classifier.dart      # Classify free tags into garment slots
+    │   │   ├── outfit_renderer.dart        # Render an outfit at its dressing state (concealment, nsfw)
+    │   │   ├── outfit_delta.dart           # Diff working vs saved outfit state
+    │   │   └── widgets/
+    │   │       └── outfit_state_panel.dart # Mobile-first per-slot dressing-state editor
+    │   ├── gen/
+    │   │   ├── character_gen_data.dart     # Era presets, vibe data (free-text custom vibe), image styles
+    │   │   ├── character_gen_prompts.dart  # Lean appearance-only prompt template
+    │   │   ├── character_gen_service.dart  # Single bounded text-gen call → SavedCharacter + starter wardrobe
+    │   │   ├── providers/
+    │   │   │   └── character_gen_notifier.dart  # Generation orchestration (depends on library + text gen)
+    │   │   └── widgets/
+    │   │       ├── character_gen_dialog.dart        # Free-text vibe + era + artist-tag style form
+    │   │       └── character_gen_progress_dialog.dart # Generation progress UI
+    │   ├── photoshoot/
+    │   │   └── photoshoot_screen.dart      # Pull-up Dress/Scene/Prompt drawer, in-place dressing, preview + generate
+    │   └── widgets/
+    │       ├── characters_page.dart        # Library browser + per-character wardrobe section
+    │       ├── outfit_editor_sheet.dart    # Outfit create/edit sheet
+    │       ├── tag_text_field.dart         # Danbooru-tag autosuggest text field (reused by the gen dialog)
+    │       └── wardrobe_generate_dialog.dart # Per-character outfit-count/era/vibe gen dialog
+    ├── text_gen/                          # NovelAI text-model generation (Tools Hub: Text Gen)
+    │   ├── providers/
+    │   │   └── text_gen_notifier.dart      # Model/params/streaming state, history, reasoning capture
+    │   └── widgets/
+    │       └── text_gen_panel.dart         # Continue-style input, model picker, params, streaming output
     └── tools/                             # Tools Hub
-        ├── tools_hub_screen.dart           # Sidebar navigation + content routing (14 tools)
+        ├── tools_hub_screen.dart           # Sidebar navigation + content routing (16 tools; Characters & Text Gen route to features/characters, features/text_gen)
         ├── providers/
         │   ├── preset_notifier.dart        # Preset editing state
         │   ├── style_notifier.dart         # Style editing state
@@ -260,14 +301,18 @@ SlideshowNotifier            (standalone — manages slideshow configs)
 CascadeNotifier              (standalone)
 CanvasNotifier               (standalone — manages canvas layers, tools, drawing state)
 Img2ImgNotifier              (standalone)
-GenerationNotifier           (depends on: GalleryNotifier, DirectorRefNotifier, VibeTransferNotifier, DirectorToolsNotifier, EnhanceNotifier)
-  └── via ChangeNotifierProxyProvider5
+TextGenNotifier              (standalone — NovelAI text-model state, streaming, history)
+CharacterLibraryNotifier     (standalone — saved characters + closets)
+CharacterGenNotifier         (depends on: CharacterLibraryNotifier, TextGenNotifier)
+  └── via ChangeNotifierProxyProvider2
+GenerationNotifier           (depends on: GalleryNotifier, DirectorRefNotifier, VibeTransferNotifier, DirectorToolsNotifier, EnhanceNotifier, TextGenNotifier; also reads CharacterLibraryNotifier)
+  └── via ChangeNotifierProxyProvider6
 WildcardNotifier             (depends on: GenerationNotifier — for tagService, wildcardService)
 TagLibraryNotifier           (depends on: GenerationNotifier — for tagService)
 ```
 
 **Standalone notifiers** use `ChangeNotifierProvider(create: ...)`.
-**Dependent notifiers** use `ChangeNotifierProxyProvider` / `ChangeNotifierProxyProvider5` to inject dependencies.
+**Dependent notifiers** use `ChangeNotifierProxyProvider` variants (e.g. `ChangeNotifierProxyProvider2`, `ChangeNotifierProxyProvider6`) to inject dependencies.
 
 ## Key Design Patterns
 
@@ -290,7 +335,13 @@ All UI styling flows through `VisionTokens`, a semantic token layer derived from
 All UI strings flow through Flutter's `AppLocalizations` generated from `.arb` files. Widgets access strings via `context.l` (a `BuildContext` extension). `LocaleNotifier` manages the active locale and persists the selection to SharedPreferences. New languages are added by creating an `.arb` file and regenerating.
 
 ### Tools Hub Pattern
-The Tools Hub sidebar defines tool items in a `_getTools()` method returning a list of `ToolItem` objects. The `_buildToolContent()` method uses a switch statement to route to the appropriate widget. New tools are added by inserting a `ToolItem` and a corresponding case. Currently 14 tools.
+The Tools Hub sidebar defines tool items in a `_getTools()` method returning a list of `ToolItem` objects. The `_buildToolContent()` method uses a switch statement to route to the appropriate widget. New tools are added by inserting a `ToolItem` and a corresponding case. Currently 16 tools (Characters and Text Gen route to the standalone `features/characters` and `features/text_gen` subsystems).
+
+### Characters & Outfits
+A `SavedCharacter` is stored as one JSON file (`CharacterLibraryService`), with its closet of `ClosetOutfit`s persisted separately (`ClosetService`) so wardrobes stay portable — clothing never lives on the character. Appearance is split into buckets (base / face / hair / body, plus NSFW sub-buckets). Each outfit tracks per-slot dressing state; `outfit_classifier`/`outfit_slots_data` define the garment taxonomy and concealment rules, and `OutfitRenderer` renders an outfit at its current state (hiding concealed layers, adding `nsfw` when dishevelled). Saved characters surface in the tag autocomplete as `[Name]`/`[Name (Outfit)]`; on insertion, `CharacterLibraryNotifier` expands them into the full tag block and routes the character's + outfit's de-duplicated negative tags to the correct negative field. AI character/wardrobe generation (`CharacterGenService`, `WardrobeGeneratorService`) issues a single bounded text-gen call (`<<END>>` stop string) through `TextGenNotifier`, with gender- and era-aware undergarment rules. Photoshoot mode works on an ephemeral copy of the outfit and only writes back on an explicit "save state to outfit".
+
+### Text Generation
+`TextGenService` (core) is a model-aware client: GLM/Xialong models route through the OpenAI-style `/oa/v1/completions` (GLM-4.6 through `/oa/v1/chat/completions`), legacy Kayra/Clio/Erato through `/ai/generate`, all on the same `pst-` token as image generation. `TextGenNotifier` owns model/parameter state, SSE streaming, client-side stop strings, reasoning capture (GLM "enable thinking"), and local history. It is also the engine behind the Characters and Wardrobe AI generators.
 
 ### ML Inference Pipeline
 Model registry defines available models → download manager fetches with SHA-256 verification → device capability detection selects optimal execution provider (DirectML, CUDA, TensorRT, CoreML, NNAPI, or CPU) → ONNX Runtime loads model → tiled processing for large images → result saved to gallery. The pipeline supports background removal (binary mask + alpha matte), upscaling (2x with tile overlap), and interactive segmentation (SAM encoder + decoder).
@@ -357,12 +408,26 @@ Context-aware floating action buttons rendered on the image viewer. Each button 
 2. Serialized to `presets.json` via `PresetStorage`
 3. `applyPreset()` restores all fields including reference notifier state
 
+### Character Generation
+1. The generate dialog collects a free-text vibe (blank → model picks), era preset, location, optional artist-tag style, NSFW flag, and starter-wardrobe count (0–3)
+2. `CharacterGenService` issues a single bounded `TextGenNotifier` call with a lean appearance-only prompt and a `<<END>>` stop string
+3. The response is parsed into a `SavedCharacter` (split appearance buckets + `artistTag`) plus a starter closet of `ClosetOutfit`s, with gender/era-aware undergarment rules
+4. `CharacterLibraryService` writes the character JSON; `ClosetService` persists the closet separately
+5. The character is immediately insertable in any prompt field via the tag autocomplete
+
+### Photoshoot
+1. User opens Photoshoot for a character + outfit; the outfit is copied into ephemeral working state
+2. Dress/Scene/Prompt drawer assembles a prompt from the rendered outfit + style + pose/environment presets
+3. GENERATE snapshots the main editor's prompt + negative, writes the assembled prompt (and character/outfit negatives) into the shared controllers, runs `GenerationNotifier.generate()`, then restores the snapshot; SEND instead pops back and appends to the main prompt
+4. Saved closet is untouched unless the user taps "save state to outfit"
+
 ### Pack Export/Import
-1. `PackService.exportPack()` bundles selected presets, styles, wildcards, and director ref images into a ZIP archive (`.vpack`)
+1. `PackService.exportPack()` bundles selected presets, styles, wildcards, director ref images, saved refs/vibes, character presets, custom themes, gallery albums, and an allowlisted app/jukebox settings blob into a ZIP archive (`.vpack`)
 2. Director reference images extracted to `references/` directory in the ZIP, referenced via `@ref:filename` pointers in preset JSON
 3. Saved director references and vibe transfers are included in packs via `saved_refs/` and `saved_vibes/` directories
-4. `PackService.importPack()` opens a `.vpack`, extracts contents, and restores items with reference image re-embedding
-5. `GenerationNotifier.reloadPresetsAndStyles()` refreshes state after import
+4. The settings blob is allowlisted on both export and import — API key, PIN hash, and folder paths are intentionally excluded so a pack can't inject those
+5. `PackService.importPack()` opens a `.vpack`, extracts contents, and restores items with reference image re-embedding (a restart fully applies imported settings/themes)
+6. `GenerationNotifier.reloadPresetsAndStyles()` refreshes state after import
 
 ## Data Files
 
