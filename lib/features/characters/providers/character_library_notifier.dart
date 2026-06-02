@@ -258,9 +258,13 @@ class CharacterLibraryNotifier extends ChangeNotifier {
     return parts.join(', ');
   }
 
-  /// All autocomplete entries whose character name (or name+outfit) contains
-  /// [query] (case-insensitive). Returns both a bare `[Name]` entry (→ primary
-  /// outfit) and one entry per closet outfit.
+  /// All autocomplete entries whose character name (or outfit name) *starts
+  /// with* [query] (case-insensitive). Returns both a bare `[Name]` entry (→
+  /// primary outfit) and one entry per closet outfit.
+  ///
+  /// Matching is prefix-based, not substring: typing the start of a name (e.g.
+  /// `sar` → "Sarah") suggests it, but characters that merely contain the query
+  /// somewhere inside (`ara`) do not.
   List<CharacterSuggestion> matchingSuggestions(String query) {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return const [];
@@ -268,7 +272,7 @@ class CharacterLibraryNotifier extends ChangeNotifier {
     for (final c in _characters) {
       final nameKey = c.name.toLowerCase();
       final closet = _closets[c.id] ?? const <ClosetOutfit>[];
-      final nameMatches = nameKey.contains(q);
+      final nameMatches = nameKey.startsWith(q);
       // Bare [Name] → primary outfit.
       if (nameMatches) {
         final primary = primaryOutfitFor(c.id);
@@ -280,10 +284,11 @@ class CharacterLibraryNotifier extends ChangeNotifier {
           nameKey: nameKey,
         ));
       }
-      // One entry per outfit.
+      // One entry per outfit: when the name prefix-matches, or the outfit's own
+      // name prefix-matches.
       for (final o in closet) {
         final outfitLabel = '${c.name} (${o.name})';
-        if (nameMatches || outfitLabel.toLowerCase().contains(q)) {
+        if (nameMatches || o.name.toLowerCase().startsWith(q)) {
           out.add(CharacterSuggestion(
             label: outfitLabel,
             expansion: expansionFor(c, o),

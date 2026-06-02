@@ -1,4 +1,5 @@
-﻿import 'dart:typed_data';
+﻿import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -112,6 +113,62 @@ void main() {
       TagSuggestionHelper.appendNegatives(c, null);
       TagSuggestionHelper.appendNegatives(c, '   ');
       expect(c.text, 'lowres');
+    });
+  });
+
+  // ── matchingSuggestions: prefix-only autocomplete ───────────────────────
+  group('matchingSuggestions (prefix matching)', () {
+    const dir = '.test_tmp_chars_suggest';
+
+    CharacterLibraryNotifier makeNotifier() => CharacterLibraryNotifier(
+          service: CharacterLibraryService(charactersDir: dir),
+          closetService: ClosetService(charactersDir: dir),
+        );
+
+    setUp(() {
+      final d = Directory(dir);
+      if (d.existsSync()) d.deleteSync(recursive: true);
+    });
+
+    tearDown(() {
+      final d = Directory(dir);
+      if (d.existsSync()) d.deleteSync(recursive: true);
+    });
+
+    test('matches the start of a name but not an interior substring', () async {
+      final n = makeNotifier();
+      await n.importGeneratedCharacter(
+        SavedCharacter.create(name: 'Sarah').copyWith(baseTags: '1girl'),
+        const [],
+      );
+
+      // Prefix → matches.
+      expect(n.matchingSuggestions('sar').map((s) => s.label), contains('Sarah'));
+      expect(n.matchingSuggestions('s').map((s) => s.label), contains('Sarah'));
+
+      // Interior substring → no match (this is the reported bug).
+      expect(n.matchingSuggestions('ara'), isEmpty);
+      expect(n.matchingSuggestions('rah'), isEmpty);
+    });
+
+    test('outfit entries match on the outfit name prefix too', () async {
+      final n = makeNotifier();
+      final c = SavedCharacter.create(name: 'Yuki').copyWith(baseTags: '1girl');
+      await n.importGeneratedCharacter(c, [
+        ClosetOutfit.create(name: 'Raincoat', tags: 'raincoat'),
+      ]);
+
+      // Name prefix surfaces both the bare entry and the outfit entry.
+      final byName = n.matchingSuggestions('yuk').map((s) => s.label).toList();
+      expect(byName, contains('Yuki'));
+      expect(byName, contains('Yuki (Raincoat)'));
+
+      // Outfit-name prefix surfaces just the outfit entry.
+      final byOutfit = n.matchingSuggestions('rain').map((s) => s.label).toList();
+      expect(byOutfit, ['Yuki (Raincoat)']);
+
+      // Interior substring of the outfit name → no match.
+      expect(n.matchingSuggestions('coat'), isEmpty);
     });
   });
 
