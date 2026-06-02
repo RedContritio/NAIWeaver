@@ -131,6 +131,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsSmartStyleImportDesc => '从导入的提示词中移除风格标签并恢复风格选择';
 
   @override
+  String get settingsCharInsertTarget => '将保存的角色添加到编辑器';
+
+  @override
+  String get settingsCharInsertTargetDesc =>
+      '在提示词框中选择保存的角色时，将添加角色卡片，而不是把标签插入主提示词';
+
+  @override
   String get settingsRememberSession => '记住会话';
 
   @override
@@ -2343,6 +2350,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get charEditorAddCharacter => '添加角色';
+
+  @override
+  String get charEditorCharacterLimitReached => '已达角色上限（6）';
 
   @override
   String charEditorDeleteConfirm(String name) {

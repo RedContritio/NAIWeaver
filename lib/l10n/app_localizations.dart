@@ -340,6 +340,18 @@ abstract class AppLocalizations {
   /// **'Strip style tags from imported prompts and restore style selections instead'**
   String get settingsSmartStyleImportDesc;
 
+  /// No description provided for @settingsCharInsertTarget.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Saved Characters To Editor'**
+  String get settingsCharInsertTarget;
+
+  /// No description provided for @settingsCharInsertTargetDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Picking a saved character from the prompt box adds a character card instead of inserting its tags into the main prompt'**
+  String get settingsCharInsertTargetDesc;
+
   /// No description provided for @settingsRememberSession.
   ///
   /// In en, this message translates to:
@@ -4467,6 +4479,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'ADD CHARACTER'**
   String get charEditorAddCharacter;
+
+  /// No description provided for @charEditorCharacterLimitReached.
+  ///
+  /// In en, this message translates to:
+  /// **'Character limit reached (6)'**
+  String get charEditorCharacterLimitReached;
 
   /// No description provided for @charEditorDeleteConfirm.
   ///

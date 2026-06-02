@@ -28,6 +28,7 @@ class PreferencesService {
   static const String _keyExportAlbumName = 'export_album_name';
   static const String _keySettingsSectionOrder = 'settings_section_order';
   static const String _keySmartStyleImport = 'smart_style_import';
+  static const String _keyCharInsertTarget = 'char_insert_target';
   static const String _keyRememberSession = 'remember_session';
   static const String _keyLocale = 'app_locale';
   static const String _keyFurryMode = 'furry_mode';
@@ -221,6 +222,19 @@ class PreferencesService {
 
   Future<void> setSmartStyleImport(bool value) async {
     await _prefs.setBool(_keySmartStyleImport, value);
+  }
+
+  // — Saved-Character Insert Target —
+
+  /// Where a saved character picked from the main prompt box's autocomplete is
+  /// inserted: `'editor'` (default) adds a new character card; `'main'` inserts
+  /// its expanded tags into the main prompt as plain text. Stored as a string so
+  /// the intent is self-documenting and future targets can be added.
+  String get charInsertTarget =>
+      _prefs.getString(_keyCharInsertTarget) ?? 'editor';
+
+  Future<void> setCharInsertTarget(String value) async {
+    await _prefs.setString(_keyCharInsertTarget, value);
   }
 
   // — Remember Session —
@@ -483,6 +497,7 @@ class PreferencesService {
     _keyShowUpscaleButton, _keyShowEnhanceButton, _keyShowDirectorToolsButton,
     _keyShowExportButton, _keyShowCopyButton, _keyAutoExportToDevice,
     _keyExportAlbumName, _keySettingsSectionOrder, _keySmartStyleImport,
+    _keyCharInsertTarget,
     _keyRememberSession, _keyLocale, _keyFurryMode, _keyUseCurated,
     _keyImg2ImgImportPrompt, _keyShowSeedControl, _keyShowAnlasTracker,
     _keyCanvasAutoSave, _keyCustomResolutions, _keyCharacterEditorMode,

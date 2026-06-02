@@ -10,15 +10,18 @@ class CharacterManager {
 
   CharacterManager({required PreferencesService prefs}) : _prefs = prefs;
 
+  /// Maximum number of characters NAI supports per generation.
+  static const int maxCharacters = 6;
+
   /// Add a new character. Returns updated characters list, or null if at capacity.
   List<NaiCharacter>? addCharacter(List<NaiCharacter> current,
-      {String name = ''}) {
-    if (current.length >= 6) return null;
+      {String name = '', String prompt = '', String uc = ''}) {
+    if (current.length >= maxCharacters) return null;
     return List<NaiCharacter>.from(current)
       ..add(NaiCharacter(
         name: name,
-        prompt: "",
-        uc: "",
+        prompt: prompt,
+        uc: uc,
         center: NaiCoordinate(x: 0.5, y: 0.5),
       ));
   }

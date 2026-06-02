@@ -132,6 +132,13 @@ class AppLocalizationsJa extends AppLocalizations {
       'インポートしたプロンプトからスタイルタグを除去し、スタイル選択を復元します';
 
   @override
+  String get settingsCharInsertTarget => '保存キャラをエディタに追加';
+
+  @override
+  String get settingsCharInsertTargetDesc =>
+      'プロンプト欄で保存キャラを選ぶと、メインプロンプトにタグを挿入せず、キャラクターカードを追加します';
+
+  @override
   String get settingsRememberSession => 'セッション記憶';
 
   @override
@@ -2349,6 +2356,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get charEditorAddCharacter => 'キャラクターを追加';
+
+  @override
+  String get charEditorCharacterLimitReached => 'キャラクターの上限に達しました（6）';
 
   @override
   String charEditorDeleteConfirm(String name) {

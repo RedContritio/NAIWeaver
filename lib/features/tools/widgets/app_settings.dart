@@ -83,6 +83,8 @@ class _AppSettingsState extends State<AppSettings> {
           const SizedBox(height: 12),
           _buildSmartStyleImportToggle(t),
           const SizedBox(height: 12),
+          _buildCharInsertTargetToggle(t),
+          const SizedBox(height: 12),
           _buildRememberSessionToggle(t),
           const SizedBox(height: 12),
           _buildImg2ImgImportPromptToggle(t),
@@ -990,6 +992,46 @@ class _AppSettingsState extends State<AppSettings> {
               value: prefs.smartStyleImport,
               onChanged: (val) async {
                 await prefs.setSmartStyleImport(val);
+                setLocalState(() {});
+              },
+              activeThumbColor: t.accent,
+              activeTrackColor: t.borderStrong,
+              inactiveThumbColor: t.textDisabled,
+              inactiveTrackColor: t.borderSubtle,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildCharInsertTargetToggle(VisionTokens t) {
+    final prefs = context.read<PreferencesService>();
+    final l = context.l;
+    return StatefulBuilder(
+      builder: (context, setLocalState) {
+        return Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l.settingsCharInsertTarget.toUpperCase(),
+                    style: TextStyle(color: t.headerText, fontSize: t.fontSize(11), fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    l.settingsCharInsertTargetDesc,
+                    style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
+                  ),
+                ],
+              ),
+            ),
+            Switch(
+              value: prefs.charInsertTarget == 'editor',
+              onChanged: (val) async {
+                await prefs.setCharInsertTarget(val ? 'editor' : 'main');
                 setLocalState(() {});
               },
               activeThumbColor: t.accent,

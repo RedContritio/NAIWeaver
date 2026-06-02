@@ -400,6 +400,16 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
     }
   }
 
+  /// Applies a main-prompt tag suggestion and surfaces the one outcome that
+  /// needs user feedback: hitting the 6-character cap while routing a saved
+  /// character to the editor.
+  void _applyMainTagSuggestion(GenerationNotifier notifier, DanbooruTag tag) {
+    final result = notifier.applyTagSuggestion(tag);
+    if (result == ApplyTagResult.characterLimitReached && mounted) {
+      showErrorSnackBar(context, context.l.charEditorCharacterLimitReached);
+    }
+  }
+
   void _showError(BuildContext context, String message) {
     final t = context.tRead;
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -1000,7 +1010,7 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
               child: TagSuggestionOverlay(
                 suggestions: state.tagSuggestions,
                 onTagSelected: (tag) {
-                  notifier.applyTagSuggestion(tag);
+                  _applyMainTagSuggestion(notifier, tag);
                   setState(() => _tagSuggestionIndex = -1);
                 },
                 selectedIndex: _tagSuggestionIndex,
@@ -1072,7 +1082,7 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
                     if (event.logicalKey == LogicalKeyboardKey.enter &&
                         _tagSuggestionIndex >= 0 &&
                         _tagSuggestionIndex < suggestions.length) {
-                      notifier.applyTagSuggestion(suggestions[_tagSuggestionIndex]);
+                      _applyMainTagSuggestion(notifier, suggestions[_tagSuggestionIndex]);
                       setState(() => _tagSuggestionIndex = -1);
                       return KeyEventResult.handled;
                     }
@@ -1101,7 +1111,7 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
                     },
                     onSubmitted: (_) {
                       if (state.tagSuggestions.isNotEmpty) {
-                        notifier.applyTagSuggestion(state.tagSuggestions.first);
+                        _applyMainTagSuggestion(notifier, state.tagSuggestions.first);
                       } else {
                         notifier.generate();
                       }

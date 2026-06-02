@@ -133,6 +133,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Strip style tags from imported prompts and restore style selections instead';
 
   @override
+  String get settingsCharInsertTarget => 'Add Saved Characters To Editor';
+
+  @override
+  String get settingsCharInsertTargetDesc =>
+      'Picking a saved character from the prompt box adds a character card instead of inserting its tags into the main prompt';
+
+  @override
   String get settingsRememberSession => 'Remember Session';
 
   @override
@@ -2393,6 +2400,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get charEditorAddCharacter => 'ADD CHARACTER';
+
+  @override
+  String get charEditorCharacterLimitReached => 'Character limit reached (6)';
 
   @override
   String charEditorDeleteConfirm(String name) {

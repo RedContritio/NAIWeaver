@@ -45,6 +45,22 @@ import '../services/session_snapshot_service.dart';
 import '../services/character_manager.dart';
 import '../services/preset_service.dart';
 
+/// Outcome of applying a tag suggestion, so the UI can react (e.g. show a
+/// "character limit reached" toast). Only [characterLimitReached] needs UI
+/// feedback; the others are silent successes.
+enum ApplyTagResult {
+  /// Inserted into the active text field (ordinary tag, or a saved character
+  /// while the insert-target preference is 'main').
+  insertedIntoPrompt,
+
+  /// A saved character was added as a new character card.
+  addedCharacterCard,
+
+  /// A saved character could not be added because the editor is already at the
+  /// 6-character maximum. Nothing was inserted.
+  characterLimitReached,
+}
+
 class GenerationState {
   final Uint8List? generatedImage;
   final bool isLoading;
@@ -553,8 +569,9 @@ class GenerationNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  void addCharacter({String name = ''}) {
-    final result = _characterManager.addCharacter(_state.characters, name: name);
+  void addCharacter({String name = '', String prompt = '', String uc = ''}) {
+    final result = _characterManager.addCharacter(_state.characters,
+        name: name, prompt: prompt, uc: uc);
     if (result == null) return;
     _state = _state.copyWith(characters: result);
     notifyListeners();
@@ -1130,7 +1147,20 @@ class GenerationNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  void applyTagSuggestion(DanbooruTag tag) {
+  ApplyTagResult applyTagSuggestion(DanbooruTag tag) {
+    // A saved character picked from the main prompt box can either be added as
+    // its own character card (default) or inserted as plain expanded tags into
+    // the main prompt, controlled by the insert-target preference.
+    if (tag.typeName == 'saved_character' && _prefs.charInsertTarget == 'editor') {
+      final result = _addSavedCharacterAsCard(tag);
+      // Clear the just-typed query from the prompt regardless of outcome, so the
+      // partial name the user typed doesn't linger.
+      _clearCurrentQueryWord();
+      _state = _state.copyWith(tagSuggestions: [], currentTagQuery: "");
+      notifyListeners();
+      return result;
+    }
+
     TagSuggestionHelper.applyTag(promptController, tag);
     // A saved character inserted into the GLOBAL prompt routes its negative
     // tags to the GLOBAL negative prompt.
@@ -1139,6 +1169,51 @@ class GenerationNotifier extends ChangeNotifier {
     }
     _state = _state.copyWith(tagSuggestions: [], currentTagQuery: "");
     notifyListeners();
+    return ApplyTagResult.insertedIntoPrompt;
+  }
+
+  /// Adds [tag] (a `saved_character` suggestion) as a new character card, with
+  /// its expansion as the card prompt and negative expansion as the card UC.
+  /// Returns [ApplyTagResult.characterLimitReached] without mutating state when
+  /// the editor is already at the 6-character maximum.
+  ApplyTagResult _addSavedCharacterAsCard(DanbooruTag tag) {
+    if (_state.characters.length >= CharacterManager.maxCharacters) {
+      return ApplyTagResult.characterLimitReached;
+    }
+    final prompt = (tag.expansion != null && tag.expansion!.trim().isNotEmpty)
+        ? tag.expansion!.trim()
+        : tag.tag;
+    addCharacter(
+      name: tag.tag,
+      prompt: prompt,
+      uc: (tag.negativeExpansion ?? '').trim(),
+    );
+    // Ensure the editor is expanded so the new card is visible.
+    if (_state.characterEditorMode != 'expanded') {
+      setCharacterEditorMode('expanded');
+    }
+    return ApplyTagResult.addedCharacterCard;
+  }
+
+  /// Removes the partial word the user was typing at the cursor in the main
+  /// prompt (the text after the last `,`/`|` delimiter), trimming any trailing
+  /// separator left behind. Used when a saved character is routed to the editor
+  /// rather than inserted inline.
+  void _clearCurrentQueryWord() {
+    final text = promptController.text;
+    final sel = promptController.selection;
+    final cursor = sel.isValid ? sel.baseOffset : text.length;
+    final beforeCursor = text.substring(0, cursor);
+    final afterCursor = text.substring(cursor);
+    final lastDelimiter = beforeCursor.lastIndexOf(RegExp(r'[,|]'));
+    final prefix = beforeCursor.substring(0, lastDelimiter + 1).trimRight();
+    final newText = (prefix.isEmpty ? '' : '$prefix ') + afterCursor.trimLeft();
+    promptController.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(
+        offset: prefix.isEmpty ? 0 : prefix.length + 1,
+      ),
+    );
   }
 
   /// Parse metadata from a PNG file without applying it to state.
