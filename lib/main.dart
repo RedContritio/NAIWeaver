@@ -610,6 +610,16 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
           if (!n.state.isLoading) n.generate();
           return KeyEventResult.handled;
         }
+        // Alt+Left/Right → cycle style (works when the prompt field is not
+        // focused; the prompt field has its own copy of this binding).
+        if (HardwareKeyboard.instance.isAltPressed &&
+            !HardwareKeyboard.instance.isControlPressed &&
+            (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+             event.logicalKey == LogicalKeyboardKey.arrowRight)) {
+          _cycleStyle(context.read<GenerationNotifier>(),
+              event.logicalKey == LogicalKeyboardKey.arrowRight);
+          return KeyEventResult.handled;
+        }
         return KeyEventResult.ignored;
       },
       child: PopScope(
@@ -1045,9 +1055,12 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
                       return KeyEventResult.handled;
                     }
 
-                    // Ctrl+Shift+Left/Right → cycle style
-                    if (HardwareKeyboard.instance.isControlPressed &&
-                        HardwareKeyboard.instance.isShiftPressed &&
+                    // Alt+Left/Right → cycle style. (Was Ctrl+Shift+Arrow, but
+                    // that collided with the OS word-by-word text-selection
+                    // shortcut inside the prompt field — Alt+Arrow leaves native
+                    // selection free.)
+                    if (HardwareKeyboard.instance.isAltPressed &&
+                        !HardwareKeyboard.instance.isControlPressed &&
                         (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
                          event.logicalKey == LogicalKeyboardKey.arrowRight)) {
                       _cycleStyle(notifier, event.logicalKey == LogicalKeyboardKey.arrowRight);

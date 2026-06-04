@@ -23,7 +23,7 @@ Check out the github page to test it out, https://ststoryweaver.github.io/NAIWea
 - Seed control with randomization toggle for reproducible generations
 - Duplicate generation detection with warning snackbar and quick randomize action
 - Widescreen sidebar layout mode for ultrawide and multi-monitor setups
-- Keyboard shortcuts: Ctrl+Enter to generate, Ctrl+Arrow to cycle styles, canvas tool shortcuts
+- Keyboard shortcuts: Ctrl+Enter to generate, Alt+Left/Right to cycle styles, Ctrl+Up/Down to adjust tag weight, canvas tool shortcuts
 
 ### Director Reference
 Upload reference images to guide character appearance or artistic style. Supports three reference types (Character, Style, Character & Style) with per-reference strength and fidelity sliders. The REF button provides quick access to saved references via a popup menu for instant loading.
