@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
@@ -58,6 +59,13 @@ class WildcardNotifier extends ChangeNotifier {
   WildcardState get state => _state;
 
   final TextEditingController editorController = TextEditingController();
+
+  // Debounce disk writes while the user is typing. Previously every keystroke
+  // triggered a full writeAsString of the whole file, which made editing a
+  // wildcard with hundreds of entries lag badly. We now coalesce writes and
+  // only flush after the user pauses (or on file switch / dispose).
+  Timer? _saveDebounce;
+  static const _saveDebounceDelay = Duration(milliseconds: 600);
 
   WildcardNotifier({
     required this.wildcardDir,
@@ -124,6 +132,8 @@ class WildcardNotifier extends ChangeNotifier {
   }
 
   Future<void> selectFile(File? file) async {
+    // Persist any pending edits to the outgoing file before switching.
+    await flushPendingSave();
     if (file == null) {
       _state = _state.copyWith(selectedFile: null, content: '', invalidTags: const [], validCount: 0);
       editorController.text = '';
@@ -165,7 +175,28 @@ class WildcardNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Queue a save after a short idle delay. Safe to call on every keystroke —
+  /// rapid calls collapse into a single disk write once typing pauses.
+  void saveCurrentFileDebounced() {
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(_saveDebounceDelay, () {
+      saveCurrentFile();
+    });
+  }
+
+  /// If a debounced save is pending, run it now (e.g. before switching files or
+  /// on dispose) so no edits are lost.
+  Future<void> flushPendingSave() async {
+    if (_saveDebounce?.isActive ?? false) {
+      _saveDebounce!.cancel();
+      _saveDebounce = null;
+      await saveCurrentFile();
+    }
+  }
+
   Future<void> saveCurrentFile() async {
+    _saveDebounce?.cancel();
+    _saveDebounce = null;
     if (_state.selectedFile == null) return;
 
     try {
@@ -309,6 +340,14 @@ class WildcardNotifier extends ChangeNotifier {
 
   @override
   void dispose() {
+    // Best-effort flush of any pending edit. We can't await in dispose(), but
+    // firing the write keeps the common case (close while a save is queued)
+    // from dropping the user's last edits.
+    if (_saveDebounce?.isActive ?? false) {
+      _saveDebounce!.cancel();
+      saveCurrentFile();
+    }
+    _saveDebounce = null;
     editorController.dispose();
     super.dispose();
   }

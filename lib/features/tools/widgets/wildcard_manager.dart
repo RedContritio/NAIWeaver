@@ -342,7 +342,9 @@ class _WildcardManagerState extends State<WildcardManager> {
             expands: true,
             onChanged: (val) {
               notifier.handleTagSuggestions(val, notifier.editorController.selection);
-              notifier.saveCurrentFile();
+              // Debounced: coalesces disk writes so editing a wildcard with
+              // hundreds of entries doesn't lag on every keystroke.
+              notifier.saveCurrentFileDebounced();
             },
             style: TextStyle(
               color: t.textSecondary,
