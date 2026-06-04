@@ -4,6 +4,15 @@ import 'package:archive/archive.dart';
 import 'package:flutter/foundation.dart';
 import '../../features/generation/models/nai_character.dart';
 
+/// Strips backslashes from a prompt before it reaches the NovelAI API.
+/// NovelAI prompts have no use for `\` (it's not an escape or weighting
+/// character in their syntax), and stray backslashes — usually pasted in by
+/// accident from other tooling — only pollute the prompt. Done here, at the
+/// single API chokepoint, so every path (txt2img, img2img, characters) is
+/// covered. Returns an empty string for null input.
+String sanitizePromptForNai(String? prompt) =>
+    (prompt ?? '').replaceAll('\\', '');
+
 /// Result of an image generation
 class GenerationResult {
   final Uint8List imageBytes;
@@ -199,9 +208,10 @@ class NovelAIService {
   }) async {
     const url = 'https://image.novelai.net/ai/generate-image';
 
-    final inputPrompt = "${promptPrefix ?? ''}$prompt${promptSuffix ?? ''}";
-    
-    final effectiveNegativePrompt = negativePrompt ?? "";
+    final inputPrompt = sanitizePromptForNai(
+        "${promptPrefix ?? ''}$prompt${promptSuffix ?? ''}");
+
+    final effectiveNegativePrompt = sanitizePromptForNai(negativePrompt);
 
     final bool isMultiCharacter = characters.isNotEmpty;
 
@@ -227,7 +237,7 @@ class NovelAIService {
       }
 
       charCaptions.add({
-        'char_caption': caption,
+        'char_caption': sanitizePromptForNai(caption),
         'centers': [character.center.toJson()],
       });
     }
@@ -266,8 +276,14 @@ class NovelAIService {
       "v4_negative_prompt": {
         "caption": {
           "base_caption": effectiveNegativePrompt,
-          "char_captions":
-              characters.map((c) => c.toV4NegativePrompt()).toList(),
+          "char_captions": characters.map((c) {
+            final neg = c.toV4NegativePrompt();
+            final caption = neg['char_caption'];
+            if (caption is String) {
+              neg['char_caption'] = sanitizePromptForNai(caption);
+            }
+            return neg;
+          }).toList(),
         }
       },
       // img2img / inpainting parameters
