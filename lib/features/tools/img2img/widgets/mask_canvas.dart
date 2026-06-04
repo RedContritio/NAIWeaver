@@ -25,8 +25,6 @@ class _MaskCanvasState extends State<MaskCanvas> {
   final FocusNode _keyboardFocusNode = FocusNode();
   bool _spaceHeld = false;
   bool _middleMouseHeld = false;
-  int _pointerCount = 0;
-  bool get _isPinching => _pointerCount >= 2;
   final GlobalKey<_CursorPreviewState> _cursorKey = GlobalKey<_CursorPreviewState>();
 
   // Committed-stroke raster cache
@@ -362,28 +360,20 @@ class _MaskCanvasState extends State<MaskCanvas> {
             }
           },
           child: Listener(
+            // Finger counting and stroke cancellation now live in the viewer's
+            // onInteraction* handlers (via ScaleStartDetails.pointerCount). This
+            // Listener only handles mouse-specific input: middle-mouse pan and
+            // wheel zoom, which never reach the scale recognizer.
             onPointerDown: (event) {
-              setState(() => _pointerCount++);
-              // Second finger down → this is a pinch-zoom, not a paint stroke.
-              // Discard any partial one-finger stroke so it isn't left behind.
-              if (_pointerCount >= 2) {
-                notifier.cancelStroke();
-              }
               if (event.buttons & kMiddleMouseButton != 0) {
                 setState(() => _middleMouseHeld = true);
               }
             },
             onPointerUp: (event) {
-              setState(() {
-                _pointerCount = math.max(0, _pointerCount - 1);
-                if (_middleMouseHeld) _middleMouseHeld = false;
-              });
+              if (_middleMouseHeld) setState(() => _middleMouseHeld = false);
             },
             onPointerCancel: (event) {
-              setState(() {
-                _pointerCount = math.max(0, _pointerCount - 1);
-                if (_middleMouseHeld) _middleMouseHeld = false;
-              });
+              if (_middleMouseHeld) setState(() => _middleMouseHeld = false);
             },
             onPointerSignal: (event) {
               if (event is PointerScrollEvent) {
@@ -394,31 +384,46 @@ class _MaskCanvasState extends State<MaskCanvas> {
               cursor: isPanMode
                   ? SystemMouseCursors.grab
                   : SystemMouseCursors.none,
+              // Drive the brush-preview overlay on plain hover. The overlay lives
+              // inside the viewer's child, which is wrapped in IgnorePointer
+              // (so the scale recognizer owns all pointer input) — that also
+              // swallows hover, so the overlay can't track the mouse itself.
+              // We feed it from out here instead.
+              onHover: (event) => _updateCursorPreview(event.localPosition),
+              onExit: (_) => _cursorKey.currentState?.updatePosition(null),
               child: InteractiveViewer(
                 transformationController: _zoomController,
-                // Pan when explicitly in pan mode (space / middle-mouse).
-                // Pinch (2+ fingers) drives both scale and pan so mobile users
-                // can zoom; painting is already suppressed while pinching, so
-                // there is no gesture-arena conflict with the brush.
-                panEnabled: isPanMode || _isPinching,
-                scaleEnabled: _isPinching, // mouse-wheel zoom still via _onPointerSignal
+                // Brushing and pinch-zoom both run through InteractiveViewer's own
+                // scale recognizer via onInteraction* below — there is no competing
+                // child gesture detector, so there is no gesture-arena fight.
+                //
+                // Why this matters: InteractiveViewer's ScaleGestureRecognizer claims
+                // pointers eagerly and wins the arena over any child PanGestureRecognizer.
+                // The previous design put drawing on a child GestureDetector and tried to
+                // hand the pinch to the viewer by flipping `scaleEnabled` only once a
+                // second finger arrived — but the arena resolves in the same frame the
+                // second pointer lands, before that rebuild, so scale was still disabled
+                // when it needed to win and pinch-zoom never engaged on mobile.
+                //
+                // Now: scale is always enabled. A single-pointer interaction maps to a
+                // pan, which is ignored while painting (panEnabled is false unless the
+                // user is in space/middle-mouse pan mode) — but onInteractionUpdate still
+                // fires, giving us the focal point to paint with. Two pointers engage the
+                // real pinch-zoom; the in-progress one-finger stroke is discarded so it
+                // isn't left behind.
+                panEnabled: isPanMode,
+                scaleEnabled: true,
+                onInteractionStart: (details) =>
+                    _onInteractionStart(details, notifier, isPanMode),
+                onInteractionUpdate: (details) =>
+                    _onInteractionUpdate(details, notifier, isPanMode),
+                onInteractionEnd: (details) =>
+                    _onInteractionEnd(details, notifier),
                 boundaryMargin: const EdgeInsets.all(double.infinity),
                 minScale: 0.25,
                 maxScale: 16.0,
-                child: GestureDetector(
-                  onTapUp: (_isPinching || isPanMode)
-                      ? null
-                      : (details) => _onTapUp(details, notifier),
-                  onPanStart: (_isPinching || isPanMode)
-                      ? null
-                      : (details) => _onPanStart(details, notifier),
-                  onPanUpdate: (_isPinching || isPanMode)
-                      ? null
-                      : (details) => _onPanUpdate(details, notifier),
-                  onPanEnd: (_isPinching || isPanMode)
-                      ? null
-                      : (_) => notifier.endStroke(),
-                  onScaleStart: isPanMode ? (_) {} : null,
+                child: IgnorePointer(
+                  ignoring: true,
                   child: SizedBox(
                     width: containerSize.width,
                     height: containerSize.height,
@@ -512,38 +517,70 @@ class _MaskCanvasState extends State<MaskCanvas> {
     }
   }
 
-  void _onTapUp(TapUpDetails details, Img2ImgNotifier notifier) {
-    final normalized = _toNormalized(details.localPosition);
+  // Whether the current interaction is a single-finger brush stroke (vs. a
+  // pinch-zoom or a pan-mode drag). Set in _onInteractionStart, cleared on end.
+  bool _strokeActive = false;
+
+  void _onInteractionStart(
+      ScaleStartDetails details, Img2ImgNotifier notifier, bool isPanMode) {
+    // Two-plus fingers, or an explicit pan-mode drag: hand the gesture to the
+    // viewer (zoom/pan). Don't start a brush stroke.
+    if (isPanMode || details.pointerCount >= 2) {
+      _strokeActive = false;
+      notifier.cancelStroke();
+      return;
+    }
+    final normalized = _toScene(details.localFocalPoint);
     if (normalized != null) {
+      _strokeActive = true;
       notifier.beginStroke(normalized);
+      _updateCursorPreview(details.localFocalPoint);
+    }
+  }
+
+  void _onInteractionUpdate(
+      ScaleUpdateDetails details, Img2ImgNotifier notifier, bool isPanMode) {
+    // A second finger landed mid-stroke → this became a pinch. Abandon the
+    // partial one-finger stroke and let the viewer scale.
+    if (details.pointerCount >= 2) {
+      if (_strokeActive) {
+        _strokeActive = false;
+        notifier.cancelStroke();
+      }
+      return;
+    }
+    if (!_strokeActive || isPanMode) return;
+    final normalized = _toScene(details.localFocalPoint);
+    if (normalized != null) {
+      notifier.addStrokePoint(normalized);
+    }
+    _updateCursorPreview(details.localFocalPoint);
+  }
+
+  void _onInteractionEnd(ScaleEndDetails details, Img2ImgNotifier notifier) {
+    if (_strokeActive) {
+      _strokeActive = false;
       notifier.endStroke();
     }
   }
 
-  void _onPanStart(DragStartDetails details, Img2ImgNotifier notifier) {
-    final normalized = _toNormalized(details.localPosition);
-    if (normalized != null) {
-      notifier.beginStroke(normalized);
-    }
-  }
-
-  void _onPanUpdate(DragUpdateDetails details, Img2ImgNotifier notifier) {
-    final normalized = _toNormalized(details.localPosition);
-    if (normalized != null) {
-      notifier.addStrokePoint(normalized);
-    }
-    // Update cursor position during drag
-    _cursorKey.currentState?.updatePosition(details.localPosition);
-  }
-
-  Offset? _toNormalized(Offset localPosition) {
+  /// Maps a focal point reported by InteractiveViewer (in the viewport's
+  /// untransformed coordinate space) into the child's scene coordinates via the
+  /// inverse zoom transform, then normalizes against the rendered image rect.
+  Offset? _toScene(Offset viewportPoint) {
     if (_imageRect.width <= 0 || _imageRect.height <= 0) return null;
-    // localPosition from GestureDetector inside InteractiveViewer is already
-    // in the child's untransformed coordinate space (Flutter hit testing applies
-    // the inverse transform automatically), so no manual inversion is needed.
-    final x = (localPosition.dx - _imageRect.left) / _imageRect.width;
-    final y = (localPosition.dy - _imageRect.top) / _imageRect.height;
+    final scenePoint = _zoomController.toScene(viewportPoint);
+    final x = (scenePoint.dx - _imageRect.left) / _imageRect.width;
+    final y = (scenePoint.dy - _imageRect.top) / _imageRect.height;
     return Offset(x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
+  }
+
+  /// Pushes the cursor-preview position. [viewportPoint] is in the viewport's
+  /// untransformed space (as reported by InteractiveViewer / the outer
+  /// MouseRegion); the preview overlay lives *inside* the viewer's transformed
+  /// child, so it must be drawn in scene space — convert before handing it over.
+  void _updateCursorPreview(Offset viewportPoint) {
+    _cursorKey.currentState?.updatePosition(_zoomController.toScene(viewportPoint));
   }
 }
 
@@ -908,27 +945,26 @@ class _CursorPreview extends StatefulWidget {
 class _CursorPreviewState extends State<_CursorPreview> {
   Offset? _mousePosition;
 
-  void updatePosition(Offset position) {
+  /// Sets the preview position in the overlay's (scene) coordinate space, or
+  /// null to hide it. Driven externally by [_MaskCanvasState] — this widget sits
+  /// behind an IgnorePointer and so can't track the pointer itself.
+  void updatePosition(Offset? position) {
+    if (!mounted) return;
     setState(() => _mousePosition = position);
   }
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      hitTestBehavior: HitTestBehavior.translucent,
-      onHover: (event) => setState(() => _mousePosition = event.localPosition),
-      onExit: (_) => setState(() => _mousePosition = null),
-      child: CustomPaint(
-        painter: _CursorPainter(
-          position: _mousePosition,
-          rawRadius: widget.brushRadius * widget.imageRect.width,
-          isErase: widget.isErase,
-          imageRect: widget.imageRect,
-          sourceWidth: widget.sourceWidth,
-          sourceHeight: widget.sourceHeight,
-          maskColor: widget.maskColor,
-          brushRound: widget.brushRound,
-        ),
+    return CustomPaint(
+      painter: _CursorPainter(
+        position: _mousePosition,
+        rawRadius: widget.brushRadius * widget.imageRect.width,
+        isErase: widget.isErase,
+        imageRect: widget.imageRect,
+        sourceWidth: widget.sourceWidth,
+        sourceHeight: widget.sourceHeight,
+        maskColor: widget.maskColor,
+        brushRound: widget.brushRound,
       ),
     );
   }
