@@ -1033,7 +1033,16 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                         if (metadata != null && metadata.containsKey('Comment')) {
                                           final json = parseCommentJson(metadata['Comment']!);
                                           if (json != null) {
-                                            prompt = json['prompt'] as String?;
+                                            // Prefer the clean base prompt over the
+                                            // fully-styled one. The 'prompt' field has
+                                            // the active style's prefix/suffix already
+                                            // baked in; img2img re-applies the current
+                                            // style at generation time, so loading the
+                                            // styled prompt double-applies it. Older
+                                            // images without 'original_prompt' fall back
+                                            // to 'prompt'.
+                                            prompt = (json['original_prompt'] as String?) ??
+                                                (json['prompt'] as String?);
                                             negativePrompt = json['uc'] as String?;
                                           }
                                         }

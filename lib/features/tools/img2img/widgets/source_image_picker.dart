@@ -93,7 +93,11 @@ class SourceImagePicker extends StatelessWidget {
                     if (metadata != null && metadata.containsKey('Comment')) {
                       final json = parseCommentJson(metadata['Comment']!);
                       if (json != null) {
-                        prompt = json['prompt'] as String?;
+                        // Prefer the clean base prompt; 'prompt' has the style
+                        // prefix/suffix baked in and img2img re-applies the active
+                        // style at gen time, which would double it.
+                        prompt = (json['original_prompt'] as String?) ??
+                            (json['prompt'] as String?);
                         negativePrompt = json['uc'] as String?;
                       }
                     }
@@ -155,7 +159,10 @@ class SourceImagePicker extends StatelessWidget {
                           if (metadata != null && metadata.containsKey('Comment')) {
                             final json = parseCommentJson(metadata['Comment']!);
                             if (json != null) {
-                              prompt = json['prompt'] as String?;
+                              // Prefer the clean base prompt (see note above) to
+                              // avoid double-applying the active style.
+                              prompt = (json['original_prompt'] as String?) ??
+                                  (json['prompt'] as String?);
                               negativePrompt = json['uc'] as String?;
                             }
                           }
