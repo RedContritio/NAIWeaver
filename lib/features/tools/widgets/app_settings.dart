@@ -12,6 +12,8 @@ import '../../../core/services/path_service.dart';
 import '../../../core/services/preferences_service.dart';
 import '../../../core/services/saf_export_service.dart';
 import '../../../core/services/update_service.dart';
+import '../../../core/services/update_download_service.dart';
+import '../../../core/widgets/update_prompt.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/theme/vision_tokens.dart';
@@ -1634,8 +1636,7 @@ class _AppSettingsState extends State<AppSettings> {
                 if (result.error != null) {
                   showErrorSnackBar(context, l.settingsUpdateCheckFailed);
                 } else if (result.updateAvailable) {
-                  _showUpdateDialog(
-                      t, result.latestVersion!, result.releaseUrl!);
+                  _showUpdateDialog(t, result);
                 } else {
                   showAppSnackBar(context, l.settingsUpToDate);
                 }
@@ -1738,8 +1739,11 @@ class _AppSettingsState extends State<AppSettings> {
     );
   }
 
-  void _showUpdateDialog(VisionTokens t, String version, String releaseUrl) {
+  void _showUpdateDialog(VisionTokens t, UpdateCheckResult result) {
     final l = context.l;
+    // On platforms that can auto-apply (Android/Windows) the action downloads &
+    // installs in-app; elsewhere it falls back to opening the release page.
+    final canApply = UpdateDownloadService.isSupported;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1753,7 +1757,7 @@ class _AppSettingsState extends State<AppSettings> {
           ),
         ),
         content: Text(
-          l.settingsUpdateAvailableDesc(version),
+          l.settingsUpdateAvailableDesc(result.latestVersion ?? ''),
           style: TextStyle(
             color: t.textPrimary,
             fontSize: t.fontSize(11),
@@ -1771,10 +1775,11 @@ class _AppSettingsState extends State<AppSettings> {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              launchUrl(Uri.parse(releaseUrl));
+              startUpdate(context, result);
             },
             child: Text(
-              l.settingsUpdateDownload.toUpperCase(),
+              (canApply ? l.settingsUpdateApply : l.settingsUpdateDownload)
+                  .toUpperCase(),
               style:
                   TextStyle(color: t.accent, fontSize: t.fontSize(9)),
             ),

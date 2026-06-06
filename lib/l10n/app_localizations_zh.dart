@@ -2090,6 +2090,35 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsUpdateCheckFailed => '检查更新失败';
 
   @override
+  String get settingsUpdateDownloading => '正在下载更新…';
+
+  @override
+  String settingsUpdateProgress(String received, String total) {
+    return '$received / $total';
+  }
+
+  @override
+  String get settingsUpdateInstalling => '正在启动安装程序…';
+
+  @override
+  String get settingsUpdateRestartPrompt => 'NAIWeaver 将关闭以应用更新，然后自动重新打开。';
+
+  @override
+  String get settingsUpdateDownloadFailed => '下载失败';
+
+  @override
+  String get settingsUpdateInstallFailed => '无法启动安装程序';
+
+  @override
+  String get settingsUpdateSkipVersion => '跳过此版本';
+
+  @override
+  String get settingsUpdateOpenInBrowser => '在浏览器中打开';
+
+  @override
+  String get settingsUpdateApply => '更新并重启';
+
+  @override
   String get mainAnlas => 'Anlas';
 
   @override

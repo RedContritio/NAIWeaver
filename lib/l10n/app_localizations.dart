@@ -3964,6 +3964,60 @@ abstract class AppLocalizations {
   /// **'Update check failed'**
   String get settingsUpdateCheckFailed;
 
+  /// No description provided for @settingsUpdateDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading update…'**
+  String get settingsUpdateDownloading;
+
+  /// No description provided for @settingsUpdateProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'{received} / {total}'**
+  String settingsUpdateProgress(String received, String total);
+
+  /// No description provided for @settingsUpdateInstalling.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting installer…'**
+  String get settingsUpdateInstalling;
+
+  /// No description provided for @settingsUpdateRestartPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'NAIWeaver will close to apply the update, then reopen automatically.'**
+  String get settingsUpdateRestartPrompt;
+
+  /// No description provided for @settingsUpdateDownloadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Download failed'**
+  String get settingsUpdateDownloadFailed;
+
+  /// No description provided for @settingsUpdateInstallFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not start the installer'**
+  String get settingsUpdateInstallFailed;
+
+  /// No description provided for @settingsUpdateSkipVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip this version'**
+  String get settingsUpdateSkipVersion;
+
+  /// No description provided for @settingsUpdateOpenInBrowser.
+  ///
+  /// In en, this message translates to:
+  /// **'Open in browser'**
+  String get settingsUpdateOpenInBrowser;
+
+  /// No description provided for @settingsUpdateApply.
+  ///
+  /// In en, this message translates to:
+  /// **'Update & Restart'**
+  String get settingsUpdateApply;
+
   /// No description provided for @mainAnlas.
   ///
   /// In en, this message translates to:

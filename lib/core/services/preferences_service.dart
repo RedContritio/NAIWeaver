@@ -31,6 +31,8 @@ class PreferencesService {
   static const String _keyCharInsertTarget = 'char_insert_target';
   static const String _keyRememberSession = 'remember_session';
   static const String _keyLocale = 'app_locale';
+  static const String _keyLastUpdateCheck = 'last_update_check';
+  static const String _keySkippedUpdateVersion = 'skipped_update_version';
   static const String _keyFurryMode = 'furry_mode';
   static const String _keyUseCurated = 'use_curated';
   static const String _keyImg2ImgImportPrompt = 'img2img_import_prompt';
@@ -251,6 +253,24 @@ class PreferencesService {
 
   Future<void> setLocale(String value) async {
     await _prefs.setString(_keyLocale, value);
+  }
+
+  // — Update Check —
+
+  /// Epoch millis of the last automatic update check (0 if never). Used to
+  /// throttle the launch-time check to roughly once per day.
+  int get lastUpdateCheck => _prefs.getInt(_keyLastUpdateCheck) ?? 0;
+
+  Future<void> setLastUpdateCheck(int epochMs) async {
+    await _prefs.setInt(_keyLastUpdateCheck, epochMs);
+  }
+
+  /// A version the user chose to skip; the launch-time prompt won't re-nag for
+  /// it (empty = nothing skipped).
+  String get skippedUpdateVersion => _prefs.getString(_keySkippedUpdateVersion) ?? '';
+
+  Future<void> setSkippedUpdateVersion(String version) async {
+    await _prefs.setString(_keySkippedUpdateVersion, version);
   }
 
   // — Furry Mode —

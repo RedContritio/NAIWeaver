@@ -2096,6 +2096,36 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsUpdateCheckFailed => 'アップデートの確認に失敗しました';
 
   @override
+  String get settingsUpdateDownloading => 'アップデートをダウンロード中…';
+
+  @override
+  String settingsUpdateProgress(String received, String total) {
+    return '$received / $total';
+  }
+
+  @override
+  String get settingsUpdateInstalling => 'インストーラーを起動中…';
+
+  @override
+  String get settingsUpdateRestartPrompt =>
+      'アップデートを適用するためNAIWeaverを終了し、自動的に再起動します。';
+
+  @override
+  String get settingsUpdateDownloadFailed => 'ダウンロードに失敗しました';
+
+  @override
+  String get settingsUpdateInstallFailed => 'インストーラーを起動できませんでした';
+
+  @override
+  String get settingsUpdateSkipVersion => 'このバージョンをスキップ';
+
+  @override
+  String get settingsUpdateOpenInBrowser => 'ブラウザで開く';
+
+  @override
+  String get settingsUpdateApply => '更新して再起動';
+
+  @override
   String get mainAnlas => 'Anlas';
 
   @override

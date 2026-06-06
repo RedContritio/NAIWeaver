@@ -18,6 +18,9 @@ import 'core/l10n/locale_notifier.dart';
 import 'core/l10n/l10n_extensions.dart';
 import 'core/services/path_service.dart';
 import 'core/services/preferences_service.dart';
+import 'core/services/update_service.dart';
+import 'core/widgets/update_prompt.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'core/utils/responsive.dart';
 import 'core/widgets/help_dialog.dart';
 import 'core/widgets/pin_lock_gate.dart';
@@ -358,7 +361,40 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp> with SingleTick
       final notifier = context.read<GenerationNotifier>();
       _generationListener = () => _onGenerationStateChanged(notifier);
       notifier.addListener(_generationListener);
+      _maybeCheckForUpdate();
     });
+  }
+
+  /// Background, once-per-day update check. Never blocks startup and never
+  /// throws into the launch path; if an update is found (and not skipped),
+  /// surfaces a non-intrusive SnackBar prompt.
+  Future<void> _maybeCheckForUpdate() async {
+    if (kIsWeb) return;
+    try {
+      final prefs = context.read<PreferencesService>();
+      final now = DateTime.now().millisecondsSinceEpoch;
+      const dayMs = 24 * 60 * 60 * 1000;
+      if (now - prefs.lastUpdateCheck < dayMs) return;
+
+      // Let first frame / model loading settle before hitting the network.
+      await Future.delayed(const Duration(seconds: 3));
+      if (!mounted) return;
+
+      final info = await PackageInfo.fromPlatform();
+      final result = await UpdateService.checkForUpdate(info.version);
+      // Throttle regardless of outcome so a transient failure doesn't re-check
+      // on every launch.
+      await prefs.setLastUpdateCheck(now);
+
+      if (!mounted) return;
+      if (result.updateAvailable &&
+          result.latestVersion != null &&
+          result.latestVersion != prefs.skippedUpdateVersion) {
+        showUpdatePrompt(context, result);
+      }
+    } catch (_) {
+      // A launch-time update check must never crash or block the app.
+    }
   }
 
   void _onGenerationStateChanged(GenerationNotifier notifier) {

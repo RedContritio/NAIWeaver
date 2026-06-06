@@ -69,6 +69,9 @@ dependencies:
   # on Android. Pinned to the 2.x line (3.x requires AGP 9 / Flutter 3.44+).
   saf_util: ">=2.2.0 <3.0.0"
   saf_stream: ">=2.0.0 <3.0.0"
+  # Opens the downloaded APK via the system package-installer (Android
+  # auto-update). Bundles its own FileProvider so no custom native code needed.
+  open_filex: ^4.5.0
 
 dev_dependencies:
   flutter_test:

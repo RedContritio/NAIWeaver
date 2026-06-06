@@ -2134,6 +2134,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsUpdateCheckFailed => 'Update check failed';
 
   @override
+  String get settingsUpdateDownloading => 'Downloading update…';
+
+  @override
+  String settingsUpdateProgress(String received, String total) {
+    return '$received / $total';
+  }
+
+  @override
+  String get settingsUpdateInstalling => 'Starting installer…';
+
+  @override
+  String get settingsUpdateRestartPrompt =>
+      'NAIWeaver will close to apply the update, then reopen automatically.';
+
+  @override
+  String get settingsUpdateDownloadFailed => 'Download failed';
+
+  @override
+  String get settingsUpdateInstallFailed => 'Could not start the installer';
+
+  @override
+  String get settingsUpdateSkipVersion => 'Skip this version';
+
+  @override
+  String get settingsUpdateOpenInBrowser => 'Open in browser';
+
+  @override
+  String get settingsUpdateApply => 'Update & Restart';
+
+  @override
   String get mainAnlas => 'Anlas';
 
   @override
