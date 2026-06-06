@@ -1768,6 +1768,9 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get cascadeGlobalScene => 'グローバルシーン (全ビート共通のタグ)';
+
+  @override
   String get cascadeGlobalStyle => 'グローバルスタイル / インジェクション';
 
   @override

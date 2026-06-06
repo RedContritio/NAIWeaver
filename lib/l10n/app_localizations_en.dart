@@ -1802,6 +1802,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get cascadeGlobalScene => 'GLOBAL SCENE (tags for every beat)';
+
+  @override
   String get cascadeGlobalStyle => 'GLOBAL STYLE / INJECTION';
 
   @override

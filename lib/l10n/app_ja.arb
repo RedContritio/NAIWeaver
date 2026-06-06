@@ -561,6 +561,7 @@
   "cascadeNoSaved": "保存済みカスケードが見つかりません",
   "cascadeCharactersAndBeats": "{chars}キャラクター・{beats}ビート",
   "cascadeCharTags": "キャラ{n}タグ",
+  "cascadeGlobalScene": "グローバルシーン (全ビート共通のタグ)",
   "cascadeGlobalStyle": "グローバルスタイル / インジェクション",
   "cascadeRegenerateBeat": "ビート{n}を再生成",
   "cascadeGenerateBeat": "ビート{n}を生成",

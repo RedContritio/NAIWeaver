@@ -616,6 +616,7 @@
   "@cascadeCharactersAndBeats": { "placeholders": { "chars": { "type": "int" }, "beats": { "type": "int" } } },
   "cascadeCharTags": "角色 {n} 标签",
   "@cascadeCharTags": { "placeholders": { "n": { "type": "int" } } },
+  "cascadeGlobalScene": "全局场景（应用于每个镜头的标签）",
   "cascadeGlobalStyle": "全局风格 / 注入",
   "cascadeRegenerateBeat": "重新生成镜头 {n}",
   "@cascadeRegenerateBeat": { "placeholders": { "n": { "type": "int" } } },

@@ -621,6 +621,7 @@
   "@cascadeCharactersAndBeats": { "placeholders": { "chars": { "type": "int" }, "beats": { "type": "int" } } },
   "cascadeCharTags": "CHAR {n} TAGS",
   "@cascadeCharTags": { "placeholders": { "n": { "type": "int" } } },
+  "cascadeGlobalScene": "GLOBAL SCENE (tags for every beat)",
   "cascadeGlobalStyle": "GLOBAL STYLE / INJECTION",
   "cascadeRegenerateBeat": "REGENERATE BEAT {n}",
   "@cascadeRegenerateBeat": { "placeholders": { "n": { "type": "int" } } },

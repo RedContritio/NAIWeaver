@@ -81,7 +81,8 @@ void showCascadeHelpDialog(BuildContext context) {
                 _sectionHeader(t, 'CASTING SHEET', mobile),
                 const SizedBox(height: 8),
                 _bulletRow(t, 'Character Appearance', 'Base look for each character (e.g., "1girl, blue hair") \u2014 shared across all beats', mobile),
-                _bulletRow(t, 'Global Injection', 'Additional prompt text applied to every beat', mobile),
+                _bulletRow(t, 'Global Scene', 'Scene/action tags applied to every beat (e.g., "2girls, school uniform") \u2014 leads each beat\'s own Scene / Action tags', mobile),
+                _bulletRow(t, 'Global Injection', 'Additional prompt text or style applied to every beat', mobile),
                 _bulletRow(t, 'Beat Thumbnails', 'Tap to select; shows preview after generation', mobile),
                 _bulletRow(t, 'Generate', 'Generates selected beat, auto-advances to next', mobile),
 

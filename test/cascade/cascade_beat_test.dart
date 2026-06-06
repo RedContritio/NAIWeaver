@@ -131,6 +131,44 @@ void main() {
       expect(request.baseCaption, 'from above, rooftop, masterpiece, best quality');
     });
 
+    test('global scene tags lead per-beat scene and environment', () {
+      final beat = CascadeBeat(
+        characterSlots: [
+          BeatCharacterSlot(position: NaiCoordinate(x: 0.5, y: 0.5)),
+        ],
+        sceneTags: 'hugging',
+        environmentTags: 'bedroom',
+      );
+
+      final request = CascadeStitchingService.render(
+        beat: beat,
+        appearances: const ['1girl'],
+        globalSceneTags: '2girls, school uniform',
+        globalStyle: 'best quality',
+      );
+
+      expect(request.baseCaption,
+          '2girls, school uniform, hugging, bedroom, best quality');
+    });
+
+    test('blank global scene tags are omitted', () {
+      final beat = CascadeBeat(
+        characterSlots: [
+          BeatCharacterSlot(position: NaiCoordinate(x: 0.5, y: 0.5)),
+        ],
+        sceneTags: 'hugging',
+        environmentTags: 'bedroom',
+      );
+
+      final request = CascadeStitchingService.render(
+        beat: beat,
+        appearances: const ['1girl'],
+        globalSceneTags: '   ',
+      );
+
+      expect(request.baseCaption, 'hugging, bedroom');
+    });
+
     test('empty scene tags leave the base caption unchanged', () {
       final beat = CascadeBeat(
         characterSlots: [

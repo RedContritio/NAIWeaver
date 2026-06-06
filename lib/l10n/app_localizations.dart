@@ -3358,6 +3358,12 @@ abstract class AppLocalizations {
   /// **'CHAR {n} TAGS'**
   String cascadeCharTags(int n);
 
+  /// No description provided for @cascadeGlobalScene.
+  ///
+  /// In en, this message translates to:
+  /// **'GLOBAL SCENE (tags for every beat)'**
+  String get cascadeGlobalScene;
+
   /// No description provided for @cascadeGlobalStyle.
   ///
   /// In en, this message translates to:

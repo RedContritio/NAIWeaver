@@ -37,6 +37,7 @@ class CascadeStitchingService {
   static CascadeStitchedRequest render({
     required CascadeBeat beat,
     required List<String> appearances,
+    String? globalSceneTags,
     String? globalStyle,
     String? manualPrompt,
     bool useCoords = true,
@@ -49,11 +50,15 @@ class CascadeStitchingService {
     }
 
     // Build the base caption, front-loaded in NovelAI base-prompt order:
-    // [SceneTags] + [EnvironmentTags] + [ManualUserPrompt] + [UserGlobalStyle].
+    // [GlobalScene] + [BeatScene] + [Environment] + [ManualPrompt] + [GlobalStyle].
     // Scene/action/composition tags (subject count, action, camera) lead because
-    // NovelAI reads the base prompt left-to-right with front-loaded weight;
-    // environment (where) follows, then the user's manual injection, then style.
+    // NovelAI reads the base prompt left-to-right with front-loaded weight; the
+    // cast-time global scene (shared across every beat) leads the per-beat scene,
+    // then environment (where), the user's manual injection, and finally style.
     final List<String> basePromptParts = [];
+    if (globalSceneTags != null && globalSceneTags.trim().isNotEmpty) {
+      basePromptParts.add(globalSceneTags.trim());
+    }
     if (beat.sceneTags.isNotEmpty) {
       basePromptParts.add(beat.sceneTags);
     }

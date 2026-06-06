@@ -1762,6 +1762,9 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get cascadeGlobalScene => '全局场景（应用于每个镜头的标签）';
+
+  @override
   String get cascadeGlobalStyle => '全局风格 / 注入';
 
   @override

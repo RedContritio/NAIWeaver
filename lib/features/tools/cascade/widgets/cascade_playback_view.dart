@@ -21,6 +21,8 @@ class CascadePlaybackView extends StatefulWidget {
 class _CascadePlaybackViewState extends State<CascadePlaybackView> {
   final Map<int, TextEditingController> _appearanceControllers = {};
   final Map<int, FocusNode> _appearanceFocusNodes = {};
+  final TextEditingController _globalSceneController = TextEditingController();
+  final FocusNode _globalSceneFocusNode = FocusNode();
   final TextEditingController _globalController = TextEditingController();
   final FocusNode _globalFocusNode = FocusNode();
 
@@ -32,6 +34,8 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
     for (var f in _appearanceFocusNodes.values) {
       f.dispose();
     }
+    _globalSceneController.dispose();
+    _globalSceneFocusNode.dispose();
     _globalController.dispose();
     _globalFocusNode.dispose();
     super.dispose();
@@ -39,6 +43,9 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
 
   void _syncControllers(CascadeNotifier notifier) {
     final state = notifier.state;
+    if (_globalSceneController.text != state.globalSceneTags) {
+      _globalSceneController.text = state.globalSceneTags;
+    }
     if (_globalController.text != state.globalInjection) {
       _globalController.text = state.globalInjection;
     }
@@ -251,48 +258,75 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
           ),
         ),
         const SizedBox(height: 8),
-        RawAutocomplete<DanbooruTag>(
-          textEditingController: _globalController,
+        _buildGlobalTagBox(
+          controller: _globalSceneController,
+          focusNode: _globalSceneFocusNode,
+          hint: l.cascadeGlobalScene,
+          tagService: tagService,
+          onChanged: notifier.updateGlobalSceneTags,
+        ),
+        const SizedBox(height: 8),
+        _buildGlobalTagBox(
+          controller: _globalController,
           focusNode: _globalFocusNode,
-          optionsBuilder: (TextEditingValue textEditingValue) {
-            if (textEditingValue.text.isEmpty) return const Iterable<DanbooruTag>.empty();
-            final lastPart = textEditingValue.text.split(',').last.trim();
-            final minLength = TagService.containsNonAscii(lastPart) ? 1 : 2;
-            if (lastPart.length < minLength) return const Iterable<DanbooruTag>.empty();
-            return tagService.getSuggestions(lastPart);
-          },
-          displayStringForOption: (DanbooruTag option) =>
-              option.matchedAlias != null ? '${option.matchedAlias} → ${option.tag}' : option.tag,
-          fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-            final t = context.t;
-            return TextField(
-              controller: controller,
-              focusNode: focusNode,
-              onChanged: (val) => notifier.updateGlobalInjection(val),
-              style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(10)),
-              decoration: InputDecoration(
-                hintText: l.cascadeGlobalStyle,
-                hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(8)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                filled: true,
-                fillColor: t.borderSubtle,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.borderSubtle)),
-              ),
-            );
-          },
-          optionsViewBuilder: (context, onSelected, options) {
-            return _buildOptionsView(context, (option) {
-              final insertText = option.matchedAlias ?? option.tag;
-              final currentText = _globalController.text;
-              final lastComma = currentText.lastIndexOf(',');
-              final newText = lastComma == -1
-                  ? insertText
-                  : '${currentText.substring(0, lastComma + 1)} $insertText';
-              notifier.updateGlobalInjection('$newText, ');
-            }, options);
-          },
+          hint: l.cascadeGlobalStyle,
+          tagService: tagService,
+          onChanged: notifier.updateGlobalInjection,
         ),
       ],
+    );
+  }
+
+  /// A single full-width cast-sheet tag box with Danbooru autocomplete. Shared
+  /// by the Global Scene and Global Style / Injection boxes, which are visually
+  /// identical and differ only in label and which state field they update.
+  Widget _buildGlobalTagBox({
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    required String hint,
+    required TagService tagService,
+    required ValueChanged<String> onChanged,
+  }) {
+    return RawAutocomplete<DanbooruTag>(
+      textEditingController: controller,
+      focusNode: focusNode,
+      optionsBuilder: (TextEditingValue textEditingValue) {
+        if (textEditingValue.text.isEmpty) return const Iterable<DanbooruTag>.empty();
+        final lastPart = textEditingValue.text.split(',').last.trim();
+        final minLength = TagService.containsNonAscii(lastPart) ? 1 : 2;
+        if (lastPart.length < minLength) return const Iterable<DanbooruTag>.empty();
+        return tagService.getSuggestions(lastPart);
+      },
+      displayStringForOption: (DanbooruTag option) =>
+          option.matchedAlias != null ? '${option.matchedAlias} → ${option.tag}' : option.tag,
+      fieldViewBuilder: (context, fieldController, fieldFocusNode, onFieldSubmitted) {
+        final t = context.t;
+        return TextField(
+          controller: fieldController,
+          focusNode: fieldFocusNode,
+          onChanged: onChanged,
+          style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(10)),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(8)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            filled: true,
+            fillColor: t.borderSubtle,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.borderSubtle)),
+          ),
+        );
+      },
+      optionsViewBuilder: (context, onSelected, options) {
+        return _buildOptionsView(context, (option) {
+          final insertText = option.matchedAlias ?? option.tag;
+          final currentText = controller.text;
+          final lastComma = currentText.lastIndexOf(',');
+          final newText = lastComma == -1
+              ? insertText
+              : '${currentText.substring(0, lastComma + 1)} $insertText';
+          onChanged('$newText, ');
+        }, options);
+      },
     );
   }
 
@@ -417,6 +451,7 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
                         final request = CascadeStitchingService.render(
                           beat: currentBeat,
                           appearances: state.characterAppearances,
+                          globalSceneTags: state.globalSceneTags,
                           globalStyle: state.globalInjection,
                           useCoords: state.activeCascade!.useCoords,
                           activeStyleNames: currentBeat.activeStyleNames,

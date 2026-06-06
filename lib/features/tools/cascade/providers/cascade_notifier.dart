@@ -13,6 +13,7 @@ class CascadeState {
 
   // Casting & Playback
   final List<String> characterAppearances;
+  final String globalSceneTags;
   final String globalInjection;
   final Map<int, Uint8List?> beatPreviews;
 
@@ -22,6 +23,7 @@ class CascadeState {
     this.selectedBeatIndex,
     this.isLoading = false,
     this.characterAppearances = const [],
+    this.globalSceneTags = "",
     this.globalInjection = "",
     this.beatPreviews = const {},
   });
@@ -34,6 +36,7 @@ class CascadeState {
     bool clearSelectedBeatIndex = false,
     bool? isLoading,
     List<String>? characterAppearances,
+    String? globalSceneTags,
     String? globalInjection,
     Map<int, Uint8List?>? beatPreviews,
   }) {
@@ -43,6 +46,7 @@ class CascadeState {
       selectedBeatIndex: clearSelectedBeatIndex ? null : (selectedBeatIndex ?? this.selectedBeatIndex),
       isLoading: isLoading ?? this.isLoading,
       characterAppearances: characterAppearances ?? this.characterAppearances,
+      globalSceneTags: globalSceneTags ?? this.globalSceneTags,
       globalInjection: globalInjection ?? this.globalInjection,
       beatPreviews: beatPreviews ?? this.beatPreviews,
     );
@@ -105,6 +109,7 @@ class CascadeNotifier extends ChangeNotifier {
       selectedBeatIndex: cascade != null && cascade.beats.isNotEmpty ? 0 : null,
       clearSelectedBeatIndex: cascade == null,
       characterAppearances: cascade != null ? List.generate(cascade.characterCount, (_) => "") : [],
+      globalSceneTags: "",
       globalInjection: "",
       beatPreviews: {},
     );
@@ -116,6 +121,7 @@ class CascadeNotifier extends ChangeNotifier {
       clearActiveCascade: true,
       clearSelectedBeatIndex: true,
       characterAppearances: [],
+      globalSceneTags: "",
       globalInjection: "",
       beatPreviews: {},
     );
@@ -129,6 +135,11 @@ class CascadeNotifier extends ChangeNotifier {
       _state = _state.copyWith(characterAppearances: updated);
       notifyListeners();
     }
+  }
+
+  void updateGlobalSceneTags(String val) {
+    _state = _state.copyWith(globalSceneTags: val);
+    notifyListeners();
   }
 
   void updateGlobalInjection(String val) {
