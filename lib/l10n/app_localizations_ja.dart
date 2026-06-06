@@ -1650,10 +1650,17 @@ class AppLocalizationsJa extends AppLocalizations {
   String get cascadeNoBeatSelected => 'ビートが選択されていません';
 
   @override
+  String get cascadeScenePrompt => 'シーン / アクション';
+
+  @override
+  String get cascadeSceneHint =>
+      '何が起きているか: 例 2girls, hugging, wide shot, from above';
+
+  @override
   String get cascadeEnvironmentPrompt => '環境プロンプト';
 
   @override
-  String get cascadeEnvHint => '例: 屋外、森、夜、シネマティックライティング';
+  String get cascadeEnvHint => '場所: 例 森、夜、屋内、シネマティックライティング';
 
   @override
   String get cascadeCharacterSlots => 'キャラクタースロット';

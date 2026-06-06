@@ -3148,6 +3148,18 @@ abstract class AppLocalizations {
   /// **'NO BEAT SELECTED'**
   String get cascadeNoBeatSelected;
 
+  /// No description provided for @cascadeScenePrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'SCENE / ACTION'**
+  String get cascadeScenePrompt;
+
+  /// No description provided for @cascadeSceneHint.
+  ///
+  /// In en, this message translates to:
+  /// **'what\'s happening: e.g. 2girls, hugging, wide shot, from above'**
+  String get cascadeSceneHint;
+
   /// No description provided for @cascadeEnvironmentPrompt.
   ///
   /// In en, this message translates to:
@@ -3157,7 +3169,7 @@ abstract class AppLocalizations {
   /// No description provided for @cascadeEnvHint.
   ///
   /// In en, this message translates to:
-  /// **'e.g. outdoors, forest, night, cinematic lighting'**
+  /// **'where: e.g. forest, night, indoors, cinematic lighting'**
   String get cascadeEnvHint;
 
   /// No description provided for @cascadeCharacterSlots.

@@ -43,9 +43,18 @@ void showCascadeHelpDialog(BuildContext context) {
                 _sectionHeader(t, 'SETUP FLOW', mobile),
                 const SizedBox(height: 8),
                 _stepRow(t, '1', 'Create', 'Set name, character count (0-5), and positioning mode', mobile),
-                _stepRow(t, '2', 'Edit Beats', 'Set environment, character prompts, actions, positions, styles, and settings per beat', mobile),
+                _stepRow(t, '2', 'Edit Beats', 'Set scene/action, environment, character prompts, actions, positions, styles, and settings per beat', mobile),
                 _stepRow(t, '3', 'Cast', 'Save and return to the main screen playback view', mobile),
                 _stepRow(t, '4', 'Generate', 'Enter character appearances, optional global injection, then generate each beat', mobile),
+
+                _divider(t),
+
+                _sectionHeader(t, 'BASE PROMPT', mobile),
+                const SizedBox(height: 8),
+                _bulletRow(t, 'Scene / Action', 'Base-prompt tags for what is happening and how it is framed (e.g., "2girls, hugging, wide shot, from above"). Subject-count, action, and camera tags go here.', mobile),
+                _bulletRow(t, 'Environment', 'Base-prompt tags for where the scene takes place (e.g., "forest, night, indoors").', mobile),
+                const SizedBox(height: 4),
+                _paragraph(t, 'Both are tags (not prose) and feed the same base prompt — Scene / Action leads, Environment follows.', mobile),
 
                 _divider(t),
 

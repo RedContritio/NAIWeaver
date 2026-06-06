@@ -229,6 +229,7 @@ class CascadeNotifier extends ChangeNotifier {
         positivePrompt: s.positivePrompt,
         negativePrompt: s.negativePrompt,
       )).toList(),
+      sceneTags: sourceBeat.sceneTags,
       environmentTags: sourceBeat.environmentTags,
       sampler: sourceBeat.sampler,
       steps: sourceBeat.steps,

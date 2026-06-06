@@ -48,8 +48,15 @@ class CascadeStitchingService {
           "Not enough character appearances provided. Expected ${beat.characterSlots.length}, got ${appearances.length}");
     }
 
-    // Build the base caption: [ScenePrompt] + [ManualUserPrompt] + [UserGlobalStyle]
+    // Build the base caption, front-loaded in NovelAI base-prompt order:
+    // [SceneTags] + [EnvironmentTags] + [ManualUserPrompt] + [UserGlobalStyle].
+    // Scene/action/composition tags (subject count, action, camera) lead because
+    // NovelAI reads the base prompt left-to-right with front-loaded weight;
+    // environment (where) follows, then the user's manual injection, then style.
     final List<String> basePromptParts = [];
+    if (beat.sceneTags.isNotEmpty) {
+      basePromptParts.add(beat.sceneTags);
+    }
     if (beat.environmentTags.isNotEmpty) {
       basePromptParts.add(beat.environmentTags);
     }

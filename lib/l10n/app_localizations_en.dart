@@ -1683,11 +1683,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cascadeNoBeatSelected => 'NO BEAT SELECTED';
 
   @override
+  String get cascadeScenePrompt => 'SCENE / ACTION';
+
+  @override
+  String get cascadeSceneHint =>
+      'what\'s happening: e.g. 2girls, hugging, wide shot, from above';
+
+  @override
   String get cascadeEnvironmentPrompt => 'ENVIRONMENT PROMPT';
 
   @override
   String get cascadeEnvHint =>
-      'e.g. outdoors, forest, night, cinematic lighting';
+      'where: e.g. forest, night, indoors, cinematic lighting';
 
   @override
   String get cascadeCharacterSlots => 'CHARACTER SLOTS';

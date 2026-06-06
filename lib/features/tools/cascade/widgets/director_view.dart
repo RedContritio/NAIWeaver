@@ -25,6 +25,8 @@ class DirectorView extends StatefulWidget {
 }
 
 class _DirectorViewState extends State<DirectorView> {
+  final TextEditingController _sceneController = TextEditingController();
+  final FocusNode _sceneFocusNode = FocusNode();
   final TextEditingController _envController = TextEditingController();
   final FocusNode _envFocusNode = FocusNode();
   final Map<int, TextEditingController> _posControllers = {};
@@ -42,12 +44,16 @@ class _DirectorViewState extends State<DirectorView> {
   @override
   void initState() {
     super.initState();
+    _sceneFocusNode.addListener(_onFocusChanged);
     _envFocusNode.addListener(_onFocusChanged);
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
+    _sceneController.dispose();
+    _sceneFocusNode.removeListener(_onFocusChanged);
+    _sceneFocusNode.dispose();
     _envController.dispose();
     _envFocusNode.removeListener(_onFocusChanged);
     _envFocusNode.dispose();
@@ -72,7 +78,8 @@ class _DirectorViewState extends State<DirectorView> {
     // Clear suggestions when all prompt fields lose focus
     Future.microtask(() {
       if (!mounted) return;
-      final anyFocused = _envFocusNode.hasFocus ||
+      final anyFocused = _sceneFocusNode.hasFocus ||
+          _envFocusNode.hasFocus ||
           _posFocusNodes.values.any((f) => f.hasFocus) ||
           _negFocusNodes.values.any((f) => f.hasFocus);
       if (!anyFocused && _suggestions.isNotEmpty) {
@@ -114,6 +121,7 @@ class _DirectorViewState extends State<DirectorView> {
 
   void _syncControllers(CascadeBeat beat, int beatIndex, int charCount) {
     if (_lastBeatIndex != beatIndex) {
+      _sceneController.text = beat.sceneTags;
       _envController.text = beat.environmentTags;
       for (int i = 0; i < charCount; i++) {
         final pos = _posControllers.putIfAbsent(i, () => TextEditingController());
@@ -164,46 +172,25 @@ class _DirectorViewState extends State<DirectorView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildSectionHeader(l.cascadeEnvironmentPrompt),
-              const SizedBox(height: 12),
-              TextField(
+              // Base-prompt fields read top-to-bottom in prompt order:
+              // SCENE / ACTION (what's happening) → ENVIRONMENT (where).
+              _buildBaseTagField(
+                header: l.cascadeScenePrompt,
+                hint: l.cascadeSceneHint,
+                controller: _sceneController,
+                focusNode: _sceneFocusNode,
+                onChanged: (v) => notifier.updateActiveBeat(beat.copyWith(sceneTags: v)),
+                tagService: tagService,
+              ),
+              const SizedBox(height: 24),
+              _buildBaseTagField(
+                header: l.cascadeEnvironmentPrompt,
+                hint: l.cascadeEnvHint,
                 controller: _envController,
                 focusNode: _envFocusNode,
-                onChanged: (val) => _handleTagInput(
-                  _envController,
-                  (v) => notifier.updateActiveBeat(beat.copyWith(environmentTags: v)),
-                  val,
-                  tagService,
-                ),
-                style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(13), height: 1.4),
-                maxLines: 3,
-                decoration: InputDecoration(
-                  hintText: l.cascadeEnvHint,
-                  hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(11)),
-                  filled: true,
-                  fillColor: t.accentCascade.withValues(alpha: 0.02),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                    borderSide: BorderSide(color: t.accentCascade.withValues(alpha: 0.1)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                    borderSide: BorderSide(color: t.accentCascade.withValues(alpha: 0.05)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                    borderSide: BorderSide(color: t.accentCascade.withValues(alpha: 0.2)),
-                  ),
-                ),
+                onChanged: (v) => notifier.updateActiveBeat(beat.copyWith(environmentTags: v)),
+                tagService: tagService,
               ),
-              if (_activeSuggestionController == _envController && _suggestions.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: TagSuggestionOverlay(
-                    suggestions: _suggestions,
-                    onTagSelected: _onTagSelected,
-                  ),
-                ),
               const SizedBox(height: 32),
               _buildSectionHeader(l.cascadeCharacterSlots),
               const SizedBox(height: 16),
@@ -243,6 +230,60 @@ class _DirectorViewState extends State<DirectorView> {
         ),
         const SizedBox(width: 12),
         Expanded(child: Divider(color: t.accentCascade.withValues(alpha: 0.1))),
+      ],
+    );
+  }
+
+  /// A labelled base-prompt tag field with Danbooru autocomplete. Shared by the
+  /// SCENE / ACTION and ENVIRONMENT sections, which are visually identical and
+  /// both feed the NovelAI base prompt.
+  Widget _buildBaseTagField({
+    required String header,
+    required String hint,
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    required ValueChanged<String> onChanged,
+    TagService? tagService,
+  }) {
+    final t = context.t;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildSectionHeader(header),
+        const SizedBox(height: 12),
+        TextField(
+          controller: controller,
+          focusNode: focusNode,
+          onChanged: (val) => _handleTagInput(controller, onChanged, val, tagService),
+          style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(13), height: 1.4),
+          maxLines: 3,
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(11)),
+            filled: true,
+            fillColor: t.accentCascade.withValues(alpha: 0.02),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: BorderSide(color: t.accentCascade.withValues(alpha: 0.1)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: BorderSide(color: t.accentCascade.withValues(alpha: 0.05)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: BorderSide(color: t.accentCascade.withValues(alpha: 0.2)),
+            ),
+          ),
+        ),
+        if (_activeSuggestionController == controller && _suggestions.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: TagSuggestionOverlay(
+              suggestions: _suggestions,
+              onTagSelected: _onTagSelected,
+            ),
+          ),
       ],
     );
   }

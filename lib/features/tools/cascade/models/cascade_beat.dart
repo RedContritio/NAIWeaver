@@ -61,8 +61,16 @@ class BeatCharacterSlot {
 
 class CascadeBeat {
   final List<BeatCharacterSlot> characterSlots;
+
+  /// Scene/action/composition tags for this beat (e.g. "2girls, hugging,
+  /// wide shot, from above"). These feed the NovelAI **base prompt** and
+  /// describe what is happening and how it is framed — distinct from
+  /// [environmentTags], which describes *where* the scene takes place.
+  /// They are concatenated ahead of the environment tags by the stitcher.
+  final String sceneTags;
+
   final String environmentTags;
-  
+
   // Per-beat generation settings
   final String sampler;
   final int steps;
@@ -74,6 +82,7 @@ class CascadeBeat {
   CascadeBeat({
     required this.characterSlots,
     required this.environmentTags,
+    this.sceneTags = "",
     this.sampler = "k_euler_ancestral",
     this.steps = 28,
     this.scale = 6.0,
@@ -86,6 +95,7 @@ class CascadeBeat {
         characterSlots: (json['characterSlots'] as List)
             .map((e) => BeatCharacterSlot.fromJson(e))
             .toList(),
+        sceneTags: json['sceneTags'] ?? "",
         environmentTags: json['environmentTags'],
         sampler: json['sampler'] ?? "k_euler_ancestral",
         steps: json['steps'] ?? 28,
@@ -97,6 +107,7 @@ class CascadeBeat {
 
   Map<String, dynamic> toJson() => {
         'characterSlots': characterSlots.map((e) => e.toJson()).toList(),
+        'sceneTags': sceneTags,
         'environmentTags': environmentTags,
         'sampler': sampler,
         'steps': steps,
@@ -108,6 +119,7 @@ class CascadeBeat {
 
   CascadeBeat copyWith({
     List<BeatCharacterSlot>? characterSlots,
+    String? sceneTags,
     String? environmentTags,
     String? sampler,
     int? steps,
@@ -118,6 +130,7 @@ class CascadeBeat {
   }) {
     return CascadeBeat(
       characterSlots: characterSlots ?? this.characterSlots,
+      sceneTags: sceneTags ?? this.sceneTags,
       environmentTags: environmentTags ?? this.environmentTags,
       sampler: sampler ?? this.sampler,
       steps: steps ?? this.steps,

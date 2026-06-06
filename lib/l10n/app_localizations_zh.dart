@@ -1644,10 +1644,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cascadeNoBeatSelected => '未选择镜头';
 
   @override
-  String get cascadeEnvironmentPrompt => '场景提示词';
+  String get cascadeScenePrompt => '场景 / 动作';
 
   @override
-  String get cascadeEnvHint => '如：户外、森林、夜晚、电影光';
+  String get cascadeSceneHint =>
+      '正在发生什么：如 2girls, hugging, wide shot, from above';
+
+  @override
+  String get cascadeEnvironmentPrompt => '环境提示词';
+
+  @override
+  String get cascadeEnvHint => '地点：如 森林、夜晚、室内、电影光';
 
   @override
   String get cascadeCharacterSlots => '角色槽位';
