@@ -1780,6 +1780,24 @@ class AppLocalizationsJa extends AppLocalizations {
   String get cascadeCaptionToggle => 'キャプションの表示 / 非表示';
 
   @override
+  String get cascadeExportTooltip => 'キャプション付きでエクスポート';
+
+  @override
+  String get cascadeExportBeat => 'このビートをエクスポート（キャプション焼き込み）';
+
+  @override
+  String get cascadeExportStripVertical => 'ストーリーボード — 縦';
+
+  @override
+  String get cascadeExportStripHorizontal => 'ストーリーボード — 横';
+
+  @override
+  String get cascadeExportSaved => 'エクスポートしました';
+
+  @override
+  String get cascadeExportFailed => 'エクスポートに失敗しました';
+
+  @override
   String cascadeRegenerateBeat(int n) {
     return 'ビート$nを再生成';
   }

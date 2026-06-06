@@ -3382,6 +3382,42 @@ abstract class AppLocalizations {
   /// **'Show / hide captions'**
   String get cascadeCaptionToggle;
 
+  /// No description provided for @cascadeExportTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Export with captions'**
+  String get cascadeExportTooltip;
+
+  /// No description provided for @cascadeExportBeat.
+  ///
+  /// In en, this message translates to:
+  /// **'Export this beat (caption burned in)'**
+  String get cascadeExportBeat;
+
+  /// No description provided for @cascadeExportStripVertical.
+  ///
+  /// In en, this message translates to:
+  /// **'Storyboard strip — vertical'**
+  String get cascadeExportStripVertical;
+
+  /// No description provided for @cascadeExportStripHorizontal.
+  ///
+  /// In en, this message translates to:
+  /// **'Storyboard strip — horizontal'**
+  String get cascadeExportStripHorizontal;
+
+  /// No description provided for @cascadeExportSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'EXPORTED'**
+  String get cascadeExportSaved;
+
+  /// No description provided for @cascadeExportFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Export failed'**
+  String get cascadeExportFailed;
+
   /// No description provided for @cascadeRegenerateBeat.
   ///
   /// In en, this message translates to:

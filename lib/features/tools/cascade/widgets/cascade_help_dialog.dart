@@ -85,6 +85,7 @@ void showCascadeHelpDialog(BuildContext context) {
                 _bulletRow(t, 'Global Injection', 'Additional prompt text or style applied to every beat', mobile),
                 _bulletRow(t, 'Beat Thumbnails', 'Tap to select; shows preview after generation', mobile),
                 _bulletRow(t, 'Narration Caption', 'Free-text narration shown over the beat preview (display only) — prose, not tags. Toggle with the eye icon. Not saved with the cascade.', mobile),
+                _bulletRow(t, 'Export', 'Burn captions into a single beat PNG, or assemble all generated beats into a vertical/horizontal storyboard strip (share icon)', mobile),
                 _bulletRow(t, 'Generate', 'Generates selected beat, auto-advances to next', mobile),
 
                 _divider(t),

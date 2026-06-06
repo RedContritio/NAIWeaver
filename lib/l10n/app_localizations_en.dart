@@ -1815,6 +1815,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cascadeCaptionToggle => 'Show / hide captions';
 
   @override
+  String get cascadeExportTooltip => 'Export with captions';
+
+  @override
+  String get cascadeExportBeat => 'Export this beat (caption burned in)';
+
+  @override
+  String get cascadeExportStripVertical => 'Storyboard strip — vertical';
+
+  @override
+  String get cascadeExportStripHorizontal => 'Storyboard strip — horizontal';
+
+  @override
+  String get cascadeExportSaved => 'EXPORTED';
+
+  @override
+  String get cascadeExportFailed => 'Export failed';
+
+  @override
   String cascadeRegenerateBeat(int n) {
     return 'REGENERATE BEAT $n';
   }

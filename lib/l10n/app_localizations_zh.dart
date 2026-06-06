@@ -1774,6 +1774,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cascadeCaptionToggle => '显示 / 隐藏字幕';
 
   @override
+  String get cascadeExportTooltip => '导出（带字幕）';
+
+  @override
+  String get cascadeExportBeat => '导出该镜头（字幕已烧录）';
+
+  @override
+  String get cascadeExportStripVertical => '故事板 — 纵向';
+
+  @override
+  String get cascadeExportStripHorizontal => '故事板 — 横向';
+
+  @override
+  String get cascadeExportSaved => '已导出';
+
+  @override
+  String get cascadeExportFailed => '导出失败';
+
+  @override
   String cascadeRegenerateBeat(int n) {
     return '重新生成镜头 $n';
   }

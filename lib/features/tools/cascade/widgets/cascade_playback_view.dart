@@ -1,11 +1,18 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../../core/l10n/l10n_extensions.dart';
 import '../../../../core/theme/theme_extensions.dart';
+import '../../../../core/utils/app_snackbar.dart';
 import '../../../../core/utils/responsive.dart';
+import '../../../../core/utils/web_download.dart';
 import '../../../../core/widgets/tag_suggestion_overlay.dart';
 import '../providers/cascade_notifier.dart';
+import '../services/caption_burn_service.dart';
 import '../services/cascade_stitching_service.dart';
 import 'caption_overlay.dart';
 import 'cascade_help_dialog.dart';
@@ -475,11 +482,136 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
             ),
+            _buildExportMenu(notifier, currentIndex),
           ],
         ),
         const SizedBox(height: 12),
       ],
     );
+  }
+
+  /// Export menu: burn the current beat's caption into a single PNG, or assemble
+  /// every generated beat into a storyboard strip (vertical / horizontal) with
+  /// captions baked in. Gated behind an explicit action so in-app previews and
+  /// saved cascades stay clean.
+  Widget _buildExportMenu(CascadeNotifier notifier, int currentIndex) {
+    final t = context.t;
+    final l = context.l;
+    final state = notifier.state;
+    final hasCurrentPreview = state.beatPreviews[currentIndex] != null;
+    final generatedCount = state.beatPreviews.values.where((b) => b != null).length;
+
+    return PopupMenuButton<String>(
+      enabled: hasCurrentPreview || generatedCount > 0,
+      tooltip: l.cascadeExportTooltip,
+      icon: Icon(Icons.ios_share, size: 18, color: t.textDisabled),
+      color: t.surfaceHigh,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      onSelected: (value) => _handleExport(notifier, currentIndex, value),
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: 'beat',
+          enabled: hasCurrentPreview,
+          child: Text(l.cascadeExportBeat, style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11))),
+        ),
+        PopupMenuItem(
+          value: 'strip_v',
+          enabled: generatedCount > 0,
+          child: Text(l.cascadeExportStripVertical, style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11))),
+        ),
+        PopupMenuItem(
+          value: 'strip_h',
+          enabled: generatedCount > 0,
+          child: Text(l.cascadeExportStripHorizontal, style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11))),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _handleExport(CascadeNotifier notifier, int currentIndex, String action) async {
+    final l = context.l;
+    final state = notifier.state;
+    final cascadeName = state.activeCascade?.name ?? 'cascade';
+
+    try {
+      Uint8List bytes;
+      String fileName;
+
+      if (action == 'beat') {
+        final preview = state.beatPreviews[currentIndex];
+        if (preview == null) return;
+        bytes = await CaptionBurnService.burnFrame(CaptionFrame(
+          imageBytes: preview,
+          caption: state.beatCaptions[currentIndex] ?? '',
+        ));
+        fileName = '${_safeName(cascadeName)}_beat${currentIndex + 1}';
+      } else {
+        // Build a strip from every generated beat, in beat order.
+        final frames = <CaptionFrame>[];
+        final beats = state.activeCascade!.beats;
+        for (int i = 0; i < beats.length; i++) {
+          final preview = state.beatPreviews[i];
+          if (preview != null) {
+            frames.add(CaptionFrame(
+              imageBytes: preview,
+              caption: state.beatCaptions[i] ?? '',
+            ));
+          }
+        }
+        if (frames.isEmpty) return;
+        bytes = await CaptionBurnService.buildStoryboardStrip(
+          frames,
+          layout: action == 'strip_v'
+              ? StoryboardLayout.vertical
+              : StoryboardLayout.horizontal,
+        );
+        fileName = '${_safeName(cascadeName)}_storyboard';
+      }
+
+      if (!mounted) return;
+      await _saveOrShareBytes(bytes, fileName);
+    } catch (e) {
+      if (mounted) {
+        showAppSnackBar(context, '${l.cascadeExportFailed}: $e', color: const Color(0xFFF44336));
+      }
+    }
+  }
+
+  /// Routes export bytes through the platform's save/share path: share sheet on
+  /// mobile, save-file dialog on desktop, browser download on web.
+  Future<void> _saveOrShareBytes(Uint8List bytes, String fileName) async {
+    final l = context.l;
+    final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+    final fullName = '${fileName}_$timestamp.png';
+
+    if (kIsWeb) {
+      downloadBytes(bytes, fullName);
+      if (mounted) showAppSnackBar(context, l.cascadeExportSaved, color: const Color(0xFF4CAF50));
+      return;
+    }
+
+    if (Platform.isAndroid || Platform.isIOS) {
+      await Share.shareXFiles(
+        [XFile.fromData(bytes, mimeType: 'image/png', name: fullName)],
+      );
+      return;
+    }
+
+    // Desktop: save-file dialog.
+    final result = await FilePicker.platform.saveFile(
+      dialogTitle: l.cascadeExportTooltip,
+      fileName: fullName,
+      type: FileType.image,
+    );
+    if (result == null) return;
+    await File(result).writeAsBytes(bytes);
+    if (mounted) showAppSnackBar(context, l.cascadeExportSaved, color: const Color(0xFF4CAF50));
+  }
+
+  String _safeName(String name) {
+    final cleaned = name.replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_').trim();
+    return cleaned.isEmpty ? 'cascade' : cleaned;
   }
 
   Widget _buildPlaybackController(CascadeNotifier cascadeNotifier, GenerationNotifier genNotifier) {
