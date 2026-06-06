@@ -7,6 +7,7 @@ import '../../../../core/utils/responsive.dart';
 import '../../../../core/widgets/tag_suggestion_overlay.dart';
 import '../providers/cascade_notifier.dart';
 import '../services/cascade_stitching_service.dart';
+import 'caption_overlay.dart';
 import 'cascade_help_dialog.dart';
 import '../../../generation/providers/generation_notifier.dart';
 import '../../../../core/services/tag_service.dart';
@@ -21,6 +22,7 @@ class CascadePlaybackView extends StatefulWidget {
 class _CascadePlaybackViewState extends State<CascadePlaybackView> {
   final Map<int, TextEditingController> _appearanceControllers = {};
   final Map<int, FocusNode> _appearanceFocusNodes = {};
+  final Map<int, TextEditingController> _captionControllers = {};
   final TextEditingController _globalSceneController = TextEditingController();
   final FocusNode _globalSceneFocusNode = FocusNode();
   final TextEditingController _globalController = TextEditingController();
@@ -33,6 +35,9 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
     }
     for (var f in _appearanceFocusNodes.values) {
       f.dispose();
+    }
+    for (var c in _captionControllers.values) {
+      c.dispose();
     }
     _globalSceneController.dispose();
     _globalSceneFocusNode.dispose();
@@ -395,6 +400,88 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
     );
   }
 
+  /// Narration caption controls for the current beat: an optional scrim+caption
+  /// preview over the beat image, the free-text caption input, and a show/hide
+  /// toggle. Display-only — never alters the saved cascade or preview bytes.
+  Widget _buildCaptionSection(CascadeNotifier notifier, int currentIndex) {
+    final t = context.t;
+    final l = context.l;
+    final state = notifier.state;
+    final preview = state.beatPreviews[currentIndex];
+    final caption = state.beatCaptions[currentIndex] ?? '';
+
+    final controller = _captionControllers.putIfAbsent(
+      currentIndex,
+      () => TextEditingController(text: caption),
+    );
+    if (controller.text != caption) {
+      controller.text = caption;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Caption preview over the current beat image (scrim technique).
+        if (preview != null && caption.trim().isNotEmpty && state.captionsVisible)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.memory(preview, fit: BoxFit.cover, filterQuality: FilterQuality.low),
+                    CaptionOverlay(text: caption),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: TextField(
+                controller: controller,
+                onChanged: (val) => notifier.setBeatCaption(currentIndex, val),
+                style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(10)),
+                minLines: 1,
+                maxLines: 2,
+                decoration: InputDecoration(
+                  hintText: l.cascadeCaptionHint,
+                  hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(8)),
+                  prefixIcon: Icon(Icons.subtitles_outlined, size: 16, color: t.textDisabled),
+                  prefixIconConstraints: const BoxConstraints(minWidth: 34, minHeight: 0),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                  filled: true,
+                  fillColor: t.borderSubtle,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.borderSubtle)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            IconButton(
+              focusNode: FocusNode()..skipTraversal = true,
+              icon: Icon(
+                state.captionsVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                size: 18,
+                color: state.captionsVisible ? t.accentCascade : t.textDisabled,
+              ),
+              tooltip: l.cascadeCaptionToggle,
+              onPressed: notifier.toggleCaptionsVisible,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+
   Widget _buildPlaybackController(CascadeNotifier cascadeNotifier, GenerationNotifier genNotifier) {
     final t = context.t;
     final l = context.l;
@@ -415,6 +502,7 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
             itemBuilder: (context, index) {
               final isSelected = index == currentIndex;
               final preview = state.beatPreviews[index];
+              final hasCaption = (state.beatCaptions[index] ?? '').trim().isNotEmpty;
               return InkWell(
                 focusNode: FocusNode()..skipTraversal = true,
                 onTap: () {
@@ -433,13 +521,25 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
                     border: Border.all(color: isSelected ? t.accentCascade : t.borderMedium),
                     image: preview != null ? DecorationImage(image: MemoryImage(preview), fit: BoxFit.cover) : null,
                   ),
-                  child: preview == null ? Center(child: Text('${index + 1}', style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(10)))) : null,
+                  child: Stack(
+                    children: [
+                      if (preview == null)
+                        Center(child: Text('${index + 1}', style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(10)))),
+                      if (hasCaption)
+                        Positioned(
+                          right: 2,
+                          bottom: 2,
+                          child: Icon(Icons.subtitles, size: 10, color: t.accentCascade),
+                        ),
+                    ],
+                  ),
                 ),
               );
             },
           ),
         ),
         const SizedBox(height: 12),
+        _buildCaptionSection(cascadeNotifier, currentIndex),
         Row(
           children: [
             Expanded(

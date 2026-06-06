@@ -563,6 +563,8 @@
   "cascadeCharTags": "キャラ{n}タグ",
   "cascadeGlobalScene": "グローバルシーン (全ビート共通のタグ)",
   "cascadeGlobalStyle": "グローバルスタイル / インジェクション",
+  "cascadeCaptionHint": "このビートのナレーション...（プレビューに表示）",
+  "cascadeCaptionToggle": "キャプションの表示 / 非表示",
   "cascadeRegenerateBeat": "ビート{n}を再生成",
   "cascadeGenerateBeat": "ビート{n}を生成",
   "cascadeSkipToNext": "次へスキップ",

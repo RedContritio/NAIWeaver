@@ -1768,6 +1768,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cascadeGlobalStyle => '全局风格 / 注入';
 
   @override
+  String get cascadeCaptionHint => '为该镜头添加旁白...（显示在预览上）';
+
+  @override
+  String get cascadeCaptionToggle => '显示 / 隐藏字幕';
+
+  @override
   String cascadeRegenerateBeat(int n) {
     return '重新生成镜头 $n';
   }

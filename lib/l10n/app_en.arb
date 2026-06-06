@@ -623,6 +623,8 @@
   "@cascadeCharTags": { "placeholders": { "n": { "type": "int" } } },
   "cascadeGlobalScene": "GLOBAL SCENE (tags for every beat)",
   "cascadeGlobalStyle": "GLOBAL STYLE / INJECTION",
+  "cascadeCaptionHint": "Narrate this beat... (shown over the preview)",
+  "cascadeCaptionToggle": "Show / hide captions",
   "cascadeRegenerateBeat": "REGENERATE BEAT {n}",
   "@cascadeRegenerateBeat": { "placeholders": { "n": { "type": "int" } } },
   "cascadeGenerateBeat": "GENERATE BEAT {n}",

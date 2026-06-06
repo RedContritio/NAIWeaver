@@ -618,6 +618,8 @@
   "@cascadeCharTags": { "placeholders": { "n": { "type": "int" } } },
   "cascadeGlobalScene": "全局场景（应用于每个镜头的标签）",
   "cascadeGlobalStyle": "全局风格 / 注入",
+  "cascadeCaptionHint": "为该镜头添加旁白...（显示在预览上）",
+  "cascadeCaptionToggle": "显示 / 隐藏字幕",
   "cascadeRegenerateBeat": "重新生成镜头 {n}",
   "@cascadeRegenerateBeat": { "placeholders": { "n": { "type": "int" } } },
   "cascadeGenerateBeat": "生成镜头 {n}",

@@ -3370,6 +3370,18 @@ abstract class AppLocalizations {
   /// **'GLOBAL STYLE / INJECTION'**
   String get cascadeGlobalStyle;
 
+  /// No description provided for @cascadeCaptionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Narrate this beat... (shown over the preview)'**
+  String get cascadeCaptionHint;
+
+  /// No description provided for @cascadeCaptionToggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Show / hide captions'**
+  String get cascadeCaptionToggle;
+
   /// No description provided for @cascadeRegenerateBeat.
   ///
   /// In en, this message translates to:

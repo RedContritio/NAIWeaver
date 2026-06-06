@@ -1808,6 +1808,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cascadeGlobalStyle => 'GLOBAL STYLE / INJECTION';
 
   @override
+  String get cascadeCaptionHint =>
+      'Narrate this beat... (shown over the preview)';
+
+  @override
+  String get cascadeCaptionToggle => 'Show / hide captions';
+
+  @override
   String cascadeRegenerateBeat(int n) {
     return 'REGENERATE BEAT $n';
   }

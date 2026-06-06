@@ -17,6 +17,14 @@ class CascadeState {
   final String globalInjection;
   final Map<int, Uint8List?> beatPreviews;
 
+  /// Free-text narration captions per beat index. Cast-time state for *this*
+  /// run (like [characterAppearances]) — narration shown over the beat preview,
+  /// never part of the saved cascade and never baked into [beatPreviews] bytes.
+  final Map<int, String> beatCaptions;
+
+  /// Whether narration captions are rendered over beat previews. User toggle.
+  final bool captionsVisible;
+
   CascadeState({
     this.savedCascades = const [],
     this.activeCascade,
@@ -26,6 +34,8 @@ class CascadeState {
     this.globalSceneTags = "",
     this.globalInjection = "",
     this.beatPreviews = const {},
+    this.beatCaptions = const {},
+    this.captionsVisible = true,
   });
 
   CascadeState copyWith({
@@ -39,6 +49,8 @@ class CascadeState {
     String? globalSceneTags,
     String? globalInjection,
     Map<int, Uint8List?>? beatPreviews,
+    Map<int, String>? beatCaptions,
+    bool? captionsVisible,
   }) {
     return CascadeState(
       savedCascades: savedCascades ?? this.savedCascades,
@@ -49,6 +61,8 @@ class CascadeState {
       globalSceneTags: globalSceneTags ?? this.globalSceneTags,
       globalInjection: globalInjection ?? this.globalInjection,
       beatPreviews: beatPreviews ?? this.beatPreviews,
+      beatCaptions: beatCaptions ?? this.beatCaptions,
+      captionsVisible: captionsVisible ?? this.captionsVisible,
     );
   }
 }
@@ -112,6 +126,7 @@ class CascadeNotifier extends ChangeNotifier {
       globalSceneTags: "",
       globalInjection: "",
       beatPreviews: {},
+      beatCaptions: {},
     );
     notifyListeners();
   }
@@ -124,6 +139,7 @@ class CascadeNotifier extends ChangeNotifier {
       globalSceneTags: "",
       globalInjection: "",
       beatPreviews: {},
+      beatCaptions: {},
     );
     notifyListeners();
   }
@@ -151,6 +167,22 @@ class CascadeNotifier extends ChangeNotifier {
     final updated = Map<int, Uint8List?>.from(_state.beatPreviews);
     updated[index] = bytes;
     _state = _state.copyWith(beatPreviews: updated);
+    notifyListeners();
+  }
+
+  void setBeatCaption(int index, String text) {
+    final updated = Map<int, String>.from(_state.beatCaptions);
+    if (text.isEmpty) {
+      updated.remove(index);
+    } else {
+      updated[index] = text;
+    }
+    _state = _state.copyWith(beatCaptions: updated);
+    notifyListeners();
+  }
+
+  void toggleCaptionsVisible() {
+    _state = _state.copyWith(captionsVisible: !_state.captionsVisible);
     notifyListeners();
   }
 

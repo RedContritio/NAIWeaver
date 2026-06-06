@@ -1774,6 +1774,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get cascadeGlobalStyle => 'グローバルスタイル / インジェクション';
 
   @override
+  String get cascadeCaptionHint => 'このビートのナレーション...（プレビューに表示）';
+
+  @override
+  String get cascadeCaptionToggle => 'キャプションの表示 / 非表示';
+
+  @override
   String cascadeRegenerateBeat(int n) {
     return 'ビート$nを再生成';
   }
