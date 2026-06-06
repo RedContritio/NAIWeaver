@@ -35,6 +35,12 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
   final TextEditingController _globalController = TextEditingController();
   final FocusNode _globalFocusNode = FocusNode();
 
+  // Persistent skip-traversal nodes for the non-focusable action widgets, owned
+  // and disposed here instead of allocating a fresh leaked FocusNode every build.
+  final FocusNode _generateFocusNode = FocusNode(skipTraversal: true);
+  final FocusNode _skipFocusNode = FocusNode(skipTraversal: true);
+  final FocusNode _toggleFocusNode = FocusNode(skipTraversal: true);
+
   @override
   void dispose() {
     for (var c in _appearanceControllers.values) {
@@ -50,6 +56,9 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
     _globalSceneFocusNode.dispose();
     _globalController.dispose();
     _globalFocusNode.dispose();
+    _generateFocusNode.dispose();
+    _skipFocusNode.dispose();
+    _toggleFocusNode.dispose();
     super.dispose();
   }
 
@@ -82,6 +91,14 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
 
         _syncControllers(cascadeNotifier);
 
+        // The panel is bottom-anchored and grows upward with its content. When
+        // the keyboard opens or a caption preview inflates it, an unconstrained
+        // Column would push the top sections (char appearances) off-screen and
+        // out of reach. Cap the height to the space actually available above the
+        // bottom anchor and let the content scroll instead.
+        final mq = MediaQuery.of(context);
+        final maxPanelHeight = mq.size.height - mq.viewInsets.bottom - mq.viewPadding.top - 24;
+
         return Container(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
           decoration: BoxDecoration(
@@ -96,15 +113,24 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
               stops: const [0.0, 0.3, 1.0],
             ),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildHeader(cascadeNotifier),
-              const SizedBox(height: 12),
-              _buildCastingSheet(cascadeNotifier, genNotifier.tagService),
-              const SizedBox(height: 12),
-              _buildPlaybackController(cascadeNotifier, genNotifier),
-            ],
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxPanelHeight > 0 ? maxPanelHeight : double.infinity),
+            child: SingleChildScrollView(
+              // Anchor scrolling to the bottom so the playback controls (the
+              // primary action) stay visible and the appearance row scrolls
+              // into view from the top when needed.
+              reverse: true,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildHeader(cascadeNotifier),
+                  const SizedBox(height: 12),
+                  _buildCastingSheet(cascadeNotifier, genNotifier.tagService),
+                  const SizedBox(height: 12),
+                  _buildPlaybackController(cascadeNotifier, genNotifier),
+                ],
+              ),
+            ),
           ),
         );
       },
@@ -245,11 +271,21 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
                       style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(10)),
                       decoration: InputDecoration(
                         hintText: l.cascadeCharTags(index + 1),
-                        hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(8)),
+                        // Brighter fill + a visible accent border so the
+                        // appearance boxes read as interactive fields against the
+                        // black background (the old 5% fill was nearly invisible).
+                        hintStyle: TextStyle(color: t.textDisabled, fontSize: t.fontSize(8)),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
                         filled: true,
-                        fillColor: t.accentCascade.withValues(alpha: 0.05),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
+                        fillColor: t.accentCascade.withValues(alpha: 0.12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
+                          borderSide: BorderSide(color: t.accentCascade.withValues(alpha: 0.3)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
+                          borderSide: BorderSide(color: t.accentCascade.withValues(alpha: 0.3)),
+                        ),
                       ),
                     );
                   },
@@ -416,6 +452,11 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
     final state = notifier.state;
     final preview = state.beatPreviews[currentIndex];
     final caption = state.beatCaptions[currentIndex] ?? '';
+    final beat = state.activeCascade!.beats[currentIndex];
+    // Mirror the export framing: use the beat's real aspect ratio + contain so
+    // the in-app preview shows exactly what CaptionBurnService will bake. A
+    // hardcoded 16:9 cover would crop portrait beats and mis-place the caption.
+    final previewAspect = beat.height > 0 ? beat.width / beat.height : 1.0;
 
     final controller = _captionControllers.putIfAbsent(
       currentIndex,
@@ -435,11 +476,11 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: AspectRatio(
-                aspectRatio: 16 / 9,
+                aspectRatio: previewAspect,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.memory(preview, fit: BoxFit.cover, filterQuality: FilterQuality.low),
+                    Image.memory(preview, fit: BoxFit.contain, filterQuality: FilterQuality.low),
                     CaptionOverlay(text: caption),
                   ],
                 ),
@@ -471,7 +512,7 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
             ),
             const SizedBox(width: 6),
             IconButton(
-              focusNode: FocusNode()..skipTraversal = true,
+              focusNode: _toggleFocusNode,
               icon: Icon(
                 state.captionsVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
                 size: 18,
@@ -560,13 +601,17 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
           }
         }
         if (frames.isEmpty) return;
-        bytes = await CaptionBurnService.buildStoryboardStrip(
+        final result = await CaptionBurnService.buildStoryboardStrip(
           frames,
           layout: action == 'strip_v'
               ? StoryboardLayout.vertical
               : StoryboardLayout.horizontal,
         );
+        bytes = result.bytes;
         fileName = '${_safeName(cascadeName)}_storyboard';
+        if (result.downscaled && mounted) {
+          showAppSnackBar(context, l.cascadeStripDownscaled, color: const Color(0xFFFFB74D));
+        }
       }
 
       if (!mounted) return;
@@ -621,7 +666,10 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
     final currentIndex = state.selectedBeatIndex ?? 0;
     final totalBeats = state.activeCascade!.beats.length;
     final currentBeat = state.activeCascade!.beats[currentIndex];
-    final hasPreview = state.beatPreviews.containsKey(currentIndex);
+    // `!= null` (not containsKey) — beatPreviews values are nullable, so a beat
+    // can hold a null preview; treat that as "no preview", matching the export
+    // menu's gating in _buildExportMenu.
+    final hasPreview = state.beatPreviews[currentIndex] != null;
 
     return Column(
       children: [
@@ -636,7 +684,9 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
               final preview = state.beatPreviews[index];
               final hasCaption = (state.beatCaptions[index] ?? '').trim().isNotEmpty;
               return InkWell(
-                focusNode: FocusNode()..skipTraversal = true,
+                // One InkWell per beat is mounted at once, so a shared FocusNode
+                // can't be used; these decorative cells never need focus anyway.
+                canRequestFocus: false,
                 onTap: () {
                   cascadeNotifier.selectBeat(index);
                   // Push preview to main viewer if it exists
@@ -676,7 +726,7 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
           children: [
             Expanded(
               child: ElevatedButton(
-                focusNode: FocusNode()..skipTraversal = true,
+                focusNode: _generateFocusNode,
                 onPressed: genNotifier.state.isLoading
                     ? null
                     : () async {
@@ -715,7 +765,7 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
               Padding(
                 padding: const EdgeInsets.only(left: 8),
                 child: IconButton(
-                  focusNode: FocusNode()..skipTraversal = true,
+                  focusNode: _skipFocusNode,
                   icon: Icon(Icons.skip_next, color: t.textSecondary),
                   onPressed: () => cascadeNotifier.selectBeat(currentIndex + 1),
                   tooltip: l.cascadeSkipToNext,

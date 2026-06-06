@@ -263,7 +263,7 @@ class CascadeNotifier extends ChangeNotifier {
 
   void cloneBeat(int index) {
     if (_state.activeCascade == null || index < 0 || index >= _state.activeCascade!.beats.length) return;
-    
+
     final sourceBeat = _state.activeCascade!.beats[index];
     final clonedBeat = CascadeBeat(
       characterSlots: sourceBeat.characterSlots.map((s) => BeatCharacterSlot(
@@ -281,18 +281,24 @@ class CascadeNotifier extends ChangeNotifier {
       height: sourceBeat.height,
       activeStyleNames: List.of(sourceBeat.activeStyleNames),
     );
-    
+
     final updatedBeats = List<CascadeBeat>.from(_state.activeCascade!.beats)..insert(index + 1, clonedBeat);
+    // The cloned beat starts un-generated and un-captioned. Shift every cast-time
+    // map entry at or after the insertion point up by one so previews/captions
+    // stay glued to their beats.
+    final insertAt = index + 1;
     _state = _state.copyWith(
       activeCascade: _state.activeCascade!.copyWith(beats: updatedBeats),
-      selectedBeatIndex: index + 1,
+      selectedBeatIndex: insertAt,
+      beatPreviews: _shiftForInsert(_state.beatPreviews, insertAt),
+      beatCaptions: _shiftForInsert(_state.beatCaptions, insertAt),
     );
     notifyListeners();
   }
 
   void removeBeat(int index) {
     if (_state.activeCascade == null || _state.activeCascade!.beats.length <= 1) return;
-    
+
     final updatedBeats = List<CascadeBeat>.from(_state.activeCascade!.beats)..removeAt(index);
     int? newSelectedIndex = _state.selectedBeatIndex;
     if (newSelectedIndex != null) {
@@ -300,25 +306,92 @@ class CascadeNotifier extends ChangeNotifier {
         newSelectedIndex = updatedBeats.length - 1;
       }
     }
-    
+
+    // Drop the removed beat's preview/caption and shift everything after it down
+    // by one so the remaining beats keep their own cast-time state.
     _state = _state.copyWith(
       activeCascade: _state.activeCascade!.copyWith(beats: updatedBeats),
       selectedBeatIndex: newSelectedIndex,
+      beatPreviews: _shiftForRemoval(_state.beatPreviews, index),
+      beatCaptions: _shiftForRemoval(_state.beatCaptions, index),
     );
     notifyListeners();
   }
 
   void reorderBeats(int oldIndex, int newIndex) {
     if (_state.activeCascade == null) return;
-    
+
     final updatedBeats = List<CascadeBeat>.from(_state.activeCascade!.beats);
     if (newIndex > oldIndex) newIndex -= 1;
     final item = updatedBeats.removeAt(oldIndex);
     updatedBeats.insert(newIndex, item);
-    
+
+    // Apply the same removeAt/insert permutation to the cast-time maps so each
+    // beat's preview/caption travels with it.
     _state = _state.copyWith(
       activeCascade: _state.activeCascade!.copyWith(beats: updatedBeats),
       selectedBeatIndex: newIndex,
+      beatPreviews: _shiftForReorder(_state.beatPreviews, oldIndex, newIndex),
+      beatCaptions: _shiftForReorder(_state.beatCaptions, oldIndex, newIndex),
+    );
+    notifyListeners();
+  }
+
+  /// Re-key an index-keyed cast-time map after a beat at [removed] is deleted:
+  /// keys below [removed] stay put, the key at [removed] is dropped, keys above
+  /// shift down by one.
+  static Map<int, T> _shiftForRemoval<T>(Map<int, T> map, int removed) {
+    final out = <int, T>{};
+    map.forEach((k, v) {
+      if (k < removed) {
+        out[k] = v;
+      } else if (k > removed) {
+        out[k - 1] = v;
+      }
+    });
+    return out;
+  }
+
+  /// Re-key an index-keyed cast-time map after a new beat is inserted at
+  /// [insertAt]: keys below stay put, keys at or above shift up by one (leaving
+  /// [insertAt] empty for the new beat).
+  static Map<int, T> _shiftForInsert<T>(Map<int, T> map, int insertAt) {
+    final out = <int, T>{};
+    map.forEach((k, v) {
+      out[k >= insertAt ? k + 1 : k] = v;
+    });
+    return out;
+  }
+
+  /// Re-key an index-keyed cast-time map under the same removeAt(oldIndex) +
+  /// insert(newIndex) permutation applied to the beats list, so each beat's
+  /// preview/caption follows it to its new position.
+  static Map<int, T> _shiftForReorder<T>(Map<int, T> map, int oldIndex, int newIndex) {
+    final out = <int, T>{};
+    map.forEach((k, v) {
+      int nk;
+      if (k == oldIndex) {
+        nk = newIndex;
+      } else {
+        // First account for the removeAt(oldIndex)...
+        var shifted = k > oldIndex ? k - 1 : k;
+        // ...then the insert(newIndex).
+        if (shifted >= newIndex) shifted += 1;
+        nk = shifted;
+      }
+      out[nk] = v;
+    });
+    return out;
+  }
+
+  /// Copies [sceneTags] onto every beat in the active cascade. Powers the
+  /// "apply to all beats" action — the fixed-shot / changing-action workflow.
+  void applySceneToAllBeats(String sceneTags) {
+    if (_state.activeCascade == null) return;
+    final updatedBeats =
+        _state.activeCascade!.beats.map((b) => b.copyWith(sceneTags: sceneTags)).toList();
+    _state = _state.copyWith(
+      activeCascade: _state.activeCascade!.copyWith(beats: updatedBeats),
     );
     notifyListeners();
   }

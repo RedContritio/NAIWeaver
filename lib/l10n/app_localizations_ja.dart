@@ -1653,6 +1653,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get cascadeScenePrompt => 'シーン / アクション';
 
   @override
+  String get cascadeSceneSubLabel => '何が起きているか + 構図';
+
+  @override
   String get cascadeSceneHint =>
       '何が起きているか: 例 2girls, hugging, wide shot, from above';
 
@@ -1660,7 +1663,16 @@ class AppLocalizationsJa extends AppLocalizations {
   String get cascadeEnvironmentPrompt => '環境プロンプト';
 
   @override
+  String get cascadeEnvSubLabel => 'どこで起きているか';
+
+  @override
   String get cascadeEnvHint => '場所: 例 森、夜、屋内、シネマティックライティング';
+
+  @override
+  String get cascadeApplyToAll => 'すべてに適用';
+
+  @override
+  String get cascadeSceneApplied => 'シーンをすべてのビートに適用しました';
 
   @override
   String get cascadeCharacterSlots => 'キャラクタースロット';
@@ -1796,6 +1808,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get cascadeExportFailed => 'エクスポートに失敗しました';
+
+  @override
+  String get cascadeStripDownscaled => 'メモリ制限に合わせてストーリーボードを縮小しました';
 
   @override
   String cascadeRegenerateBeat(int n) {

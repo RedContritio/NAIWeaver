@@ -1686,6 +1686,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cascadeScenePrompt => 'SCENE / ACTION';
 
   @override
+  String get cascadeSceneSubLabel => 'what\'s happening + framing';
+
+  @override
   String get cascadeSceneHint =>
       'what\'s happening: e.g. 2girls, hugging, wide shot, from above';
 
@@ -1693,8 +1696,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cascadeEnvironmentPrompt => 'ENVIRONMENT PROMPT';
 
   @override
+  String get cascadeEnvSubLabel => 'where it takes place';
+
+  @override
   String get cascadeEnvHint =>
       'where: e.g. forest, night, indoors, cinematic lighting';
+
+  @override
+  String get cascadeApplyToAll => 'Apply to all';
+
+  @override
+  String get cascadeSceneApplied => 'SCENE APPLIED TO ALL BEATS';
 
   @override
   String get cascadeCharacterSlots => 'CHARACTER SLOTS';
@@ -1831,6 +1843,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cascadeExportFailed => 'Export failed';
+
+  @override
+  String get cascadeStripDownscaled => 'Storyboard shrunk to fit memory limits';
 
   @override
   String cascadeRegenerateBeat(int n) {

@@ -3154,6 +3154,12 @@ abstract class AppLocalizations {
   /// **'SCENE / ACTION'**
   String get cascadeScenePrompt;
 
+  /// No description provided for @cascadeSceneSubLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'what\'s happening + framing'**
+  String get cascadeSceneSubLabel;
+
   /// No description provided for @cascadeSceneHint.
   ///
   /// In en, this message translates to:
@@ -3166,11 +3172,29 @@ abstract class AppLocalizations {
   /// **'ENVIRONMENT PROMPT'**
   String get cascadeEnvironmentPrompt;
 
+  /// No description provided for @cascadeEnvSubLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'where it takes place'**
+  String get cascadeEnvSubLabel;
+
   /// No description provided for @cascadeEnvHint.
   ///
   /// In en, this message translates to:
   /// **'where: e.g. forest, night, indoors, cinematic lighting'**
   String get cascadeEnvHint;
+
+  /// No description provided for @cascadeApplyToAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply to all'**
+  String get cascadeApplyToAll;
+
+  /// No description provided for @cascadeSceneApplied.
+  ///
+  /// In en, this message translates to:
+  /// **'SCENE APPLIED TO ALL BEATS'**
+  String get cascadeSceneApplied;
 
   /// No description provided for @cascadeCharacterSlots.
   ///
@@ -3417,6 +3441,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Export failed'**
   String get cascadeExportFailed;
+
+  /// No description provided for @cascadeStripDownscaled.
+  ///
+  /// In en, this message translates to:
+  /// **'Storyboard shrunk to fit memory limits'**
+  String get cascadeStripDownscaled;
 
   /// No description provided for @cascadeRegenerateBeat.
   ///

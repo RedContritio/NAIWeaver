@@ -1647,6 +1647,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cascadeScenePrompt => '场景 / 动作';
 
   @override
+  String get cascadeSceneSubLabel => '发生什么 + 取景';
+
+  @override
   String get cascadeSceneHint =>
       '正在发生什么：如 2girls, hugging, wide shot, from above';
 
@@ -1654,7 +1657,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cascadeEnvironmentPrompt => '环境提示词';
 
   @override
+  String get cascadeEnvSubLabel => '发生的地点';
+
+  @override
   String get cascadeEnvHint => '地点：如 森林、夜晚、室内、电影光';
+
+  @override
+  String get cascadeApplyToAll => '应用到全部';
+
+  @override
+  String get cascadeSceneApplied => '场景已应用到所有节拍';
 
   @override
   String get cascadeCharacterSlots => '角色槽位';
@@ -1790,6 +1802,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get cascadeExportFailed => '导出失败';
+
+  @override
+  String get cascadeStripDownscaled => '故事板已缩小以适应内存限制';
 
   @override
   String cascadeRegenerateBeat(int n) {

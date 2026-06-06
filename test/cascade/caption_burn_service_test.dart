@@ -31,17 +31,19 @@ void main() {
         CaptionFrame(imageBytes: _solidPng(80, 40, 0, 255, 0)),
       ];
 
-      final out = await CaptionBurnService.buildStoryboardStrip(
+      final result = await CaptionBurnService.buildStoryboardStrip(
         frames,
         layout: StoryboardLayout.vertical,
         gap: 10,
       );
 
-      final strip = img.decodePng(out)!;
+      final strip = img.decodePng(result.bytes)!;
       // Width = narrowest frame (80). The taller frame is resized to width 80,
       // so its height scales 50 -> 40. Total height = 40 + 40 + gap(10) = 90.
       expect(strip.width, 80);
       expect(strip.height, 90);
+      // Well under the long-axis cap, so no downscaling.
+      expect(result.downscaled, isFalse);
     });
 
     test('horizontal strip sums widths and matches the shortest height', () async {
@@ -50,17 +52,18 @@ void main() {
         CaptionFrame(imageBytes: _solidPng(40, 80, 0, 0, 255)),
       ];
 
-      final out = await CaptionBurnService.buildStoryboardStrip(
+      final result = await CaptionBurnService.buildStoryboardStrip(
         frames,
         layout: StoryboardLayout.horizontal,
         gap: 10,
       );
 
-      final strip = img.decodePng(out)!;
+      final strip = img.decodePng(result.bytes)!;
       // Height = shortest frame (80). The taller frame is resized to height 80,
       // so its width scales 50 -> 40. Total width = 40 + 40 + gap(10) = 90.
       expect(strip.height, 80);
       expect(strip.width, 90);
+      expect(result.downscaled, isFalse);
     });
 
     test('throws when no frames are provided', () async {
@@ -68,6 +71,28 @@ void main() {
         () => CaptionBurnService.buildStoryboardStrip(const []),
         throwsArgumentError,
       );
+    });
+
+    test('downscales and flags when the strip would exceed the long-axis cap', () async {
+      // Many tall frames whose summed height blows past maxLongAxis (8000px),
+      // forcing a proportional downscale of the common width.
+      final frames = List.generate(
+        12,
+        (i) => CaptionFrame(imageBytes: _solidPng(832, 1216, i * 10, 0, 0)),
+      );
+
+      final result = await CaptionBurnService.buildStoryboardStrip(
+        frames,
+        layout: StoryboardLayout.vertical,
+        gap: 12,
+      );
+
+      final strip = img.decodePng(result.bytes)!;
+      expect(result.downscaled, isTrue);
+      // The long axis is held under the cap so the isolate encode stays bounded.
+      expect(strip.height, lessThanOrEqualTo(CaptionBurnService.maxLongAxis));
+      // Width is shrunk below the original 832 to make that fit.
+      expect(strip.width, lessThan(832));
     });
   });
 }

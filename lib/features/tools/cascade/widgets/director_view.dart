@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/l10n/l10n_extensions.dart';
 import '../../../../core/theme/theme_extensions.dart';
+import '../../../../core/utils/app_snackbar.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../../core/utils/tag_suggestion_helper.dart';
 import '../../../../core/widgets/tag_suggestion_overlay.dart';
@@ -176,15 +177,22 @@ class _DirectorViewState extends State<DirectorView> {
               // SCENE / ACTION (what's happening) → ENVIRONMENT (where).
               _buildBaseTagField(
                 header: l.cascadeScenePrompt,
+                subLabel: l.cascadeSceneSubLabel,
                 hint: l.cascadeSceneHint,
                 controller: _sceneController,
                 focusNode: _sceneFocusNode,
                 onChanged: (v) => notifier.updateActiveBeat(beat.copyWith(sceneTags: v)),
                 tagService: tagService,
+                // Apply this beat's scene/action to every beat — the core
+                // "fixed shot, changing action" workflow this feature enables.
+                trailing: state.activeCascade!.beats.length > 1
+                    ? _buildApplySceneButton(notifier, beat)
+                    : null,
               ),
               const SizedBox(height: 24),
               _buildBaseTagField(
                 header: l.cascadeEnvironmentPrompt,
+                subLabel: l.cascadeEnvSubLabel,
                 hint: l.cascadeEnvHint,
                 controller: _envController,
                 focusNode: _envFocusNode,
@@ -236,20 +244,41 @@ class _DirectorViewState extends State<DirectorView> {
 
   /// A labelled base-prompt tag field with Danbooru autocomplete. Shared by the
   /// SCENE / ACTION and ENVIRONMENT sections, which are visually identical and
-  /// both feed the NovelAI base prompt.
+  /// both feed the NovelAI base prompt. [subLabel] is a muted one-liner under the
+  /// header that stays visible after the field has content (the hint disappears),
+  /// disambiguating the two otherwise-identical cyan headers. [trailing] is an
+  /// optional action shown on the header row.
   Widget _buildBaseTagField({
     required String header,
     required String hint,
     required TextEditingController controller,
     required FocusNode focusNode,
     required ValueChanged<String> onChanged,
+    String? subLabel,
+    Widget? trailing,
     TagService? tagService,
   }) {
     final t = context.t;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildSectionHeader(header),
+        Row(
+          children: [
+            Expanded(child: _buildSectionHeader(header)),
+            if (trailing != null) ...[
+              const SizedBox(width: 8),
+              trailing,
+            ],
+          ],
+        ),
+        if (subLabel != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              subLabel,
+              style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(8), letterSpacing: 0.5),
+            ),
+          ),
         const SizedBox(height: 12),
         TextField(
           controller: controller,
@@ -285,6 +314,34 @@ class _DirectorViewState extends State<DirectorView> {
             ),
           ),
       ],
+    );
+  }
+
+  /// "Apply to all" action for the SCENE field: copies this beat's scene/action
+  /// tags onto every beat in the cascade (fixed shot, changing action).
+  Widget _buildApplySceneButton(CascadeNotifier notifier, CascadeBeat beat) {
+    final t = context.t;
+    final l = context.l;
+    return TextButton.icon(
+      onPressed: () {
+        notifier.applySceneToAllBeats(beat.sceneTags);
+        showAppSnackBar(context, l.cascadeSceneApplied, color: t.accentCascade);
+      },
+      icon: Icon(Icons.copy_all, size: 14, color: t.accentCascade),
+      label: Text(
+        l.cascadeApplyToAll.toUpperCase(),
+        style: TextStyle(
+          color: t.accentCascade,
+          fontSize: t.fontSize(8),
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1,
+        ),
+      ),
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
     );
   }
 
