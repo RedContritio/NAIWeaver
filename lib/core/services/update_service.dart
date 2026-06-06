@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 /// A single downloadable asset attached to a GitHub release.
 class UpdateAsset {
@@ -7,11 +8,17 @@ class UpdateAsset {
   final int size;
   final String contentType;
 
+  /// Lower-case hex SHA-256 of the asset, or null if the release didn't publish
+  /// one. GitHub's release-asset API exposes this as `digest: "sha256:<hex>"`;
+  /// we parse out the hex. The downloader verifies it when present.
+  final String? sha256;
+
   const UpdateAsset({
     required this.name,
     required this.downloadUrl,
     required this.size,
     required this.contentType,
+    this.sha256,
   });
 }
 
@@ -88,14 +95,50 @@ class UpdateService {
       final name = entry['name'] as String?;
       final url = entry['browser_download_url'] as String?;
       if (name == null || url == null) continue;
+      // Defense-in-depth: only accept download URLs served by GitHub itself, so
+      // a tampered/unexpected response can't redirect the binary fetch to an
+      // arbitrary host. Release assets live on github.com / the release CDN.
+      if (!_isTrustedDownloadHost(url)) continue;
       result.add(UpdateAsset(
         name: name,
         downloadUrl: url,
         size: (entry['size'] as num?)?.toInt() ?? 0,
         contentType: entry['content_type'] as String? ?? '',
+        sha256: _parseSha256(entry['digest']),
       ));
     }
     return result;
+  }
+
+  /// Hosts GitHub serves release assets from. `browser_download_url` is normally
+  /// `github.com`; the API can also hand back `objects.githubusercontent.com`
+  /// (the asset CDN) on some paths. Anything else is rejected.
+  @visibleForTesting
+  static bool isTrustedDownloadHost(String url) => _isTrustedDownloadHost(url);
+
+  /// @nodoc — see [isTrustedDownloadHost].
+  @visibleForTesting
+  static String? parseSha256(dynamic raw) => _parseSha256(raw);
+
+  static bool _isTrustedDownloadHost(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null || uri.scheme != 'https') return false;
+    final host = uri.host.toLowerCase();
+    return host == 'github.com' ||
+        host.endsWith('.github.com') ||
+        host == 'objects.githubusercontent.com' ||
+        host.endsWith('.githubusercontent.com');
+  }
+
+  /// Pulls the lower-case hex SHA-256 out of GitHub's `digest` field
+  /// (`"sha256:<64 hex>"`), or null if absent/malformed.
+  static String? _parseSha256(dynamic raw) {
+    if (raw is! String) return null;
+    const prefix = 'sha256:';
+    if (!raw.startsWith(prefix)) return null;
+    final hex = raw.substring(prefix.length).toLowerCase();
+    if (hex.length != 64 || !RegExp(r'^[0-9a-f]{64}$').hasMatch(hex)) return null;
+    return hex;
   }
 
   /// Picks the release asset matching this platform + locale.

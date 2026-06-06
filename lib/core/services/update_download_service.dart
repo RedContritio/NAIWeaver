@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
@@ -53,7 +55,17 @@ class UpdateDownloadService {
     CancelToken? cancelToken,
   }) async {
     final dir = await _downloadDir();
-    final dest = File(p.join(dir.path, asset.name));
+    // Defense-in-depth: the asset name comes from the GitHub API response, so
+    // strip any directory components before using it as a local path. basename
+    // collapses `..\..\evil.apk` / `../foo` to the bare filename, guaranteeing
+    // the download can only ever land inside [dir]. Fall back to a fixed name if
+    // the server somehow sends a name that's all separators.
+    final safeName = p.basename(asset.name);
+    final fileName =
+        (safeName.isEmpty || safeName == '.' || safeName == '..')
+            ? 'naiweaver_update${platformAssetSuffix ?? ''}'
+            : safeName;
+    final dest = File(p.join(dir.path, fileName));
     // Clear any stale partial from a previous attempt.
     if (await dest.exists()) {
       try {
@@ -91,7 +103,38 @@ class UpdateDownloadService {
             'Downloaded size ($got) does not match expected (${asset.size}).');
       }
     }
+
+    // Integrity check: if the release published a SHA-256 (GitHub's asset
+    // `digest`), verify the downloaded bytes against it before the binary is
+    // ever handed to the installer / self-replace helper. This closes the gap
+    // where the size check alone (size is server-supplied too) provided no real
+    // authenticity. Releases without a digest fall back to the size check.
+    final expected = asset.sha256;
+    if (expected != null) {
+      final actual = await _sha256OfFile(dest);
+      if (actual != expected) {
+        await _safeDelete(dest);
+        throw UpdateDownloadException(
+            'Downloaded file failed integrity check (SHA-256 mismatch).');
+      }
+    }
     return dest;
+  }
+
+  /// Streams [file] through SHA-256 and returns the lower-case hex digest, so we
+  /// never hold the whole (large) binary in memory just to hash it.
+  static Future<String> _sha256OfFile(File file) async {
+    Digest? digest;
+    final hasher = sha256.startChunkedConversion(
+      ChunkedConversionSink<Digest>.withCallback((digests) {
+        digest = digests.single;
+      }),
+    );
+    await for (final chunk in file.openRead()) {
+      hasher.add(chunk);
+    }
+    hasher.close();
+    return digest!.toString();
   }
 
   /// Android: launch the system installer for [apk]. The OS shows the

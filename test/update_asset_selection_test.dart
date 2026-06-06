@@ -101,4 +101,45 @@ void main() {
       );
     });
   });
+
+  group('UpdateService.isTrustedDownloadHost', () {
+    test('accepts GitHub release + CDN hosts over https', () {
+      expect(UpdateService.isTrustedDownloadHost(
+          'https://github.com/ststoryweaver/NAIWeaver/releases/download/v1/NAIWeaver.apk'),
+          isTrue);
+      expect(UpdateService.isTrustedDownloadHost(
+          'https://objects.githubusercontent.com/abc/NAIWeaver.zip'),
+          isTrue);
+      expect(UpdateService.isTrustedDownloadHost(
+          'https://api.github.com/foo'),
+          isTrue);
+    });
+
+    test('rejects non-GitHub hosts, http, and lookalike domains', () {
+      // Off-domain host — the core anti-redirect protection.
+      expect(UpdateService.isTrustedDownloadHost('https://evil.com/NAIWeaver.apk'), isFalse);
+      // Plain http (no TLS).
+      expect(UpdateService.isTrustedDownloadHost('http://github.com/x.apk'), isFalse);
+      // Lookalike that merely contains the trusted host as a substring.
+      expect(UpdateService.isTrustedDownloadHost('https://github.com.evil.com/x.apk'), isFalse);
+      expect(UpdateService.isTrustedDownloadHost('https://notgithub.com/x.apk'), isFalse);
+      expect(UpdateService.isTrustedDownloadHost('not a url'), isFalse);
+    });
+  });
+
+  group('UpdateService.parseSha256', () {
+    test('extracts the lower-cased hex from a sha256: digest', () {
+      final hex = 'A' * 64;
+      expect(UpdateService.parseSha256('sha256:$hex'), 'a' * 64);
+    });
+
+    test('returns null for absent, wrong-algorithm, or malformed digests', () {
+      expect(UpdateService.parseSha256(null), isNull);
+      expect(UpdateService.parseSha256(123), isNull);
+      expect(UpdateService.parseSha256('sha1:${'a' * 40}'), isNull);
+      expect(UpdateService.parseSha256('sha256:tooshort'), isNull);
+      expect(UpdateService.parseSha256('sha256:${'g' * 64}'), isNull); // non-hex
+      expect(UpdateService.parseSha256('a' * 64), isNull); // no prefix
+    });
+  });
 }
