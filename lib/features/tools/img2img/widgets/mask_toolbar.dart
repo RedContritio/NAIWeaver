@@ -1,10 +1,14 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import '../../../../core/utils/file_picker_helper.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../../core/theme/theme_extensions.dart';
 import '../../../../core/theme/vision_tokens.dart';
+import '../../../../core/utils/app_snackbar.dart';
+import '../../../../core/utils/web_download.dart';
 import '../../../../core/widgets/vision_slider.dart';
 import '../providers/img2img_notifier.dart';
 import '../services/mask_encoder.dart';
@@ -257,7 +261,26 @@ class _MaskToolbarState extends State<MaskToolbar> {
       prebakedMaskBytes: session.prebakedMaskBytes,
     );
     if (maskBytes == null) return;
+    if (!context.mounted) return;
 
+    // Route through the platform's save/share path the same way every other
+    // export in the app does. FilePicker.saveFile silently returns null on
+    // Android and is unsupported on web, so without this branch the button
+    // no-ops on the most common platforms.
+    if (kIsWeb) {
+      downloadBytes(maskBytes, 'mask.png');
+      showAppSnackBar(context, 'Mask saved');
+      return;
+    }
+
+    if (Platform.isAndroid || Platform.isIOS) {
+      await Share.shareXFiles(
+        [XFile.fromData(maskBytes, mimeType: 'image/png', name: 'mask.png')],
+      );
+      return;
+    }
+
+    // Desktop: save-file dialog.
     final result = await FilePicker.platform.saveFile(
       dialogTitle: 'Save mask',
       fileName: 'mask.png',
@@ -267,6 +290,7 @@ class _MaskToolbarState extends State<MaskToolbar> {
     if (result == null) return;
 
     await File(result).writeAsBytes(maskBytes);
+    if (context.mounted) showAppSnackBar(context, 'Mask saved');
   }
 
   Future<void> _loadMask(BuildContext context, Img2ImgNotifier notifier) async {
