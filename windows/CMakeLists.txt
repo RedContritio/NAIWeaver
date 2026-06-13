@@ -32,6 +32,14 @@ set(CMAKE_CXX_FLAGS_PROFILE "${CMAKE_CXX_FLAGS_RELEASE}")
 # Use Unicode for all projects.
 add_definitions(-DUNICODE -D_UNICODE)
 
+# Silence the MSVC <experimental/coroutine> deprecation hard-error (STL1011).
+# VS 18 / MSVC 14.51 (now on the GitHub windows-latest runner) turns the use of
+# <experimental/coroutine> into a fatal C2338. Several Flutter plugins we depend
+# on (e.g. gal, local_auth_windows) still include that legacy header, so the
+# build fails before they can be patched upstream. Define this project-wide
+# (before plugins are added below) so it propagates to every plugin target.
+add_compile_definitions(_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
+
 # Compilation settings that should be applied to most targets.
 #
 # Be cautious about adding new options here, as plugins use this function by
