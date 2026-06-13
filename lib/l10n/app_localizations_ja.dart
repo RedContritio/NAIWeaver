@@ -1826,6 +1826,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get cascadeSkipToNext => '次へスキップ';
 
   @override
+  String get cascadeBeatRenderError =>
+      'このビートを作成できませんでした。キャラクターの外見が設定されているか確認してください。';
+
+  @override
   String get cascadeStartCasting => 'キャスト';
 
   @override

@@ -636,6 +636,7 @@
   "cascadeGenerateBeat": "生成镜头 {n}",
   "@cascadeGenerateBeat": { "placeholders": { "n": { "type": "int" } } },
   "cascadeSkipToNext": "跳到下一个",
+  "cascadeBeatRenderError": "无法构建此镜头。请检查是否已设置角色外观。",
   "cascadeStartCasting": "分配角色",
   "cascadeBackToLibrary": "库",
   "cascadeUnsavedTitle": "有未保存更改",

@@ -1861,6 +1861,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cascadeSkipToNext => 'Skip to next';
 
   @override
+  String get cascadeBeatRenderError =>
+      'Couldn\'t build this beat. Check character appearances are set.';
+
+  @override
   String get cascadeStartCasting => 'Cast';
 
   @override

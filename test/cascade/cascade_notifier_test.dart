@@ -100,4 +100,34 @@ void main() {
       }
     });
   });
+
+  group('CascadeNotifier.createNewCascade', () {
+    test('seeds one appearance slot per character so beats can render', () {
+      final n = CascadeNotifier();
+      n.createNewCascade('fresh', 2);
+
+      // Regression: createNewCascade used to leave characterAppearances empty,
+      // so CascadeStitchingService.render threw "Not enough character
+      // appearances" and beat generation silently no-op'd.
+      expect(n.state.characterAppearances.length, 2);
+      expect(n.state.characterAppearances, ['', '']);
+    });
+
+    test('clears cast-time state carried over from a previous cascade', () {
+      final n = CascadeNotifier();
+      n.setActiveCascade(_cascade(2));
+      n.updateAppearance(0, 'miku, blue hair');
+      n.updateGlobalInjection('masterpiece');
+      n.setBeatPreview(0, _preview(0));
+      n.setBeatCaption(0, 'old caption');
+
+      n.createNewCascade('brand new', 1);
+
+      expect(n.state.characterAppearances, ['']);
+      expect(n.state.globalInjection, '');
+      expect(n.state.globalSceneTags, '');
+      expect(n.state.beatPreviews, isEmpty);
+      expect(n.state.beatCaptions, isEmpty);
+    });
+  });
 }

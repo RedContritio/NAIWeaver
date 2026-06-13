@@ -209,7 +209,19 @@ class CascadeNotifier extends ChangeNotifier {
       ],
     );
     _savedSnapshot = null; // Never saved yet → always dirty
-    _state = _state.copyWith(activeCascade: newCascade, selectedBeatIndex: 0);
+    // Seed cast-time state the same way setActiveCascade does. Without this the
+    // appearance list stays empty (0) while each beat has 1+ character slots, so
+    // CascadeStitchingService.render throws "Not enough character appearances"
+    // and beat generation silently no-ops.
+    _state = _state.copyWith(
+      activeCascade: newCascade,
+      selectedBeatIndex: 0,
+      characterAppearances: List.generate(characterCount, (_) => ""),
+      globalSceneTags: "",
+      globalInjection: "",
+      beatPreviews: {},
+      beatCaptions: {},
+    );
     notifyListeners();
   }
 

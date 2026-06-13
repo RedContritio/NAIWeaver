@@ -3466,6 +3466,12 @@ abstract class AppLocalizations {
   /// **'Skip to next'**
   String get cascadeSkipToNext;
 
+  /// No description provided for @cascadeBeatRenderError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t build this beat. Check character appearances are set.'**
+  String get cascadeBeatRenderError;
+
   /// No description provided for @cascadeStartCasting.
   ///
   /// In en, this message translates to:

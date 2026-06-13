@@ -641,6 +641,7 @@
   "cascadeGenerateBeat": "GENERATE BEAT {n}",
   "@cascadeGenerateBeat": { "placeholders": { "n": { "type": "int" } } },
   "cascadeSkipToNext": "Skip to next",
+  "cascadeBeatRenderError": "Couldn't build this beat. Check character appearances are set.",
   "cascadeStartCasting": "Cast",
   "cascadeBackToLibrary": "Library",
   "cascadeUnsavedTitle": "Unsaved Changes",

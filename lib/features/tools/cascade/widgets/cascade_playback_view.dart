@@ -730,15 +730,27 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
                 onPressed: genNotifier.state.isLoading
                     ? null
                     : () async {
-                        final request = CascadeStitchingService.render(
-                          beat: currentBeat,
-                          appearances: state.characterAppearances,
-                          globalSceneTags: state.globalSceneTags,
-                          globalStyle: state.globalInjection,
-                          useCoords: state.activeCascade!.useCoords,
-                          activeStyleNames: currentBeat.activeStyleNames,
-                          availableStyles: genNotifier.state.styles,
-                        );
+                        // render() throws synchronously if cast-time state is
+                        // malformed (e.g. fewer appearances than character
+                        // slots). Catch it so the tap surfaces an error instead
+                        // of silently no-op'ing with no loading indicator.
+                        final CascadeStitchedRequest request;
+                        try {
+                          request = CascadeStitchingService.render(
+                            beat: currentBeat,
+                            appearances: state.characterAppearances,
+                            globalSceneTags: state.globalSceneTags,
+                            globalStyle: state.globalInjection,
+                            useCoords: state.activeCascade!.useCoords,
+                            activeStyleNames: currentBeat.activeStyleNames,
+                            availableStyles: genNotifier.state.styles,
+                          );
+                        } catch (e) {
+                          if (context.mounted) {
+                            showErrorSnackBar(context, l.cascadeBeatRenderError);
+                          }
+                          return;
+                        }
                         final result = await genNotifier.generateCascadeBeat(request);
                         if (result != null) {
                           cascadeNotifier.setBeatPreview(currentIndex, result);

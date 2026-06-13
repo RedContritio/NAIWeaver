@@ -1820,6 +1820,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cascadeSkipToNext => '跳到下一个';
 
   @override
+  String get cascadeBeatRenderError => '无法构建此镜头。请检查是否已设置角色外观。';
+
+  @override
   String get cascadeStartCasting => '分配角色';
 
   @override
