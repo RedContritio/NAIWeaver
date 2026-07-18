@@ -1167,8 +1167,9 @@ class _GalleryScreenState extends State<GalleryScreen> {
       itemBuilder: (context, index) => _buildGridItem(items, index, mobile),
     );
 
+    late final Widget content;
     if (mobile) {
-      return GestureDetector(
+      content = GestureDetector(
         onLongPressStart: (details) {
           final idx = _cellIndexFromOffset(details.localPosition, items.length);
           if (idx != null) {
@@ -1202,46 +1203,62 @@ class _GalleryScreenState extends State<GalleryScreen> {
         },
         child: grid,
       );
+    } else {
+      // Desktop: rectangle drag selection
+      content = GestureDetector(
+        onPanStart: _isSelectionMode
+            ? (details) {
+                setState(() {
+                  _isRectDragging = true;
+                  _dragStart = details.localPosition;
+                  _dragCurrent = details.localPosition;
+                });
+              }
+            : null,
+        onPanUpdate: _isSelectionMode
+            ? (details) {
+                if (!_isRectDragging) return;
+                setState(() {
+                  _dragCurrent = details.localPosition;
+                });
+                // Live selection feedback
+                final indices = _indicesInRect(_dragStart!, _dragCurrent!, items.length);
+                setState(() {
+                  _dragSelectedIndices
+                    ..clear()
+                    ..addAll(indices);
+                });
+              }
+            : null,
+        onPanEnd: _isSelectionMode
+            ? (_) {
+                setState(() {
+                  _selectedIndices.addAll(_dragSelectedIndices);
+                  _dragSelectedIndices.clear();
+                  _isRectDragging = false;
+                  _dragStart = null;
+                  _dragCurrent = null;
+                });
+              }
+            : null,
+        child: grid,
+      );
     }
 
-    // Desktop: rectangle drag selection
-    return GestureDetector(
-      onPanStart: _isSelectionMode
-          ? (details) {
-              setState(() {
-                _isRectDragging = true;
-                _dragStart = details.localPosition;
-                _dragCurrent = details.localPosition;
-              });
-            }
-          : null,
-      onPanUpdate: _isSelectionMode
-          ? (details) {
-              if (!_isRectDragging) return;
-              setState(() {
-                _dragCurrent = details.localPosition;
-              });
-              // Live selection feedback
-              final indices = _indicesInRect(_dragStart!, _dragCurrent!, items.length);
-              setState(() {
-                _dragSelectedIndices
-                  ..clear()
-                  ..addAll(indices);
-              });
-            }
-          : null,
-      onPanEnd: _isSelectionMode
-          ? (_) {
-              setState(() {
-                _selectedIndices.addAll(_dragSelectedIndices);
-                _dragSelectedIndices.clear();
-                _isRectDragging = false;
-                _dragStart = null;
-                _dragCurrent = null;
-              });
-            }
-          : null,
-      child: grid,
+    // Draggable scrollbar: at thousands of images, flinging is the only way
+    // to travel without one (issue #19). Persistent so the thumb is already
+    // there when the user reaches for it, and thick enough to grab on touch.
+    return RawScrollbar(
+      controller: _scrollController,
+      interactive: true,
+      thumbVisibility: true,
+      thickness: mobile ? 12 : 8,
+      radius: const Radius.circular(6),
+      minThumbLength: 48,
+      crossAxisMargin: 2,
+      mainAxisMargin: 4,
+      thumbColor: context.t.accent.withValues(alpha: 0.55),
+      child: content,
     );
   }
 
