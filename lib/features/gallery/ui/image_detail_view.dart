@@ -737,7 +737,17 @@ class _ImageDetailViewState extends State<ImageDetailView>
                         onInteractionStart: _onInteractionStart,
                         onInteractionEnd: (_) => _onInteractionEnd(zoomController),
                         child: Center(
-                          child: Image.file(pageItem.file, fit: BoxFit.contain),
+                          child: Image.file(
+                            pageItem.file,
+                            fit: BoxFit.contain,
+                            // Corrupted files must show a placeholder rather
+                            // than surface a decode error (issue #24).
+                            errorBuilder: (context, error, stackTrace) => Icon(
+                              Icons.broken_image_outlined,
+                              size: 64,
+                              color: context.t.textMinimal,
+                            ),
+                          ),
                         ),
                       ),
                     );

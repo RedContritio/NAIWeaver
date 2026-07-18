@@ -193,6 +193,9 @@ class GalleryNotifier extends ChangeNotifier {
           final ext = entity is File ? p.extension(entity.path).toLowerCase() : '';
           if (entity is File && (ext == '.png' || ext == '.webp')) {
             final stat = await entity.stat();
+            // An interrupted write can leave a 0-byte file behind; indexing
+            // it produces a tile that can never render (issue #24).
+            if (stat.size <= 0) continue;
             newItems.add(GalleryItem(
               file: entity,
               date: stat.modified,
@@ -219,6 +222,21 @@ class GalleryNotifier extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  /// Drops entries whose backing file no longer exists — e.g. deleted with a
+  /// file manager while the app was running (issue #24). Unlike [refresh],
+  /// this keeps existing items (and their indexed metadata) untouched, so
+  /// it's cheap enough to run every time the gallery opens.
+  Future<void> reconcileWithDisk() async {
+    if (kIsWeb) return;
+    final missing = <GalleryItem>{};
+    for (final item in List.of(_items)) {
+      if (!await item.file.exists()) missing.add(item);
+    }
+    if (missing.isEmpty) return;
+    _items = List.of(_items)..removeWhere(missing.contains);
+    notifyListeners();
   }
 
   Future<void> _indexMetadata() async {

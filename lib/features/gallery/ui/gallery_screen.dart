@@ -63,6 +63,15 @@ class _GalleryScreenState extends State<GalleryScreen> {
   int? _hoveredIndex;
 
   @override
+  void initState() {
+    super.initState();
+    // Drop entries whose files were deleted outside the app (issue #24).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<GalleryNotifier>().reconcileWithDisk();
+    });
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _crossAxisCount ??= context.read<PreferencesService>().galleryGridColumns ?? (isMobile(context) ? 2 : 4);
@@ -1237,7 +1246,20 @@ class _GalleryScreenState extends State<GalleryScreen> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.file(item.file, fit: BoxFit.cover),
+          Image.file(
+            item.file,
+            fit: BoxFit.cover,
+            // Cap thumbnail decode size — grid tiles never need full
+            // resolution, and full-res decodes of large PNGs are what made
+            // scrolling big galleries heavy.
+            cacheWidth: 512,
+            // A corrupted file (failed generation, interrupted write) must
+            // degrade to a placeholder, not error the whole grid (issue #24).
+            errorBuilder: (context, error, stackTrace) => Center(
+              child: Icon(Icons.broken_image_outlined,
+                  size: 24, color: t.textMinimal),
+            ),
+          ),
           // Dim overlay when selected
           if (isSelected)
             Container(color: t.background.withValues(alpha: 0.3)),
