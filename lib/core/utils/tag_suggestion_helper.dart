@@ -47,7 +47,7 @@ class TagSuggestionHelper {
 
     // Strip strength prefix (e.g. "2::1gi" → lookupWord = "1gi", strength prefix = "2::")
     String lookupWord = currentWord;
-    final strengthMatch = RegExp(r'^\d+(?:\.\d+)?::(.*)').firstMatch(currentWord);
+    final strengthMatch = RegExp(r'^-?\d+(?:\.\d+)?::(.*)').firstMatch(currentWord);
     if (strengthMatch != null) lookupWord = strengthMatch.group(1)!;
 
     // Wildcard completion: triggered by `__`
@@ -182,7 +182,7 @@ class TagSuggestionHelper {
     final currentWord = currentSection.trimLeft();
     final currentWordLower = currentWord.toLowerCase();
     String strengthPrefix = '';
-    final strengthMatch = RegExp(r'^(\d+(?:\.\d+)?::)').firstMatch(currentWord);
+    final strengthMatch = RegExp(r'^(-?\d+(?:\.\d+)?::)').firstMatch(currentWord);
     if (strengthMatch != null) {
       strengthPrefix = strengthMatch.group(1)!;
     }

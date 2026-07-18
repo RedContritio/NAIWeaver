@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
@@ -6,7 +7,10 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/services/preferences_service.dart';
+import '../../../core/services/tag_service.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/utils/tag_suggestion_helper.dart';
+import '../../../core/widgets/tag_suggestion_overlay.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/theme/vision_tokens.dart';
@@ -229,6 +233,8 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
   final _negativePromptKey = GlobalKey();
   final _negativePromptFocus = FocusNode();
   bool _stylesExpanded = false;
+  List<DanbooruTag> _negativeSuggestions = [];
+  Timer? _negativeTagDebounce;
 
   @override
   void initState() {
@@ -240,7 +246,26 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
   void _onNegativeFocusChanged() {
     if (_negativePromptFocus.hasFocus) {
       Future.delayed(const Duration(milliseconds: 400), _scrollToNegativePrompt);
+    } else if (_negativeSuggestions.isNotEmpty) {
+      setState(() => _negativeSuggestions = []);
     }
+  }
+
+  void _onNegativePromptChanged() {
+    _negativeTagDebounce?.cancel();
+    _negativeTagDebounce = Timer(const Duration(milliseconds: 150), () {
+      if (!mounted) return;
+      if (context.read<GalleryNotifier>().demoMode) return;
+      final notifier = context.read<GenerationNotifier>();
+      final result = TagSuggestionHelper.getSuggestions(
+        text: notifier.negativePromptController.text,
+        selection: notifier.negativePromptController.selection,
+        tagService: notifier.tagService,
+        supportFavorites: true,
+        wildcardService: notifier.wildcardService,
+      );
+      setState(() => _negativeSuggestions = result.suggestions);
+    });
   }
 
   void _scrollToNegativePrompt() {
@@ -257,6 +282,7 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
 
   @override
   void dispose() {
+    _negativeTagDebounce?.cancel();
     _negativePromptFocus.removeListener(_onNegativeFocusChanged);
     _negativePromptFocus.dispose();
     super.dispose();
@@ -777,14 +803,24 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
             controller: notifier.negativePromptController,
             maxLines: 3,
             onTap: _scrollToNegativePrompt,
+            onChanged: (_) => _onNegativePromptChanged(),
             style: TextStyle(fontSize: t.fontSize(11), color: t.textSecondary, height: 1.4),
             decoration: InputDecoration(
-              fillColor: t.borderSubtle.withValues(alpha: 0.5),
+              fillColor: t.borderSubtle,
+              filled: true,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
               contentPadding: const EdgeInsets.all(16),
             ),
           ),
         ),
+        if (_negativeSuggestions.isNotEmpty)
+          TagSuggestionOverlay(
+            suggestions: _negativeSuggestions,
+            onTagSelected: (tag) {
+              TagSuggestionHelper.applyTag(notifier.negativePromptController, tag);
+              setState(() => _negativeSuggestions = []);
+            },
+          ),
       ],
     );
   }
