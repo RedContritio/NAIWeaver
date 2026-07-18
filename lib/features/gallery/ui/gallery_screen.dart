@@ -606,6 +606,9 @@ class _GalleryScreenState extends State<GalleryScreen> {
                 elevation: 4,
                 child: child,
               ),
+              // Haptic marks the moment move mode engages, so a long-press
+              // is distinguishable from a plain swipe (issue #20).
+              onReorderStart: (_) => HapticFeedback.mediumImpact(),
               onReorder: (oldIndex, newIndex) {
                 // Index 0 is "All" (not reorderable), albums start at index 1
                 if (oldIndex == 0 || newIndex == 0) return;
@@ -621,18 +624,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   onTap: () => gallery.setActiveAlbum(null),
                 ),
                 for (int i = 0; i < gallery.albums.length; i++)
-                  ReorderableDragStartListener(
-                    key: ValueKey(gallery.albums[i].id),
-                    index: i + 1,
-                    child: _AlbumChip(
-                      label: gallery.albums[i].name,
-                      count: gallery.albumItemCount(gallery.albums[i].id),
-                      isActive: gallery.activeAlbumId == gallery.albums[i].id,
-                      mobile: mobile,
-                      onTap: () => gallery.setActiveAlbum(gallery.albums[i].id),
-                      onLongPress: () => _showAlbumOptionsDialog(gallery, gallery.albums[i].id, gallery.albums[i].name),
-                    ),
-                  ),
+                  _buildAlbumChip(gallery, i, mobile),
               ],
             ),
           ),
@@ -680,6 +672,32 @@ class _GalleryScreenState extends State<GalleryScreen> {
         ],
       ),
     );
+  }
+
+  /// Album chip wired for issue #20's interaction model: tap selects, a tap
+  /// on the already-selected album opens rename/delete, and reordering only
+  /// starts from a long-press on touch layouts so a plain horizontal swipe
+  /// scrolls the strip. Desktop keeps the immediate mouse drag.
+  Widget _buildAlbumChip(GalleryNotifier gallery, int i, bool mobile) {
+    final album = gallery.albums[i];
+    final chip = _AlbumChip(
+      label: album.name,
+      count: gallery.albumItemCount(album.id),
+      isActive: gallery.activeAlbumId == album.id,
+      mobile: mobile,
+      onTap: () {
+        if (gallery.activeAlbumId == album.id) {
+          _showAlbumOptionsDialog(gallery, album.id, album.name);
+        } else {
+          gallery.setActiveAlbum(album.id);
+        }
+      },
+    );
+    return mobile
+        ? ReorderableDelayedDragStartListener(
+            key: ValueKey(album.id), index: i + 1, child: chip)
+        : ReorderableDragStartListener(
+            key: ValueKey(album.id), index: i + 1, child: chip);
   }
 
   void _showClipboardMenu(GalleryNotifier gallery) {
@@ -1637,7 +1655,6 @@ class _AlbumChip extends StatelessWidget {
   final bool isActive;
   final bool mobile;
   final VoidCallback onTap;
-  final VoidCallback? onLongPress;
 
   const _AlbumChip({
     super.key,
@@ -1646,7 +1663,6 @@ class _AlbumChip extends StatelessWidget {
     required this.isActive,
     required this.mobile,
     required this.onTap,
-    this.onLongPress,
   });
 
   @override
@@ -1654,24 +1670,21 @@ class _AlbumChip extends StatelessWidget {
     final t = context.t;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 3),
-      child: GestureDetector(
-        onLongPress: onLongPress,
-        child: ActionChip(
-          label: Text(
-            '$label ($count)',
-            style: TextStyle(
-              color: isActive ? t.background : t.textSecondary,
-              fontSize: t.fontSize(mobile ? 10 : 8),
-              letterSpacing: 1,
-              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-            ),
+      child: ActionChip(
+        label: Text(
+          '$label ($count)',
+          style: TextStyle(
+            color: isActive ? t.background : t.textSecondary,
+            fontSize: t.fontSize(mobile ? 10 : 8),
+            letterSpacing: 1,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
           ),
-          backgroundColor: isActive ? t.accent : t.borderSubtle,
-          side: BorderSide(color: isActive ? t.accent : t.borderMedium),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          padding: EdgeInsets.symmetric(horizontal: mobile ? 8 : 4),
-          onPressed: onTap,
         ),
+        backgroundColor: isActive ? t.accent : t.borderSubtle,
+        side: BorderSide(color: isActive ? t.accent : t.borderMedium),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        padding: EdgeInsets.symmetric(horizontal: mobile ? 8 : 4),
+        onPressed: onTap,
       ),
     );
   }
