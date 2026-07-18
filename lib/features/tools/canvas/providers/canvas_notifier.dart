@@ -8,6 +8,7 @@ import '../models/canvas_layer.dart';
 import '../models/canvas_selection.dart';
 import '../models/canvas_session.dart';
 import '../models/paint_stroke.dart';
+import '../services/canvas_flatten_service.dart';
 import '../widgets/canvas_color_picker.dart';
 
 /// Parameters for source image resize in isolate.
@@ -40,6 +41,27 @@ Uint8List _resizeSourceImage(_ResizeParams p) {
   img.compositeImage(newImage, decoded, dstX: p.anchorOffsetX, dstY: p.anchorOffsetY);
 
   return Uint8List.fromList(img.encodePng(newImage));
+}
+
+/// Parameters for sampling a pixel from PNG bytes in an isolate.
+class _SampleParams {
+  final Uint8List pngBytes;
+  final double nx;
+  final double ny;
+  _SampleParams({required this.pngBytes, required this.nx, required this.ny});
+}
+
+/// Decode PNG bytes and return the ARGB color at the normalized position.
+int? _samplePixelFromPng(_SampleParams p) {
+  final decoded = img.decodeImage(p.pngBytes);
+  if (decoded == null) return null;
+  final px = (p.nx * (decoded.width - 1)).round().clamp(0, decoded.width - 1);
+  final py = (p.ny * (decoded.height - 1)).round().clamp(0, decoded.height - 1);
+  final pixel = decoded.getPixel(px, py);
+  final r = pixel.r.toInt().clamp(0, 255);
+  final g = pixel.g.toInt().clamp(0, 255);
+  final b = pixel.b.toInt().clamp(0, 255);
+  return (0xFF << 24) | (r << 16) | (g << 8) | b;
 }
 
 /// Tool mode for the canvas editor.
@@ -140,6 +162,42 @@ class CanvasNotifier extends ChangeNotifier {
 
   // --- Eyedropper state ---
   CanvasTool? _previousToolBeforeEyedropper;
+  bool _isSamplingColor = false;
+
+  /// Samples the color under [normalized] from the *composited* canvas —
+  /// source image plus visible layers — so the eyedropper sees painted
+  /// strokes, not just the original pixels (#23). Text strokes are rendered
+  /// as UI overlays at flatten time and are not part of the CPU composite,
+  /// so they are not sampled.
+  Future<void> pickColorAtPoint(Offset normalized) async {
+    if (_session == null || _isSamplingColor) return;
+    _isSamplingColor = true;
+    try {
+      final visibleLayers =
+          _session!.layers.where((l) => l.visible).toList();
+      final Uint8List flattened;
+      if (visibleLayers.any((l) => l.strokes.isNotEmpty || l.isImageLayer)) {
+        flattened = await CanvasFlattenService.flatten(
+          sourceBytes: _session!.sourceImageBytes,
+          sourceWidth: _session!.sourceWidth,
+          sourceHeight: _session!.sourceHeight,
+          visibleLayers: visibleLayers,
+        );
+      } else {
+        flattened = _session!.sourceImageBytes;
+      }
+      final color = await compute(
+        _samplePixelFromPng,
+        _SampleParams(
+            pngBytes: flattened, nx: normalized.dx, ny: normalized.dy),
+      );
+      if (color != null) pickColorFromCanvas(color);
+    } catch (e) {
+      debugPrint('Eyedropper sampling failed: $e');
+    } finally {
+      _isSamplingColor = false;
+    }
+  }
 
   // --- Blur tool ---
   double _blurSigma = 5.0;

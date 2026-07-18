@@ -4,7 +4,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
 
 import '../../../../core/l10n/l10n_extensions.dart';
@@ -697,7 +696,8 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
         }
       case _SurfaceGesture.eyedropDrag:
         if (_lastNormalized != null) {
-          _samplePixel(_lastNormalized!, notifier);
+          // Async: flattens the visible layers and samples the composite.
+          notifier.pickColorAtPoint(_lastNormalized!);
         }
       case _SurfaceGesture.textTap:
         if (_gestureStartNormalized != null) {
@@ -752,28 +752,6 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
     return Offset(x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
   }
 
-  void _samplePixel(Offset normalized, CanvasNotifier notifier) {
-    final session = notifier.session;
-    if (session == null) return;
-
-    try {
-      final decoded = img.decodeImage(session.sourceImageBytes);
-      if (decoded == null) return;
-
-      final px = (normalized.dx * (decoded.width - 1)).round().clamp(0, decoded.width - 1);
-      final py = (normalized.dy * (decoded.height - 1)).round().clamp(0, decoded.height - 1);
-      final pixel = decoded.getPixel(px, py);
-
-      final r = pixel.r.toInt().clamp(0, 255);
-      final g = pixel.g.toInt().clamp(0, 255);
-      final b = pixel.b.toInt().clamp(0, 255);
-      final colorValue = (0xFF << 24) | (r << 16) | (g << 8) | b;
-
-      notifier.pickColorFromCanvas(colorValue);
-    } catch (_) {
-      // Silently fail if decoding fails
-    }
-  }
 }
 
 /// Paints smooth anti-aliased strokes per-layer with blend mode + opacity compositing.
