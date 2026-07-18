@@ -29,6 +29,7 @@ sealed class CanvasAction {
       'clearLayer' => ClearLayerAction._fromJson(json),
       'addImageLayer' => AddImageLayerAction._fromJson(json),
       'transformImageLayer' => TransformImageLayerAction._fromJson(json),
+      'translateLayer' => TranslateLayerAction._fromJson(json),
       'replaceImageBytes' => ReplaceImageBytesAction._fromJson(json),
       'resizeCanvas' => ResizeCanvasAction._fromJson(json),
       _ => throw ArgumentError('Unknown action type: ${json['type']}'),
@@ -484,6 +485,61 @@ class TransformImageLayerAction extends CanvasAction {
       layers[idx] = layers[idx].copyWith(
         imageX: oldX, imageY: oldY, imageScale: oldScale, imageRotation: oldRotation);
     }
+  }
+}
+
+/// Move a whole layer by a normalized offset (the Move tool): shifts every
+/// stroke point and, for image layers, the image position as well.
+class TranslateLayerAction extends CanvasAction {
+  final String layerId;
+  final double dx;
+  final double dy;
+  final bool moveImage;
+
+  const TranslateLayerAction({
+    required this.layerId,
+    required this.dx,
+    required this.dy,
+    this.moveImage = false,
+  });
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'type': 'translateLayer',
+        'layerId': layerId,
+        'dx': dx,
+        'dy': dy,
+        'moveImage': moveImage,
+      };
+
+  static TranslateLayerAction _fromJson(Map<String, dynamic> json) =>
+      TranslateLayerAction(
+        layerId: json['layerId'] as String,
+        dx: (json['dx'] as num).toDouble(),
+        dy: (json['dy'] as num).toDouble(),
+        moveImage: json['moveImage'] as bool? ?? false,
+      );
+
+  @override
+  void apply(List<CanvasLayer> layers, {required String activeLayerId}) {
+    _translate(layers, dx, dy);
+  }
+
+  @override
+  void revert(List<CanvasLayer> layers) {
+    _translate(layers, -dx, -dy);
+  }
+
+  void _translate(List<CanvasLayer> layers, double dx, double dy) {
+    final idx = layers.indexWhere((l) => l.id == layerId);
+    if (idx < 0) return;
+    final layer = layers[idx];
+    final delta = Offset(dx, dy);
+    layers[idx] = layer.copyWith(
+      strokes: layer.strokes.map((s) => s.translated(delta)).toList(),
+      imageX: moveImage ? layer.imageX + dx : layer.imageX,
+      imageY: moveImage ? layer.imageY + dy : layer.imageY,
+    );
   }
 }
 

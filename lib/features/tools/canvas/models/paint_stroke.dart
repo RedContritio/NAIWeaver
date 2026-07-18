@@ -38,6 +38,24 @@ class PaintStroke {
 
   Color get color => Color(colorValue);
 
+  /// A copy with every point shifted by [delta] (normalized units).
+  /// [cloneSourceOffset] is relative to the stroke and stays unchanged.
+  PaintStroke translated(Offset delta) => PaintStroke(
+        points: points.map((p) => p + delta).toList(),
+        radius: radius,
+        colorValue: colorValue,
+        opacity: opacity,
+        isErase: isErase,
+        strokeType: strokeType,
+        smooth: smooth,
+        text: text,
+        fontSize: fontSize,
+        fontFamily: fontFamily,
+        letterSpacing: letterSpacing,
+        blurSigma: blurSigma,
+        cloneSourceOffset: cloneSourceOffset,
+      );
+
   Map<String, dynamic> toJson() => {
         'points': points.map((p) => [p.dx, p.dy]).toList(),
         'radius': radius,

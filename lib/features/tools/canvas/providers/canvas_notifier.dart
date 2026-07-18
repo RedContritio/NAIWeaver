@@ -626,6 +626,58 @@ class CanvasNotifier extends ChangeNotifier {
     _transformStartRotation = null;
   }
 
+  // --- Layer move (Move tool) ---
+  Offset _layerMoveOffset = Offset.zero;
+  String? _movingLayerId;
+
+  /// Live, uncommitted offset of the layer being moved (normalized units).
+  /// The paint surface renders the layer shifted by this while the drag is in
+  /// progress; the offset is baked into the strokes on [endLayerMove].
+  Offset get layerMoveOffset => _layerMoveOffset;
+  String? get movingLayerId => _movingLayerId;
+
+  void beginLayerMove() {
+    if (_session?.activeLayer == null) return;
+    _movingLayerId = _session!.activeLayer!.id;
+    _layerMoveOffset = Offset.zero;
+  }
+
+  void updateLayerMove(Offset delta) {
+    if (_movingLayerId == null) return;
+    _layerMoveOffset += delta;
+    notifyListeners();
+  }
+
+  /// Commits the accumulated move as an undoable action.
+  void endLayerMove() {
+    final layerId = _movingLayerId;
+    final offset = _layerMoveOffset;
+    _movingLayerId = null;
+    _layerMoveOffset = Offset.zero;
+    if (_session == null || layerId == null) return;
+    final layer = _session!.layers.firstWhere((l) => l.id == layerId,
+        orElse: () => const CanvasLayer(id: '', name: ''));
+    final hasContent = layer.strokes.isNotEmpty || layer.isImageLayer;
+    if (layer.id.isEmpty || offset == Offset.zero || !hasContent) {
+      notifyListeners();
+      return;
+    }
+    _pushAction(TranslateLayerAction(
+      layerId: layerId,
+      dx: offset.dx,
+      dy: offset.dy,
+      moveImage: layer.isImageLayer,
+    ));
+  }
+
+  /// Discards an in-progress move without committing (e.g. pinch started).
+  void cancelLayerMove() {
+    if (_movingLayerId == null) return;
+    _movingLayerId = null;
+    _layerMoveOffset = Offset.zero;
+    notifyListeners();
+  }
+
   // --- Selection tool state ---
   CanvasSelection? _activeSelection;
   SelectionHandle? _dragHandle;

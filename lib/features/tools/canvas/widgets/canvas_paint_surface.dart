@@ -44,6 +44,7 @@ enum _SurfaceGesture {
   selectionCreate,
   selectionDrag,
   lassoCreate,
+  layerMove,
   fillTap,
   eyedropDrag,
   textTap,
@@ -369,6 +370,8 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
                                   imageRect: _imageRect,
                                   imageCache: _imageLayerCache,
                                   layerRasterCache: _layerRasterCache,
+                                  movingLayerId: notifier.movingLayerId,
+                                  layerMoveOffset: notifier.layerMoveOffset,
                                 ),
                               ),
                             ),
@@ -625,9 +628,9 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
         }
 
       case CanvasTool.transform:
-        // No drag behavior wired yet — but unlike before, selecting Move no
-        // longer falls through to painting freehand strokes.
-        _gesture = _SurfaceGesture.none;
+        _gesture = _SurfaceGesture.layerMove;
+        _lastMoveNormalized = normalized;
+        notifier.beginLayerMove();
     }
   }
 
@@ -655,6 +658,11 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
         notifier.addLassoPoint(normalized);
       case _SurfaceGesture.selectionDrag:
         notifier.updateSelectionDrag(normalized);
+      case _SurfaceGesture.layerMove:
+        if (_lastMoveNormalized != null) {
+          notifier.updateLayerMove(normalized - _lastMoveNormalized!);
+        }
+        _lastMoveNormalized = normalized;
       case _SurfaceGesture.none:
       case _SurfaceGesture.fillTap:
       case _SurfaceGesture.eyedropDrag:
@@ -680,6 +688,9 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
         notifier.endLassoSelection();
       case _SurfaceGesture.selectionDrag:
         notifier.endSelectionDrag();
+      case _SurfaceGesture.layerMove:
+        notifier.endLayerMove();
+        _lastMoveNormalized = null;
       case _SurfaceGesture.fillTap:
         if (_gestureStartNormalized != null) {
           notifier.applyFill(_gestureStartNormalized!);
@@ -720,11 +731,16 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
         notifier.cancelSelection();
       case _SurfaceGesture.selectionDrag:
         notifier.endSelectionDrag();
+      case _SurfaceGesture.layerMove:
+        notifier.cancelLayerMove();
+        _lastMoveNormalized = null;
       default:
         break;
     }
     _gesture = _SurfaceGesture.none;
   }
+
+  Offset? _lastMoveNormalized;
 
   /// Maps a point in the child's untransformed (scene) space to normalized
   /// image coordinates. Callers must first map viewport positions through
@@ -771,6 +787,11 @@ class _CanvasPaintOverlayPainter extends CustomPainter {
   final Map<String, ui.Image> imageCache;
   final Map<String, ui.Image> layerRasterCache;
 
+  /// Live Move-tool preview: the layer with [movingLayerId] is drawn shifted
+  /// by [layerMoveOffset] (normalized units) until the move is committed.
+  final String? movingLayerId;
+  final Offset layerMoveOffset;
+
   _CanvasPaintOverlayPainter({
     required this.layers,
     required this.activeLayerId,
@@ -779,6 +800,8 @@ class _CanvasPaintOverlayPainter extends CustomPainter {
     required this.imageRect,
     this.imageCache = const {},
     this.layerRasterCache = const {},
+    this.movingLayerId,
+    this.layerMoveOffset = Offset.zero,
   });
 
   @override
@@ -813,7 +836,20 @@ class _CanvasPaintOverlayPainter extends CustomPainter {
         ...layer.strokes,
         if (layer.id == activeLayerId && activeStroke != null) activeStroke!,
       ];
-      if (layerStrokes.isEmpty) continue;
+      if (layerStrokes.isEmpty && !layer.isImageLayer) continue;
+
+      // Live Move-tool preview: shift the whole layer while dragging. The
+      // moving layer is always the active layer, so it never comes from the
+      // raster cache above.
+      final isMoving =
+          layer.id == movingLayerId && layerMoveOffset != Offset.zero;
+      if (isMoving) {
+        canvas.save();
+        canvas.translate(
+          layerMoveOffset.dx * imageRect.width,
+          layerMoveOffset.dy * imageRect.height,
+        );
+      }
 
       // Save layer with blend mode and opacity
       canvas.saveLayer(
@@ -853,6 +889,7 @@ class _CanvasPaintOverlayPainter extends CustomPainter {
       }
 
       canvas.restore();
+      if (isMoving) canvas.restore();
     }
 
     // Draw pending text preview on top of all layers
@@ -1038,7 +1075,9 @@ class _CanvasPaintOverlayPainter extends CustomPainter {
       activeStroke != oldDelegate.activeStroke ||
       pendingTextStroke != oldDelegate.pendingTextStroke ||
       imageRect != oldDelegate.imageRect ||
-      imageCache != oldDelegate.imageCache;
+      imageCache != oldDelegate.imageCache ||
+      movingLayerId != oldDelegate.movingLayerId ||
+      layerMoveOffset != oldDelegate.layerMoveOffset;
 }
 
 /// Shows a circular brush outline following the mouse position.
@@ -1135,7 +1174,7 @@ class _CanvasCursorPainter extends CustomPainter {
     if (position == null) return;
 
     if (tool == CanvasTool.eyedropper || tool == CanvasTool.fill || tool == CanvasTool.text ||
-        tool == CanvasTool.select || tool == CanvasTool.lasso) {
+        tool == CanvasTool.select || tool == CanvasTool.lasso || tool == CanvasTool.transform) {
       // Eyedropper / Fill / Text: crosshair only (no circle outline)
       final crossPaint = Paint()
         ..color = Colors.white
