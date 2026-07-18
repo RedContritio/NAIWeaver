@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../../../core/utils/canvas_zoom_math.dart';
 import '../models/img2img_session.dart';
 import '../providers/img2img_notifier.dart';
 
@@ -19,6 +20,9 @@ class MaskCanvas extends StatefulWidget {
 class _MaskCanvasState extends State<MaskCanvas> {
   /// The actual rect where the image is rendered (after BoxFit.contain).
   Rect _imageRect = Rect.zero;
+
+  /// Viewport size of the canvas area, needed to clamp wheel zoom.
+  Size _viewportSize = Size.zero;
 
   // Zoom & pan
   final TransformationController _zoomController = TransformationController();
@@ -287,6 +291,7 @@ class _MaskCanvasState extends State<MaskCanvas> {
         final offsetX = (containerSize.width - renderWidth) / 2;
         final offsetY = (containerSize.height - renderHeight) / 2;
         _imageRect = Rect.fromLTWH(offsetX, offsetY, renderWidth, renderHeight);
+        _viewportSize = containerSize;
 
         // Manage committed-stroke raster cache
         final committedCacheKey = _buildCacheKey(
@@ -419,9 +424,15 @@ class _MaskCanvasState extends State<MaskCanvas> {
                     _onInteractionUpdate(details, notifier, isPanMode),
                 onInteractionEnd: (details) =>
                     _onInteractionEnd(details, notifier),
-                boundaryMargin: const EdgeInsets.all(double.infinity),
-                minScale: 0.25,
-                maxScale: 16.0,
+                boundaryMargin: EdgeInsets.zero,
+                minScale: kCanvasMinScale,
+                maxScale: kCanvasMaxScale,
+                // InteractiveViewer's own Listener sees the same wheel
+                // PointerSignalEvents as the handler above (both are in the
+                // hit path), so it would apply a second zoom per tick. An
+                // infinite scaleFactor turns its wheel response into a no-op
+                // while leaving pinch-zoom untouched.
+                scaleFactor: double.infinity,
                 child: IgnorePointer(
                   ignoring: true,
                   child: SizedBox(
@@ -503,17 +514,16 @@ class _MaskCanvasState extends State<MaskCanvas> {
       final delta = event.scrollDelta.dy > 0 ? -0.005 : 0.005;
       notifier.setBrushRadius(notifier.brushRadius + delta);
     } else {
-      // Plain scroll: zoom
-      final zoomFactor = event.scrollDelta.dy > 0 ? 0.9 : 1.1;
-      final focalPoint = event.localPosition;
-      final matrix = _zoomController.value.clone();
-      // ignore: deprecated_member_use
-      matrix.translate(focalPoint.dx, focalPoint.dy);
-      // ignore: deprecated_member_use
-      matrix.scale(zoomFactor, zoomFactor);
-      // ignore: deprecated_member_use
-      matrix.translate(-focalPoint.dx, -focalPoint.dy);
-      _zoomController.value = matrix;
+      // Plain scroll: cursor-anchored zoom, clamped to [fit, 16x] so
+      // zooming out converges on the centered fit view (#18). The old
+      // matrix math anchored in the child's coordinate space, so the
+      // anchor drifted once zoomed, and nothing bounded scale or pan.
+      _zoomController.value = wheelZoomMatrix(
+        current: _zoomController.value,
+        focalViewport: event.localPosition,
+        zoomIn: event.scrollDelta.dy < 0,
+        viewportSize: _viewportSize,
+      );
     }
   }
 
@@ -521,8 +531,18 @@ class _MaskCanvasState extends State<MaskCanvas> {
   // pinch-zoom or a pan-mode drag). Set in _onInteractionStart, cleared on end.
   bool _strokeActive = false;
 
+  // Wheel/trackpad signals make InteractiveViewer synthesize a
+  // start/update/end triple with pointerCount 0 — real gestures always report
+  // at least one pointer. Without this guard, every wheel tick over the canvas
+  // painted a dot at the cursor.
+  bool _ignoreSyntheticInteraction = false;
+
   void _onInteractionStart(
       ScaleStartDetails details, Img2ImgNotifier notifier, bool isPanMode) {
+    if (details.pointerCount == 0) {
+      _ignoreSyntheticInteraction = true;
+      return;
+    }
     // Two-plus fingers, or an explicit pan-mode drag: hand the gesture to the
     // viewer (zoom/pan). Don't start a brush stroke.
     if (isPanMode || details.pointerCount >= 2) {
@@ -540,6 +560,7 @@ class _MaskCanvasState extends State<MaskCanvas> {
 
   void _onInteractionUpdate(
       ScaleUpdateDetails details, Img2ImgNotifier notifier, bool isPanMode) {
+    if (_ignoreSyntheticInteraction) return;
     // A second finger landed mid-stroke → this became a pinch. Abandon the
     // partial one-finger stroke and let the viewer scale.
     if (details.pointerCount >= 2) {
@@ -558,6 +579,10 @@ class _MaskCanvasState extends State<MaskCanvas> {
   }
 
   void _onInteractionEnd(ScaleEndDetails details, Img2ImgNotifier notifier) {
+    if (_ignoreSyntheticInteraction) {
+      _ignoreSyntheticInteraction = false;
+      return;
+    }
     if (_strokeActive) {
       _strokeActive = false;
       notifier.endStroke();

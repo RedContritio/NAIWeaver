@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/l10n/l10n_extensions.dart';
 import '../../../../core/theme/theme_extensions.dart';
+import '../../../../core/utils/canvas_zoom_math.dart';
 import '../models/canvas_layer.dart';
 import '../models/canvas_selection.dart';
 import '../models/paint_stroke.dart';
@@ -44,6 +45,7 @@ class CanvasPaintSurface extends StatefulWidget {
 
 class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
   Rect _imageRect = Rect.zero;
+  Size _viewportSize = Size.zero;
   final TextEditingController _textController = TextEditingController();
   final FocusNode _textFocusNode = FocusNode();
 
@@ -216,6 +218,7 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
         final offsetX = (containerSize.width - renderWidth) / 2;
         final offsetY = (containerSize.height - renderHeight) / 2;
         _imageRect = Rect.fromLTWH(offsetX, offsetY, renderWidth, renderHeight);
+        _viewportSize = containerSize;
 
         // Ensure image layers are cached
         for (final layer in session.layers) {
@@ -309,9 +312,12 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
                     // there is no gesture-arena conflict with the brush.
                     panEnabled: isPanMode || _isPinching,
                     scaleEnabled: _isPinching, // mouse-wheel zoom still via _onPointerSignal
-                    boundaryMargin: const EdgeInsets.all(double.infinity),
-                    minScale: 0.25,
-                    maxScale: 16.0,
+                    boundaryMargin: EdgeInsets.zero,
+                    minScale: kCanvasMinScale,
+                    maxScale: kCanvasMaxScale,
+                    // Keep InteractiveViewer's own wheel handling inert; the
+                    // Listener above owns wheel zoom (see mask_canvas.dart).
+                    scaleFactor: double.infinity,
                     child: GestureDetector(
                       onTapUp: (isPanMode || _isPinching)
                           ? null
@@ -519,18 +525,16 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
       final delta = event.scrollDelta.dy > 0 ? -0.05 : 0.05;
       notifier.setBrushOpacity(notifier.brushOpacity + delta);
     } else {
-      // Plain scroll: zoom in/out centered on cursor
-      final zoomFactor = event.scrollDelta.dy > 0 ? 0.9 : 1.1;
-      final focalPoint = event.localPosition;
-      final matrix = _zoomController.value.clone();
-      // Translate to focal point, scale, translate back
-      // ignore: deprecated_member_use
-      matrix.translate(focalPoint.dx, focalPoint.dy);
-      // ignore: deprecated_member_use
-      matrix.scale(zoomFactor, zoomFactor);
-      // ignore: deprecated_member_use
-      matrix.translate(-focalPoint.dx, -focalPoint.dy);
-      _zoomController.value = matrix;
+      // Plain scroll: cursor-anchored zoom, clamped to [fit, 16x] so
+      // zooming out converges on the centered fit view (#18). The old
+      // matrix math anchored in the child's coordinate space, so the
+      // anchor drifted once zoomed, and nothing bounded scale or pan.
+      _zoomController.value = wheelZoomMatrix(
+        current: _zoomController.value,
+        focalViewport: event.localPosition,
+        zoomIn: event.scrollDelta.dy < 0,
+        viewportSize: _viewportSize,
+      );
     }
   }
 
