@@ -1710,7 +1710,8 @@ class _AppSettingsState extends State<AppSettings> {
     final l = context.l;
     return InkWell(
       onTap: () {
-        launchUrl(Uri.parse('https://github.com/ststoryweaver/NAIWeaver'));
+        launchUrl(Uri.parse('https://github.com/ststoryweaver/NAIWeaver'),
+            mode: LaunchMode.externalApplication);
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -1846,7 +1847,7 @@ class _AppSettingsState extends State<AppSettings> {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              launchUrl(Uri.parse(url));
+              launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
             },
             child: Text(
               'OPEN LINK',

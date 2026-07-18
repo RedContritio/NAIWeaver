@@ -60,7 +60,9 @@ Future<void> startUpdate(BuildContext context, UpdateCheckResult result) async {
   if (asset == null) {
     // Unsupported platform or no matching asset — open the release page.
     final url = result.releaseUrl;
-    if (url != null) await launchUrl(Uri.parse(url));
+    if (url != null) {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    }
     return;
   }
 
@@ -240,7 +242,9 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
           onPressed: () {
             Navigator.of(context).pop();
             final url = widget.result.releaseUrl;
-            if (url != null) launchUrl(Uri.parse(url));
+            if (url != null) {
+              launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+            }
           },
           child: Text(
             l.settingsUpdateOpenInBrowser.toUpperCase(),
