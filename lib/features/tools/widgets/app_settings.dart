@@ -660,7 +660,7 @@ class _AppSettingsState extends State<AppSettings> {
             controller: TextEditingController(text: value),
             style: TextStyle(fontSize: t.fontSize(11), color: t.textSecondary),
             decoration: InputDecoration(
-              fillColor: t.borderSubtle.withValues(alpha: 0.5),
+              fillColor: t.borderSubtle,
               filled: true,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -749,7 +749,7 @@ class _AppSettingsState extends State<AppSettings> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: t.borderSubtle.withValues(alpha: 0.5),
+                      color: t.borderSubtle,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
