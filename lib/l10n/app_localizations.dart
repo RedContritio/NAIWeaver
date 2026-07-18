@@ -4480,6 +4480,36 @@ abstract class AppLocalizations {
   /// **'Choose where generated images are saved'**
   String get settingsOutputFolderDesc;
 
+  /// No description provided for @settingsFilenamePattern.
+  ///
+  /// In en, this message translates to:
+  /// **'Filename Pattern'**
+  String get settingsFilenamePattern;
+
+  /// No description provided for @settingsFilenamePatternDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom name for saved images. Tokens: <prompt>, <seed>, <album:fallback>, <year>, <month>, <day>, <hours>, <minutes>, <seconds>, <date>, <time>, <digits:0000>. Leave empty for the NAI-style default.'**
+  String get settingsFilenamePatternDesc;
+
+  /// No description provided for @settingsSavePathPattern.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Subfolder Pattern'**
+  String get settingsSavePathPattern;
+
+  /// No description provided for @settingsSavePathPatternDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-create subfolders under the output folder, e.g. <year>/<month>/<day>. Same tokens. Leave empty for none.'**
+  String get settingsSavePathPatternDesc;
+
+  /// No description provided for @settingsPatternPreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview'**
+  String get settingsPatternPreview;
+
   /// No description provided for @settingsOutputFolderDefault.
   ///
   /// In en, this message translates to:

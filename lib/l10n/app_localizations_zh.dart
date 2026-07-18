@@ -2355,6 +2355,23 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsOutputFolderDesc => '选择生成图片的保存位置';
 
   @override
+  String get settingsFilenamePattern => '文件名模式';
+
+  @override
+  String get settingsFilenamePatternDesc =>
+      '保存图像的自定义名称。可用标记: <prompt>, <seed>, <album:fallback>, <year>, <month>, <day>, <hours>, <minutes>, <seconds>, <date>, <time>, <digits:0000>。留空使用 NAI 风格默认值。';
+
+  @override
+  String get settingsSavePathPattern => '保存子文件夹模式';
+
+  @override
+  String get settingsSavePathPatternDesc =>
+      '在输出文件夹下自动创建子文件夹，例如 <year>/<month>/<day>。使用相同标记。留空则不创建。';
+
+  @override
+  String get settingsPatternPreview => '预览';
+
+  @override
   String get settingsOutputFolderDefault => '默认（应用存储）';
 
   @override

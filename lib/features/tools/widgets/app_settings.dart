@@ -18,6 +18,8 @@ import '../../../core/theme/theme_extensions.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/theme/vision_tokens.dart';
 import '../../../core/utils/app_snackbar.dart';
+import '../../../core/utils/filename_pattern.dart';
+import '../../../core/utils/nai_filename.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/pin_lock_gate.dart';
 import '../../gallery/providers/gallery_notifier.dart';
@@ -34,6 +36,8 @@ class AppSettings extends StatefulWidget {
 
 class _AppSettingsState extends State<AppSettings> {
   late TextEditingController _apiKeyController;
+  late TextEditingController _filenamePatternController;
+  late TextEditingController _savePathPatternController;
   bool _isObscured = true;
   bool _isCheckingUpdate = false;
 
@@ -41,6 +45,11 @@ class _AppSettingsState extends State<AppSettings> {
   void initState() {
     super.initState();
     _apiKeyController = TextEditingController();
+    final prefs = context.read<PreferencesService>();
+    _filenamePatternController =
+        TextEditingController(text: prefs.filenamePattern);
+    _savePathPatternController =
+        TextEditingController(text: prefs.savePathPattern);
     _loadApiKey();
   }
 
@@ -55,6 +64,8 @@ class _AppSettingsState extends State<AppSettings> {
   @override
   void dispose() {
     _apiKeyController.dispose();
+    _filenamePatternController.dispose();
+    _savePathPatternController.dispose();
     super.dispose();
   }
 
@@ -81,6 +92,10 @@ class _AppSettingsState extends State<AppSettings> {
           if (isDesktopPlatform()) ...[
             const SizedBox(height: 12),
             _buildOutputFolderRow(t),
+          ],
+          if (!kIsWeb) ...[
+            const SizedBox(height: 12),
+            _buildFilenamePatternSection(t),
           ],
           const SizedBox(height: 12),
           _buildSmartStyleImportToggle(t),
@@ -329,6 +344,110 @@ class _AppSettingsState extends State<AppSettings> {
           inactiveTrackColor: t.borderSubtle,
         ),
       ],
+    );
+  }
+
+  /// Album name a fresh save would land in, for the pattern live preview.
+  String _previewAlbumName() {
+    final id = context.read<PreferencesService>().defaultSaveAlbumId;
+    if (id == null || id.isEmpty) return '';
+    for (final album in context.read<GalleryNotifier>().albums) {
+      if (album.id == id) return album.name;
+    }
+    return '';
+  }
+
+  /// Custom filename / save-path pattern fields with a live preview of the
+  /// resulting name (issue #27). Both empty by default = current behavior.
+  Widget _buildFilenamePatternSection(VisionTokens t) {
+    final prefs = context.read<PreferencesService>();
+    final l = context.l;
+    return StatefulBuilder(
+      builder: (context, setLocalState) {
+        // Sample values mirror the example from the issue thread.
+        final sample = FilenamePatternContext(
+          prompt: '1girl, black hair, smile',
+          seed: '12345678',
+          savedAt: DateTime.now(),
+          albumName: _previewAlbumName(),
+          sequence: 1234,
+        );
+        final fnPattern = _filenamePatternController.text;
+        var name =
+            fnPattern.isEmpty ? '' : expandFilenamePattern(fnPattern, sample);
+        if (name.isEmpty) name = naiFilenameBase(sample.prompt, sample.seed);
+        final sub =
+            expandSavePathPattern(_savePathPatternController.text, sample);
+        final preview = '${sub.isEmpty ? '' : '$sub/'}$name.png';
+
+        Widget field(TextEditingController controller, String hint,
+            Future<void> Function(String) save) {
+          return SizedBox(
+            height: 36,
+            child: TextField(
+              controller: controller,
+              style:
+                  TextStyle(fontSize: t.fontSize(11), color: t.textSecondary),
+              decoration: InputDecoration(
+                fillColor: t.borderSubtle,
+                filled: true,
+                hintText: hint,
+                hintStyle:
+                    TextStyle(fontSize: t.fontSize(11), color: t.textDisabled),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: BorderSide.none),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              onChanged: (value) {
+                save(value.trim());
+                setLocalState(() {}); // refresh the live preview
+              },
+              onTapOutside: (_) => FocusScope.of(context).unfocus(),
+            ),
+          );
+        }
+
+        Widget header(String label, String desc) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                        color: t.headerText,
+                        fontSize: t.fontSize(11),
+                        fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(desc,
+                    style: TextStyle(
+                        color: t.textTertiary, fontSize: t.fontSize(9))),
+                const SizedBox(height: 8),
+              ],
+            );
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            header(l.settingsFilenamePattern.toUpperCase(),
+                l.settingsFilenamePatternDesc),
+            field(_filenamePatternController, kDefaultFilenamePattern,
+                prefs.setFilenamePattern),
+            const SizedBox(height: 12),
+            header(l.settingsSavePathPattern.toUpperCase(),
+                l.settingsSavePathPatternDesc),
+            field(_savePathPatternController, '<year>/<month>/<day>',
+                prefs.setSavePathPattern),
+            const SizedBox(height: 8),
+            Text(
+              '${l.settingsPatternPreview.toUpperCase()}: $preview',
+              style: TextStyle(
+                  color: t.textSecondary,
+                  fontSize: t.fontSize(9),
+                  fontStyle: FontStyle.italic),
+            ),
+          ],
+        );
+      },
     );
   }
 

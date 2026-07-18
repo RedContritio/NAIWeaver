@@ -2363,6 +2363,23 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsOutputFolderDesc => '生成した画像の保存先を選択します';
 
   @override
+  String get settingsFilenamePattern => 'ファイル名パターン';
+
+  @override
+  String get settingsFilenamePatternDesc =>
+      '保存画像のカスタム名。トークン: <prompt>, <seed>, <album:fallback>, <year>, <month>, <day>, <hours>, <minutes>, <seconds>, <date>, <time>, <digits:0000>。空欄でNAI形式のデフォルト。';
+
+  @override
+  String get settingsSavePathPattern => '保存サブフォルダーパターン';
+
+  @override
+  String get settingsSavePathPatternDesc =>
+      '出力フォルダー内にサブフォルダーを自動作成（例: <year>/<month>/<day>）。同じトークンが使えます。空欄で無効。';
+
+  @override
+  String get settingsPatternPreview => 'プレビュー';
+
+  @override
   String get settingsOutputFolderDefault => 'デフォルト（アプリストレージ）';
 
   @override

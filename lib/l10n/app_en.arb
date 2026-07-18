@@ -834,6 +834,11 @@
 
   "settingsOutputFolder": "Output Folder",
   "settingsOutputFolderDesc": "Choose where generated images are saved",
+  "settingsFilenamePattern": "Filename Pattern",
+  "settingsFilenamePatternDesc": "Custom name for saved images. Tokens: <prompt>, <seed>, <album:fallback>, <year>, <month>, <day>, <hours>, <minutes>, <seconds>, <date>, <time>, <digits:0000>. Leave empty for the NAI-style default.",
+  "settingsSavePathPattern": "Save Subfolder Pattern",
+  "settingsSavePathPatternDesc": "Auto-create subfolders under the output folder, e.g. <year>/<month>/<day>. Same tokens. Leave empty for none.",
+  "settingsPatternPreview": "Preview",
   "settingsOutputFolderDefault": "Default (App Storage)",
   "settingsOutputFolderBrowse": "Browse",
   "settingsOutputFolderClear": "Clear",

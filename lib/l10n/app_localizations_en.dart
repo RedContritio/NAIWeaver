@@ -2408,6 +2408,23 @@ class AppLocalizationsEn extends AppLocalizations {
       'Choose where generated images are saved';
 
   @override
+  String get settingsFilenamePattern => 'Filename Pattern';
+
+  @override
+  String get settingsFilenamePatternDesc =>
+      'Custom name for saved images. Tokens: <prompt>, <seed>, <album:fallback>, <year>, <month>, <day>, <hours>, <minutes>, <seconds>, <date>, <time>, <digits:0000>. Leave empty for the NAI-style default.';
+
+  @override
+  String get settingsSavePathPattern => 'Save Subfolder Pattern';
+
+  @override
+  String get settingsSavePathPatternDesc =>
+      'Auto-create subfolders under the output folder, e.g. <year>/<month>/<day>. Same tokens. Leave empty for none.';
+
+  @override
+  String get settingsPatternPreview => 'Preview';
+
+  @override
   String get settingsOutputFolderDefault => 'Default (App Storage)';
 
   @override
