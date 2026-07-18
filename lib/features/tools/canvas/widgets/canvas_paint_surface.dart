@@ -35,6 +35,21 @@ TextStyle _buildFontStyle({
   }
 }
 
+/// What the current single-pointer interaction is doing, decided by the
+/// active tool when the pointer lands. Tap-style tools act on interaction
+/// end so a tap and a drag behave consistently on both mouse and touch.
+enum _SurfaceGesture {
+  none,
+  stroke,
+  selectionCreate,
+  selectionDrag,
+  lassoCreate,
+  fillTap,
+  eyedropDrag,
+  textTap,
+  cloneSourceTap,
+}
+
 /// The painting widget: source image + paint overlay (CustomPaint) + gesture handling + cursor preview + inline text editor.
 class CanvasPaintSurface extends StatefulWidget {
   const CanvasPaintSurface({super.key});
@@ -55,8 +70,14 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
   final FocusNode _textKeyboardFocusNode = FocusNode();
   bool _spaceHeld = false;
   bool _middleMouseHeld = false;
-  int _pointerCount = 0;
-  bool get _isPinching => _pointerCount >= 2;
+
+  // Gesture dispatch state (see _onInteractionStart)
+  _SurfaceGesture _gesture = _SurfaceGesture.none;
+  bool _ignoreSyntheticInteraction = false;
+  Offset? _gestureStartNormalized;
+  Offset? _lastNormalized;
+  final GlobalKey<_CanvasCursorPreviewState> _cursorPreviewKey =
+      GlobalKey<_CanvasCursorPreviewState>();
 
   // Image layer cache
   final Map<String, ui.Image> _imageLayerCache = {};
@@ -257,42 +278,19 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
           child: Stack(
             children: [
               Listener(
+                // Mouse-only input: middle-mouse pan latch and wheel zoom.
+                // Painting and pinch-zoom run through the InteractiveViewer's
+                // interaction callbacks below — the same design as
+                // mask_canvas.dart, where the rationale is documented.
                 onPointerDown: (event) {
-                  setState(() => _pointerCount++);
-                  // Second finger down → this is a pinch-zoom, not a paint
-                  // stroke. Discard any partial one-finger stroke so it isn't
-                  // committed to the layer, then bail before begin-stroke. The
-                  // middle-mouse check below is mouse-only and can't coincide
-                  // with a two-finger touch, so skipping it here is safe.
-                  if (_pointerCount >= 2) {
-                    notifier.cancelStroke();
-                    return;
-                  }
                   if (event.buttons & kMiddleMouseButton != 0) {
                     setState(() => _middleMouseHeld = true);
                   }
-                  // For draw-style tools, begin the stroke immediately on
-                  // pointer-down (no slop wait) so the brush registers from
-                  // the very first frame instead of after the pan threshold
-                  // is crossed — this is what makes touch input on Android
-                  // feel "delayed" otherwise.
-                  if (_isPanMode) return;
-                  if (event.kind != PointerDeviceKind.touch &&
-                      event.kind != PointerDeviceKind.stylus) {
-                    return;
-                  }
-                  if (!_isDrawTool(notifier.tool)) return;
-                  if (!_imageRect.contains(event.localPosition)) return;
-                  final normalized = _toNormalized(event.localPosition);
-                  if (normalized == null) return;
-                  notifier.beginStroke(normalized);
                 },
                 onPointerUp: (event) {
-                  setState(() => _pointerCount = (_pointerCount - 1).clamp(0, 1 << 30));
                   if (_middleMouseHeld) setState(() => _middleMouseHeld = false);
                 },
                 onPointerCancel: (event) {
-                  setState(() => _pointerCount = (_pointerCount - 1).clamp(0, 1 << 30));
                   if (_middleMouseHeld) setState(() => _middleMouseHeld = false);
                 },
                 onPointerSignal: (event) {
@@ -304,34 +302,41 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
                   cursor: isPanMode
                       ? SystemMouseCursors.grab
                       : SystemMouseCursors.none,
+                  // The brush preview lives inside the viewer's transformed,
+                  // IgnorePointer-wrapped child and can't track the mouse
+                  // itself; feed it hover positions in scene space from here.
+                  onHover: (event) => _cursorPreviewKey.currentState
+                      ?.updatePosition(
+                          _zoomController.toScene(event.localPosition)),
+                  onExit: (_) =>
+                      _cursorPreviewKey.currentState?.updatePosition(null),
                   child: InteractiveViewer(
                     transformationController: _zoomController,
-                    // Pan when explicitly in pan mode (space / middle-mouse).
-                    // Pinch (2+ fingers) drives both scale and pan so mobile
-                    // users can zoom; painting is suppressed while pinching, so
-                    // there is no gesture-arena conflict with the brush.
-                    panEnabled: isPanMode || _isPinching,
-                    scaleEnabled: _isPinching, // mouse-wheel zoom still via _onPointerSignal
+                    // A single pointer maps to a pan the viewer ignores unless
+                    // pan mode (space / middle-mouse) is active, but
+                    // onInteractionUpdate still delivers the focal point,
+                    // which is what the tools work with. Two pointers engage
+                    // the real pinch-zoom. Routing everything through the
+                    // viewer's own scale recognizer avoids the gesture-arena
+                    // fight that kept pinch-zoom from engaging on mobile and
+                    // fed untransformed coordinates to the first stroke point
+                    // when zoomed (#17).
+                    panEnabled: isPanMode,
+                    scaleEnabled: true,
+                    onInteractionStart: (details) =>
+                        _onInteractionStart(details, notifier),
+                    onInteractionUpdate: (details) =>
+                        _onInteractionUpdate(details, notifier),
+                    onInteractionEnd: (details) =>
+                        _onInteractionEnd(details, notifier),
                     boundaryMargin: EdgeInsets.zero,
                     minScale: kCanvasMinScale,
                     maxScale: kCanvasMaxScale,
                     // Keep InteractiveViewer's own wheel handling inert; the
                     // Listener above owns wheel zoom (see mask_canvas.dart).
                     scaleFactor: double.infinity,
-                    child: GestureDetector(
-                      onTapUp: (isPanMode || _isPinching)
-                          ? null
-                          : (details) => _onTapUp(details, notifier),
-                      onPanStart: (isPanMode || _isPinching)
-                          ? null
-                          : (details) => _onPanStart(details, notifier),
-                      onPanUpdate: (isPanMode || _isPinching)
-                          ? null
-                          : (details) => _onPanUpdate(details, notifier),
-                      onPanEnd: (isPanMode || _isPinching)
-                          ? null
-                          : (_) => _onPanEnd(notifier),
-                      onScaleStart: !isPanMode ? null : (_) {},
+                    child: IgnorePointer(
+                      ignoring: true,
                       child: SizedBox(
                         width: containerSize.width,
                         height: containerSize.height,
@@ -394,6 +399,7 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
                             // Cursor preview
                             Positioned.fill(
                               child: _CanvasCursorPreview(
+                                key: _cursorPreviewKey,
                                 brushRadius: notifier.brushRadius,
                                 tool: notifier.tool,
                                 brushColor: notifier.brushColorAsColor,
@@ -538,154 +544,195 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
     }
   }
 
-  void _onTapUp(TapUpDetails details, CanvasNotifier notifier) {
-    if (!_imageRect.contains(details.localPosition)) return;
-    final normalized = _toNormalized(details.localPosition);
-    if (normalized == null) return;
-
-    if (notifier.tool == CanvasTool.eyedropper) {
-      _samplePixel(normalized, notifier);
-    } else if (notifier.tool == CanvasTool.fill) {
-      notifier.applyFill(normalized);
-    } else if (notifier.tool == CanvasTool.cloneStamp) {
-      // Alt+tap or first tap sets clone source
-      final altHeld = HardwareKeyboard.instance.isAltPressed;
-      if (altHeld || notifier.cloneSourcePoint == null) {
-        notifier.setCloneSource(normalized);
-      }
-    } else if (notifier.tool == CanvasTool.text) {
-      if (notifier.hasPendingText) {
-        notifier.commitPendingText();
-        _textController.clear();
-      }
-      notifier.beginTextEditing(normalized);
-      _textController.clear();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _textFocusNode.requestFocus();
-      });
-    }
-  }
-
   bool get _isPanMode => _spaceHeld || _middleMouseHeld;
 
-  bool _isDrawTool(CanvasTool tool) {
-    switch (tool) {
+  void _onInteractionStart(ScaleStartDetails details, CanvasNotifier notifier) {
+    // Wheel/trackpad signals make InteractiveViewer synthesize a
+    // start/update/end triple with pointerCount 0 — real gestures always
+    // report at least one pointer (see mask_canvas.dart).
+    if (details.pointerCount == 0) {
+      _ignoreSyntheticInteraction = true;
+      return;
+    }
+    if (_isPanMode || details.pointerCount >= 2) {
+      _abortGesture(notifier);
+      return;
+    }
+
+    final scenePoint = _zoomController.toScene(details.localFocalPoint);
+    _cursorPreviewKey.currentState?.updatePosition(scenePoint);
+    if (!_imageRect.contains(scenePoint)) {
+      _gesture = _SurfaceGesture.none;
+      return;
+    }
+    final normalized = _toNormalized(scenePoint);
+    if (normalized == null) return;
+    _gestureStartNormalized = normalized;
+    _lastNormalized = normalized;
+
+    switch (notifier.tool) {
       case CanvasTool.paint:
       case CanvasTool.erase:
       case CanvasTool.line:
       case CanvasTool.rectangle:
       case CanvasTool.circle:
       case CanvasTool.blur:
+        _gesture = _SurfaceGesture.stroke;
+        notifier.beginStroke(normalized);
+
       case CanvasTool.cloneStamp:
-        return true;
-      default:
-        return false;
-    }
-  }
-
-  void _onPanStart(DragStartDetails details, CanvasNotifier notifier) {
-    if (!_imageRect.contains(details.localPosition)) return;
-    final normalized = _toNormalized(details.localPosition);
-    if (normalized == null) return;
-
-    if (notifier.tool == CanvasTool.eyedropper) {
-      _samplePixel(normalized, notifier);
-    } else if (notifier.tool == CanvasTool.fill) {
-      notifier.applyFill(normalized);
-    } else if (notifier.tool == CanvasTool.text) {
-      // If there's already a pending text, commit it first
-      if (notifier.hasPendingText) {
-        notifier.commitPendingText();
-        _textController.clear();
-      }
-      notifier.beginTextEditing(normalized);
-      _textController.clear();
-      // Re-focus the text field after a frame
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _textFocusNode.requestFocus();
-      });
-    } else if (notifier.tool == CanvasTool.select) {
-      if (notifier.hasSelection) {
-        // Hit test handles on existing selection
-        final handleRadius = 0.02;
-        final handle = notifier.activeSelection!.hitTestHandle(normalized, handleRadius);
-        if (handle != null) {
-          notifier.beginSelectionDrag(handle, normalized);
+        // Alt+press, or a press before any source is set, (re)targets the
+        // clone source; otherwise paint a clone stroke.
+        final altHeld = HardwareKeyboard.instance.isAltPressed;
+        if (altHeld || notifier.cloneSourcePoint == null) {
+          _gesture = _SurfaceGesture.cloneSourceTap;
         } else {
-          // Start new selection
-          notifier.beginSelection(normalized);
+          _gesture = _SurfaceGesture.stroke;
+          notifier.beginStroke(normalized);
         }
-      } else {
-        notifier.beginSelection(normalized);
-      }
-    } else if (notifier.tool == CanvasTool.lasso) {
-      if (notifier.hasSelection) {
-        final handleRadius = 0.02;
-        final handle = notifier.activeSelection!.hitTestHandle(normalized, handleRadius);
+
+      case CanvasTool.fill:
+        _gesture = _SurfaceGesture.fillTap;
+
+      case CanvasTool.eyedropper:
+        _gesture = _SurfaceGesture.eyedropDrag;
+
+      case CanvasTool.text:
+        _gesture = _SurfaceGesture.textTap;
+
+      case CanvasTool.select:
+        final handle = notifier.hasSelection
+            ? notifier.activeSelection!.hitTestHandle(normalized, 0.02)
+            : null;
         if (handle != null) {
           notifier.beginSelectionDrag(handle, normalized);
+          _gesture = _SurfaceGesture.selectionDrag;
+        } else {
+          notifier.beginSelection(normalized);
+          _gesture = _SurfaceGesture.selectionCreate;
+        }
+
+      case CanvasTool.lasso:
+        final handle = notifier.hasSelection
+            ? notifier.activeSelection!.hitTestHandle(normalized, 0.02)
+            : null;
+        if (handle != null) {
+          notifier.beginSelectionDrag(handle, normalized);
+          _gesture = _SurfaceGesture.selectionDrag;
         } else {
           notifier.beginLassoSelection(normalized);
+          _gesture = _SurfaceGesture.lassoCreate;
         }
-      } else {
-        notifier.beginLassoSelection(normalized);
-      }
-    } else {
-      // Draw tools: stroke may have already been started in onPointerDown
-      // (touch/stylus only). Re-begin here only if it hasn't, so mouse input
-      // on desktop still works (mouse skips onPointerDown stroke begin).
-      if (notifier.activeStroke == null) {
-        notifier.beginStroke(normalized);
-      }
+
+      case CanvasTool.transform:
+        // No drag behavior wired yet — but unlike before, selecting Move no
+        // longer falls through to painting freehand strokes.
+        _gesture = _SurfaceGesture.none;
     }
   }
 
-  void _onPanUpdate(DragUpdateDetails details, CanvasNotifier notifier) {
-    final normalized = _toNormalized(details.localPosition);
+  void _onInteractionUpdate(ScaleUpdateDetails details, CanvasNotifier notifier) {
+    if (_ignoreSyntheticInteraction) return;
+    // A second finger landed mid-gesture → this became a pinch. Abandon the
+    // partial gesture and let the viewer scale.
+    if (details.pointerCount >= 2) {
+      _abortGesture(notifier);
+      return;
+    }
+    final scenePoint = _zoomController.toScene(details.localFocalPoint);
+    _cursorPreviewKey.currentState?.updatePosition(scenePoint);
+    if (_gesture == _SurfaceGesture.none || _isPanMode) return;
+    final normalized = _toNormalized(scenePoint);
     if (normalized == null) return;
+    _lastNormalized = normalized;
 
-    if (notifier.tool == CanvasTool.select) {
-      if (notifier.activeSelection != null && notifier.activeSelection!.normalizedRect.width > 0.005) {
-        notifier.updateSelectionDrag(normalized);
-      } else {
+    switch (_gesture) {
+      case _SurfaceGesture.stroke:
+        notifier.addStrokePoint(normalized);
+      case _SurfaceGesture.selectionCreate:
         notifier.updateSelectionRect(normalized);
-      }
-    } else if (notifier.tool == CanvasTool.lasso) {
-      if (notifier.activeSelection?.clipPath != null &&
-          notifier.activeSelection!.normalizedRect.width > 0.005 &&
-          notifier.activeSelection!.clipPath!.length > 2) {
-        notifier.updateSelectionDrag(normalized);
-      } else {
+      case _SurfaceGesture.lassoCreate:
         notifier.addLassoPoint(normalized);
-      }
-    } else {
-      notifier.addStrokePoint(normalized);
+      case _SurfaceGesture.selectionDrag:
+        notifier.updateSelectionDrag(normalized);
+      case _SurfaceGesture.none:
+      case _SurfaceGesture.fillTap:
+      case _SurfaceGesture.eyedropDrag:
+      case _SurfaceGesture.textTap:
+      case _SurfaceGesture.cloneSourceTap:
+        break; // tap-style tools act on interaction end
     }
   }
 
-  void _onPanEnd(CanvasNotifier notifier) {
-    if (notifier.tool == CanvasTool.select) {
-      if (notifier.hasSelection) {
-        notifier.endSelectionDrag();
+  void _onInteractionEnd(ScaleEndDetails details, CanvasNotifier notifier) {
+    if (_ignoreSyntheticInteraction) {
+      _ignoreSyntheticInteraction = false;
+      return;
+    }
+    final gesture = _gesture;
+    _gesture = _SurfaceGesture.none;
+    switch (gesture) {
+      case _SurfaceGesture.stroke:
+        notifier.endStroke();
+      case _SurfaceGesture.selectionCreate:
         notifier.endSelectionRect();
-      }
-    } else if (notifier.tool == CanvasTool.lasso) {
-      if (notifier.hasSelection) {
-        notifier.endSelectionDrag();
+      case _SurfaceGesture.lassoCreate:
         notifier.endLassoSelection();
-      }
-    } else {
-      notifier.endStroke();
+      case _SurfaceGesture.selectionDrag:
+        notifier.endSelectionDrag();
+      case _SurfaceGesture.fillTap:
+        if (_gestureStartNormalized != null) {
+          notifier.applyFill(_gestureStartNormalized!);
+        }
+      case _SurfaceGesture.eyedropDrag:
+        if (_lastNormalized != null) {
+          _samplePixel(_lastNormalized!, notifier);
+        }
+      case _SurfaceGesture.textTap:
+        if (_gestureStartNormalized != null) {
+          if (notifier.hasPendingText) {
+            notifier.commitPendingText();
+            _textController.clear();
+          }
+          notifier.beginTextEditing(_gestureStartNormalized!);
+          _textController.clear();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _textFocusNode.requestFocus();
+          });
+        }
+      case _SurfaceGesture.cloneSourceTap:
+        if (_gestureStartNormalized != null) {
+          notifier.setCloneSource(_gestureStartNormalized!);
+        }
+      case _SurfaceGesture.none:
+        break;
     }
   }
 
-  Offset? _toNormalized(Offset localPosition) {
+  /// Discards the in-progress gesture without committing anything (used when
+  /// a second finger turns the gesture into a pinch, or pan mode is active).
+  void _abortGesture(CanvasNotifier notifier) {
+    switch (_gesture) {
+      case _SurfaceGesture.stroke:
+        notifier.cancelStroke();
+      case _SurfaceGesture.selectionCreate:
+      case _SurfaceGesture.lassoCreate:
+        notifier.cancelSelection();
+      case _SurfaceGesture.selectionDrag:
+        notifier.endSelectionDrag();
+      default:
+        break;
+    }
+    _gesture = _SurfaceGesture.none;
+  }
+
+  /// Maps a point in the child's untransformed (scene) space to normalized
+  /// image coordinates. Callers must first map viewport positions through
+  /// [_zoomController.toScene].
+  Offset? _toNormalized(Offset scenePoint) {
     if (_imageRect.width <= 0 || _imageRect.height <= 0) return null;
-    // localPosition from GestureDetector inside InteractiveViewer is already
-    // in the child's untransformed coordinate space (Flutter hit testing applies
-    // the inverse transform automatically), so no manual inversion is needed.
-    final x = (localPosition.dx - _imageRect.left) / _imageRect.width;
-    final y = (localPosition.dy - _imageRect.top) / _imageRect.height;
+    final x = (scenePoint.dx - _imageRect.left) / _imageRect.width;
+    final y = (scenePoint.dy - _imageRect.top) / _imageRect.height;
     return Offset(x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
   }
 
@@ -995,6 +1042,10 @@ class _CanvasPaintOverlayPainter extends CustomPainter {
 }
 
 /// Shows a circular brush outline following the mouse position.
+///
+/// Lives inside the viewer's transformed, IgnorePointer-wrapped child, so it
+/// cannot track the pointer itself; the surface feeds it positions in scene
+/// space via [updatePosition].
 class _CanvasCursorPreview extends StatefulWidget {
   final double brushRadius;
   final CanvasTool tool;
@@ -1003,6 +1054,7 @@ class _CanvasCursorPreview extends StatefulWidget {
   final TransformationController? zoomController;
 
   const _CanvasCursorPreview({
+    super.key,
     required this.brushRadius,
     required this.tool,
     required this.brushColor,
@@ -1016,6 +1068,12 @@ class _CanvasCursorPreview extends StatefulWidget {
 
 class _CanvasCursorPreviewState extends State<_CanvasCursorPreview> {
   Offset? _mousePosition;
+
+  /// Sets the preview position in scene coordinates, or null to hide it.
+  void updatePosition(Offset? scenePosition) {
+    if (!mounted) return;
+    setState(() => _mousePosition = scenePosition);
+  }
 
   @override
   void initState() {
@@ -1048,17 +1106,12 @@ class _CanvasCursorPreviewState extends State<_CanvasCursorPreview> {
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      hitTestBehavior: HitTestBehavior.translucent,
-      onHover: (event) => setState(() => _mousePosition = event.localPosition),
-      onExit: (_) => setState(() => _mousePosition = null),
-      child: CustomPaint(
-        painter: _CanvasCursorPainter(
-          position: _mousePosition,
-          radius: widget.brushRadius * widget.imageRect.width,
-          tool: widget.tool,
-          brushColor: widget.brushColor,
-        ),
+    return CustomPaint(
+      painter: _CanvasCursorPainter(
+        position: _mousePosition,
+        radius: widget.brushRadius * widget.imageRect.width,
+        tool: widget.tool,
+        brushColor: widget.brushColor,
       ),
     );
   }
