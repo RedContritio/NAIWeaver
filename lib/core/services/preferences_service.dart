@@ -42,6 +42,8 @@ class PreferencesService {
   static const String _keyExportFolderPath = 'export_folder_path';
   static const String _keyCanvasAutoSave = 'canvas_auto_save';
   static const String _keyCustomOutputDir = 'custom_output_dir';
+  static const String _keyFilenamePattern = 'filename_pattern';
+  static const String _keySavePathPattern = 'save_path_pattern';
   static const String _keyCustomResolutions = 'custom_resolutions';
   static const String _keyCharacterEditorMode = 'character_editor_mode';
   static const String _keyCharacterPresets = 'character_presets';
@@ -353,6 +355,30 @@ class PreferencesService {
     }
   }
 
+  // — Custom filename / save-path patterns (issue #27). Empty string means
+  // "use the built-in NAI-style name / no subfolders", so existing users see
+  // no change until they opt in.
+
+  String get filenamePattern => _prefs.getString(_keyFilenamePattern) ?? '';
+
+  Future<void> setFilenamePattern(String value) async {
+    if (value.isEmpty) {
+      await _prefs.remove(_keyFilenamePattern);
+    } else {
+      await _prefs.setString(_keyFilenamePattern, value);
+    }
+  }
+
+  String get savePathPattern => _prefs.getString(_keySavePathPattern) ?? '';
+
+  Future<void> setSavePathPattern(String value) async {
+    if (value.isEmpty) {
+      await _prefs.remove(_keySavePathPattern);
+    } else {
+      await _prefs.setString(_keySavePathPattern, value);
+    }
+  }
+
   // — Custom Resolutions —
 
   String get customResolutions => _prefs.getString(_keyCustomResolutions) ?? '';
@@ -521,6 +547,7 @@ class PreferencesService {
     _keyRememberSession, _keyLocale, _keyFurryMode, _keyUseCurated,
     _keyImg2ImgImportPrompt, _keyShowSeedControl, _keyShowAnlasTracker,
     _keyCanvasAutoSave, _keyCustomResolutions, _keyCharacterEditorMode,
+    _keyFilenamePattern, _keySavePathPattern,
     _keyShowTooltips, _keyHideTagValues, _keyHonorOutfitState,
     _keyUiStylesExpanded, _keyUiCharShowTitle, _keyUiCharShowUc,
     _keyUiCharShowPosition, _keyUiCharShowPresets,

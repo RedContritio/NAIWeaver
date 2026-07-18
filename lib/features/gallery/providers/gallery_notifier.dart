@@ -186,7 +186,11 @@ class GalleryNotifier extends ChangeNotifier {
     try {
       final dir = Directory(outputDir);
       if (await dir.exists()) {
-        final List<FileSystemEntity> entities = await dir.list().toList();
+        // Recursive: custom save-path patterns (issue #27) file images into
+        // auto-created subfolders like 2026/06/11, and those must survive an
+        // app restart in the gallery just like flat saves.
+        final List<FileSystemEntity> entities =
+            await dir.list(recursive: true, followLinks: false).toList();
         final List<GalleryItem> newItems = [];
 
         for (var entity in entities) {
