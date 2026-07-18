@@ -587,9 +587,11 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
     final altHeld = keyboard.isAltPressed;
 
     if (ctrlHeld) {
-      // Ctrl + scroll: adjust brush size
-      final delta = event.scrollDelta.dy > 0 ? -0.003 : 0.003;
-      notifier.setBrushRadius(notifier.brushRadius + delta);
+      // Ctrl + scroll: adjust brush size in pixel steps
+      final step = event.scrollDelta.dy > 0
+          ? -notifier.brushStepPx
+          : notifier.brushStepPx;
+      notifier.setBrushDiameterPx(notifier.brushDiameterPx + step);
     } else if (altHeld) {
       // Alt + scroll: adjust opacity
       final delta = event.scrollDelta.dy > 0 ? -0.05 : 0.05;

@@ -300,10 +300,35 @@ class CanvasNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
+  static const double _maxBrushRadiusFraction = 0.15;
+
+  /// Radius floor: half a source pixel, i.e. a 1px-diameter brush (#16 —
+  /// the old floor was 0.2% of image width, far too coarse for fine detail).
+  /// Falls back to the old floor when no session is open.
+  double get minBrushRadius =>
+      _session != null ? 0.5 / _session!.sourceWidth : 0.002;
+  double get maxBrushRadius => _maxBrushRadiusFraction;
+
   void setBrushRadius(double radius) {
-    _brushRadius = radius.clamp(0.002, 0.15);
+    _brushRadius = radius.clamp(minBrushRadius, _maxBrushRadiusFraction);
     notifyListeners();
   }
+
+  /// Brush size as a diameter in source-image pixels — the unit shown in the
+  /// UI, matching native NAI. Stored normalized so strokes stay resolution-
+  /// independent.
+  double get brushDiameterPx =>
+      _session == null ? 0 : _brushRadius * 2 * _session!.sourceWidth;
+
+  void setBrushDiameterPx(double px) {
+    if (_session == null) return;
+    setBrushRadius(px / (2 * _session!.sourceWidth));
+  }
+
+  /// A comfortable step for +/- controls: 10% of the current size, at least
+  /// one pixel.
+  double get brushStepPx =>
+      brushDiameterPx * 0.1 < 1 ? 1.0 : brushDiameterPx * 0.1;
 
   void setBrushOpacity(double opacity) {
     _brushOpacity = opacity.clamp(0.05, 1.0);

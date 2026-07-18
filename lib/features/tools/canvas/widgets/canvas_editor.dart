@@ -118,12 +118,14 @@ class _CanvasEditorState extends State<CanvasEditor> {
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
-      // Brush size
+      // Brush size (pixel steps)
       case LogicalKeyboardKey.bracketLeft:
-        notifier.setBrushRadius(notifier.brushRadius - 0.005);
+        notifier.setBrushDiameterPx(
+            notifier.brushDiameterPx - notifier.brushStepPx);
         return KeyEventResult.handled;
       case LogicalKeyboardKey.bracketRight:
-        notifier.setBrushRadius(notifier.brushRadius + 0.005);
+        notifier.setBrushDiameterPx(
+            notifier.brushDiameterPx + notifier.brushStepPx);
         return KeyEventResult.handled;
       default:
         return KeyEventResult.ignored;

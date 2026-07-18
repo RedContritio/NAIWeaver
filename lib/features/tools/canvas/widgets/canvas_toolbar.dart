@@ -44,17 +44,19 @@ class CanvasToolbar extends StatefulWidget {
 class _CanvasToolbarState extends State<CanvasToolbar> {
   bool _showColorPicker = false;
 
-  // Logarithmic size slider mapping
-  static const double _minRadius = 0.002;
-  static const double _maxRadius = 0.15;
-
-  double _radiusToSlider(double radius) {
-    final clamped = radius.clamp(_minRadius, _maxRadius);
-    return (log(clamped) - log(_minRadius)) / (log(_maxRadius) - log(_minRadius));
+  // Logarithmic size slider mapping over the notifier's radius range
+  // (1px-diameter floor up to 15% of image width).
+  double _radiusToSlider(CanvasNotifier notifier, double radius) {
+    final minR = notifier.minBrushRadius;
+    final maxR = notifier.maxBrushRadius;
+    final clamped = radius.clamp(minR, maxR);
+    return (log(clamped) - log(minR)) / (log(maxR) - log(minR));
   }
 
-  double _sliderToRadius(double t) {
-    return _minRadius * pow(_maxRadius / _minRadius, t);
+  double _sliderToRadius(CanvasNotifier notifier, double t) {
+    final minR = notifier.minBrushRadius;
+    final maxR = notifier.maxBrushRadius;
+    return minR * pow(maxR / minR, t);
   }
 
   // Numeric input controllers (desktop only)
@@ -93,7 +95,7 @@ class _CanvasToolbarState extends State<CanvasToolbar> {
 
     // Update controllers when not focused
     if (!_sizeFocus.hasFocus) {
-      _sizeController.text = (notifier.brushRadius * 100).toStringAsFixed(1);
+      _sizeController.text = notifier.brushDiameterPx.round().toString();
     }
     if (!_opacityFocus.hasFocus) {
       _opacityController.text = (notifier.brushOpacity * 100).round().toString();
@@ -348,8 +350,9 @@ class _CanvasToolbarState extends State<CanvasToolbar> {
               const SizedBox(width: 8),
               Expanded(
                 child: VisionSlider.subtle(
-                  value: _radiusToSlider(notifier.brushRadius),
-                  onChanged: (t) => notifier.setBrushRadius(_sliderToRadius(t)),
+                  value: _radiusToSlider(notifier, notifier.brushRadius),
+                  onChanged: (v) =>
+                      notifier.setBrushRadius(_sliderToRadius(notifier, v)),
                   t: t,
                 ),
               ),
@@ -364,7 +367,7 @@ class _CanvasToolbarState extends State<CanvasToolbar> {
                   decoration: InputDecoration(
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    suffixText: '%',
+                    suffixText: 'px',
                     suffixStyle: TextStyle(color: t.textTertiary, fontSize: t.fontSize(7)),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(3),
@@ -383,7 +386,7 @@ class _CanvasToolbarState extends State<CanvasToolbar> {
                   onSubmitted: (val) {
                     final parsed = double.tryParse(val);
                     if (parsed != null) {
-                      notifier.setBrushRadius(parsed / 100);
+                      notifier.setBrushDiameterPx(parsed);
                     }
                   },
                 ),
@@ -774,17 +777,18 @@ class _CanvasToolbarState extends State<CanvasToolbar> {
               const SizedBox(width: 4),
               Expanded(
                 child: VisionSlider.subtle(
-                  value: _radiusToSlider(notifier.brushRadius),
-                  onChanged: (t) => notifier.setBrushRadius(_sliderToRadius(t)),
+                  value: _radiusToSlider(notifier, notifier.brushRadius),
+                  onChanged: (v) =>
+                      notifier.setBrushRadius(_sliderToRadius(notifier, v)),
                   t: t,
                   thumbRadius: 5,
                   overlayRadius: 10,
                 ),
               ),
               SizedBox(
-                width: 32,
+                width: 40,
                 child: Text(
-                  '${(notifier.brushRadius * 100).toStringAsFixed(1)}%',
+                  '${notifier.brushDiameterPx.round()}px',
                   style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(7)),
                   textAlign: TextAlign.right,
                 ),
