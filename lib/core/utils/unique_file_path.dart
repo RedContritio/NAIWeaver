@@ -8,6 +8,28 @@ import 'package:path/path.dart' as p;
 /// Used so that generations with identical filename inputs (same prompt + seed
 /// but different character prompts, for example) don't silently overwrite each
 /// other. See issue #12.
+/// Next value for a `<digits>` sequence counter in [directoryPath]: one more
+/// than the number of images already there (issue #27). Counting — rather
+/// than parsing numbers back out of arbitrary user patterns — keeps this a
+/// single directory listing and resets naturally in each auto-created
+/// subfolder; [uniqueFilePath] still guards the final name if two saves race
+/// to the same number.
+Future<int> nextImageSequence(String directoryPath) async {
+  final dir = Directory(directoryPath);
+  if (!await dir.exists()) return 1;
+  var count = 0;
+  await for (final entity in dir.list(followLinks: false)) {
+    if (entity is! File) continue;
+    final name = p.basename(entity.path).toLowerCase();
+    if (name.contains('.canvas.')) continue; // canvas sidecar files
+    final ext = p.extension(name);
+    if (ext == '.png' || ext == '.webp' || ext == '.jpg' || ext == '.jpeg') {
+      count++;
+    }
+  }
+  return count + 1;
+}
+
 Future<String> uniqueFilePath(
   String directoryPath,
   String baseName,

@@ -24,15 +24,24 @@ final RegExp _trailingDotsSpaces = RegExp(r'[. ]+$');
 /// the output directory, ` s-<seed>`, and `_(n).png` suffixes are added.
 const int naiFilenamePromptMaxLength = 100;
 
+/// Makes [text] safe to use as (part of) a filename: trims it, replaces each
+/// Windows-illegal character with one `_`, optionally truncates to
+/// [maxLength], and strips trailing dots/spaces. Shared by the NAI-style
+/// default name below and the custom pattern expander (issue #27).
+String naiSanitizeForFilename(String text, {int? maxLength}) {
+  var sanitized = text.trim().replaceAll(_illegalChars, '_');
+  if (maxLength != null && sanitized.length > maxLength) {
+    sanitized = sanitized.substring(0, maxLength);
+  }
+  return sanitized.replaceAll(_trailingDotsSpaces, '');
+}
+
 /// Returns `<sanitized prompt> s-<seed>` for use as a filename base (no
 /// extension). Falls back to `s-<seed>` if the prompt sanitizes to nothing,
 /// or to the bare prompt if [seed] is empty.
 String naiFilenameBase(String prompt, String seed) {
-  var sanitized = prompt.trim().replaceAll(_illegalChars, '_');
-  if (sanitized.length > naiFilenamePromptMaxLength) {
-    sanitized = sanitized.substring(0, naiFilenamePromptMaxLength);
-  }
-  sanitized = sanitized.replaceAll(_trailingDotsSpaces, '');
+  final sanitized =
+      naiSanitizeForFilename(prompt, maxLength: naiFilenamePromptMaxLength);
   if (seed.isEmpty) return sanitized;
   if (sanitized.isEmpty) return 's-$seed';
   return '$sanitized s-$seed';

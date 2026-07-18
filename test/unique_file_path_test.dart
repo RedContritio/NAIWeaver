@@ -55,4 +55,31 @@ void main() {
     expect(second, isNot(equals(first)));
     expect(second, p.join(tmp.path, '${base}_(2).png'));
   });
+
+  group('nextImageSequence', () {
+    test('is 1 for a missing directory', () async {
+      expect(
+          await nextImageSequence(p.join(tmp.path, 'nope')), 1);
+    });
+
+    test('is 1 for an empty directory', () async {
+      expect(await nextImageSequence(tmp.path), 1);
+    });
+
+    test('counts existing images and adds one', () async {
+      await File(p.join(tmp.path, 'a.png')).writeAsBytes([0]);
+      await File(p.join(tmp.path, 'b.PNG')).writeAsBytes([0]);
+      await File(p.join(tmp.path, 'c.webp')).writeAsBytes([0]);
+      expect(await nextImageSequence(tmp.path), 4);
+    });
+
+    test('ignores canvas sidecars, non-images, and subfolders', () async {
+      await File(p.join(tmp.path, 'a.png')).writeAsBytes([0]);
+      await File(p.join(tmp.path, 'a.canvas.json')).writeAsString('{}');
+      await File(p.join(tmp.path, 'a.canvas.layer_1.png')).writeAsBytes([0]);
+      await File(p.join(tmp.path, 'notes.txt')).writeAsString('x');
+      await Directory(p.join(tmp.path, 'sub')).create();
+      expect(await nextImageSequence(tmp.path), 2);
+    });
+  });
 }
