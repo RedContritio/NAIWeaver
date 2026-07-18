@@ -6,6 +6,7 @@ import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../../core/theme/vision_tokens.dart';
 import '../../../core/widgets/confirm_dialog.dart';
+import '../../../core/widgets/syntax_highlight_controller.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/tag_suggestion_overlay.dart';
 import '../../../core/widgets/touch_scroll_wrap.dart';
@@ -319,8 +320,8 @@ class _CharacterCardState extends State<_CharacterCard> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.character.name);
-    _promptController = TextEditingController(text: widget.character.prompt);
-    _ucController = TextEditingController(text: widget.character.uc);
+    _promptController = SyntaxHighlightController(text: widget.character.prompt);
+    _ucController = SyntaxHighlightController(text: widget.character.uc);
 
     _nameController.addListener(_onTextChanged);
     _promptController.addListener(_onPromptChanged);

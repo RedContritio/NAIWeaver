@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/widgets/syntax_highlight_controller.dart';
 import '../../../core/widgets/tag_suggestion_overlay.dart';
 import '../../../core/widgets/touch_scroll_wrap.dart';
 import '../../../core/services/tag_service.dart';
@@ -46,8 +47,8 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.character.name);
-    _promptController = TextEditingController(text: widget.character.prompt);
-    _ucController = TextEditingController(text: widget.character.uc);
+    _promptController = SyntaxHighlightController(text: widget.character.prompt);
+    _ucController = SyntaxHighlightController(text: widget.character.uc);
     _promptFocusNode = FocusNode();
     _ucFocusNode = FocusNode();
     _coordinate = widget.character.center;
