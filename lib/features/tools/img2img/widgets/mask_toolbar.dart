@@ -161,9 +161,15 @@ class _MaskToolbarState extends State<MaskToolbar> {
                 decoration: BoxDecoration(
                   color: Color(color),
                   borderRadius: BorderRadius.circular(2),
+                  // Ring color contrasts with the swatch itself so selection
+                  // stays visible on the white (and black) swatches.
                   border: Border.all(
-                    color: isSelected ? t.textPrimary : t.borderSubtle,
-                    width: isSelected ? 2 : 0.5,
+                    color: isSelected
+                        ? (Color(color).computeLuminance() > 0.5
+                            ? Colors.black
+                            : Colors.white)
+                        : t.borderMedium,
+                    width: isSelected ? 2 : 1,
                   ),
                 ),
               ),

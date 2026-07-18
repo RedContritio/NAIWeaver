@@ -365,7 +365,7 @@ class _CanvasToolbarState extends State<CanvasToolbar> {
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                     suffixText: '%',
-                    suffixStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(7)),
+                    suffixStyle: TextStyle(color: t.textTertiary, fontSize: t.fontSize(7)),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(3),
                       borderSide: BorderSide(color: t.borderSubtle),
@@ -417,7 +417,7 @@ class _CanvasToolbarState extends State<CanvasToolbar> {
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                     suffixText: '%',
-                    suffixStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(7)),
+                    suffixStyle: TextStyle(color: t.textTertiary, fontSize: t.fontSize(7)),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(3),
                       borderSide: BorderSide(color: t.borderSubtle),

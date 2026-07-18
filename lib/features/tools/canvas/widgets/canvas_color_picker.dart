@@ -321,6 +321,18 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
     return _buildExpanded(t, currentColor);
   }
 
+  /// Swatch outline: the selection ring contrasts with the swatch itself so
+  /// it stays visible on white/black swatches; unselected swatches get a
+  /// faint outline that separates dark colors from the dark panel.
+  Border _swatchBorder(Color swatch, bool isSelected, VisionTokens t) {
+    return Border.all(
+      color: isSelected
+          ? (swatch.computeLuminance() > 0.5 ? Colors.black : Colors.white)
+          : t.borderMedium,
+      width: isSelected ? 2 : 1,
+    );
+  }
+
   Widget _buildCollapsed(VisionTokens t, Color currentColor) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -364,11 +376,10 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
                         decoration: BoxDecoration(
                           color: _quickPalette[i],
                           borderRadius: BorderRadius.circular(3),
-                          border: Border.all(
-                            color: _quickPalette[i].toARGB32() == currentColor.toARGB32()
-                                ? t.accent
-                                : t.borderSubtle,
-                            width: _quickPalette[i].toARGB32() == currentColor.toARGB32() ? 2 : 0.5,
+                          border: _swatchBorder(
+                            _quickPalette[i],
+                            _quickPalette[i].toARGB32() == currentColor.toARGB32(),
+                            t,
                           ),
                         ),
                       ),
@@ -540,10 +551,7 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
                       decoration: BoxDecoration(
                         color: c,
                         borderRadius: BorderRadius.circular(3),
-                        border: Border.all(
-                          color: isSelected ? t.accent : t.borderSubtle,
-                          width: isSelected ? 2 : 0.5,
-                        ),
+                        border: _swatchBorder(c, isSelected, t),
                       ),
                     ),
                   ),
@@ -572,10 +580,7 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
                   decoration: BoxDecoration(
                     color: c,
                     borderRadius: BorderRadius.circular(3),
-                    border: Border.all(
-                      color: isSelected ? t.accent : t.borderSubtle,
-                      width: isSelected ? 2 : 0.5,
-                    ),
+                    border: _swatchBorder(c, isSelected, t),
                   ),
                 ),
               );
