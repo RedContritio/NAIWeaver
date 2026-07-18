@@ -182,7 +182,35 @@ void _renderStroke(
   }
 }
 
-/// Fill every pixel in the overlay with the stroke's color+opacity.
+/// Source-over blend of a single pixel onto the overlay.
+void _srcOverPixel(
+    img.Image overlay, int x, int y, int red, int green, int blue, int alpha) {
+  final existing = overlay.getPixel(x, y);
+  final ea = existing.a.toInt();
+  if (ea == 0) {
+    overlay.setPixelRgba(x, y, red, green, blue, alpha);
+    return;
+  }
+  final er = existing.r.toInt();
+  final eg = existing.g.toInt();
+  final eb = existing.b.toInt();
+  final srcA = alpha / 255.0;
+  final dstA = ea / 255.0;
+  final outA = srcA + dstA * (1 - srcA);
+  if (outA > 0) {
+    final outR =
+        ((red * srcA + er * dstA * (1 - srcA)) / outA).round().clamp(0, 255);
+    final outG =
+        ((green * srcA + eg * dstA * (1 - srcA)) / outA).round().clamp(0, 255);
+    final outB =
+        ((blue * srcA + eb * dstA * (1 - srcA)) / outA).round().clamp(0, 255);
+    overlay.setPixelRgba(
+        x, y, outR, outG, outB, (outA * 255).round().clamp(0, 255));
+  }
+}
+
+/// Render a fill stroke: the flood-fill region when the stroke carries one,
+/// otherwise the legacy whole-canvas fill (strokes from old sessions).
 void _renderFillStroke(
   img.Image overlay,
   PaintStroke stroke,
@@ -195,33 +223,36 @@ void _renderFillStroke(
   final blue = stroke.colorValue & 0xFF;
   final strokeAlpha = (a * stroke.opacity).round().clamp(0, 255);
 
+  if (stroke.fillRegionPng != null && !stroke.isErase) {
+    final region = img.decodePng(stroke.fillRegionPng!);
+    if (region == null) return;
+    // Offset by how far the anchor traveled from the original seed (layer
+    // moves shift points but not the baked region bitmap).
+    final seed = stroke.fillSeed ??
+        (stroke.points.isNotEmpty ? stroke.points.first : Offset.zero);
+    final anchor = stroke.points.isNotEmpty ? stroke.points.first : seed;
+    final offX = ((anchor.dx - seed.dx) * imgWidth).round();
+    final offY = ((anchor.dy - seed.dy) * imgHeight).round();
+
+    for (int y = 0; y < region.height; y++) {
+      final dy = y + offY;
+      if (dy < 0 || dy >= imgHeight) continue;
+      for (int x = 0; x < region.width; x++) {
+        if (region.getPixel(x, y).a.toInt() == 0) continue;
+        final dx = x + offX;
+        if (dx < 0 || dx >= imgWidth) continue;
+        _srcOverPixel(overlay, dx, dy, red, green, blue, strokeAlpha);
+      }
+    }
+    return;
+  }
+
   for (int y = 0; y < imgHeight; y++) {
     for (int x = 0; x < imgWidth; x++) {
       if (stroke.isErase) {
         overlay.setPixelRgba(x, y, 0, 0, 0, 0);
       } else {
-        final existing = overlay.getPixel(x, y);
-        final ea = existing.a.toInt();
-        if (ea == 0) {
-          overlay.setPixelRgba(x, y, red, green, blue, strokeAlpha);
-        } else {
-          final er = existing.r.toInt();
-          final eg = existing.g.toInt();
-          final eb = existing.b.toInt();
-          final srcA = strokeAlpha / 255.0;
-          final dstA = ea / 255.0;
-          final outA = srcA + dstA * (1 - srcA);
-          if (outA > 0) {
-            final outR = ((red * srcA + er * dstA * (1 - srcA)) / outA)
-                .round().clamp(0, 255);
-            final outG = ((green * srcA + eg * dstA * (1 - srcA)) / outA)
-                .round().clamp(0, 255);
-            final outB = ((blue * srcA + eb * dstA * (1 - srcA)) / outA)
-                .round().clamp(0, 255);
-            overlay.setPixelRgba(
-                x, y, outR, outG, outB, (outA * 255).round().clamp(0, 255));
-          }
-        }
+        _srcOverPixel(overlay, x, y, red, green, blue, strokeAlpha);
       }
     }
   }

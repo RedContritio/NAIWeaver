@@ -9,6 +9,7 @@ import '../models/canvas_selection.dart';
 import '../models/canvas_session.dart';
 import '../models/paint_stroke.dart';
 import '../services/canvas_flatten_service.dart';
+import '../services/flood_fill.dart';
 import '../widgets/canvas_color_picker.dart';
 
 /// Parameters for source image resize in isolate.
@@ -389,19 +390,64 @@ class CanvasNotifier extends ChangeNotifier {
     ));
   }
 
-  /// Apply a fill stroke that covers the entire canvas with the current color+opacity.
-  void applyFill(Offset normalizedPoint) {
-    if (_session == null) return;
+  // --- Fill tool ---
+  bool _isApplyingFill = false;
+  bool get isApplyingFill => _isApplyingFill;
+
+  /// Flood-fills the contiguous color region under [normalizedPoint] on the
+  /// composited canvas (source + visible layers) and commits it as a fill
+  /// stroke on the active layer (#23 — previously this always filled the
+  /// whole image). Fill strokes restored from old sessions carry no region
+  /// bitmap and keep the legacy whole-canvas behavior when rendered.
+  Future<void> applyFill(Offset normalizedPoint) async {
+    if (_session == null || _isApplyingFill) return;
     final activeLayer = _session!.activeLayer;
     if (activeLayer == null) return;
-    final stroke = PaintStroke(
-      points: [normalizedPoint],
-      radius: 0,
-      colorValue: _brushColor,
-      opacity: _brushOpacity,
-      strokeType: StrokeType.fill,
-    );
-    _pushAction(AddStrokeAction(layerId: activeLayer.id, stroke: stroke));
+    _isApplyingFill = true;
+    notifyListeners();
+    try {
+      final visibleLayers = _session!.layers.where((l) => l.visible).toList();
+      final Uint8List flattened;
+      if (visibleLayers.any((l) => l.strokes.isNotEmpty || l.isImageLayer)) {
+        flattened = await CanvasFlattenService.flatten(
+          sourceBytes: _session!.sourceImageBytes,
+          sourceWidth: _session!.sourceWidth,
+          sourceHeight: _session!.sourceHeight,
+          visibleLayers: visibleLayers,
+        );
+      } else {
+        flattened = _session!.sourceImageBytes;
+      }
+      final regionPng = await compute(
+        computeFillRegionPng,
+        FillRegionParams(
+          flattenedPng: flattened,
+          normalizedSeed: normalizedPoint,
+          colorValue: _brushColor,
+        ),
+      );
+      if (regionPng == null) return;
+      // The session may have changed while the fill was computing.
+      if (_session == null ||
+          !_session!.layers.any((l) => l.id == activeLayer.id)) {
+        return;
+      }
+      final stroke = PaintStroke(
+        points: [normalizedPoint],
+        radius: 0,
+        colorValue: _brushColor,
+        opacity: _brushOpacity,
+        strokeType: StrokeType.fill,
+        fillRegionPng: regionPng,
+        fillSeed: normalizedPoint,
+      );
+      _pushAction(AddStrokeAction(layerId: activeLayer.id, stroke: stroke));
+    } catch (e) {
+      debugPrint('Flood fill failed: $e');
+    } finally {
+      _isApplyingFill = false;
+      notifyListeners();
+    }
   }
 
   /// Add a text stroke at the given position.

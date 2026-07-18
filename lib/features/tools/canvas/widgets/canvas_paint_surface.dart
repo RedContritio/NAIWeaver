@@ -88,6 +88,48 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
   final Map<String, ui.Image> _layerRasterCache = {};
   final Map<String, String> _layerRasterKeys = {}; // layerId -> cache key
 
+  // Decoded flood-fill region bitmaps, keyed by stroke identity. The epoch
+  // bumps on every decode so the overlay painter knows to repaint.
+  final Map<int, ui.Image> _fillRegionCache = {};
+  final Set<int> _decodingFillRegions = {};
+  int _fillCacheEpoch = 0;
+
+  /// Decode region PNGs for fill strokes and prune entries whose strokes are
+  /// gone (undo, clear layer, layer delete).
+  void _ensureFillRegionsCached(List<CanvasLayer> layers) {
+    final liveKeys = <int>{};
+    for (final layer in layers) {
+      for (final stroke in layer.strokes) {
+        if (stroke.fillRegionPng == null) continue;
+        final key = identityHashCode(stroke);
+        liveKeys.add(key);
+        if (_fillRegionCache.containsKey(key) ||
+            _decodingFillRegions.contains(key)) {
+          continue;
+        }
+        _decodingFillRegions.add(key);
+        ui.decodeImageFromList(stroke.fillRegionPng!, (image) {
+          if (!mounted) {
+            image.dispose();
+            return;
+          }
+          setState(() {
+            _fillRegionCache[key] = image;
+            _decodingFillRegions.remove(key);
+            _fillCacheEpoch++;
+          });
+        });
+      }
+    }
+    _fillRegionCache.keys
+        .where((k) => !liveKeys.contains(k))
+        .toList()
+        .forEach((k) {
+      _fillRegionCache[k]?.dispose();
+      _fillRegionCache.remove(k);
+    });
+  }
+
   /// Build a cache key for a layer based on its mutable properties.
   String _layerCacheKey(CanvasLayer layer) =>
       '${layer.id}:${layer.strokes.length}:${layer.visible}:${layer.opacity}:${layer.blendMode}:${layer.imageScale}:${layer.imageX}:${layer.imageY}:${layer.imageRotation}';
@@ -212,6 +254,9 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
     for (final img in _layerRasterCache.values) {
       img.dispose();
     }
+    for (final img in _fillRegionCache.values) {
+      img.dispose();
+    }
     super.dispose();
   }
 
@@ -248,6 +293,9 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
 
         // Build/invalidate layer raster cache
         _updateLayerRasterCache(session.layers, session.activeLayerId);
+
+        // Decode flood-fill region bitmaps
+        _ensureFillRegionsCached(session.layers);
 
         // Build pending text stroke for live preview
         PaintStroke? pendingTextStroke;
@@ -371,6 +419,8 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
                                   layerRasterCache: _layerRasterCache,
                                   movingLayerId: notifier.movingLayerId,
                                   layerMoveOffset: notifier.layerMoveOffset,
+                                  fillRegionCache: _fillRegionCache,
+                                  fillCacheEpoch: _fillCacheEpoch,
                                 ),
                               ),
                             ),
@@ -421,6 +471,18 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
               // button taps are not stolen by the pan recognizer.
               if (notifier.hasPendingText)
                 _buildInlineTextEditor(notifier),
+
+              // Flood fill runs async (flatten + region computation)
+              if (notifier.isApplyingFill)
+                const Positioned(
+                  top: 12,
+                  right: 12,
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
             ],
           ),
         );
@@ -770,6 +832,12 @@ class _CanvasPaintOverlayPainter extends CustomPainter {
   final String? movingLayerId;
   final Offset layerMoveOffset;
 
+  /// Decoded flood-fill region bitmaps, keyed by identityHashCode(stroke).
+  /// [fillCacheEpoch] changes when the cache does — the maps themselves are
+  /// long-lived instances, so identity comparison can't detect updates.
+  final Map<int, ui.Image> fillRegionCache;
+  final int fillCacheEpoch;
+
   _CanvasPaintOverlayPainter({
     required this.layers,
     required this.activeLayerId,
@@ -780,6 +848,8 @@ class _CanvasPaintOverlayPainter extends CustomPainter {
     this.layerRasterCache = const {},
     this.movingLayerId,
     this.layerMoveOffset = Offset.zero,
+    this.fillRegionCache = const {},
+    this.fillCacheEpoch = 0,
   });
 
   @override
@@ -904,10 +974,38 @@ class _CanvasPaintOverlayPainter extends CustomPainter {
 
       switch (stroke.strokeType) {
         case StrokeType.fill:
-          final fillPaint = Paint()
-            ..color = strokeColor
-            ..style = PaintingStyle.fill;
-          canvas.drawRect(imageRect, fillPaint);
+          if (stroke.fillRegionPng != null) {
+            final region = fillRegionCache[identityHashCode(stroke)];
+            if (region != null) {
+              // If the layer was moved, the region renders offset by how far
+              // the anchor point traveled from the original seed.
+              final seed = stroke.fillSeed ?? stroke.points.first;
+              final shift = Offset(
+                (stroke.points.first.dx - seed.dx) * imageRect.width,
+                (stroke.points.first.dy - seed.dy) * imageRect.height,
+              );
+              canvas.drawImageRect(
+                region,
+                Rect.fromLTWH(0, 0, region.width.toDouble(),
+                    region.height.toDouble()),
+                imageRect.shift(shift),
+                Paint()
+                  ..color = Color.fromARGB(
+                      (stroke.opacity * 255).round().clamp(0, 255),
+                      255,
+                      255,
+                      255)
+                  ..filterQuality = FilterQuality.low,
+              );
+            }
+            // else: region still decoding; drawn on the next repaint.
+          } else {
+            // Legacy fill stroke from an old session: whole canvas.
+            final fillPaint = Paint()
+              ..color = strokeColor
+              ..style = PaintingStyle.fill;
+            canvas.drawRect(imageRect, fillPaint);
+          }
 
         case StrokeType.line:
           if (stroke.points.length >= 2) {
@@ -1055,7 +1153,8 @@ class _CanvasPaintOverlayPainter extends CustomPainter {
       imageRect != oldDelegate.imageRect ||
       imageCache != oldDelegate.imageCache ||
       movingLayerId != oldDelegate.movingLayerId ||
-      layerMoveOffset != oldDelegate.layerMoveOffset;
+      layerMoveOffset != oldDelegate.layerMoveOffset ||
+      fillCacheEpoch != oldDelegate.fillCacheEpoch;
 }
 
 /// Shows a circular brush outline following the mouse position.

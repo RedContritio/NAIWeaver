@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -81,6 +82,22 @@ void main() {
       expect(restored.dy, -0.25);
       expect(restored.moveImage, isTrue);
     });
+  });
+
+  test('PaintStroke JSON round-trips the fill region and seed', () {
+    final stroke = PaintStroke(
+      points: const [Offset(0.5, 0.25)],
+      radius: 0,
+      colorValue: 0xFFABCDEF,
+      strokeType: StrokeType.fill,
+      fillRegionPng: Uint8List.fromList([1, 2, 3, 4]),
+      fillSeed: const Offset(0.5, 0.25),
+    );
+    final restored = PaintStroke.fromJson(
+        jsonDecode(jsonEncode(stroke.toJson())) as Map<String, dynamic>);
+    expect(restored.fillRegionPng, [1, 2, 3, 4]);
+    expect(restored.fillSeed, const Offset(0.5, 0.25));
+    expect(restored.strokeType, StrokeType.fill);
   });
 
   test('PaintStroke.translated keeps the relative clone-source offset', () {
