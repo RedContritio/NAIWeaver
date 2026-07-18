@@ -507,8 +507,33 @@ Uint8List _decodeZip(List<int> data) {
   if (archive.isNotEmpty) {
     final file = archive.first;
     if (file.isFile) {
-      return file.content;
+      final Uint8List bytes = file.content;
+      // A failed generation (e.g. unsupported Vibe + Precise Reference
+      // combos) can come back as an empty or truncated entry. Saving those
+      // bytes puts a corrupt image in the gallery, so fail the generation
+      // here instead (issue #24).
+      if (!_looksLikeImage(bytes)) {
+        throw Exception(
+            'API returned invalid image data (${bytes.length} bytes).');
+      }
+      return bytes;
     }
   }
   throw Exception('No image file found in ZIP response.');
+}
+
+/// PNG signature or RIFF/WebP header — the formats NAI returns.
+bool _looksLikeImage(Uint8List b) {
+  if (b.length < 12) return false;
+  const png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+  var isPng = true;
+  for (var i = 0; i < png.length; i++) {
+    if (b[i] != png[i]) {
+      isPng = false;
+      break;
+    }
+  }
+  if (isPng) return true;
+  return b[0] == 0x52 && b[1] == 0x49 && b[2] == 0x46 && b[3] == 0x46 &&
+      b[8] == 0x57 && b[9] == 0x45 && b[10] == 0x42 && b[11] == 0x50;
 }
