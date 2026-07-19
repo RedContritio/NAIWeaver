@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../utils/resizable_lines.dart';
 import 'preferences/gallery_preferences.dart';
 import 'preferences/jukebox_preferences.dart';
 import 'preferences/ml_preferences.dart';
@@ -55,6 +56,7 @@ class PreferencesService {
   static const String _keyUiCharShowUc = 'ui_char_show_uc';
   static const String _keyUiCharShowPosition = 'ui_char_show_position';
   static const String _keyUiCharShowPresets = 'ui_char_show_presets';
+  static const String _keyUiCharPromptLines = 'ui_char_prompt_lines';
   static const String _keyRefLastStrength = 'ref_last_strength';
   static const String _keyRefLastFidelity = 'ref_last_fidelity';
   static const String _keySidebarLayoutMode = 'sidebar_layout_mode';
@@ -463,6 +465,17 @@ class PreferencesService {
 
   Future<void> setUiCharShowPresets(bool value) async {
     await _prefs.setBool(_keyUiCharShowPresets, value);
+  }
+
+  /// Visible-line cap of character prompt boxes; drag-resizable in the
+  /// character editors and persistent across sessions (issue #15).
+  int get uiCharPromptLines =>
+      (_prefs.getInt(_keyUiCharPromptLines) ?? kCharPromptDefaultLines)
+          .clamp(kCharPromptMinLines, kCharPromptMaxLines);
+
+  Future<void> setUiCharPromptLines(int value) async {
+    await _prefs.setInt(_keyUiCharPromptLines,
+        value.clamp(kCharPromptMinLines, kCharPromptMaxLines));
   }
 
   // — Reference defaults (last applied) —

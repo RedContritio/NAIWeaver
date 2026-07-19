@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/services/preferences_service.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/utils/resizable_lines.dart';
+import '../../../core/widgets/line_resize_handle.dart';
 import '../../../core/widgets/syntax_highlight_controller.dart';
 import '../../../core/widgets/tag_suggestion_overlay.dart';
 import '../../../core/widgets/touch_scroll_wrap.dart';
@@ -42,6 +45,7 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
   bool _deleted = false;
   TagService? _tagService;
   CharacterLibraryNotifier? _characterLibrary;
+  int _promptLines = kCharPromptDefaultLines;
 
   @override
   void initState() {
@@ -54,6 +58,8 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
     _coordinate = widget.character.center;
     _promptController.addListener(_updatePromptSuggestions);
     _ucController.addListener(_updateUcSuggestions);
+    _promptLines =
+        Provider.of<PreferencesService>(context, listen: false).uiCharPromptLines;
   }
 
   @override
@@ -241,9 +247,18 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
                 focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.textMinimal)),
                 contentPadding: const EdgeInsets.all(16),
               ),
-              maxLines: 3,
+              // Drag-resizable via the handle below; shares the persisted
+              // size with the inline character cards (issue #15).
+              maxLines: _promptLines,
               minLines: 1,
             ),
+          ),
+          LineResizeHandle(
+            lines: _promptLines,
+            lineHeightPx: t.fontSize(13) * 1.4,
+            onLines: (lines) => setState(() => _promptLines = lines),
+            onDone: (lines) =>
+                context.read<PreferencesService>().setUiCharPromptLines(lines),
           ),
           TagSuggestionOverlay(
             suggestions: _promptSuggestions,

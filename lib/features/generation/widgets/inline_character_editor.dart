@@ -8,6 +8,8 @@ import '../../../core/theme/vision_tokens.dart';
 import '../../../core/widgets/confirm_dialog.dart';
 import '../../../core/widgets/syntax_highlight_controller.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/utils/resizable_lines.dart';
+import '../../../core/widgets/line_resize_handle.dart';
 import '../../../core/widgets/tag_suggestion_overlay.dart';
 import '../../../core/widgets/touch_scroll_wrap.dart';
 import '../../../core/utils/tag_suggestion_helper.dart';
@@ -312,6 +314,7 @@ class _CharacterCardState extends State<_CharacterCard> {
   bool _showUc = false;
   bool _showPosition = false;
   bool _showPresets = false;
+  int _promptLines = kCharPromptDefaultLines;
 
   TagService? _tagService;
   CharacterLibraryNotifier? _characterLibrary;
@@ -333,6 +336,7 @@ class _CharacterCardState extends State<_CharacterCard> {
     _showUc = prefs.uiCharShowUc;
     _showPosition = prefs.uiCharShowPosition;
     _showPresets = prefs.uiCharShowPresets;
+    _promptLines = prefs.uiCharPromptLines;
   }
 
   @override
@@ -638,8 +642,10 @@ class _CharacterCardState extends State<_CharacterCard> {
                         TouchScrollWrap(
                           child: TextField(
                             controller: _promptController,
-                            maxLines: 3,
-                            minLines: 2,
+                            // Drag-resizable via the handle below, persisted
+                            // across sessions (issue #15).
+                            maxLines: _promptLines,
+                            minLines: _promptLines < 2 ? _promptLines : 2,
                             style: TextStyle(fontSize: t.fontSize(11), color: t.textSecondary, height: 1.4),
                             decoration: InputDecoration(
                               hintText: l.charEditorPromptHint.toUpperCase(),
@@ -651,6 +657,14 @@ class _CharacterCardState extends State<_CharacterCard> {
                               contentPadding: const EdgeInsets.all(12),
                             ),
                           ),
+                        ),
+                        LineResizeHandle(
+                          lines: _promptLines,
+                          lineHeightPx: t.fontSize(11) * 1.4,
+                          onLines: (lines) => setState(() => _promptLines = lines),
+                          onDone: (lines) => context
+                              .read<PreferencesService>()
+                              .setUiCharPromptLines(lines),
                         ),
                         if (_promptSuggestions.isNotEmpty)
                           TagSuggestionOverlay(
