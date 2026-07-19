@@ -2389,6 +2389,64 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsOutputFolderClear => 'クリア';
 
   @override
+  String get settingsUseSdCard => 'SDカードを使用';
+
+  @override
+  String get settingsSdDialogTitle => '出力先をSDカードへ移動';
+
+  @override
+  String get settingsSdUninstallWarning =>
+      'SDカード上の画像はアプリ専用フォルダ (Android/data) に保存されます。アプリをアンインストールすると、Androidは本体・SDカード双方のこのフォルダを削除します。大切な画像は先に別の場所へ書き出してください。';
+
+  @override
+  String settingsSdExistingInfo(int count, String size) {
+    return '$count個の既存ファイル($size)をSDカードへ移動できます。';
+  }
+
+  @override
+  String get settingsSdMoveButton => '既存ファイルを移動';
+
+  @override
+  String get settingsSdFreshButton => '移動せずに開始';
+
+  @override
+  String get settingsSdAlready => '出力フォルダはすでにSDカード上にあります';
+
+  @override
+  String settingsSdNotEnoughSpace(String needed, String available) {
+    return 'SDカードの空き容量が不足しています:必要 $needed、空き $available';
+  }
+
+  @override
+  String get settingsSdMoving => 'SDカードへ移動中… アプリを閉じないでください。';
+
+  @override
+  String settingsSdMoveDone(int count) {
+    return '$count個のファイルをSDカードへ移動しました';
+  }
+
+  @override
+  String settingsSdMoveFailed(int count) {
+    return '$count個のファイルを移動できませんでした — 「SDカードを使用」で再試行できます';
+  }
+
+  @override
+  String settingsSdMovePaused(int count) {
+    return '移動を中断しました — 残り$count個。「SDカードを使用」で再開できます。';
+  }
+
+  @override
+  String get settingsSdResumeTitle => 'SDカードへの移動を再開';
+
+  @override
+  String settingsSdResumeBody(int count) {
+    return '前回の移動で$count個のファイルが残っています。再開しますか?';
+  }
+
+  @override
+  String get settingsSdResume => '再開';
+
+  @override
   String get resCustomEntry => 'カスタム...';
 
   @override

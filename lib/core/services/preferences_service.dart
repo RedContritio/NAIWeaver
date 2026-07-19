@@ -43,6 +43,7 @@ class PreferencesService {
   static const String _keyExportFolderPath = 'export_folder_path';
   static const String _keyCanvasAutoSave = 'canvas_auto_save';
   static const String _keyCustomOutputDir = 'custom_output_dir';
+  static const String _keySdMigrationSource = 'sd_migration_source';
   static const String _keyFilenamePattern = 'filename_pattern';
   static const String _keySavePathPattern = 'save_path_pattern';
   static const String _keyCustomResolutions = 'custom_resolutions';
@@ -354,6 +355,23 @@ class PreferencesService {
       await _prefs.remove(_keyCustomOutputDir);
     } else {
       await _prefs.setString(_keyCustomOutputDir, value);
+    }
+  }
+
+  // — Pending SD-card migration (issue #21) —
+  //
+  // Absolute path of the previous output dir while a move to the SD card is
+  // still incomplete, so the USE SD CARD button can offer to resume after an
+  // interruption. Empty when no move is pending. Deliberately device-local:
+  // not in the exportable-settings allowlist.
+
+  String get sdMigrationSource => _prefs.getString(_keySdMigrationSource) ?? '';
+
+  Future<void> setSdMigrationSource(String value) async {
+    if (value.isEmpty) {
+      await _prefs.remove(_keySdMigrationSource);
+    } else {
+      await _prefs.setString(_keySdMigrationSource, value);
     }
   }
 

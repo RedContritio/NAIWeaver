@@ -139,7 +139,17 @@ void main() {
   }
 
   final customOut = preferencesService.customOutputDir;
-  if (customOut.isNotEmpty) paths.outputDirOverride = customOut;
+  if (customOut.isNotEmpty) {
+    // The custom dir can vanish (SD card ejected). Fall back to the default
+    // for this session but keep the pref, so the override comes back with
+    // the card.
+    try {
+      Directory(customOut).createSync(recursive: true);
+      paths.outputDirOverride = customOut;
+    } catch (e) {
+      debugPrint('Custom output dir unavailable, using default: $e');
+    }
+  }
 
   final tagService = TagService(filePath: paths.tagFilePath);
   final wildcardService = WildcardService(wildcardDir: paths.wildcardDir);

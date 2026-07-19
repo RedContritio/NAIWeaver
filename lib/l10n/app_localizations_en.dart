@@ -2434,6 +2434,65 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsOutputFolderClear => 'Clear';
 
   @override
+  String get settingsUseSdCard => 'Use SD Card';
+
+  @override
+  String get settingsSdDialogTitle => 'Move output to SD card';
+
+  @override
+  String get settingsSdUninstallWarning =>
+      'Images on the SD card live in the app\'s own folder (Android/data). Android DELETES that folder when the app is uninstalled — on this device and on the card. Export anything precious somewhere else first.';
+
+  @override
+  String settingsSdExistingInfo(int count, String size) {
+    return '$count existing files ($size) can be moved to the SD card.';
+  }
+
+  @override
+  String get settingsSdMoveButton => 'Move existing files';
+
+  @override
+  String get settingsSdFreshButton => 'Start fresh';
+
+  @override
+  String get settingsSdAlready => 'The output folder is already on the SD card';
+
+  @override
+  String settingsSdNotEnoughSpace(String needed, String available) {
+    return 'Not enough space on the SD card: needs $needed, $available available';
+  }
+
+  @override
+  String get settingsSdMoving =>
+      'Moving files to the SD card… keep the app open.';
+
+  @override
+  String settingsSdMoveDone(int count) {
+    return '$count files moved to the SD card';
+  }
+
+  @override
+  String settingsSdMoveFailed(int count) {
+    return '$count files could not be moved — tap USE SD CARD to retry';
+  }
+
+  @override
+  String settingsSdMovePaused(int count) {
+    return 'Move paused — $count files remain. Tap USE SD CARD to resume.';
+  }
+
+  @override
+  String get settingsSdResumeTitle => 'Resume moving to SD card';
+
+  @override
+  String settingsSdResumeBody(int count) {
+    return '$count files from a previous move are still waiting. Resume now?';
+  }
+
+  @override
+  String get settingsSdResume => 'Resume';
+
+  @override
   String get resCustomEntry => 'Custom...';
 
   @override

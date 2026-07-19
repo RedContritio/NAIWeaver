@@ -2381,6 +2381,64 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsOutputFolderClear => '清空';
 
   @override
+  String get settingsUseSdCard => '使用SD卡';
+
+  @override
+  String get settingsSdDialogTitle => '将输出移至SD卡';
+
+  @override
+  String get settingsSdUninstallWarning =>
+      'SD卡上的图片保存在应用专属文件夹 (Android/data) 中。卸载应用时,Android会同时删除本机和SD卡上的该文件夹。请先将重要图片导出到其他位置。';
+
+  @override
+  String settingsSdExistingInfo(int count, String size) {
+    return '可将$count个现有文件($size)移动到SD卡。';
+  }
+
+  @override
+  String get settingsSdMoveButton => '移动现有文件';
+
+  @override
+  String get settingsSdFreshButton => '直接使用(不移动)';
+
+  @override
+  String get settingsSdAlready => '输出文件夹已在SD卡上';
+
+  @override
+  String settingsSdNotEnoughSpace(String needed, String available) {
+    return 'SD卡空间不足:需要 $needed,可用 $available';
+  }
+
+  @override
+  String get settingsSdMoving => '正在移动到SD卡… 请保持应用打开。';
+
+  @override
+  String settingsSdMoveDone(int count) {
+    return '已将$count个文件移动到SD卡';
+  }
+
+  @override
+  String settingsSdMoveFailed(int count) {
+    return '$count个文件无法移动 — 点按\"使用SD卡\"重试';
+  }
+
+  @override
+  String settingsSdMovePaused(int count) {
+    return '移动已暂停 — 剩余$count个文件。点按\"使用SD卡\"继续。';
+  }
+
+  @override
+  String get settingsSdResumeTitle => '继续移动到SD卡';
+
+  @override
+  String settingsSdResumeBody(int count) {
+    return '上次移动还剩$count个文件。现在继续吗?';
+  }
+
+  @override
+  String get settingsSdResume => '继续';
+
+  @override
   String get resCustomEntry => '自定义…';
 
   @override

@@ -4,10 +4,13 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/l10n/locale_notifier.dart';
+import '../../../core/services/device_storage.dart';
+import '../../../core/services/output_migration_service.dart';
 import '../../../core/services/path_service.dart';
 import '../../../core/services/preferences_service.dart';
 import '../../../core/services/saf_export_service.dart';
@@ -19,7 +22,9 @@ import '../../../core/theme/theme_notifier.dart';
 import '../../../core/theme/vision_tokens.dart';
 import '../../../core/utils/app_snackbar.dart';
 import '../../../core/utils/filename_pattern.dart';
+import '../../../core/utils/migration_planner.dart';
 import '../../../core/utils/nai_filename.dart';
+import '../../../core/utils/removable_storage.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/pin_lock_gate.dart';
 import '../../gallery/providers/gallery_notifier.dart';
@@ -41,6 +46,11 @@ class _AppSettingsState extends State<AppSettings> {
   bool _isObscured = true;
   bool _isCheckingUpdate = false;
 
+  /// App-files dirs on removable volumes (SD cards), e.g.
+  /// `/storage/1234-ABCD/Android/data/dev.naiweaver.app/files`.
+  /// Empty everywhere except Android with a card inserted.
+  List<String> _removableVolumes = const [];
+
   @override
   void initState() {
     super.initState();
@@ -51,6 +61,21 @@ class _AppSettingsState extends State<AppSettings> {
     _savePathPatternController =
         TextEditingController(text: prefs.savePathPattern);
     _loadApiKey();
+    _loadRemovableVolumes();
+  }
+
+  Future<void> _loadRemovableVolumes() async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    try {
+      final dirs = await getExternalStorageDirectories();
+      final removable =
+          removableStorageDirs(dirs?.map((d) => d.path).toList());
+      if (mounted && removable.isNotEmpty) {
+        setState(() => _removableVolumes = removable);
+      }
+    } catch (_) {
+      // No removable storage — the SD quick-pick stays hidden.
+    }
   }
 
   Future<void> _loadApiKey() async {
@@ -496,14 +521,7 @@ class _AppSettingsState extends State<AppSettings> {
                   onTap: () async {
                     final dir = await FilePicker.platform.getDirectoryPath();
                     if (dir != null && context.mounted) {
-                      await prefs.setCustomOutputDir(dir);
-                      if (!context.mounted) return;
-                      final paths = context.read<PathService>();
-                      paths.outputDirOverride = dir;
-                      await paths.ensureDirectories();
-                      if (!context.mounted) return;
-                      context.read<GalleryNotifier>().setOutputDir(dir);
-                      context.read<GenerationNotifier>().setOutputDir(dir);
+                      await _applyOutputDir(dir);
                       setLocalState(() {});
                     }
                   },
@@ -525,6 +543,29 @@ class _AppSettingsState extends State<AppSettings> {
                     ),
                   ),
                 ),
+                if (_removableVolumes.isNotEmpty) ...[
+                  const SizedBox(width: 4),
+                  InkWell(
+                    onTap: () => _onUseSdCard(setLocalState),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: t.borderMedium),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        l.settingsUseSdCard.toUpperCase(),
+                        style: TextStyle(
+                          color: t.secondaryText,
+                          fontSize: t.fontSize(9),
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
                 if (hasCustom) ...[
                   const SizedBox(width: 4),
                   InkWell(
@@ -555,6 +596,282 @@ class _AppSettingsState extends State<AppSettings> {
         );
       },
     );
+  }
+
+  /// The BROWSE / USE SD CARD shared wiring: persist the custom dir and point
+  /// PathService + gallery + generation at it.
+  Future<void> _applyOutputDir(String dir) async {
+    final prefs = context.read<PreferencesService>();
+    await prefs.setCustomOutputDir(dir);
+    if (!mounted) return;
+    final paths = context.read<PathService>();
+    paths.outputDirOverride = dir;
+    await paths.ensureDirectories();
+    if (!mounted) return;
+    context.read<GalleryNotifier>().setOutputDir(dir);
+    context.read<GenerationNotifier>().setOutputDir(dir);
+  }
+
+  Future<void> _onUseSdCard(StateSetter setLocalState) async {
+    final prefs = context.read<PreferencesService>();
+    final paths = context.read<PathService>();
+    final l = context.l;
+    final t = context.tRead;
+    final target = removableOutputDir(_removableVolumes.first);
+
+    // An interrupted move leaves files behind in the previous output dir —
+    // offer to resume before anything else.
+    final pendingSource = prefs.sdMigrationSource;
+    if (pendingSource.isNotEmpty) {
+      final remaining = await OutputMigrationService.scanDir(pendingSource);
+      if (remaining.isEmpty) {
+        await prefs.setSdMigrationSource('');
+      } else {
+        if (!mounted) return;
+        final resume = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: t.surfaceHigh,
+            title: Text(l.settingsSdResumeTitle.toUpperCase(),
+                style: TextStyle(
+                    fontSize: t.fontSize(10),
+                    letterSpacing: 2,
+                    color: t.textSecondary)),
+            content: Text(l.settingsSdResumeBody(remaining.length),
+                style: TextStyle(
+                    color: t.textPrimary, fontSize: t.fontSize(10))),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: Text(l.commonCancel.toUpperCase(),
+                    style: TextStyle(
+                        color: t.textDisabled, fontSize: t.fontSize(9))),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: Text(l.settingsSdResume.toUpperCase(),
+                    style: TextStyle(
+                        color: t.accent, fontSize: t.fontSize(9))),
+              ),
+            ],
+          ),
+        );
+        if (resume != true || !mounted) return;
+        final destNow = paths.outputDir;
+        final plan = planMigration(
+          source: remaining,
+          destination: await OutputMigrationService.scanDir(destNow),
+        );
+        if (!mounted) return;
+        await _executeSdMove(
+          sourceDir: pendingSource,
+          destDir: destNow,
+          plan: plan,
+          setLocalState: setLocalState,
+        );
+        return;
+      }
+    }
+
+    final current = paths.outputDir;
+    if (current == target) {
+      if (mounted) showAppSnackBar(context, l.settingsSdAlready);
+      return;
+    }
+
+    final sourceFiles = await OutputMigrationService.scanDir(current);
+    final sourceBytes = sourceFiles.fold(0, (sum, f) => sum + f.size);
+    if (!mounted) return;
+    final choice = await showDialog<_SdChoice>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: t.surfaceHigh,
+        title: Text(l.settingsSdDialogTitle.toUpperCase(),
+            style: TextStyle(
+                fontSize: t.fontSize(10),
+                letterSpacing: 2,
+                color: t.textSecondary)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                border: Border.all(color: t.accentDanger.withValues(alpha: 0.5)),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.warning_amber, size: 16, color: t.accentDanger),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(l.settingsSdUninstallWarning,
+                        style: TextStyle(
+                            color: t.accentDanger,
+                            fontSize: t.fontSize(9))),
+                  ),
+                ],
+              ),
+            ),
+            if (sourceFiles.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                l.settingsSdExistingInfo(
+                    sourceFiles.length, formatMigrationBytes(sourceBytes)),
+                style: TextStyle(
+                    color: t.textPrimary, fontSize: t.fontSize(10)),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(l.commonCancel.toUpperCase(),
+                style: TextStyle(
+                    color: t.textDisabled, fontSize: t.fontSize(9))),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(_SdChoice.fresh),
+            child: Text(l.settingsSdFreshButton.toUpperCase(),
+                style: TextStyle(
+                    color: t.textSecondary, fontSize: t.fontSize(9))),
+          ),
+          if (sourceFiles.isNotEmpty)
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(_SdChoice.move),
+              child: Text(l.settingsSdMoveButton.toUpperCase(),
+                  style: TextStyle(
+                      color: t.accent, fontSize: t.fontSize(9))),
+            ),
+        ],
+      ),
+    );
+    if (choice == null || !mounted) return;
+
+    if (choice == _SdChoice.fresh) {
+      await _applyOutputDir(target);
+      setLocalState(() {});
+      return;
+    }
+
+    final destFiles = await OutputMigrationService.scanDir(target);
+    final plan = planMigration(source: sourceFiles, destination: destFiles);
+    await Directory(target).create(recursive: true);
+    final free = await DeviceStorage.freeBytesAt(target);
+    if (free != null && !plan.fitsIn(free)) {
+      if (mounted) {
+        showErrorSnackBar(
+            context,
+            l.settingsSdNotEnoughSpace(
+                formatMigrationBytes(
+                    plan.bytesToCopy + migrationHeadroomBytes),
+                formatMigrationBytes(free)));
+      }
+      return;
+    }
+    if (!mounted) return;
+
+    // Switch the output dir BEFORE moving: new generations land on the SD
+    // card immediately instead of being stranded in the old dir mid-move.
+    await _applyOutputDir(target);
+    await prefs.setSdMigrationSource(current);
+    setLocalState(() {});
+    if (!mounted) return;
+    await _executeSdMove(
+      sourceDir: current,
+      destDir: target,
+      plan: plan,
+      setLocalState: setLocalState,
+    );
+  }
+
+  Future<void> _executeSdMove({
+    required String sourceDir,
+    required String destDir,
+    required MigrationPlan plan,
+    required StateSetter setLocalState,
+  }) async {
+    final prefs = context.read<PreferencesService>();
+    final l = context.l;
+    final t = context.tRead;
+
+    final progress = ValueNotifier<(int, int)>((0, plan.totalFiles));
+    var cancelRequested = false;
+
+    final dialogFuture = showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          backgroundColor: t.surfaceHigh,
+          title: Text(l.settingsSdDialogTitle.toUpperCase(),
+              style: TextStyle(
+                  fontSize: t.fontSize(10),
+                  letterSpacing: 2,
+                  color: t.textSecondary)),
+          content: ValueListenableBuilder<(int, int)>(
+            valueListenable: progress,
+            builder: (ctx, p, _) => Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l.settingsSdMoving,
+                    style: TextStyle(
+                        color: t.textPrimary, fontSize: t.fontSize(10))),
+                const SizedBox(height: 12),
+                LinearProgressIndicator(
+                  value: p.$2 == 0 ? null : p.$1 / p.$2,
+                  color: t.accent,
+                  backgroundColor: t.borderSubtle,
+                ),
+                const SizedBox(height: 8),
+                Text('${p.$1} / ${p.$2}',
+                    style: TextStyle(
+                        color: t.textSecondary, fontSize: t.fontSize(10))),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => cancelRequested = true,
+              child: Text(l.commonCancel.toUpperCase(),
+                  style: TextStyle(
+                      color: t.textDisabled, fontSize: t.fontSize(9))),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final result = await OutputMigrationService.run(
+      sourceDir: sourceDir,
+      destDir: destDir,
+      plan: plan,
+      onProgress: (done, total) => progress.value = (done, total),
+      shouldCancel: () => cancelRequested,
+      onSourceFileRemoved: (path) => FileImage(File(path)).evict(),
+    );
+
+    if (mounted) Navigator.of(context, rootNavigator: true).pop();
+    await dialogFuture;
+    if (!mounted) return;
+
+    if (result.failed > 0) {
+      showErrorSnackBar(context, l.settingsSdMoveFailed(result.failed));
+    } else if (result.cancelled) {
+      showAppSnackBar(
+          context, l.settingsSdMovePaused(plan.totalFiles - result.moved));
+    } else {
+      await prefs.setSdMigrationSource('');
+      if (mounted) showAppSnackBar(context, l.settingsSdMoveDone(result.moved));
+    }
+    if (!mounted) return;
+    context.read<GalleryNotifier>().refresh();
+    setLocalState(() {});
   }
 
   Widget _buildStripMetadataToggle(VisionTokens t) {
@@ -2080,3 +2397,6 @@ class _VerifyPinDialogState extends State<_VerifyPinDialog> {
     );
   }
 }
+
+/// Outcome of the USE SD CARD choice dialog.
+enum _SdChoice { move, fresh }

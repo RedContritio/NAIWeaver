@@ -4528,6 +4528,96 @@ abstract class AppLocalizations {
   /// **'Clear'**
   String get settingsOutputFolderClear;
 
+  /// No description provided for @settingsUseSdCard.
+  ///
+  /// In en, this message translates to:
+  /// **'Use SD Card'**
+  String get settingsUseSdCard;
+
+  /// No description provided for @settingsSdDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Move output to SD card'**
+  String get settingsSdDialogTitle;
+
+  /// No description provided for @settingsSdUninstallWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Images on the SD card live in the app\'s own folder (Android/data). Android DELETES that folder when the app is uninstalled — on this device and on the card. Export anything precious somewhere else first.'**
+  String get settingsSdUninstallWarning;
+
+  /// No description provided for @settingsSdExistingInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} existing files ({size}) can be moved to the SD card.'**
+  String settingsSdExistingInfo(int count, String size);
+
+  /// No description provided for @settingsSdMoveButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Move existing files'**
+  String get settingsSdMoveButton;
+
+  /// No description provided for @settingsSdFreshButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Start fresh'**
+  String get settingsSdFreshButton;
+
+  /// No description provided for @settingsSdAlready.
+  ///
+  /// In en, this message translates to:
+  /// **'The output folder is already on the SD card'**
+  String get settingsSdAlready;
+
+  /// No description provided for @settingsSdNotEnoughSpace.
+  ///
+  /// In en, this message translates to:
+  /// **'Not enough space on the SD card: needs {needed}, {available} available'**
+  String settingsSdNotEnoughSpace(String needed, String available);
+
+  /// No description provided for @settingsSdMoving.
+  ///
+  /// In en, this message translates to:
+  /// **'Moving files to the SD card… keep the app open.'**
+  String get settingsSdMoving;
+
+  /// No description provided for @settingsSdMoveDone.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} files moved to the SD card'**
+  String settingsSdMoveDone(int count);
+
+  /// No description provided for @settingsSdMoveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} files could not be moved — tap USE SD CARD to retry'**
+  String settingsSdMoveFailed(int count);
+
+  /// No description provided for @settingsSdMovePaused.
+  ///
+  /// In en, this message translates to:
+  /// **'Move paused — {count} files remain. Tap USE SD CARD to resume.'**
+  String settingsSdMovePaused(int count);
+
+  /// No description provided for @settingsSdResumeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume moving to SD card'**
+  String get settingsSdResumeTitle;
+
+  /// No description provided for @settingsSdResumeBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} files from a previous move are still waiting. Resume now?'**
+  String settingsSdResumeBody(int count);
+
+  /// No description provided for @settingsSdResume.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume'**
+  String get settingsSdResume;
+
   /// No description provided for @resCustomEntry.
   ///
   /// In en, this message translates to:
