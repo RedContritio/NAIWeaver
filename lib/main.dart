@@ -22,6 +22,7 @@ import 'core/services/update_service.dart';
 import 'core/widgets/update_prompt.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'core/utils/responsive.dart';
+import 'core/utils/wheel_scroll.dart';
 import 'core/widgets/help_dialog.dart';
 import 'core/widgets/pin_lock_gate.dart';
 import 'core/widgets/quick_action_overlay.dart';
@@ -89,7 +90,9 @@ class _AppWindowListener extends WindowListener {
 
 void main() {
   runZonedGuarded(() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  // Rescales Android mouse-wheel deltas so one notch ≈ one text line
+  // instead of 3-4 (issue #14).
+  NaiWidgetsBinding.ensureInitialized();
   final paths = await PathService.initialize();
   await paths.ensureDirectories();
   await paths.seedAssets();
