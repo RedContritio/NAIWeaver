@@ -152,6 +152,20 @@ void main() {
     expect((await OutputMigrationService.scanDir(dest)).length, 5);
   });
 
+  test('refuses to run with source == destination (would self-delete)',
+      () async {
+    await writeSource('img.png', 'precious');
+    await expectLater(
+      OutputMigrationService.run(
+        sourceDir: source,
+        destDir: source,
+        plan: await planFor(),
+      ),
+      throwsArgumentError,
+    );
+    expect(sourceExists('img.png'), isTrue);
+  });
+
   test('a failed copy keeps the source and reports the error', () async {
     await writeSource('ok.png', 'fine');
     await writeSource('bad.png', 'doomed');

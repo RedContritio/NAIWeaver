@@ -624,7 +624,11 @@ class _AppSettingsState extends State<AppSettings> {
     final pendingSource = prefs.sdMigrationSource;
     if (pendingSource.isNotEmpty) {
       final remaining = await OutputMigrationService.scanDir(pendingSource);
-      if (remaining.isEmpty) {
+      if (remaining.isEmpty || pendingSource == paths.outputDir) {
+        // Nothing left to move, or the output dir was pointed back at the
+        // pending source (e.g. the custom dir was cleared) — a "resume"
+        // would be a same-dir move. Drop the pending state and fall through
+        // to the normal flow.
         await prefs.setSdMigrationSource('');
       } else {
         if (!mounted) return;
@@ -757,8 +761,11 @@ class _AppSettingsState extends State<AppSettings> {
       return;
     }
 
+    // Rescan the source now that the dialog is closed: anything generated
+    // while it was open must ride along instead of being stranded.
+    final freshSource = await OutputMigrationService.scanDir(current);
     final destFiles = await OutputMigrationService.scanDir(target);
-    final plan = planMigration(source: sourceFiles, destination: destFiles);
+    final plan = planMigration(source: freshSource, destination: destFiles);
     await Directory(target).create(recursive: true);
     final free = await DeviceStorage.freeBytesAt(target);
     if (free != null && !plan.fitsIn(free)) {
@@ -847,14 +854,22 @@ class _AppSettingsState extends State<AppSettings> {
       ),
     );
 
-    final result = await OutputMigrationService.run(
-      sourceDir: sourceDir,
-      destDir: destDir,
-      plan: plan,
-      onProgress: (done, total) => progress.value = (done, total),
-      shouldCancel: () => cancelRequested,
-      onSourceFileRemoved: (path) => FileImage(File(path)).evict(),
-    );
+    OutputMigrationResult result;
+    try {
+      result = await OutputMigrationService.run(
+        sourceDir: sourceDir,
+        destDir: destDir,
+        plan: plan,
+        onProgress: (done, total) => progress.value = (done, total),
+        shouldCancel: () => cancelRequested,
+        onSourceFileRemoved: (path) => FileImage(File(path)).evict(),
+      );
+    } catch (e) {
+      // A thrown run (not a per-file failure) must still close the progress
+      // dialog and leave the pending-move pref for a retry.
+      result = OutputMigrationResult(
+          moved: 0, failed: plan.totalFiles, cancelled: false, errors: ['$e']);
+    }
 
     if (mounted) Navigator.of(context, rootNavigator: true).pop();
     await dialogFuture;

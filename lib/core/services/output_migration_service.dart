@@ -71,6 +71,12 @@ class OutputMigrationService {
     bool Function()? shouldCancel,
     void Function(String absoluteSourcePath)? onSourceFileRemoved,
   }) async {
+    if (p.canonicalize(sourceDir) == p.canonicalize(destDir)) {
+      // A same-dir "move" would plan every file as deleteSourceOnly and
+      // erase the library in place.
+      throw ArgumentError(
+          'sourceDir and destDir are the same directory: $sourceDir');
+    }
     var done = 0;
     var moved = 0;
     var failed = 0;
