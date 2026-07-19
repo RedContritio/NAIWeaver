@@ -118,6 +118,13 @@ class _CanvasEditorState extends State<CanvasEditor> {
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
+      case LogicalKeyboardKey.delete:
+      case LogicalKeyboardKey.backspace:
+        if (notifier.hasSelection) {
+          notifier.deleteSelectionContents();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
       // Brush size (pixel steps)
       case LogicalKeyboardKey.bracketLeft:
         notifier.setBrushDiameterPx(

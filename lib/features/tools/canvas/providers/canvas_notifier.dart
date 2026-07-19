@@ -10,6 +10,7 @@ import '../models/canvas_session.dart';
 import '../models/paint_stroke.dart';
 import '../services/canvas_flatten_service.dart';
 import '../services/flood_fill.dart';
+import '../services/selection_geometry.dart';
 import '../widgets/canvas_color_picker.dart';
 
 /// Parameters for source image resize in isolate.
@@ -229,6 +230,7 @@ class CanvasNotifier extends ChangeNotifier {
       name: 'Layer 1',
     );
     _nextLayerNumber = 2;
+    _activeSelection = null;
     _session = CanvasSession(
       sourceImageBytes: sourceBytes,
       sourceWidth: width,
@@ -263,6 +265,9 @@ class CanvasNotifier extends ChangeNotifier {
     _pendingTextPosition = null;
     _pendingTextContent = '';
     _sourceImageColors = [];
+    _activeSelection = null;
+    _dragHandle = null;
+    _dragStartPoint = null;
     notifyListeners();
   }
 
@@ -938,6 +943,41 @@ class CanvasNotifier extends ChangeNotifier {
     _dragHandle = null;
     _dragStartPoint = null;
     notifyListeners();
+  }
+
+  /// The active selection as a transformed polygon, or null when there is no
+  /// usable selection. Rotation is applied in aspect-corrected space — see
+  /// selection_geometry.dart.
+  List<Offset>? _selectionClipPolygon() {
+    if (_session == null || _activeSelection == null) return null;
+    final polygon = selectionToPolygon(
+      _activeSelection!,
+      aspect: _session!.sourceWidth / _session!.sourceHeight,
+    );
+    return polygon.length >= 3 ? polygon : null;
+  }
+
+  /// Erases the selection's area on the active layer as a single undoable
+  /// action: an erase-typed fill stroke clipped to the selection polygon.
+  /// The selection stays active afterwards (Photoshop semantics). No-ops on
+  /// layers with nothing to erase so undo history stays clean.
+  void deleteSelectionContents() {
+    if (_session == null) return;
+    final activeLayer = _session!.activeLayer;
+    if (activeLayer == null) return;
+    if (activeLayer.strokes.isEmpty && !activeLayer.isImageLayer) return;
+    final polygon = _selectionClipPolygon();
+    if (polygon == null) return;
+
+    final stroke = PaintStroke(
+      points: [_activeSelection!.transformedRect.center],
+      radius: 0,
+      colorValue: 0xFF000000,
+      isErase: true,
+      strokeType: StrokeType.fill,
+      clipPolygon: polygon,
+    );
+    _pushAction(AddStrokeAction(layerId: activeLayer.id, stroke: stroke));
   }
 
   // --- Undo / Redo ---

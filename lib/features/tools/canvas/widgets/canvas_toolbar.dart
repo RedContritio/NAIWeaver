@@ -281,6 +281,15 @@ class _CanvasToolbarState extends State<CanvasToolbar> {
                 tooltip: l.canvasRedo,
                 splashRadius: 16,
               ),
+              // Delete inside selection (only while a selection is active)
+              if (notifier.hasSelection)
+                IconButton(
+                  icon: Icon(Icons.delete_outline,
+                      size: 16, color: t.accentDanger),
+                  onPressed: notifier.deleteSelectionContents,
+                  tooltip: 'Delete selection contents (Del)',
+                  splashRadius: 16,
+                ),
 
               const SizedBox(width: 8),
               Container(width: 1, height: 24, color: t.borderSubtle),
@@ -743,6 +752,17 @@ class _CanvasToolbarState extends State<CanvasToolbar> {
                 padding: const EdgeInsets.all(4),
                 constraints: const BoxConstraints(),
               ),
+              // Delete inside selection — mobile has no Delete key
+              if (notifier.hasSelection)
+                IconButton(
+                  icon: Icon(Icons.delete_outline,
+                      size: 18, color: t.accentDanger),
+                  onPressed: notifier.deleteSelectionContents,
+                  tooltip: 'Delete selection contents',
+                  splashRadius: 14,
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(),
+                ),
               const SizedBox(width: 4),
               // Flatten icon button
               Tooltip(
