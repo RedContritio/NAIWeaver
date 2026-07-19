@@ -6,6 +6,7 @@ import 'package:image/image.dart' as img;
 
 import '../models/canvas_layer.dart';
 import '../models/paint_stroke.dart';
+import 'selection_geometry.dart';
 
 /// Data passed to the isolate for flattening.
 class _FlattenPayload {
@@ -141,25 +142,33 @@ void _renderStroke(
   int imgWidth,
   int imgHeight,
 ) {
+  // Baked selection clip: pixels outside the mask are untouchable. Mirrors
+  // the live painter's canvas.clipPath on the same polygon.
+  final clipMask = stroke.clipPolygon != null && stroke.clipPolygon!.length >= 3
+      ? rasterizePolygonMask(stroke.clipPolygon!, imgWidth, imgHeight)
+      : null;
+
   switch (stroke.strokeType) {
     case StrokeType.fill:
-      _renderFillStroke(overlay, stroke, imgWidth, imgHeight);
+      _renderFillStroke(overlay, stroke, imgWidth, imgHeight, clipMask);
 
     case StrokeType.freehand:
       final points = stroke.smooth
           ? _subdivideSmoothPoints(stroke.points)
           : stroke.points;
-      _renderFreehandPoints(overlay, points, stroke, imgWidth, imgHeight);
+      _renderFreehandPoints(
+          overlay, points, stroke, imgWidth, imgHeight, clipMask);
 
     case StrokeType.line:
       // Line: 2 points, render as freehand between them
-      _renderFreehandPoints(overlay, stroke.points, stroke, imgWidth, imgHeight);
+      _renderFreehandPoints(
+          overlay, stroke.points, stroke, imgWidth, imgHeight, clipMask);
 
     case StrokeType.rectangle:
-      _renderRectangleStroke(overlay, stroke, imgWidth, imgHeight);
+      _renderRectangleStroke(overlay, stroke, imgWidth, imgHeight, clipMask);
 
     case StrokeType.circle:
-      _renderCircleStroke(overlay, stroke, imgWidth, imgHeight);
+      _renderCircleStroke(overlay, stroke, imgWidth, imgHeight, clipMask);
 
     case StrokeType.text:
       break; // text strokes are handled via pre-rendered PNG overlays
@@ -170,7 +179,8 @@ void _renderStroke(
       final blurPoints = stroke.smooth
           ? _subdivideSmoothPoints(stroke.points)
           : stroke.points;
-      _renderFreehandPoints(overlay, blurPoints, stroke, imgWidth, imgHeight);
+      _renderFreehandPoints(
+          overlay, blurPoints, stroke, imgWidth, imgHeight, clipMask);
 
     case StrokeType.cloneStamp:
       // Clone stamp strokes: copy pixels from source offset
@@ -178,7 +188,8 @@ void _renderStroke(
       final clonePoints = stroke.smooth
           ? _subdivideSmoothPoints(stroke.points)
           : stroke.points;
-      _renderFreehandPoints(overlay, clonePoints, stroke, imgWidth, imgHeight);
+      _renderFreehandPoints(
+          overlay, clonePoints, stroke, imgWidth, imgHeight, clipMask);
   }
 }
 
@@ -210,12 +221,14 @@ void _srcOverPixel(
 }
 
 /// Render a fill stroke: the flood-fill region when the stroke carries one,
-/// otherwise the legacy whole-canvas fill (strokes from old sessions).
+/// otherwise the whole canvas (legacy strokes from old sessions, and
+/// delete-inside-selection erase strokes, whose clip mask bounds the fill).
 void _renderFillStroke(
   img.Image overlay,
   PaintStroke stroke,
   int imgWidth,
   int imgHeight,
+  Uint8List? clipMask,
 ) {
   final a = ((stroke.colorValue >> 24) & 0xFF);
   final red = (stroke.colorValue >> 16) & 0xFF;
@@ -241,6 +254,7 @@ void _renderFillStroke(
         if (region.getPixel(x, y).a.toInt() == 0) continue;
         final dx = x + offX;
         if (dx < 0 || dx >= imgWidth) continue;
+        if (clipMask != null && clipMask[dy * imgWidth + dx] == 0) continue;
         _srcOverPixel(overlay, dx, dy, red, green, blue, strokeAlpha);
       }
     }
@@ -249,6 +263,7 @@ void _renderFillStroke(
 
   for (int y = 0; y < imgHeight; y++) {
     for (int x = 0; x < imgWidth; x++) {
+      if (clipMask != null && clipMask[y * imgWidth + x] == 0) continue;
       if (stroke.isErase) {
         overlay.setPixelRgba(x, y, 0, 0, 0, 0);
       } else {
@@ -264,6 +279,7 @@ void _renderFreehandPoints(
   PaintStroke stroke,
   int imgWidth,
   int imgHeight,
+  Uint8List? clipMask,
 ) {
   final radiusPx = (stroke.radius * imgWidth).round();
   final r = math.max(radiusPx, 1);
@@ -287,6 +303,7 @@ void _renderFreehandPoints(
       stroke.isErase,
       imgWidth,
       imgHeight,
+      clipMask,
     );
 
     if (i < points.length - 1) {
@@ -302,7 +319,7 @@ void _renderFreehandPoints(
         final ny = p1.dy + (p2.dy - p1.dy) * t;
         _drawCircle(
           overlay, nx, ny, r, red, green, blue, strokeAlpha,
-          stroke.isErase, imgWidth, imgHeight,
+          stroke.isErase, imgWidth, imgHeight, clipMask,
         );
       }
     }
@@ -351,6 +368,7 @@ void _renderRectangleStroke(
   PaintStroke stroke,
   int imgWidth,
   int imgHeight,
+  Uint8List? clipMask,
 ) {
   if (stroke.points.length < 2) return;
   final p1 = stroke.points.first;
@@ -371,7 +389,7 @@ void _renderRectangleStroke(
   ];
 
   for (final edge in edges) {
-    _renderFreehandPoints(overlay, edge, stroke, imgWidth, imgHeight);
+    _renderFreehandPoints(overlay, edge, stroke, imgWidth, imgHeight, clipMask);
   }
 }
 
@@ -381,6 +399,7 @@ void _renderCircleStroke(
   PaintStroke stroke,
   int imgWidth,
   int imgHeight,
+  Uint8List? clipMask,
 ) {
   if (stroke.points.length < 2) return;
   final p1 = stroke.points.first;
@@ -401,7 +420,8 @@ void _renderCircleStroke(
     ));
   }
 
-  _renderFreehandPoints(overlay, perimeterPoints, stroke, imgWidth, imgHeight);
+  _renderFreehandPoints(
+      overlay, perimeterPoints, stroke, imgWidth, imgHeight, clipMask);
 }
 
 void _drawCircle(
@@ -416,6 +436,7 @@ void _drawCircle(
   bool isErase,
   int imgWidth,
   int imgHeight,
+  Uint8List? clipMask,
 ) {
   final cx = (nx * imgWidth).round();
   final cy = (ny * imgHeight).round();
@@ -426,6 +447,7 @@ void _drawCircle(
       final px = cx + dx;
       final py = cy + dy;
       if (px < 0 || px >= imgWidth || py < 0 || py >= imgHeight) continue;
+      if (clipMask != null && clipMask[py * imgWidth + px] == 0) continue;
 
       if (isErase) {
         image.setPixelRgba(px, py, 0, 0, 0, 0);

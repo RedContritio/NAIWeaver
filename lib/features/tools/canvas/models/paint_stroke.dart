@@ -32,6 +32,13 @@ class PaintStroke {
   /// by (points[0] - fillSeed).
   final Offset? fillSeed;
 
+  /// Selection clip baked at commit time (normalized polygon): renderers
+  /// draw this stroke only inside the polygon. Captured from the active
+  /// selection so undo/redo and re-render stay correct after the selection
+  /// changes. A fill-type erase stroke with a clip polygon is
+  /// "delete inside selection".
+  final List<Offset>? clipPolygon;
+
   const PaintStroke({
     required this.points,
     required this.radius,
@@ -48,6 +55,7 @@ class PaintStroke {
     this.cloneSourceOffset,
     this.fillRegionPng,
     this.fillSeed,
+    this.clipPolygon,
   });
 
   Color get color => Color(colorValue);
@@ -55,6 +63,8 @@ class PaintStroke {
   /// A copy with every point shifted by [delta] (normalized units).
   /// [cloneSourceOffset] is relative to the stroke and stays unchanged, as
   /// does [fillSeed] — the fill region renders offset by points[0] - fillSeed.
+  /// [clipPolygon] moves with the stroke: the clip was baked when the stroke
+  /// was committed, so its painted content travels as one piece.
   PaintStroke translated(Offset delta) => PaintStroke(
         points: points.map((p) => p + delta).toList(),
         radius: radius,
@@ -71,6 +81,7 @@ class PaintStroke {
         cloneSourceOffset: cloneSourceOffset,
         fillRegionPng: fillRegionPng,
         fillSeed: fillSeed,
+        clipPolygon: clipPolygon?.map((p) => p + delta).toList(),
       );
 
   Map<String, dynamic> toJson() => {
@@ -90,6 +101,8 @@ class PaintStroke {
           'cloneSourceOffset': [cloneSourceOffset!.dx, cloneSourceOffset!.dy],
         if (fillRegionPng != null) 'fillRegionPng': base64Encode(fillRegionPng!),
         if (fillSeed != null) 'fillSeed': [fillSeed!.dx, fillSeed!.dy],
+        if (clipPolygon != null)
+          'clipPolygon': clipPolygon!.map((p) => [p.dx, p.dy]).toList(),
       };
 
   factory PaintStroke.fromJson(Map<String, dynamic> json) {
@@ -126,6 +139,12 @@ class PaintStroke {
               ((json['fillSeed'] as List)[1] as num).toDouble(),
             )
           : null,
+      clipPolygon: (json['clipPolygon'] as List?)
+          ?.map((p) => Offset(
+                ((p as List)[0] as num).toDouble(),
+                (p[1] as num).toDouble(),
+              ))
+          .toList(),
     );
   }
 }

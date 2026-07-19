@@ -654,6 +654,14 @@ class ResizeCanvasAction extends CanvasAction {
             ? stroke.letterSpacing! * fromH / toH
             : null;
 
+        // Remap the baked selection clip like any other normalized point
+        final newClipPolygon = stroke.clipPolygon
+            ?.map((p) => Offset(
+                  (p.dx * fromW + offX) / toW,
+                  (p.dy * fromH + offY) / toH,
+                ))
+            .toList();
+
         return PaintStroke(
           points: remappedPoints,
           radius: newRadius,
@@ -668,6 +676,7 @@ class ResizeCanvasAction extends CanvasAction {
           letterSpacing: newLetterSpacing,
           blurSigma: stroke.blurSigma,
           cloneSourceOffset: stroke.cloneSourceOffset,
+          clipPolygon: newClipPolygon,
         );
       }).toList();
 

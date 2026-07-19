@@ -112,4 +112,72 @@ void main() {
     expect(moved.points.single, const Offset(0.7, 0.8));
     expect(moved.cloneSourceOffset, const Offset(0.1, 0.1));
   });
+
+  test('PaintStroke JSON round-trips the clip polygon', () {
+    const stroke = PaintStroke(
+      points: [Offset(0.5, 0.5)],
+      radius: 0.01,
+      colorValue: 0xFF112233,
+      clipPolygon: [Offset(0.1, 0.2), Offset(0.9, 0.2), Offset(0.5, 0.8)],
+    );
+    final restored = PaintStroke.fromJson(
+        jsonDecode(jsonEncode(stroke.toJson())) as Map<String, dynamic>);
+    expect(restored.clipPolygon, const [
+      Offset(0.1, 0.2),
+      Offset(0.9, 0.2),
+      Offset(0.5, 0.8),
+    ]);
+    // Absent stays absent — no empty-list resurrection.
+    const bare = PaintStroke(
+        points: [Offset(0, 0)], radius: 0.01, colorValue: 0xFF000000);
+    final bareRestored = PaintStroke.fromJson(
+        jsonDecode(jsonEncode(bare.toJson())) as Map<String, dynamic>);
+    expect(bareRestored.clipPolygon, isNull);
+  });
+
+  test('PaintStroke.translated shifts the clip polygon with the points', () {
+    const stroke = PaintStroke(
+      points: [Offset(0.5, 0.5)],
+      radius: 0.01,
+      colorValue: 0xFF000000,
+      clipPolygon: [Offset(0.4, 0.4), Offset(0.6, 0.4), Offset(0.5, 0.6)],
+    );
+    final moved = stroke.translated(const Offset(0.1, -0.1));
+    expect(moved.clipPolygon![0].dx, closeTo(0.5, 1e-12));
+    expect(moved.clipPolygon![0].dy, closeTo(0.3, 1e-12));
+    expect(moved.clipPolygon![2].dx, closeTo(0.6, 1e-12));
+    expect(moved.clipPolygon![2].dy, closeTo(0.5, 1e-12));
+  });
+
+  test('ResizeCanvasAction remaps the clip polygon like stroke points', () {
+    final layers = [
+      CanvasLayer(id: 'a', name: 'A', strokes: const [
+        PaintStroke(
+          points: [Offset(0.5, 0.5)],
+          radius: 0.01,
+          colorValue: 0xFF000000,
+          clipPolygon: [Offset(0.25, 0.25), Offset(0.75, 0.25), Offset(0.5, 0.75)],
+        ),
+      ]),
+    ];
+    // Double the width, keep height, no anchor offset.
+    const action = ResizeCanvasAction(
+      oldWidth: 100,
+      oldHeight: 100,
+      newWidth: 200,
+      newHeight: 100,
+      anchorOffsetX: 0,
+      anchorOffsetY: 0,
+    );
+    action.apply(layers, activeLayerId: 'a');
+    final stroke = layers[0].strokes.single;
+    expect(stroke.clipPolygon![0].dx, closeTo(0.125, 1e-12));
+    expect(stroke.clipPolygon![0].dy, closeTo(0.25, 1e-12));
+    expect(stroke.points.single.dx, closeTo(0.25, 1e-12));
+
+    action.revert(layers);
+    final back = layers[0].strokes.single;
+    expect(back.clipPolygon![0].dx, closeTo(0.25, 1e-12));
+    expect(back.clipPolygon![2].dy, closeTo(0.75, 1e-12));
+  });
 }
