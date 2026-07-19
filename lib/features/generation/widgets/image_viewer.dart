@@ -116,7 +116,21 @@ class _ImagePreviewViewerState extends State<ImagePreviewViewer>
                     transformationController: _transformController,
                     minScale: 0.5,
                     maxScale: 4.0,
-                    child: Center(child: Image.memory(widget.generatedImage!, fit: BoxFit.contain, filterQuality: FilterQuality.medium)),
+                    child: Center(
+                      child: Image.memory(
+                        widget.generatedImage!,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.medium,
+                        // Bytes that pass the API-layer signature check can
+                        // still be a truncated image; degrade to a placeholder
+                        // instead of an error widget (issue #24).
+                        errorBuilder: (context, error, stackTrace) => Icon(
+                          Icons.broken_image_outlined,
+                          size: 48,
+                          color: t.textPrimary.withValues(alpha: 0.2),
+                        ),
+                      ),
+                    ),
                   ),
                 )
               else

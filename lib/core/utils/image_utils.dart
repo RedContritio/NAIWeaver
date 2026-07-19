@@ -9,7 +9,7 @@ Uint8List injectMetadata(Map<String, dynamic> data) {
   final bytes = data['bytes'] as Uint8List;
   final metadata = data['metadata'] as Map<String, dynamic>;
 
-  final image = img.decodePng(bytes);
+  final image = _decodePngSafe(bytes);
   if (image == null) return bytes;
 
   // Add NovelAI official metadata chunks
@@ -155,12 +155,22 @@ void _parseITXtChunk(Uint8List data, Map<String, String> result) {
 /// Strips all text metadata (Title, Description, Comment, etc.) from PNG bytes.
 /// Re-encodes the image without any text chunks.
 Uint8List stripMetadata(Uint8List bytes) {
-  final image = img.decodePng(bytes);
+  final image = _decodePngSafe(bytes);
   if (image == null) return bytes;
 
   final encoder = img.PngEncoder();
   encoder.textData = {};
   return Uint8List.fromList(encoder.encode(image));
+}
+
+/// decodePng that never throws: package:image throws (e.g. RangeError) on
+/// truncated data with a valid signature instead of returning null (issue #24).
+img.Image? _decodePngSafe(Uint8List bytes) {
+  try {
+    return img.decodePng(bytes);
+  } catch (_) {
+    return null;
+  }
 }
 
 /// Checks if bytes represent a PNG file by inspecting the 8-byte magic header.
