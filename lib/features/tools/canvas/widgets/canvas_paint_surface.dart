@@ -13,6 +13,7 @@ import '../models/canvas_layer.dart';
 import '../models/canvas_selection.dart';
 import '../models/paint_stroke.dart';
 import '../providers/canvas_notifier.dart';
+import '../services/selection_geometry.dart';
 
 /// Build a [TextStyle] with an optional Google Fonts family.
 TextStyle _buildFontStyle({
@@ -950,7 +951,29 @@ class _CanvasPaintOverlayPainter extends CustomPainter {
     canvas.restore();
   }
 
+  /// Draws a stroke, restricted to its baked selection clip when one is
+  /// present — the CPU flatten path applies the same polygon as a pixel mask.
   void _drawStroke(Canvas canvas, PaintStroke stroke) {
+    final clip = stroke.clipPolygon;
+    if (clip == null || clip.length < 3) {
+      _drawStrokeBody(canvas, stroke);
+      return;
+    }
+    canvas.save();
+    final clipPath = Path();
+    final first = _toScreen(clip.first);
+    clipPath.moveTo(first.dx, first.dy);
+    for (int i = 1; i < clip.length; i++) {
+      final p = _toScreen(clip[i]);
+      clipPath.lineTo(p.dx, p.dy);
+    }
+    clipPath.close();
+    canvas.clipPath(clipPath);
+    _drawStrokeBody(canvas, stroke);
+    canvas.restore();
+  }
+
+  void _drawStrokeBody(Canvas canvas, PaintStroke stroke) {
     if (stroke.isErase) {
       final erasePaint = Paint()
         ..style = PaintingStyle.stroke
@@ -960,6 +983,14 @@ class _CanvasPaintOverlayPainter extends CustomPainter {
         ..isAntiAlias = true
         ..blendMode = ui.BlendMode.dstOut
         ..color = const Color(0xFFFFFFFF);
+
+      // Delete-inside-selection: an erase-typed fill clears everything the
+      // clip lets through, rather than tracing a path.
+      if (stroke.strokeType == StrokeType.fill) {
+        erasePaint.style = PaintingStyle.fill;
+        canvas.drawRect(imageRect, erasePaint);
+        return;
+      }
 
       final path = stroke.smooth ? _buildSmoothPath(stroke) : _buildPath(stroke);
       canvas.drawPath(path, erasePaint);
@@ -1447,29 +1478,34 @@ class _SelectionOverlayPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
 
-    // Draw lasso path if available
-    if (selection.clipPath != null && selection.clipPath!.length > 2) {
+    final fillPaint = Paint()
+      ..color = Colors.blue.withValues(alpha: 0.08)
+      ..style = PaintingStyle.fill;
+
+    // Outline + fill follow the fully transformed region — the same polygon
+    // delete/clip operations consume — so a moved lasso or a rotated marquee
+    // shows exactly what it selects.
+    final polygon = selectionToPolygon(
+      selection,
+      aspect: imageRect.width / imageRect.height,
+    );
+    if (polygon.length > 2) {
       final path = Path();
-      final first = _toScreen(selection.clipPath!.first);
+      final first = _toScreen(polygon.first);
       path.moveTo(first.dx, first.dy);
-      for (int i = 1; i < selection.clipPath!.length; i++) {
-        final p = _toScreen(selection.clipPath![i]);
+      for (int i = 1; i < polygon.length; i++) {
+        final p = _toScreen(polygon[i]);
         path.lineTo(p.dx, p.dy);
       }
       path.close();
       canvas.drawPath(path, dashPaintBlack);
       canvas.drawPath(path, dashPaintWhite);
+      canvas.drawPath(path, fillPaint);
     } else {
-      // Draw rectangle
       canvas.drawRect(screenRect, dashPaintBlack);
       canvas.drawRect(screenRect, dashPaintWhite);
+      canvas.drawRect(screenRect, fillPaint);
     }
-
-    // Semi-transparent fill
-    final fillPaint = Paint()
-      ..color = Colors.blue.withValues(alpha: 0.08)
-      ..style = PaintingStyle.fill;
-    canvas.drawRect(screenRect, fillPaint);
 
     // Corner handles
     const handleSize = 6.0;
