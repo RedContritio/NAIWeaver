@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 import 'package:naiweaver/features/tools/canvas/models/canvas_selection.dart';
 import 'package:naiweaver/features/tools/canvas/models/paint_stroke.dart';
 import 'package:naiweaver/features/tools/canvas/providers/canvas_notifier.dart';
@@ -104,6 +105,58 @@ void main() {
       n.deleteSelectionContents();
       expect(n.session!.activeLayer!.strokes, isEmpty);
       expect(n.session!.canUndo, isFalse);
+    });
+  });
+
+  group('painting clipped to the selection', () {
+    test('committed strokes capture the selection polygon', () {
+      final n = makeNotifier();
+      selectRect(n, const Offset(0.25, 0.25), const Offset(0.75, 0.75));
+      final expected =
+          selectionToPolygon(n.activeSelection!, aspect: 1024 / 768);
+
+      paintSomething(n);
+      final stroke = n.session!.activeLayer!.strokes.single;
+      expect(stroke.clipPolygon, expected);
+    });
+
+    test('the live preview stroke carries the same clip', () {
+      final n = makeNotifier();
+      selectRect(n, const Offset(0.25, 0.25), const Offset(0.75, 0.75));
+      n.beginStroke(const Offset(0.5, 0.5));
+      expect(n.activeStroke!.clipPolygon, isNotNull);
+      n.cancelStroke();
+    });
+
+    test('strokes committed without a selection carry no clip', () {
+      final n = makeNotifier();
+      paintSomething(n);
+      expect(n.session!.activeLayer!.strokes.single.clipPolygon, isNull);
+    });
+
+    test('the baked clip survives the selection being cleared', () {
+      final n = makeNotifier();
+      selectRect(n, const Offset(0.25, 0.25), const Offset(0.75, 0.75));
+      paintSomething(n);
+      n.cancelSelection();
+      expect(n.session!.activeLayer!.strokes.single.clipPolygon, isNotNull);
+    });
+
+    test('flood fill captures the selection clip at tap time', () async {
+      // Real decodable source so the fill-region isolate has pixels to chew.
+      final white = img.Image(width: 8, height: 8);
+      img.fill(white, color: img.ColorRgba8(255, 255, 255, 255));
+      final n = CanvasNotifier();
+      n.startSession(Uint8List.fromList(img.encodePng(white)), 8, 8);
+      selectRect(n, const Offset(0.25, 0.25), const Offset(0.75, 0.75));
+
+      await n.applyFill(const Offset(0.5, 0.5));
+
+      final stroke = n.session!.activeLayer!.strokes.single;
+      expect(stroke.strokeType, StrokeType.fill);
+      expect(stroke.fillRegionPng, isNotNull);
+      expect(stroke.clipPolygon,
+          selectionToPolygon(n.activeSelection!, aspect: 1.0));
     });
   });
 

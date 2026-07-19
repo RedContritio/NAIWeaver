@@ -411,6 +411,10 @@ class CanvasNotifier extends ChangeNotifier {
               _currentStrokePoints!.first.dy - _cloneSourcePoint!.dy,
             )
           : null,
+      // Photoshop semantics: an active selection clips the stroke. Baked
+      // here so undo/redo and re-render stay correct after the selection
+      // changes or clears.
+      clipPolygon: _selectionClipPolygon(),
     );
 
     _currentStrokePoints = null;
@@ -433,6 +437,9 @@ class CanvasNotifier extends ChangeNotifier {
     if (_session == null || _isApplyingFill) return;
     final activeLayer = _session!.activeLayer;
     if (activeLayer == null) return;
+    // Capture the selection clip at tap time — the selection may change
+    // while the flatten + region computation runs.
+    final clipPolygon = _selectionClipPolygon();
     _isApplyingFill = true;
     notifyListeners();
     try {
@@ -470,6 +477,7 @@ class CanvasNotifier extends ChangeNotifier {
         strokeType: StrokeType.fill,
         fillRegionPng: regionPng,
         fillSeed: normalizedPoint,
+        clipPolygon: clipPolygon,
       );
       _pushAction(AddStrokeAction(layerId: activeLayer.id, stroke: stroke));
     } catch (e) {
@@ -535,6 +543,8 @@ class CanvasNotifier extends ChangeNotifier {
               _currentStrokePoints!.first.dy - _cloneSourcePoint!.dy,
             )
           : null,
+      // Live preview clips exactly like the committed stroke will.
+      clipPolygon: _selectionClipPolygon(),
     );
   }
 
