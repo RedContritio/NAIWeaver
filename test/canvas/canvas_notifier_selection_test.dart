@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:naiweaver/features/tools/canvas/models/canvas_selection.dart';
