@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../core/gateway/backend_permissions.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/services/preferences_service.dart';
 import '../../core/utils/responsive.dart';
@@ -66,24 +67,97 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
 
   List<ToolItem> _getTools(BuildContext context) {
     final l = context.l;
-    return [
-      ToolItem(id: 'wildcards', name: l.toolsWildcards.toUpperCase(), icon: Icons.style),
-      ToolItem(id: 'tag_library', name: l.toolsTagLibrary.toUpperCase(), icon: Icons.local_offer),
-      ToolItem(id: 'presets', name: l.toolsPresets.toUpperCase(), icon: Icons.tune),
-      ToolItem(id: 'styles', name: l.toolsStyles.toUpperCase(), icon: Icons.auto_awesome),
-      ToolItem(id: 'director_ref', name: l.toolsReferences.toUpperCase(), icon: Icons.photo_library),
+    final tools = [
+      ToolItem(
+        id: 'wildcards',
+        name: l.toolsWildcards.toUpperCase(),
+        icon: Icons.style,
+      ),
+      ToolItem(
+        id: 'tag_library',
+        name: l.toolsTagLibrary.toUpperCase(),
+        icon: Icons.local_offer,
+      ),
+      ToolItem(
+        id: 'presets',
+        name: l.toolsPresets.toUpperCase(),
+        icon: Icons.tune,
+      ),
+      ToolItem(
+        id: 'styles',
+        name: l.toolsStyles.toUpperCase(),
+        icon: Icons.auto_awesome,
+      ),
+      ToolItem(
+        id: 'director_ref',
+        name: l.toolsReferences.toUpperCase(),
+        icon: Icons.photo_library,
+        permissions: const [BackendPermission.imageGeneratePaid],
+      ),
       ToolItem(id: 'characters', name: 'CHARACTERS', icon: Icons.people_alt),
-      ToolItem(id: 'cascade', name: l.toolsCascadeEditor.toUpperCase(), icon: Icons.movie_filter),
-      ToolItem(id: 'img2img', name: l.toolsImg2imgEditor.toUpperCase(), icon: Icons.brush),
-      ToolItem(id: 'director_tools', name: l.toolsDirectorTools.toUpperCase(), icon: Icons.auto_fix_high),
-      ToolItem(id: 'enhance', name: l.toolsEnhance.toUpperCase(), icon: Icons.hd),
-      ToolItem(id: 'slideshow', name: l.toolsSlideshow.toUpperCase(), icon: Icons.slideshow),
-      ToolItem(id: 'ml_models', name: l.mlModels.toUpperCase(), icon: Icons.psychology),
-      ToolItem(id: 'text_gen', name: l.toolsTextGen.toUpperCase(), icon: Icons.notes),
-      ToolItem(id: 'packs', name: l.toolsPacks.toUpperCase(), icon: Icons.inventory_2),
-      ToolItem(id: 'theme', name: l.toolsTheme.toUpperCase(), icon: Icons.palette),
-      ToolItem(id: 'settings', name: l.toolsSettings.toUpperCase(), icon: Icons.settings),
+      ToolItem(
+        id: 'cascade',
+        name: l.toolsCascadeEditor.toUpperCase(),
+        icon: Icons.movie_filter,
+        permissions: const [BackendPermission.imageGeneratePaid],
+      ),
+      ToolItem(
+        id: 'img2img',
+        name: l.toolsImg2imgEditor.toUpperCase(),
+        icon: Icons.brush,
+        permissions: const [BackendPermission.imageGeneratePaid],
+      ),
+      ToolItem(
+        id: 'director_tools',
+        name: l.toolsDirectorTools.toUpperCase(),
+        icon: Icons.auto_fix_high,
+        permissions: const [BackendPermission.imageAugment],
+      ),
+      ToolItem(
+        id: 'enhance',
+        name: l.toolsEnhance.toUpperCase(),
+        icon: Icons.hd,
+        permissions: const [BackendPermission.imageGeneratePaid],
+      ),
+      ToolItem(
+        id: 'slideshow',
+        name: l.toolsSlideshow.toUpperCase(),
+        icon: Icons.slideshow,
+      ),
+      ToolItem(
+        id: 'ml_models',
+        name: l.mlModels.toUpperCase(),
+        icon: Icons.psychology,
+      ),
+      ToolItem(
+        id: 'text_gen',
+        name: l.toolsTextGen.toUpperCase(),
+        icon: Icons.notes,
+        permissions: const [BackendPermission.textGenerate],
+      ),
+      ToolItem(
+        id: 'packs',
+        name: l.toolsPacks.toUpperCase(),
+        icon: Icons.inventory_2,
+      ),
+      ToolItem(
+        id: 'theme',
+        name: l.toolsTheme.toUpperCase(),
+        icon: Icons.palette,
+      ),
+      ToolItem(
+        id: 'settings',
+        name: l.toolsSettings.toUpperCase(),
+        icon: Icons.settings,
+      ),
     ];
+    return tools
+        .where(
+          (tool) =>
+              tool.permissions.isEmpty ||
+              hasAnyBackendPermission(context, tool.permissions),
+        )
+        .toList();
   }
 
   @override
@@ -100,7 +174,17 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
     final t = context.t;
     final l = context.l;
     final tools = _getTools(context);
-    final activeTool = tools.firstWhere((tool) => tool.id == _activeToolId, orElse: () => tools.first);
+    final activeToolId = tools.any((tool) => tool.id == _activeToolId)
+        ? _activeToolId
+        : tools.first.id;
+    final activeTool = tools.firstWhere((tool) => tool.id == activeToolId);
+    if (activeToolId != _activeToolId) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _activeToolId = activeToolId;
+        _prefs.setLastToolId(activeToolId);
+      });
+    }
 
     return Focus(
       focusNode: _toolsFocusNode,
@@ -114,102 +198,126 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
         return KeyEventResult.ignored;
       },
       child: Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: t.background,
-      appBar: AppBar(
+        key: _scaffoldKey,
         backgroundColor: t.background,
-        elevation: 0,
-        toolbarHeight: mobile ? 48 : 32,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, size: mobile ? 20 : 14, color: t.secondaryText),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          mobile ? activeTool.name : l.toolsHub.toUpperCase(),
-          style: TextStyle(
-            letterSpacing: 4,
-            fontSize: t.titleSize(mobile ? 12 : 10),
-            fontWeight: FontWeight.w900,
-            color: t.headerText,
+        appBar: AppBar(
+          backgroundColor: t.background,
+          elevation: 0,
+          toolbarHeight: mobile ? 48 : 32,
+          leading: IconButton(
+            icon: Icon(
+              Icons.arrow_back,
+              size: mobile ? 20 : 14,
+              color: t.secondaryText,
+            ),
+            onPressed: () => Navigator.pop(context),
           ),
+          title: Text(
+            mobile ? activeTool.name : l.toolsHub.toUpperCase(),
+            style: TextStyle(
+              letterSpacing: 4,
+              fontSize: t.titleSize(mobile ? 12 : 10),
+              fontWeight: FontWeight.w900,
+              color: t.headerText,
+            ),
+          ),
+          actions: mobile
+              ? [
+                  IconButton(
+                    icon: Icon(Icons.menu, size: 22, color: t.secondaryText),
+                    tooltip: l.commonMenu,
+                    onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+                  ),
+                ]
+              : null,
         ),
-        actions: mobile
-            ? [
-                IconButton(
-                  icon: Icon(Icons.menu, size: 22, color: t.secondaryText),
-                  tooltip: l.commonMenu,
-                  onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
-                ),
-              ]
-            : null,
-      ),
-      endDrawer: mobile
-          ? Drawer(
-              backgroundColor: t.surfaceMid,
-              child: SafeArea(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                      child: Text(l.toolsTitle.toUpperCase(), style: TextStyle(color: t.secondaryText, fontSize: t.titleSize(10), letterSpacing: 2, fontWeight: FontWeight.bold)),
-                    ),
-                    Divider(height: 1, color: t.borderMedium),
-                    Expanded(
-                      child: Scrollbar(
-                        controller: _drawerScrollController,
-                        thumbVisibility: true,
-                        child: ListView(
-                          controller: _drawerScrollController,
-                          padding: EdgeInsets.zero,
-                          children: tools.map((tool) {
-                            final isActive = _activeToolId == tool.id;
-                            return ListTile(
-                              leading: Icon(tool.icon, size: 20, color: isActive ? t.accent : t.secondaryText),
-                              title: Text(
-                                tool.name,
-                                style: TextStyle(
-                                  fontSize: t.titleSize(12),
-                                  letterSpacing: 2,
-                                  fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                                  color: isActive ? t.accent : t.secondaryText,
-                                ),
-                              ),
-                              selected: isActive,
-                              selectedTileColor: t.borderSubtle,
-                              onTap: () {
-                                _selectTool(tool.id);
-                                Navigator.pop(context); // close drawer
-                              },
-                            );
-                          }).toList(),
+        endDrawer: mobile
+            ? Drawer(
+                backgroundColor: t.surfaceMid,
+                child: SafeArea(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                        child: Text(
+                          l.toolsTitle.toUpperCase(),
+                          style: TextStyle(
+                            color: t.secondaryText,
+                            fontSize: t.titleSize(10),
+                            letterSpacing: 2,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                      Divider(height: 1, color: t.borderMedium),
+                      Expanded(
+                        child: Scrollbar(
+                          controller: _drawerScrollController,
+                          thumbVisibility: true,
+                          child: ListView(
+                            controller: _drawerScrollController,
+                            padding: EdgeInsets.zero,
+                            children: tools.map((tool) {
+                              final isActive = activeToolId == tool.id;
+                              return ListTile(
+                                leading: Icon(
+                                  tool.icon,
+                                  size: 20,
+                                  color: isActive ? t.accent : t.secondaryText,
+                                ),
+                                title: Text(
+                                  tool.name,
+                                  style: TextStyle(
+                                    fontSize: t.titleSize(12),
+                                    letterSpacing: 2,
+                                    fontWeight: isActive
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    color: isActive
+                                        ? t.accent
+                                        : t.secondaryText,
+                                  ),
+                                ),
+                                selected: isActive,
+                                selectedTileColor: t.borderSubtle,
+                                onTap: () {
+                                  _selectTool(tool.id);
+                                  Navigator.pop(context); // close drawer
+                                },
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+              )
+            : null,
+        body: mobile
+            ? SafeArea(top: false, child: _buildToolContent(activeToolId))
+            : Row(
+                children: [
+                  _buildSidebar(t, tools, activeToolId),
+                  VerticalDivider(width: 1, color: t.borderMedium),
+                  Expanded(child: _buildToolContent(activeToolId)),
+                ],
               ),
-            )
-          : null,
-      body: mobile
-          ? SafeArea(top: false, child: _buildToolContent())
-          : Row(
-              children: [
-                _buildSidebar(t, tools),
-                VerticalDivider(width: 1, color: t.borderMedium),
-                Expanded(
-                  child: _buildToolContent(),
-                ),
-              ],
-            ),
-    ),
+      ),
     );
   }
 
-  Widget _buildSidebar(VisionTokens t, List<ToolItem> tools) {
+  Widget _buildSidebar(
+    VisionTokens t,
+    List<ToolItem> tools,
+    String activeToolId,
+  ) {
     final screenWidth = MediaQuery.of(context).size.width;
     // Expand sidebar width on wider screens: 180px base, up to 240px on very wide screens
-    final double expandedWidth = screenWidth >= 1600 ? 240 : (screenWidth >= 1200 ? 210 : 180);
+    final double expandedWidth = screenWidth >= 1600
+        ? 240
+        : (screenWidth >= 1200 ? 210 : 180);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -224,8 +332,11 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
               size: 16,
               color: t.secondaryText,
             ),
-            tooltip: _isSidebarExpanded ? context.l.sidebarCollapse : context.l.sidebarExpand,
-            onPressed: () => setState(() => _isSidebarExpanded = !_isSidebarExpanded),
+            tooltip: _isSidebarExpanded
+                ? context.l.sidebarCollapse
+                : context.l.sidebarExpand,
+            onPressed: () =>
+                setState(() => _isSidebarExpanded = !_isSidebarExpanded),
           ),
           const SizedBox(height: 16),
           Expanded(
@@ -235,7 +346,9 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
               child: ListView(
                 controller: _sidebarScrollController,
                 padding: EdgeInsets.zero,
-                children: tools.map((tool) => _buildSidebarItem(tool, t)).toList(),
+                children: tools
+                    .map((tool) => _buildSidebarItem(tool, t, activeToolId))
+                    .toList(),
               ),
             ),
           ),
@@ -244,8 +357,8 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
     );
   }
 
-  Widget _buildSidebarItem(ToolItem tool, VisionTokens t) {
-    final bool isActive = _activeToolId == tool.id;
+  Widget _buildSidebarItem(ToolItem tool, VisionTokens t, String activeToolId) {
+    final bool isActive = activeToolId == tool.id;
     return InkWell(
       onTap: () => _selectTool(tool.id),
       child: Container(
@@ -286,8 +399,8 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
     );
   }
 
-  Widget _buildToolContent() {
-    switch (_activeToolId) {
+  Widget _buildToolContent(String activeToolId) {
+    switch (activeToolId) {
       case 'wildcards':
         return const WildcardManager();
       case 'tag_library':
@@ -330,6 +443,12 @@ class ToolItem {
   final String id;
   final String name;
   final IconData icon;
+  final List<String> permissions;
 
-  ToolItem({required this.id, required this.name, required this.icon});
+  ToolItem({
+    required this.id,
+    required this.name,
+    required this.icon,
+    this.permissions = const [],
+  });
 }

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:archive/archive.dart';
 import 'package:flutter/foundation.dart';
+import '../gateway/backend_gateway.dart';
 import '../../features/generation/models/nai_character.dart';
 
 /// Strips backslashes from a prompt before it reaches the NovelAI API.
@@ -50,14 +51,29 @@ class NovelAIService {
     _dio.options.connectTimeout = const Duration(seconds: 60);
     _dio.options.receiveTimeout = const Duration(minutes: 5);
     if (kDebugMode) {
-      _dio.interceptors.add(LogInterceptor(
-        requestHeader: false,
-        requestBody: false, // Don't log base64 image data
-        responseHeader: true,
-        responseBody: false, // Don't log bytes
-      ));
+      _dio.interceptors.add(
+        LogInterceptor(
+          requestHeader: false,
+          requestBody: false, // Don't log base64 image data
+          responseHeader: true,
+          responseBody: false, // Don't log bytes
+        ),
+      );
     }
   }
+
+  String _imageUrl(String path) => useBackendGateway
+      ? novelAiProxyUrl('image', path)
+      : 'https://image.novelai.net$path';
+
+  String _apiUrl(String path) => useBackendGateway
+      ? novelAiProxyUrl('api', path)
+      : 'https://api.novelai.net$path';
+
+  Map<String, String> _headers({bool json = true}) => {
+    if (!useBackendGateway) 'Authorization': 'Bearer $_apiKey',
+    if (json) 'Content-Type': 'application/json',
+  };
 
   /// POST with automatic retry on connection/timeout errors.
   Future<Response<dynamic>> _postWithRetry(
@@ -69,7 +85,8 @@ class NovelAIService {
       try {
         return await _dio.post(url, data: data, options: options);
       } on DioException catch (e) {
-        final retryable = e.type == DioExceptionType.connectionError ||
+        final retryable =
+            e.type == DioExceptionType.connectionError ||
             e.type == DioExceptionType.receiveTimeout ||
             e.type == DioExceptionType.sendTimeout;
         if (!retryable || attempt >= 2) rethrow;
@@ -89,7 +106,8 @@ class NovelAIService {
       try {
         return await _dio.get(url, options: options);
       } on DioException catch (e) {
-        final retryable = e.type == DioExceptionType.connectionError ||
+        final retryable =
+            e.type == DioExceptionType.connectionError ||
             e.type == DioExceptionType.receiveTimeout ||
             e.type == DioExceptionType.sendTimeout;
         if (!retryable || attempt >= 2) rethrow;
@@ -109,10 +127,12 @@ class NovelAIService {
     double informationExtracted = 1.0,
     bool useCurated = false,
   }) async {
-    const url = 'https://image.novelai.net/ai/encode-vibe';
+    final url = _imageUrl('/ai/encode-vibe');
     final body = {
       "image": imageBase64,
-      "model": useCurated ? "nai-diffusion-4-5-curated" : "nai-diffusion-4-5-full",
+      "model": useCurated
+          ? "nai-diffusion-4-5-curated"
+          : "nai-diffusion-4-5-full",
       "information_extracted": informationExtracted,
     };
 
@@ -122,10 +142,7 @@ class NovelAIService {
         data: body,
         options: Options(
           responseType: ResponseType.bytes,
-          headers: {
-            'Authorization': 'Bearer $_apiKey',
-            'Content-Type': 'application/json',
-          },
+          headers: {..._headers()},
         ),
       );
 
@@ -146,11 +163,12 @@ class NovelAIService {
   /// Fetches the user's Anlas balance from the NovelAI user data API.
   /// Returns null on failure (no API key, network error).
   Future<int?> getAnlasBalance() async {
-    if (_apiKey.isEmpty) return null;
+    if (useBackendGateway) return null;
+    if (!useBackendGateway && _apiKey.isEmpty) return null;
     try {
       final response = await _getWithRetry(
-        'https://api.novelai.net/user/subscription',
-        options: Options(headers: {'Authorization': 'Bearer $_apiKey'}),
+        _apiUrl('/user/subscription'),
+        options: Options(headers: _headers(json: false)),
       );
       if (response.statusCode == 200) {
         final data = response.data as Map<String, dynamic>;
@@ -206,10 +224,11 @@ class NovelAIService {
     bool? useCoords,
     bool useCurated = false,
   }) async {
-    const url = 'https://image.novelai.net/ai/generate-image';
+    final url = _imageUrl('/ai/generate-image');
 
     final inputPrompt = sanitizePromptForNai(
-        "${promptPrefix ?? ''}$prompt${promptSuffix ?? ''}");
+      "${promptPrefix ?? ''}$prompt${promptSuffix ?? ''}",
+    );
 
     final effectiveNegativePrompt = sanitizePromptForNai(negativePrompt);
 
@@ -266,12 +285,9 @@ class NovelAIService {
           };
         }).toList(),
       "v4_prompt": {
-        "caption": {
-          "base_caption": inputPrompt,
-          "char_captions": charCaptions,
-        },
+        "caption": {"base_caption": inputPrompt, "char_captions": charCaptions},
         "use_coords": useCoords ?? isMultiCharacter,
-        "use_order": true
+        "use_order": true,
       },
       "v4_negative_prompt": {
         "caption": {
@@ -284,23 +300,18 @@ class NovelAIService {
             }
             return neg;
           }).toList(),
-        }
+        },
       },
       // img2img / inpainting parameters
       if (action != 'generate' && sourceImageBase64 != null)
         "image": sourceImageBase64,
-      if (action != 'generate' && maskBase64 != null)
-        "mask": maskBase64,
+      if (action != 'generate' && maskBase64 != null) "mask": maskBase64,
       if (action != 'generate' && img2imgStrength != null)
         "strength": img2imgStrength,
-      if (action == 'img2img' && img2imgNoise != null)
-        "noise": img2imgNoise,
-      if (action == 'img2img')
-        "extra_noise_seed": seed,
-      if (action != 'generate')
-        "add_original_image": true,
-      if (action == 'infill' && maskBlur != null)
-        "mask_blur": maskBlur,
+      if (action == 'img2img' && img2imgNoise != null) "noise": img2imgNoise,
+      if (action == 'img2img') "extra_noise_seed": seed,
+      if (action != 'generate') "add_original_image": true,
+      if (action == 'infill' && maskBlur != null) "mask_blur": maskBlur,
       // Director reference (Precise Reference) parameters
       if (directorRefImages != null && directorRefImages.isNotEmpty)
         "director_reference_images": directorRefImages,
@@ -308,24 +319,32 @@ class NovelAIService {
         "director_reference_descriptions": directorRefDescriptions,
       if (directorRefStrengths != null && directorRefStrengths.isNotEmpty)
         "director_reference_strength_values": directorRefStrengths,
-      if (directorRefSecondaryStrengths != null && directorRefSecondaryStrengths.isNotEmpty)
-        "director_reference_secondary_strength_values": directorRefSecondaryStrengths,
-      if (directorRefInfoExtracted != null && directorRefInfoExtracted.isNotEmpty)
+      if (directorRefSecondaryStrengths != null &&
+          directorRefSecondaryStrengths.isNotEmpty)
+        "director_reference_secondary_strength_values":
+            directorRefSecondaryStrengths,
+      if (directorRefInfoExtracted != null &&
+          directorRefInfoExtracted.isNotEmpty)
         "director_reference_information_extracted": directorRefInfoExtracted,
       // Vibe Transfer (Reference Image) parameters
       if (vibeTransferImages != null && vibeTransferImages.isNotEmpty)
         "reference_image_multiple": vibeTransferImages,
       if (vibeTransferStrengths != null && vibeTransferStrengths.isNotEmpty)
         "reference_strength_multiple": vibeTransferStrengths,
-      if (vibeTransferInfoExtracted != null && vibeTransferInfoExtracted.isNotEmpty)
+      if (vibeTransferInfoExtracted != null &&
+          vibeTransferInfoExtracted.isNotEmpty)
         "reference_information_extracted_multiple": vibeTransferInfoExtracted,
     };
 
     final body = {
       "input": inputPrompt,
       "model": action == 'infill'
-          ? (useCurated ? "nai-diffusion-4-5-curated-inpainting" : "nai-diffusion-4-5-full-inpainting")
-          : (useCurated ? "nai-diffusion-4-5-curated" : "nai-diffusion-4-5-full"),
+          ? (useCurated
+                ? "nai-diffusion-4-5-curated-inpainting"
+                : "nai-diffusion-4-5-full-inpainting")
+          : (useCurated
+                ? "nai-diffusion-4-5-curated"
+                : "nai-diffusion-4-5-full"),
       "action": action,
       "parameters": parameters,
     };
@@ -336,16 +355,16 @@ class NovelAIService {
         data: body,
         options: Options(
           responseType: ResponseType.bytes,
-          headers: {
-            'Authorization': 'Bearer $_apiKey',
-            'Content-Type': 'application/json',
-          },
+          headers: {..._headers()},
         ),
       );
 
       if (response.statusCode == 200) {
-        final imageBytes = await compute(_decodeZip, response.data as List<int>);
-        
+        final imageBytes = await compute(
+          _decodeZip,
+          response.data as List<int>,
+        );
+
         // Prepare metadata in official NAI style
         // We include both 'uc' and 'undesired_content' to be absolutely sure
         final metadata = {
@@ -356,10 +375,7 @@ class NovelAIService {
           ...parameters,
         };
 
-        return GenerationResult(
-          imageBytes: imageBytes,
-          metadata: metadata,
-        );
+        return GenerationResult(imageBytes: imageBytes, metadata: metadata);
       } else {
         throw Exception('[API Error ${response.statusCode}]');
       }
@@ -372,7 +388,9 @@ class NovelAIService {
       final responseData = e.response?.data;
       if (responseData != null) {
         if (responseData is List<int>) {
-          debugPrint('NovelAIService: Response body: ${utf8.decode(responseData, allowMalformed: true)}');
+          debugPrint(
+            'NovelAIService: Response body: ${utf8.decode(responseData, allowMalformed: true)}',
+          );
         } else {
           debugPrint('NovelAIService: Response body: $responseData');
         }
@@ -393,7 +411,7 @@ class NovelAIService {
     int? defry,
     String? prompt,
   }) async {
-    const url = 'https://image.novelai.net/ai/augment-image';
+    final url = _imageUrl('/ai/augment-image');
     final body = <String, dynamic>{
       'image': imageBase64,
       'width': width,
@@ -409,10 +427,7 @@ class NovelAIService {
         data: body,
         options: Options(
           responseType: ResponseType.bytes,
-          headers: {
-            'Authorization': 'Bearer $_apiKey',
-            'Content-Type': 'application/json',
-          },
+          headers: {..._headers()},
         ),
       );
 
@@ -429,7 +444,9 @@ class NovelAIService {
       final responseData = e.response?.data;
       if (responseData != null) {
         if (responseData is List<int>) {
-          debugPrint('NovelAIService: Response body: ${utf8.decode(responseData, allowMalformed: true)}');
+          debugPrint(
+            'NovelAIService: Response body: ${utf8.decode(responseData, allowMalformed: true)}',
+          );
         } else {
           debugPrint('NovelAIService: Response body: $responseData');
         }
@@ -457,7 +474,7 @@ class NovelAIService {
       );
     }
 
-    const url = 'https://api.novelai.net/ai/upscale';
+    final url = _imageUrl('/ai/upscale');
     final body = {
       'image': imageBase64,
       'width': width,
@@ -471,10 +488,7 @@ class NovelAIService {
         data: body,
         options: Options(
           responseType: ResponseType.bytes,
-          headers: {
-            'Authorization': 'Bearer $_apiKey',
-            'Content-Type': 'application/json',
-          },
+          headers: {..._headers()},
         ),
       );
 
@@ -491,7 +505,9 @@ class NovelAIService {
       final responseData = e.response?.data;
       if (responseData != null) {
         if (responseData is List<int>) {
-          debugPrint('NovelAIService: Response body: ${utf8.decode(responseData, allowMalformed: true)}');
+          debugPrint(
+            'NovelAIService: Response body: ${utf8.decode(responseData, allowMalformed: true)}',
+          );
         } else {
           debugPrint('NovelAIService: Response body: $responseData');
         }
@@ -514,7 +530,8 @@ Uint8List _decodeZip(List<int> data) {
       // here instead (issue #24).
       if (!_looksLikeImage(bytes)) {
         throw Exception(
-            'API returned invalid image data (${bytes.length} bytes).');
+          'API returned invalid image data (${bytes.length} bytes).',
+        );
       }
       return bytes;
     }
@@ -534,6 +551,12 @@ bool _looksLikeImage(Uint8List b) {
     }
   }
   if (isPng) return true;
-  return b[0] == 0x52 && b[1] == 0x49 && b[2] == 0x46 && b[3] == 0x46 &&
-      b[8] == 0x57 && b[9] == 0x45 && b[10] == 0x42 && b[11] == 0x50;
+  return b[0] == 0x52 &&
+      b[1] == 0x49 &&
+      b[2] == 0x46 &&
+      b[3] == 0x46 &&
+      b[8] == 0x57 &&
+      b[9] == 0x45 &&
+      b[10] == 0x42 &&
+      b[11] == 0x50;
 }

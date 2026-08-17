@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:path/path.dart' as p;
+import '../../../core/gateway/backend_gateway.dart';
 import '../../../core/services/preferences_service.dart';
 import '../../../core/utils/image_utils.dart';
 import '../../tools/canvas/services/canvas_gallery_service.dart';
@@ -27,7 +28,16 @@ class ImportResult {
   });
 }
 
-enum GallerySortMode { dateDesc, dateAsc, nameAsc, nameDesc, sizeDesc, sizeAsc, dateAddedDesc, dateAddedAsc }
+enum GallerySortMode {
+  dateDesc,
+  dateAsc,
+  nameAsc,
+  nameDesc,
+  sizeDesc,
+  sizeAsc,
+  dateAddedDesc,
+  dateAddedAsc,
+}
 
 class GalleryItem {
   final File file;
@@ -70,6 +80,7 @@ class GalleryNotifier extends ChangeNotifier {
   GallerySortMode _sortMode = GallerySortMode.dateDesc;
   String? _activeAlbumId;
   List<String> _clipboard = [];
+  int? _backendUserId;
 
   List<GalleryItem> get items => _items;
   bool get isLoading => _isLoading;
@@ -111,9 +122,13 @@ class GalleryNotifier extends ChangeNotifier {
       list = list.where((item) => item.isFavorite).toList();
     }
     if (_activeAlbumId != null) {
-      final album = _albumService.albums.where((a) => a.id == _activeAlbumId).firstOrNull;
+      final album = _albumService.albums
+          .where((a) => a.id == _activeAlbumId)
+          .firstOrNull;
       if (album != null) {
-        list = list.where((item) => album.imageBasenames.contains(item.basename)).toList();
+        list = list
+            .where((item) => album.imageBasenames.contains(item.basename))
+            .toList();
       }
     }
     return _applySortMode(list);
@@ -135,9 +150,13 @@ class GalleryNotifier extends ChangeNotifier {
       case GallerySortMode.sizeAsc:
         sorted.sort((a, b) => a.fileSize.compareTo(b.fileSize));
       case GallerySortMode.dateAddedDesc:
-        sorted.sort((a, b) => (b.dateAdded ?? b.date).compareTo(a.dateAdded ?? a.date));
+        sorted.sort(
+          (a, b) => (b.dateAdded ?? b.date).compareTo(a.dateAdded ?? a.date),
+        );
       case GallerySortMode.dateAddedAsc:
-        sorted.sort((a, b) => (a.dateAdded ?? a.date).compareTo(b.dateAdded ?? b.date));
+        sorted.sort(
+          (a, b) => (a.dateAdded ?? a.date).compareTo(b.dateAdded ?? b.date),
+        );
     }
     return sorted;
   }
@@ -151,7 +170,7 @@ class GalleryNotifier extends ChangeNotifier {
   List<GalleryItem> get allItems => _items;
 
   GalleryNotifier({required this.outputDir, required PreferencesService prefs})
-      : _prefs = prefs {
+    : _prefs = prefs {
     _albumService = AlbumService(prefs: _prefs);
     _favorites = _prefs.favorites;
     _demoSafe = _prefs.demoSafe;
@@ -162,6 +181,17 @@ class GalleryNotifier extends ChangeNotifier {
   void setOutputDir(String dir) {
     outputDir = dir;
     refresh();
+  }
+
+  void updateBackendUserId(int? userId) {
+    if (!useBackendGateway || !kIsWeb || _backendUserId == userId) return;
+    _backendUserId = userId;
+    _items = [];
+    _searchQuery = "";
+    _showFavoritesOnly = false;
+    _activeAlbumId = null;
+    _clipboard = [];
+    notifyListeners();
   }
 
   void setSearchQuery(String query) {
@@ -189,23 +219,28 @@ class GalleryNotifier extends ChangeNotifier {
         // Recursive: custom save-path patterns (issue #27) file images into
         // auto-created subfolders like 2026/06/11, and those must survive an
         // app restart in the gallery just like flat saves.
-        final List<FileSystemEntity> entities =
-            await dir.list(recursive: true, followLinks: false).toList();
+        final List<FileSystemEntity> entities = await dir
+            .list(recursive: true, followLinks: false)
+            .toList();
         final List<GalleryItem> newItems = [];
 
         for (var entity in entities) {
-          final ext = entity is File ? p.extension(entity.path).toLowerCase() : '';
+          final ext = entity is File
+              ? p.extension(entity.path).toLowerCase()
+              : '';
           if (entity is File && (ext == '.png' || ext == '.webp')) {
             final stat = await entity.stat();
             // An interrupted write can leave a 0-byte file behind; indexing
             // it produces a tile that can never render (issue #24).
             if (stat.size <= 0) continue;
-            newItems.add(GalleryItem(
-              file: entity,
-              date: stat.modified,
-              dateAdded: stat.modified,
-              fileSize: stat.size,
-            ));
+            newItems.add(
+              GalleryItem(
+                file: entity,
+                date: stat.modified,
+                dateAdded: stat.modified,
+                fileSize: stat.size,
+              ),
+            );
           }
         }
 
@@ -342,7 +377,11 @@ class GalleryNotifier extends ChangeNotifier {
   }
 
   /// Save an ML result with metadata copied from the source image.
-  Future<void> saveMLResultWithMetadata(Uint8List bytes, String filename, {Uint8List? sourceBytes}) async {
+  Future<void> saveMLResultWithMetadata(
+    Uint8List bytes,
+    String filename, {
+    Uint8List? sourceBytes,
+  }) async {
     Uint8List finalBytes = bytes;
     if (sourceBytes != null) {
       final result = await compute(convertToPngPreservingMetadata, {
@@ -364,7 +403,8 @@ class GalleryNotifier extends ChangeNotifier {
     return _importService.importFiles(
       filePaths,
       outputDir: outputDir,
-      onFileImported: (file, date) => addFile(file, date, albumId: _activeAlbumId),
+      onFileImported: (file, date) =>
+          addFile(file, date, albumId: _activeAlbumId),
       onProgress: onProgress,
     );
   }
@@ -553,12 +593,17 @@ class GalleryNotifier extends ChangeNotifier {
   }
 
   void removeFromAlbum(String albumId, List<GalleryItem> items) {
-    _albumService.removeFromAlbum(albumId, items.map((i) => i.basename).toList());
+    _albumService.removeFromAlbum(
+      albumId,
+      items.map((i) => i.basename).toList(),
+    );
     notifyListeners();
   }
 
   int albumItemCount(String albumId) {
     return _albumService.albumItemCount(
-        albumId, _items.map((i) => i.basename).toList());
+      albumId,
+      _items.map((i) => i.basename).toList(),
+    );
   }
 }

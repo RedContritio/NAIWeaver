@@ -1,0 +1,11 @@
+[[proxies]]
+name = "naiweaver-https"
+type = "https"
+customDomains = ["nai.recoco.xyz"]
+
+[proxies.plugin]
+type = "https2http"
+localAddr = "127.0.0.1:62279"
+crtPath = "/Users/redcontritio/.config/naiweaver/certs/nai.recoco.xyz.crt"
+keyPath = "/Users/redcontritio/.config/naiweaver/certs/nai.recoco.xyz.key"
+hostHeaderRewrite = "nai.recoco.xyz"

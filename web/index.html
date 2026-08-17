@@ -31,8 +31,115 @@
 
   <title>NAIWeaver</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    input,
+    textarea,
+    [contenteditable="true"],
+    flt-text-editing-host,
+    flt-text-editing-host * {
+      -webkit-touch-callout: default !important;
+      -webkit-user-select: text !important;
+      user-select: text !important;
+    }
+  </style>
 </head>
 <body>
+  <script>
+    (() => {
+      const b64ToBytes = (value) => {
+        const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
+        const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+        const binary = atob(padded);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+        return bytes;
+      };
+      const bytesToB64 = (buffer) => {
+        if (buffer == null) return null;
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i += 0x8000) {
+          binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+        }
+        return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+      };
+      const normalizeCredentialList = (items) => {
+        if (!Array.isArray(items)) return items;
+        return items.map((item) => ({ ...item, id: b64ToBytes(item.id) }));
+      };
+      const creationOptions = (publicKey) => {
+        const copy = structuredClone(publicKey);
+        copy.challenge = b64ToBytes(copy.challenge);
+        copy.user.id = b64ToBytes(copy.user.id);
+        copy.excludeCredentials = normalizeCredentialList(copy.excludeCredentials);
+        return { publicKey: copy };
+      };
+      const requestOptions = (publicKey) => {
+        const copy = structuredClone(publicKey);
+        copy.challenge = b64ToBytes(copy.challenge);
+        if (Array.isArray(copy.allowCredentials) && copy.allowCredentials.length === 0) {
+          delete copy.allowCredentials;
+        } else {
+          copy.allowCredentials = normalizeCredentialList(copy.allowCredentials);
+        }
+        return { publicKey: copy };
+      };
+      const registrationCredential = (credential) => ({
+        id: credential.id,
+        rawId: bytesToB64(credential.rawId),
+        type: credential.type,
+        authenticatorAttachment: credential.authenticatorAttachment,
+        response: {
+          clientDataJSON: bytesToB64(credential.response.clientDataJSON),
+          attestationObject: bytesToB64(credential.response.attestationObject),
+          transports: credential.response.getTransports ? credential.response.getTransports() : [],
+        },
+      });
+      const authenticationCredential = (credential) => ({
+        id: credential.id,
+        rawId: bytesToB64(credential.rawId),
+        type: credential.type,
+        authenticatorAttachment: credential.authenticatorAttachment,
+        response: {
+          clientDataJSON: bytesToB64(credential.response.clientDataJSON),
+          authenticatorData: bytesToB64(credential.response.authenticatorData),
+          signature: bytesToB64(credential.response.signature),
+          userHandle: bytesToB64(credential.response.userHandle),
+        },
+      });
+      const webauthnError = (error) => {
+        const text = error && (error.message || String(error)) || '';
+        if (/NotSupported|not supported|Not implemented|not implemented/i.test(text)) {
+          return new Error(`当前浏览器不支持通行密钥。请用 Safari 或 Chrome 打开 HTTPS 链接，不要使用微信/QQ/邮件 App 内置浏览器。(${text})`);
+        }
+        return error;
+      };
+      window.naiweaverWebAuthn = {
+        create: async (publicKeyJson) => {
+          if (!window.PublicKeyCredential || !navigator.credentials || !navigator.credentials.create) {
+            throw new Error('当前浏览器不支持通行密钥。请用 Safari 或 Chrome 打开 HTTPS 链接，不要使用微信/QQ/邮件 App 内置浏览器。');
+          }
+          try {
+            const credential = await navigator.credentials.create(creationOptions(JSON.parse(publicKeyJson)));
+            return JSON.stringify(registrationCredential(credential));
+          } catch (error) {
+            throw webauthnError(error);
+          }
+        },
+        get: async (publicKeyJson) => {
+          if (!window.PublicKeyCredential || !navigator.credentials || !navigator.credentials.get) {
+            throw new Error('当前浏览器不支持通行密钥。请用 Safari 或 Chrome 打开 HTTPS 链接，不要使用微信/QQ/邮件 App 内置浏览器。');
+          }
+          try {
+            const credential = await navigator.credentials.get(requestOptions(JSON.parse(publicKeyJson)));
+            return JSON.stringify(authenticationCredential(credential));
+          } catch (error) {
+            throw webauthnError(error);
+          }
+        },
+      };
+    })();
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

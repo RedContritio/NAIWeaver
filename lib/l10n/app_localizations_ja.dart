@@ -48,6 +48,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mainGallery => 'ギャラリー';
 
   @override
+  String get mainServerHistory => '履歴';
+
+  @override
   String get mainTools => 'ツール';
 
   @override
@@ -117,6 +120,61 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsApiKeyHint => 'pst-xxxx...';
+
+  @override
+  String get settingsApiManaged => 'NovelAI APIキーはサーバーで管理';
+
+  @override
+  String get settingsApiManagedDesc =>
+      'このWebサービスはバックエンドに保存されたNovelAIトークンを使用します。ブラウザーにNovelAIトークンは保存されません。';
+
+  @override
+  String get gatewayUsername => 'ユーザー名';
+
+  @override
+  String get gatewayPassword => 'パスワード';
+
+  @override
+  String get gatewayLogin => 'ログイン';
+
+  @override
+  String get gatewayLogout => 'ログアウト';
+
+  @override
+  String get gatewayQueueStatus => 'キュー状態';
+
+  @override
+  String get gatewayQueueIdle => '待機中';
+
+  @override
+  String get gatewayQueueQueued => '待ち';
+
+  @override
+  String get gatewayQueueActive => '生成中';
+
+  @override
+  String get gatewayQuotaFreeLabel => '無料枠';
+
+  @override
+  String get gatewayQuotaPaidLabel => '有料ポイント';
+
+  @override
+  String get gatewayQuotaFreeShort => '無';
+
+  @override
+  String get gatewayQuotaPaidShort => '点';
+
+  @override
+  String get gatewayQuotaUnlimited => '無制限';
+
+  @override
+  String get gatewayQuotaRefresh => '自分の枠を更新';
+
+  @override
+  String get gatewayShowPassword => 'パスワードを表示';
+
+  @override
+  String get gatewayHidePassword => 'パスワードを隠す';
 
   @override
   String get settingsAutoSave => '画像の自動保存';
@@ -537,6 +595,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get panelSeed => 'シード';
+
+  @override
+  String get panelBatchCount => 'バッチ';
 
   @override
   String get panelCustom => 'カスタム';
@@ -2182,6 +2243,24 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mainAnlas => 'Anlas';
 
   @override
+  String get mainEstimatedCostLabel => '予測';
+
+  @override
+  String get mainEstimatedCostTooltip => '生成前の推定値です。完了後はNovelAIの実際の残高差分で調整されます';
+
+  @override
+  String get mainEstimatedCostBase => '基本';
+
+  @override
+  String get mainEstimatedCostReference => '参照画像';
+
+  @override
+  String get mainEstimatedCostVibe => 'Vibe';
+
+  @override
+  String get mainEstimatedCostSerialImages => '直列枚数';
+
+  @override
   String get settingsAnlasTracker => 'Anlasトラッカー';
 
   @override
@@ -3479,4 +3558,19 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get textGenReasoning => '推論';
+
+  @override
+  String get serverHistoryTitle => 'サーバー履歴';
+
+  @override
+  String get serverHistoryAllUsers => 'すべてのユーザー';
+
+  @override
+  String get serverHistoryRefresh => '更新';
+
+  @override
+  String get serverHistoryEmpty => 'サーバー履歴はまだありません';
+
+  @override
+  String get serverHistoryDeleteConfirm => 'この項目を自分の履歴から非表示にします。';
 }

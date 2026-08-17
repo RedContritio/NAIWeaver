@@ -1,4 +1,3 @@
-import 'dart:io';
 import '../../../core/utils/file_picker_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -95,35 +94,40 @@ class _DirectorRefManagerState extends State<DirectorRefManager> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: t.surfaceHigh,
-        title: Text(title,
-            style: TextStyle(
-                fontSize: t.fontSize(10),
-                letterSpacing: 2,
-                color: t.textSecondary)),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontSize: t.fontSize(10),
+            letterSpacing: 2,
+            color: t.textSecondary,
+          ),
+        ),
         content: TextField(
           controller: controller,
           autofocus: true,
           style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(13)),
           decoration: InputDecoration(
             hintText: context.l.refNameHint,
-            hintStyle:
-                TextStyle(color: t.textMinimal, fontSize: t.fontSize(9)),
+            hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9)),
             enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: t.borderMedium)),
+              borderSide: BorderSide(color: t.borderMedium),
+            ),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(context.l.refDialogCancel,
-                style: TextStyle(
-                    color: t.textDisabled, fontSize: t.fontSize(9))),
+            child: Text(
+              context.l.refDialogCancel,
+              style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9)),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, controller.text),
-            child: Text(context.l.refDialogSave,
-                style: TextStyle(
-                    color: t.textPrimary, fontSize: t.fontSize(9))),
+            child: Text(
+              context.l.refDialogSave,
+              style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(9)),
+            ),
           ),
         ],
       ),
@@ -135,11 +139,10 @@ class _DirectorRefManagerState extends State<DirectorRefManager> {
     if (result != null && context.mounted) {
       final notifier = context.read<DirectorRefNotifier>();
       for (final file in result.files) {
-        if (file.path != null) {
-          final bytes = await File(file.path!).readAsBytes();
-          if (context.mounted) {
-            await notifier.addReference(bytes);
-          }
+        final bytes = await readPickedFileBytes(file);
+        if (bytes == null) continue;
+        if (context.mounted) {
+          await notifier.addReference(bytes);
         }
       }
     }
@@ -242,7 +245,10 @@ class _DirectorRefManagerState extends State<DirectorRefManager> {
             context.l.refEmptyDescription,
             textAlign: TextAlign.center,
             style: TextStyle(
-                color: t.textMinimal, fontSize: t.fontSize(11), height: 1.5),
+              color: t.textMinimal,
+              fontSize: t.fontSize(11),
+              height: 1.5,
+            ),
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
@@ -251,17 +257,18 @@ class _DirectorRefManagerState extends State<DirectorRefManager> {
             label: Text(
               context.l.refAddReference,
               style: TextStyle(
-                  fontSize: t.fontSize(9),
-                  letterSpacing: 1,
-                  fontWeight: FontWeight.bold),
+                fontSize: t.fontSize(9),
+                letterSpacing: 1,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: t.accent,
               foregroundColor: t.background,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4)),
+                borderRadius: BorderRadius.circular(4),
+              ),
             ),
           ),
         ],
@@ -269,21 +276,26 @@ class _DirectorRefManagerState extends State<DirectorRefManager> {
     );
   }
 
-  Widget _buildGrid(BuildContext context, DirectorRefNotifier notifier,
-      List<DirectorReference> refs) {
+  Widget _buildGrid(
+    BuildContext context,
+    DirectorRefNotifier notifier,
+    List<DirectorReference> refs,
+  ) {
     final t = context.t;
     return Padding(
       padding: const EdgeInsets.all(16),
       child: ListView(
         children: [
-          ...refs.map((ref) => _ReferenceCard(
-                reference: ref,
-                onTypeChanged: (t) => notifier.updateType(ref.id, t),
-                onStrengthChanged: (v) => notifier.updateStrength(ref.id, v),
-                onFidelityChanged: (v) => notifier.updateFidelity(ref.id, v),
-                onRemove: () => notifier.removeReference(ref.id),
-                onSave: () => _saveToLibrary(ref),
-              )),
+          ...refs.map(
+            (ref) => _ReferenceCard(
+              reference: ref,
+              onTypeChanged: (t) => notifier.updateType(ref.id, t),
+              onStrengthChanged: (v) => notifier.updateStrength(ref.id, v),
+              onFidelityChanged: (v) => notifier.updateFidelity(ref.id, v),
+              onRemove: () => notifier.removeReference(ref.id),
+              onSave: () => _saveToLibrary(ref),
+            ),
+          ),
           const SizedBox(height: 16),
           // Add button
           Center(
@@ -293,17 +305,21 @@ class _DirectorRefManagerState extends State<DirectorRefManager> {
               label: Text(
                 context.l.refAddReference,
                 style: TextStyle(
-                    fontSize: t.fontSize(9),
-                    letterSpacing: 1,
-                    fontWeight: FontWeight.bold),
+                  fontSize: t.fontSize(9),
+                  letterSpacing: 1,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: t.textMinimal,
                 foregroundColor: t.textSecondary,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4)),
+                  borderRadius: BorderRadius.circular(4),
+                ),
                 elevation: 0,
               ),
             ),
@@ -446,8 +462,9 @@ class _ReferenceCard extends StatelessWidget {
                           onTap: () => onTypeChanged(refType),
                           child: Container(
                             padding: EdgeInsets.symmetric(
-                                horizontal: mobile ? 6 : 8,
-                                vertical: mobile ? 6 : 4),
+                              horizontal: mobile ? 6 : 8,
+                              vertical: mobile ? 6 : 4,
+                            ),
                             decoration: BoxDecoration(
                               color: isSelected
                                   ? c.withValues(alpha: 0.15)
@@ -476,16 +493,22 @@ class _ReferenceCard extends StatelessWidget {
                       onTap: onSave,
                       child: Padding(
                         padding: const EdgeInsets.only(right: 8),
-                        child: Icon(Icons.bookmark_border,
-                            size: 14, color: t.textDisabled),
+                        child: Icon(
+                          Icons.bookmark_border,
+                          size: 14,
+                          color: t.textDisabled,
+                        ),
                       ),
                     ),
                     GestureDetector(
                       onTap: onRemove,
                       child: Padding(
                         padding: const EdgeInsets.only(left: 1),
-                        child:
-                            Icon(Icons.close, size: 14, color: t.textDisabled),
+                        child: Icon(
+                          Icons.close,
+                          size: 14,
+                          color: t.textDisabled,
+                        ),
                       ),
                     ),
                   ],
@@ -594,14 +617,12 @@ class _SavedRefCard extends StatelessWidget {
             onTap: onLoad,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Icon(Icons.add_circle_outline,
-                  size: 18, color: t.accent),
+              child: Icon(Icons.add_circle_outline, size: 18, color: t.accent),
             ),
           ),
           GestureDetector(
             onTap: onDelete,
-            child: Icon(Icons.delete_outline,
-                size: 16, color: t.accentDanger),
+            child: Icon(Icons.delete_outline, size: 16, color: t.accentDanger),
           ),
         ],
       ),

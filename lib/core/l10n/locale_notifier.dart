@@ -6,8 +6,10 @@ class LocaleNotifier extends ChangeNotifier {
   final PreferencesService _prefs;
   late Locale _locale;
 
-  static const _buildDefault =
-      String.fromEnvironment('DEFAULT_LOCALE', defaultValue: 'en');
+  static const _buildDefault = String.fromEnvironment(
+    'DEFAULT_LOCALE',
+    defaultValue: 'zh',
+  );
 
   LocaleNotifier(this._prefs) {
     final saved = _prefs.locale;

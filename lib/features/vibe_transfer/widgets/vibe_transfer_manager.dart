@@ -1,4 +1,3 @@
-import 'dart:io';
 import '../../../core/utils/file_picker_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -91,35 +90,40 @@ class _VibeTransferManagerState extends State<VibeTransferManager> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: t.surfaceHigh,
-        title: Text(title,
-            style: TextStyle(
-                fontSize: t.fontSize(10),
-                letterSpacing: 2,
-                color: t.textSecondary)),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontSize: t.fontSize(10),
+            letterSpacing: 2,
+            color: t.textSecondary,
+          ),
+        ),
         content: TextField(
           controller: controller,
           autofocus: true,
           style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(13)),
           decoration: InputDecoration(
             hintText: context.l.refNameHint,
-            hintStyle:
-                TextStyle(color: t.textMinimal, fontSize: t.fontSize(9)),
+            hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9)),
             enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: t.borderMedium)),
+              borderSide: BorderSide(color: t.borderMedium),
+            ),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(context.l.refDialogCancel,
-                style: TextStyle(
-                    color: t.textDisabled, fontSize: t.fontSize(9))),
+            child: Text(
+              context.l.refDialogCancel,
+              style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9)),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, controller.text),
-            child: Text(context.l.refDialogSave,
-                style: TextStyle(
-                    color: t.textPrimary, fontSize: t.fontSize(9))),
+            child: Text(
+              context.l.refDialogSave,
+              style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(9)),
+            ),
           ),
         ],
       ),
@@ -131,22 +135,24 @@ class _VibeTransferManagerState extends State<VibeTransferManager> {
     if (result != null && context.mounted) {
       final notifier = context.read<VibeTransferNotifier>();
       for (final file in result.files) {
-        if (file.path != null) {
-          final bytes = await File(file.path!).readAsBytes();
-          if (!context.mounted) return;
-          try {
-            await notifier.addVibe(bytes);
-          } on UnauthorizedException {
-            if (context.mounted) {
-              showErrorSnackBar(context, context.l.refApiKeyMissing);
-            }
-            return;
-          } catch (e) {
-            if (context.mounted) {
-              showErrorSnackBar(context, context.l.refVibeEncodeFailed(e.toString()));
-            }
-            return;
+        final bytes = await readPickedFileBytes(file);
+        if (bytes == null) continue;
+        if (!context.mounted) return;
+        try {
+          await notifier.addVibe(bytes);
+        } on UnauthorizedException {
+          if (context.mounted) {
+            showErrorSnackBar(context, context.l.refApiKeyMissing);
           }
+          return;
+        } catch (e) {
+          if (context.mounted) {
+            showErrorSnackBar(
+              context,
+              context.l.refVibeEncodeFailed(e.toString()),
+            );
+          }
+          return;
         }
       }
     }
@@ -249,7 +255,10 @@ class _VibeTransferManagerState extends State<VibeTransferManager> {
             context.l.refVibeEmptyDescription,
             textAlign: TextAlign.center,
             style: TextStyle(
-                color: t.textMinimal, fontSize: t.fontSize(11), height: 1.5),
+              color: t.textMinimal,
+              fontSize: t.fontSize(11),
+              height: 1.5,
+            ),
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
@@ -258,17 +267,18 @@ class _VibeTransferManagerState extends State<VibeTransferManager> {
             label: Text(
               context.l.refAddVibe,
               style: TextStyle(
-                  fontSize: t.fontSize(9),
-                  letterSpacing: 1,
-                  fontWeight: FontWeight.bold),
+                fontSize: t.fontSize(9),
+                letterSpacing: 1,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: t.accent,
               foregroundColor: t.background,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4)),
+                borderRadius: BorderRadius.circular(4),
+              ),
             ),
           ),
         ],
@@ -276,22 +286,26 @@ class _VibeTransferManagerState extends State<VibeTransferManager> {
     );
   }
 
-  Widget _buildList(BuildContext context, VibeTransferNotifier notifier,
-      List<VibeTransfer> vibes) {
+  Widget _buildList(
+    BuildContext context,
+    VibeTransferNotifier notifier,
+    List<VibeTransfer> vibes,
+  ) {
     final t = context.t;
     return Padding(
       padding: const EdgeInsets.all(16),
       child: ListView(
         children: [
-          ...vibes.map((vibe) => _VibeCard(
-                vibe: vibe,
-                onStrengthChanged: (v) =>
-                    notifier.updateStrength(vibe.id, v),
-                onInfoExtractedChanged: (v) =>
-                    notifier.updateInfoExtracted(vibe.id, v),
-                onRemove: () => notifier.removeVibe(vibe.id),
-                onSave: () => _saveToLibrary(vibe),
-              )),
+          ...vibes.map(
+            (vibe) => _VibeCard(
+              vibe: vibe,
+              onStrengthChanged: (v) => notifier.updateStrength(vibe.id, v),
+              onInfoExtractedChanged: (v) =>
+                  notifier.updateInfoExtracted(vibe.id, v),
+              onRemove: () => notifier.removeVibe(vibe.id),
+              onSave: () => _saveToLibrary(vibe),
+            ),
+          ),
           const SizedBox(height: 16),
           Center(
             child: ElevatedButton.icon(
@@ -300,17 +314,21 @@ class _VibeTransferManagerState extends State<VibeTransferManager> {
               label: Text(
                 context.l.refAddVibe,
                 style: TextStyle(
-                    fontSize: t.fontSize(9),
-                    letterSpacing: 1,
-                    fontWeight: FontWeight.bold),
+                  fontSize: t.fontSize(9),
+                  letterSpacing: 1,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: t.textMinimal,
                 foregroundColor: t.textSecondary,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4)),
+                  borderRadius: BorderRadius.circular(4),
+                ),
                 elevation: 0,
               ),
             ),
@@ -392,7 +410,9 @@ class _VibeCard extends StatelessWidget {
         color: t.borderSubtle,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-            color: _vibeGreen.withValues(alpha: 0.3), width: 0.5),
+          color: _vibeGreen.withValues(alpha: 0.3),
+          width: 0.5,
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -434,14 +454,16 @@ class _VibeCard extends StatelessWidget {
                       onTap: onSave,
                       child: Padding(
                         padding: const EdgeInsets.only(right: 8),
-                        child: Icon(Icons.bookmark_border,
-                            size: 14, color: t.textDisabled),
+                        child: Icon(
+                          Icons.bookmark_border,
+                          size: 14,
+                          color: t.textDisabled,
+                        ),
                       ),
                     ),
                     GestureDetector(
                       onTap: onRemove,
-                      child: Icon(Icons.close,
-                          size: 14, color: t.textDisabled),
+                      child: Icon(Icons.close, size: 14, color: t.textDisabled),
                     ),
                   ],
                 ),
@@ -514,7 +536,10 @@ class _SavedVibeCard extends StatelessWidget {
             height: thumbSize,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: _vibeGreen.withValues(alpha: 0.5), width: 0.5),
+              border: Border.all(
+                color: _vibeGreen.withValues(alpha: 0.5),
+                width: 0.5,
+              ),
               image: DecorationImage(
                 image: MemoryImage(saved.vibe.originalImageBytes),
                 fit: BoxFit.cover,
@@ -550,14 +575,16 @@ class _SavedVibeCard extends StatelessWidget {
             onTap: onLoad,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Icon(Icons.add_circle_outline,
-                  size: 18, color: _vibeGreen),
+              child: Icon(
+                Icons.add_circle_outline,
+                size: 18,
+                color: _vibeGreen,
+              ),
             ),
           ),
           GestureDetector(
             onTap: onDelete,
-            child: Icon(Icons.delete_outline,
-                size: 16, color: t.accentDanger),
+            child: Icon(Icons.delete_outline, size: 16, color: t.accentDanger),
           ),
         ],
       ),

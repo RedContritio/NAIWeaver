@@ -11,6 +11,7 @@ import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import '../../../core/gateway/backend_gateway.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/utils/app_snackbar.dart';
 import '../../../core/utils/filename_pattern.dart';
@@ -83,6 +84,7 @@ class GenerationState {
   final bool smeaDyn;
   final bool decrisper;
   final bool randomizeSeed;
+  final int batchCount;
   final List<String> activeStyleNames;
   final bool isStyleEnabled;
   final String apiKey;
@@ -125,6 +127,7 @@ class GenerationState {
     this.smeaDyn = false,
     this.decrisper = false,
     this.randomizeSeed = true,
+    this.batchCount = 1,
     this.activeStyleNames = const [],
     this.isStyleEnabled = true,
     this.apiKey = '',
@@ -168,6 +171,7 @@ class GenerationState {
     bool? smeaDyn,
     bool? decrisper,
     bool? randomizeSeed,
+    int? batchCount,
     List<String>? activeStyleNames,
     bool? isStyleEnabled,
     String? apiKey,
@@ -212,6 +216,7 @@ class GenerationState {
       smeaDyn: smeaDyn ?? this.smeaDyn,
       decrisper: decrisper ?? this.decrisper,
       randomizeSeed: randomizeSeed ?? this.randomizeSeed,
+      batchCount: batchCount ?? this.batchCount,
       activeStyleNames: activeStyleNames ?? this.activeStyleNames,
       isStyleEnabled: isStyleEnabled ?? this.isStyleEnabled,
       apiKey: apiKey ?? this.apiKey,
@@ -220,26 +225,34 @@ class GenerationState {
       characters: characters ?? this.characters,
       interactions: interactions ?? this.interactions,
       showDirectorRefShelf: showDirectorRefShelf ?? this.showDirectorRefShelf,
-      showVibeTransferShelf: showVibeTransferShelf ?? this.showVibeTransferShelf,
+      showVibeTransferShelf:
+          showVibeTransferShelf ?? this.showVibeTransferShelf,
       brightTheme: brightTheme ?? this.brightTheme,
       autoPositioning: autoPositioning ?? this.autoPositioning,
       showEditButton: showEditButton ?? this.showEditButton,
       showBgRemovalButton: showBgRemovalButton ?? this.showBgRemovalButton,
       showUpscaleButton: showUpscaleButton ?? this.showUpscaleButton,
       showEnhanceButton: showEnhanceButton ?? this.showEnhanceButton,
-      showDirectorToolsButton: showDirectorToolsButton ?? this.showDirectorToolsButton,
+      showDirectorToolsButton:
+          showDirectorToolsButton ?? this.showDirectorToolsButton,
       furryMode: furryMode ?? this.furryMode,
       useCurated: useCurated ?? this.useCurated,
-      errorMessage: clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
+      errorMessage: clearErrorMessage
+          ? null
+          : (errorMessage ?? this.errorMessage),
       anlas: clearAnlas ? null : (anlas ?? this.anlas),
       characterEditorMode: characterEditorMode ?? this.characterEditorMode,
       characterPresets: characterPresets ?? this.characterPresets,
-      duplicateImageDetected: duplicateImageDetected ?? this.duplicateImageDetected,
+      duplicateImageDetected:
+          duplicateImageDetected ?? this.duplicateImageDetected,
     );
   }
 }
 
 class GenerationNotifier extends ChangeNotifier {
+  static const String _qualityStyleName = 'Quality (NAI Default)';
+  static const String _legacyLightStyleName = 'Light - NAI';
+
   GenerationState _state = GenerationState();
   GenerationState get state => _state;
 
@@ -286,12 +299,13 @@ class GenerationNotifier extends ChangeNotifier {
   Timer? _tagDebounce;
   Timer? _sessionSaveDebounce;
   bool _sessionReady = false;
-  final SyntaxHighlightController promptController = SyntaxHighlightController();
-  final SyntaxHighlightController negativePromptController = SyntaxHighlightController(
-    text: ""
-  );
+  final SyntaxHighlightController promptController =
+      SyntaxHighlightController();
+  final SyntaxHighlightController negativePromptController =
+      SyntaxHighlightController(text: "");
 
-  static const String defaultNegativePrompt = "lowres, {bad}, error, fewer, extra, missing, worst quality, jpeg artifacts, bad quality, watermark, unfinished, displeasing, chromatic aberration, signature, extra digits, artistic error, username, scan, [abstract]";
+  static const String defaultNegativePrompt =
+      "lowres, {bad}, error, fewer, extra, missing, worst quality, jpeg artifacts, bad quality, watermark, unfinished, displeasing, chromatic aberration, signature, extra digits, artistic error, username, scan, [abstract]";
   final TextEditingController seedController = TextEditingController();
 
   GenerationNotifier({
@@ -310,10 +324,19 @@ class GenerationNotifier extends ChangeNotifier {
        _galleryNotifier = galleryNotifier,
        _characterLibrary = characterLibrary {
     _service = NovelAIService('');
-    _wildcardProcessor = WildcardProcessor(wildcardDir: wildcardService.wildcardDir, wildcardService: _wildcardService);
-    _presetService = PresetFileService(presetsFilePath: presetsFilePath, stylesFilePath: stylesFilePath);
+    _wildcardProcessor = WildcardProcessor(
+      wildcardDir: wildcardService.wildcardDir,
+      wildcardService: _wildcardService,
+    );
+    _presetService = PresetFileService(
+      presetsFilePath: presetsFilePath,
+      stylesFilePath: stylesFilePath,
+    );
     _sessionService = SessionSnapshotService(
-      sessionFilePath: p.join(p.dirname(presetsFilePath), 'session_snapshot.json'),
+      sessionFilePath: p.join(
+        p.dirname(presetsFilePath),
+        'session_snapshot.json',
+      ),
     );
     _characterManager = CharacterManager(prefs: _prefs);
     negativePromptController.text = "";
@@ -357,24 +380,38 @@ class GenerationNotifier extends ChangeNotifier {
     _outputDir = dir;
   }
 
+  static List<String> _defaultActiveStyleNames(List<PromptStyle> styles) {
+    for (final style in styles) {
+      if (style.name == _qualityStyleName) return [style.name];
+    }
+    for (final style in styles) {
+      if (style.name.toLowerCase().contains('quality')) return [style.name];
+    }
+    return styles.isNotEmpty ? [styles.first.name] : <String>[];
+  }
+
+  static List<String> _normalizeRestoredStyleNames(
+    List<String> activeStyleNames,
+    List<PromptStyle> styles,
+  ) {
+    if (activeStyleNames.length == 1 &&
+        activeStyleNames.first == _legacyLightStyleName) {
+      return _defaultActiveStyleNames(styles);
+    }
+    return activeStyleNames;
+  }
+
   Future<void> _loadInitialData() async {
     await _tagService.loadTags();
     await _wildcardService.refresh();
     final presets = await _presetService.loadPresets();
     final styles = await _presetService.loadStyles();
 
-    // Default style selection: Light - NAI, or those marked as default, or first available
-    List<String> initialActiveStyles = [];
-    if (styles.any((s) => s.name == "Light - NAI")) {
-      initialActiveStyles = ["Light - NAI"];
-    } else {
-      final defaultStyleNames = styles.where((s) => s.isDefault).map((s) => s.name).toList();
-      initialActiveStyles = defaultStyleNames.isNotEmpty
-          ? defaultStyleNames
-          : (styles.isNotEmpty ? [styles.first.name] : <String>[]);
-    }
+    final initialActiveStyles = _defaultActiveStyleNames(styles);
 
-    final apiKey = await _prefs.getApiKey();
+    final apiKey = useBackendGateway
+        ? serverManagedApiKey
+        : await _prefs.getApiKey();
     _service = NovelAIService(apiKey);
     _textService = NaiTextService(apiKey);
     _vibeTransferNotifier?.updateService(_service);
@@ -423,6 +460,14 @@ class GenerationNotifier extends ChangeNotifier {
   }
 
   Future<void> updateApiKey(String key) async {
+    if (useBackendGateway) {
+      _state = _state.copyWith(
+        apiKey: serverManagedApiKey,
+        hasAuthError: false,
+      );
+      notifyListeners();
+      return;
+    }
     await _prefs.setApiKey(key);
     _service = NovelAIService(key);
     _textService = NaiTextService(key);
@@ -541,6 +586,7 @@ class GenerationNotifier extends ChangeNotifier {
     bool? smeaDyn,
     bool? decrisper,
     bool? randomizeSeed,
+    int? batchCount,
     List<String>? activeStyleNames,
     bool? isStyleEnabled,
     List<NaiCharacter>? characters,
@@ -562,6 +608,7 @@ class GenerationNotifier extends ChangeNotifier {
       smeaDyn: smeaDyn,
       decrisper: decrisper,
       randomizeSeed: randomizeSeed,
+      batchCount: batchCount,
       activeStyleNames: activeStyleNames,
       isStyleEnabled: isStyleEnabled,
       characters: characters,
@@ -572,15 +619,23 @@ class GenerationNotifier extends ChangeNotifier {
   }
 
   void addCharacter({String name = '', String prompt = '', String uc = ''}) {
-    final result = _characterManager.addCharacter(_state.characters,
-        name: name, prompt: prompt, uc: uc);
+    final result = _characterManager.addCharacter(
+      _state.characters,
+      name: name,
+      prompt: prompt,
+      uc: uc,
+    );
     if (result == null) return;
     _state = _state.copyWith(characters: result);
     notifyListeners();
   }
 
   void updateCharacter(int index, NaiCharacter character) {
-    final result = _characterManager.updateCharacter(_state.characters, index, character);
+    final result = _characterManager.updateCharacter(
+      _state.characters,
+      index,
+      character,
+    );
     if (result == null) return;
     _state = _state.copyWith(characters: result);
     notifyListeners();
@@ -588,7 +643,10 @@ class GenerationNotifier extends ChangeNotifier {
 
   void removeCharacter(int index) {
     final result = _characterManager.removeCharacter(
-      _state.characters, _state.interactions, index);
+      _state.characters,
+      _state.interactions,
+      index,
+    );
     if (result == null) return;
     _state = _state.copyWith(
       characters: result.characters,
@@ -597,9 +655,15 @@ class GenerationNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateInteraction(NaiInteraction interaction, {NaiInteraction? replacing}) {
+  void updateInteraction(
+    NaiInteraction interaction, {
+    NaiInteraction? replacing,
+  }) {
     final updated = _characterManager.updateInteraction(
-      _state.interactions, interaction, replacing: replacing);
+      _state.interactions,
+      interaction,
+      replacing: replacing,
+    );
     _state = _state.copyWith(interactions: updated);
     notifyListeners();
   }
@@ -665,13 +729,23 @@ class GenerationNotifier extends ChangeNotifier {
     // Mobile: use share sheet (super_clipboard's native lib is missing on Android)
     if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
       try {
-        final timestamp = DateFormat('yyyyMMdd_HHmmssSSS').format(DateTime.now());
-        await Share.shareXFiles(
-          [XFile.fromData(_state.generatedImage!, mimeType: 'image/png', name: 'Gen_$timestamp.png')],
-        );
+        final timestamp = DateFormat(
+          'yyyyMMdd_HHmmssSSS',
+        ).format(DateTime.now());
+        await Share.shareXFiles([
+          XFile.fromData(
+            _state.generatedImage!,
+            mimeType: 'image/png',
+            name: 'Gen_$timestamp.png',
+          ),
+        ]);
       } catch (e) {
         if (context.mounted) {
-          showAppSnackBar(context, 'Share failed: $e', color: const Color(0xFFF44336));
+          showAppSnackBar(
+            context,
+            'Share failed: $e',
+            color: const Color(0xFFF44336),
+          );
         }
       }
       return;
@@ -685,13 +759,21 @@ class GenerationNotifier extends ChangeNotifier {
       if (clipboard != null) {
         await clipboard.write([item]);
         if (context.mounted) {
-          showAppSnackBar(context, 'COPIED TO CLIPBOARD', color: const Color(0xFF4CAF50));
+          showAppSnackBar(
+            context,
+            'COPIED TO CLIPBOARD',
+            color: const Color(0xFF4CAF50),
+          );
         }
         return;
       }
     } catch (_) {}
     if (context.mounted) {
-      showAppSnackBar(context, 'CLIPBOARD NOT AVAILABLE', color: const Color(0xFFF44336));
+      showAppSnackBar(
+        context,
+        'CLIPBOARD NOT AVAILABLE',
+        color: const Color(0xFFF44336),
+      );
     }
   }
 
@@ -714,31 +796,49 @@ class GenerationNotifier extends ChangeNotifier {
         // plain filesystem path on Android, scoped storage makes it unreachable.
         // Either way a clear message beats the cryptic PathAccessException
         // users used to see (issue #13).
-        final unreachable = SafExportService.isStalePlainPath(customFolder) ||
+        final unreachable =
+            SafExportService.isStalePlainPath(customFolder) ||
             (SafExportService.isSafUri(customFolder) &&
                 !await SafExportService.instance.hasWriteAccess(customFolder));
         if (unreachable) {
           if (context.mounted) {
-            showAppSnackBar(context,
-                'EXPORT FOLDER UNAVAILABLE — RE-PICK IT IN SETTINGS',
-                color: const Color(0xFFF44336));
+            showAppSnackBar(
+              context,
+              'EXPORT FOLDER UNAVAILABLE — RE-PICK IT IN SETTINGS',
+              color: const Color(0xFFF44336),
+            );
           }
           return;
         }
         if (SafExportService.isSafUri(customFolder)) {
-          await _exportToFolder(_state.generatedImage!, customFolder, exportName);
+          await _exportToFolder(
+            _state.generatedImage!,
+            customFolder,
+            exportName,
+          );
         } else {
           // Plain folders also honor the path pattern's auto-subfolders and
           // per-folder <digits> counting (issue #27).
           final target = await _patternedTarget(
-              customFolder, _lastMetadata ?? const {}, fallbackName);
-          await _exportToFolder(_state.generatedImage!, target.dir, target.base);
+            customFolder,
+            _lastMetadata ?? const {},
+            fallbackName,
+          );
+          await _exportToFolder(
+            _state.generatedImage!,
+            target.dir,
+            target.base,
+          );
         }
         if (context.mounted) {
           final label = SafExportService.isSafUri(customFolder)
               ? 'SD CARD'
               : p.basename(customFolder).toUpperCase();
-          showAppSnackBar(context, 'SAVED TO $label', color: const Color(0xFF4CAF50));
+          showAppSnackBar(
+            context,
+            'SAVED TO $label',
+            color: const Color(0xFF4CAF50),
+          );
         }
         return;
       }
@@ -746,7 +846,11 @@ class GenerationNotifier extends ChangeNotifier {
       if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
         await _exportBytesToMobileGallery(_state.generatedImage!, exportName);
         if (context.mounted) {
-          showAppSnackBar(context, context.l.gallerySavedToDevice, color: const Color(0xFF4CAF50));
+          showAppSnackBar(
+            context,
+            context.l.gallerySavedToDevice,
+            color: const Color(0xFF4CAF50),
+          );
         }
       } else {
         // Desktop: show save file dialog
@@ -758,17 +862,28 @@ class GenerationNotifier extends ChangeNotifier {
         if (result == null) return;
         await File(result).writeAsBytes(_state.generatedImage!);
         if (context.mounted) {
-          showAppSnackBar(context, 'SAVED TO ${p.basename(result).toUpperCase()}', color: const Color(0xFF4CAF50));
+          showAppSnackBar(
+            context,
+            'SAVED TO ${p.basename(result).toUpperCase()}',
+            color: const Color(0xFF4CAF50),
+          );
         }
       }
     } catch (e) {
       if (context.mounted) {
-        showAppSnackBar(context, 'Export failed: $e', color: const Color(0xFFF44336));
+        showAppSnackBar(
+          context,
+          'Export failed: $e',
+          color: const Color(0xFFF44336),
+        );
       }
     }
   }
 
-  Future<void> _exportBytesToMobileGallery(Uint8List bytes, String exportName) async {
+  Future<void> _exportBytesToMobileGallery(
+    Uint8List bytes,
+    String exportName,
+  ) async {
     final hasAccess = await Gal.hasAccess();
     if (!hasAccess) {
       final granted = await Gal.requestAccess();
@@ -778,7 +893,11 @@ class GenerationNotifier extends ChangeNotifier {
     await Gal.putImageBytes(bytes, name: exportName, album: album);
   }
 
-  Future<void> _exportToFolder(Uint8List bytes, String folderPath, String fileName) async {
+  Future<void> _exportToFolder(
+    Uint8List bytes,
+    String folderPath,
+    String fileName,
+  ) async {
     // A SAF tree URI (content://…) targets a folder we can only reach through
     // the Storage Access Framework — e.g. a removable SD card (issue #13).
     if (SafExportService.isSafUri(folderPath)) {
@@ -809,10 +928,16 @@ class GenerationNotifier extends ChangeNotifier {
           !SafExportService.isStalePlainPath(customFolder)) {
         if (SafExportService.isSafUri(customFolder)) {
           await _exportToFolder(
-              bytes, customFolder, _patternedName(_lastMetadata, fallbackName));
+            bytes,
+            customFolder,
+            _patternedName(_lastMetadata, fallbackName),
+          );
         } else {
           final target = await _patternedTarget(
-              customFolder, _lastMetadata ?? const {}, fallbackName);
+            customFolder,
+            _lastMetadata ?? const {},
+            fallbackName,
+          );
           await _exportToFolder(bytes, target.dir, target.base);
         }
         return;
@@ -820,10 +945,15 @@ class GenerationNotifier extends ChangeNotifier {
 
       if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
         await _exportBytesToMobileGallery(
-            bytes, _patternedName(_lastMetadata, fallbackName));
+          bytes,
+          _patternedName(_lastMetadata, fallbackName),
+        );
       } else if (!kIsWeb) {
         final target = await _patternedTarget(
-            _outputDir, _lastMetadata ?? const {}, fallbackName);
+          _outputDir,
+          _lastMetadata ?? const {},
+          fallbackName,
+        );
         await _exportToFolder(bytes, target.dir, target.base);
       }
     } catch (e) {
@@ -832,7 +962,10 @@ class GenerationNotifier extends ChangeNotifier {
   }
 
   void removeInteraction(NaiInteraction interaction) {
-    final updated = _characterManager.removeInteraction(_state.interactions, interaction);
+    final updated = _characterManager.removeInteraction(
+      _state.interactions,
+      interaction,
+    );
     _state = _state.copyWith(interactions: updated);
     notifyListeners();
   }
@@ -888,7 +1021,10 @@ class GenerationNotifier extends ChangeNotifier {
 
   void applyCharacterPreset(int charIndex, CharacterPreset preset) {
     final result = _characterManager.applyCharacterPreset(
-      _state.characters, charIndex, preset);
+      _state.characters,
+      charIndex,
+      preset,
+    );
     if (result == null) return;
     _state = _state.copyWith(characters: result);
     notifyListeners();
@@ -914,7 +1050,9 @@ class GenerationNotifier extends ChangeNotifier {
           final style = styles.firstWhere((s) => s.name == styleName);
           if (style.prefix.isNotEmpty) prefixes.add(style.prefix);
           if (style.suffix.isNotEmpty) suffixes.add(style.suffix);
-          if (style.negativeContent.isNotEmpty) negatives.add(style.negativeContent);
+          if (style.negativeContent.isNotEmpty) {
+            negatives.add(style.negativeContent);
+          }
         } catch (e) {
           debugPrint('resolveStyles: style "$styleName" not found');
         }
@@ -929,7 +1067,11 @@ class GenerationNotifier extends ChangeNotifier {
       combinedPrefix = "fur dataset, ${combinedPrefix ?? ''}";
     }
 
-    return (prefix: combinedPrefix, suffix: combinedSuffix, negative: styleNegativeContent);
+    return (
+      prefix: combinedPrefix,
+      suffix: combinedSuffix,
+      negative: styleNegativeContent,
+    );
   }
 
   void toggleStyle(String name) {
@@ -943,19 +1085,33 @@ class GenerationNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> generate() async {
+  static int _clampBatchCount(int value, int limit) {
+    final max = math.max(1, math.min(limit, 10));
+    return math.max(1, math.min(value, max));
+  }
+
+  Future<void> generate({int batchLimit = 1}) async {
     clearTagSuggestions();
 
-    _state = _state.copyWith(isLoading: true, hasAuthError: false);
+    final batchCount = _clampBatchCount(_state.batchCount, batchLimit);
+    _state = _state.copyWith(
+      isLoading: true,
+      hasAuthError: false,
+      batchCount: batchCount,
+    );
     notifyListeners();
 
     // Keep screen/CPU awake during generation to prevent network drops
     if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-      try { WakelockPlus.enable(); } catch (_) {}
+      try {
+        WakelockPlus.enable();
+      } catch (_) {}
     }
 
     try {
-      final processedPrompt = await _wildcardProcessor.process(promptController.text);
+      final processedPrompt = await _wildcardProcessor.process(
+        promptController.text,
+      );
       final resolvedPrompt = _tagService.resolveAliases(processedPrompt);
 
       String finalPrompt = resolvedPrompt;
@@ -966,13 +1122,8 @@ class GenerationNotifier extends ChangeNotifier {
         }
       }
 
-      int seed;
-      if (_state.randomizeSeed) {
-        seed = math.Random().nextInt(4294967295);
-        seedController.text = seed.toString();
-      } else {
-        seed = int.tryParse(seedController.text) ?? 0;
-      }
+      final seedRandom = math.Random();
+      final fixedSeed = int.tryParse(seedController.text) ?? 0;
 
       final styleResult = resolveStyles(
         isStyleEnabled: _state.isStyleEnabled,
@@ -985,80 +1136,112 @@ class GenerationNotifier extends ChangeNotifier {
       String? styleNegativeContent = styleResult.negative;
 
       String baseNegative = _tagService.resolveAliases(
-          await _wildcardProcessor.process(negativePromptController.text));
+        await _wildcardProcessor.process(negativePromptController.text),
+      );
       if (_galleryNotifier?.demoMode == true) {
         final demoNeg = _prefs.demoNegativePrefix;
         if (demoNeg.isNotEmpty) {
-          baseNegative = baseNegative.isEmpty ? demoNeg : '$demoNeg, $baseNegative';
+          baseNegative = baseNegative.isEmpty
+              ? demoNeg
+              : '$demoNeg, $baseNegative';
         }
       }
-      final fullNegativePrompt = styleNegativeContent != null ? "$baseNegative, $styleNegativeContent" : baseNegative;
+      final fullNegativePrompt = styleNegativeContent != null
+          ? "$baseNegative, $styleNegativeContent"
+          : baseNegative;
 
       final dirPayload = _directorRefNotifier?.buildPayload();
       final vibePayload = _vibeTransferNotifier?.buildPayload();
 
       // Process wildcards in character prompts
       final processedCharacters = await Future.wait(
-        _state.characters.map((c) async => c.copyWith(
-          prompt: _tagService.resolveAliases(await _wildcardProcessor.process(c.prompt)),
-          uc: _tagService.resolveAliases(await _wildcardProcessor.process(c.uc)),
-        )),
+        _state.characters.map(
+          (c) async => c.copyWith(
+            prompt: _tagService.resolveAliases(
+              await _wildcardProcessor.process(c.prompt),
+            ),
+            uc: _tagService.resolveAliases(
+              await _wildcardProcessor.process(c.uc),
+            ),
+          ),
+        ),
       );
 
-      final result = await _service.generateImage(
-        prompt: finalPrompt,
-        negativePrompt: fullNegativePrompt,
-        width: _state.width.toInt(),
-        height: _state.height.toInt(),
-        scale: _state.scale,
-        steps: _state.steps.toInt(),
-        sampler: _state.sampler,
-        smea: _state.smea,
-        smeaDyn: _state.smeaDyn,
-        decrisper: _state.decrisper,
-        seed: seed,
-        promptPrefix: combinedPrefix,
-        promptSuffix: combinedSuffix,
-        characters: processedCharacters,
-        interactions: _state.interactions,
-        useCoords: _state.characters.isNotEmpty ? !_state.autoPositioning : false,
-        directorRefImages: dirPayload?.images,
-        directorRefDescriptions: dirPayload?.descriptions,
-        directorRefStrengths: dirPayload?.strengths,
-        directorRefSecondaryStrengths: dirPayload?.secondaryStrengths,
-        directorRefInfoExtracted: dirPayload?.infoExtracted,
-        vibeTransferImages: vibePayload?.vibeVectors,
-        vibeTransferStrengths: vibePayload?.strengths,
-        vibeTransferInfoExtracted: vibePayload?.infoExtracted,
-        useCurated: _state.useCurated,
-      );
+      for (var index = 0; index < batchCount; index++) {
+        final seed = _state.randomizeSeed
+            ? seedRandom.nextInt(4294967295)
+            : (fixedSeed + index) % 4294967295;
+        if (_state.randomizeSeed) {
+          seedController.text = seed.toString();
+        }
 
-      // Save active style info in metadata for round-trip restore
-      result.metadata['active_style_names'] =
-          (_state.isStyleEnabled && _state.activeStyleNames.isNotEmpty)
-              ? _state.activeStyleNames
-              : <String>[];
-      result.metadata['is_style_enabled'] = _state.isStyleEnabled;
-      result.metadata['original_negative_prompt'] = baseNegative;
+        final result = await _service.generateImage(
+          prompt: finalPrompt,
+          negativePrompt: fullNegativePrompt,
+          width: _state.width.toInt(),
+          height: _state.height.toInt(),
+          scale: _state.scale,
+          steps: _state.steps.toInt(),
+          sampler: _state.sampler,
+          smea: _state.smea,
+          smeaDyn: _state.smeaDyn,
+          decrisper: _state.decrisper,
+          seed: seed,
+          promptPrefix: combinedPrefix,
+          promptSuffix: combinedSuffix,
+          characters: processedCharacters,
+          interactions: _state.interactions,
+          useCoords: _state.characters.isNotEmpty
+              ? !_state.autoPositioning
+              : false,
+          directorRefImages: dirPayload?.images,
+          directorRefDescriptions: dirPayload?.descriptions,
+          directorRefStrengths: dirPayload?.strengths,
+          directorRefSecondaryStrengths: dirPayload?.secondaryStrengths,
+          directorRefInfoExtracted: dirPayload?.infoExtracted,
+          vibeTransferImages: vibePayload?.vibeVectors,
+          vibeTransferStrengths: vibePayload?.strengths,
+          vibeTransferInfoExtracted: vibePayload?.infoExtracted,
+          useCurated: _state.useCurated,
+        );
 
-      final isDuplicate = _previousImageBytes != null &&
-          listEquals(result.imageBytes, _previousImageBytes);
-      _previousImageBytes = Uint8List.fromList(result.imageBytes);
+        // Save active style info in metadata for round-trip restore.
+        result.metadata['active_style_names'] =
+            (_state.isStyleEnabled && _state.activeStyleNames.isNotEmpty)
+            ? _state.activeStyleNames
+            : <String>[];
+        result.metadata['is_style_enabled'] = _state.isStyleEnabled;
+        result.metadata['original_negative_prompt'] = baseNegative;
+        if (batchCount > 1) {
+          result.metadata['batch_index'] = index + 1;
+          result.metadata['batch_count'] = batchCount;
+        }
 
-      _lastMetadata = result.metadata;
-      _imageSaved = false;
-      _lastSavedBasename = null;
-      _state = _state.copyWith(
-        generatedImage: result.imageBytes,
-        duplicateImageDetected: isDuplicate,
-      );
-      if (_state.autoSaveImages) {
-        final savedFile = await _saveToDisk(result.imageBytes, result.metadata);
-        if (savedFile != null) {
-          _galleryNotifier?.addFile(savedFile, DateTime.now());
-          _imageSaved = true;
-          _lastSavedBasename = p.basename(savedFile.path);
-          await _autoExportIfEnabled(result.imageBytes);
+        final isDuplicate =
+            _previousImageBytes != null &&
+            listEquals(result.imageBytes, _previousImageBytes);
+        _previousImageBytes = Uint8List.fromList(result.imageBytes);
+
+        _lastMetadata = result.metadata;
+        _imageSaved = false;
+        _lastSavedBasename = null;
+        _state = _state.copyWith(
+          generatedImage: result.imageBytes,
+          duplicateImageDetected: isDuplicate,
+        );
+        notifyListeners();
+
+        if (_state.autoSaveImages) {
+          final savedFile = await _saveToDisk(
+            result.imageBytes,
+            result.metadata,
+          );
+          if (savedFile != null) {
+            _galleryNotifier?.addFile(savedFile, DateTime.now());
+            _imageSaved = true;
+            _lastSavedBasename = p.basename(savedFile.path);
+            await _autoExportIfEnabled(result.imageBytes);
+          }
         }
       }
     } on UnauthorizedException {
@@ -1071,14 +1254,19 @@ class GenerationNotifier extends ChangeNotifier {
       notifyListeners();
       fetchAnlas();
       if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-        try { WakelockPlus.disable(); } catch (_) {}
+        try {
+          WakelockPlus.disable();
+        } catch (_) {}
       }
     }
   }
 
   /// Generates a NovelAI-style filename from the prompt and seed.
   /// Format: `<prompt> s-<seed>.png`, matching NAI's own convention (issue #28).
-  String _buildFileName(Map<String, dynamic> metadata, {String prefix = 'Gen'}) {
+  String _buildFileName(
+    Map<String, dynamic> metadata, {
+    String prefix = 'Gen',
+  }) {
     try {
       final prompt = (metadata['prompt'] as String? ?? '').trim();
       final seed = metadata['seed']?.toString() ?? '';
@@ -1109,22 +1297,26 @@ class GenerationNotifier extends ChangeNotifier {
   /// NAI-style default itself applies), or when the pattern expands to
   /// nothing. Used directly for targets whose contents we can't cheaply
   /// count (SAF trees, the device gallery) — there `<digits>` stays at 1.
-  String _patternedName(Map<String, dynamic>? metadata, String fallback,
-      {int sequence = 1}) {
+  String _patternedName(
+    Map<String, dynamic>? metadata,
+    String fallback, {
+    int sequence = 1,
+  }) {
     final pattern = _prefs.filenamePattern;
     if (pattern.isEmpty || metadata == null) return fallback;
     final prompt = (metadata['prompt'] as String? ?? '').trim();
     final seed = metadata['seed']?.toString() ?? '';
     if (prompt.isEmpty || seed.isEmpty) return fallback;
     final expanded = expandFilenamePattern(
-        pattern,
-        FilenamePatternContext(
-          prompt: prompt,
-          seed: seed,
-          savedAt: DateTime.now(),
-          albumName: _defaultSaveAlbumName(),
-          sequence: sequence,
-        ));
+      pattern,
+      FilenamePatternContext(
+        prompt: prompt,
+        seed: seed,
+        savedAt: DateTime.now(),
+        albumName: _defaultSaveAlbumName(),
+        sequence: sequence,
+      ),
+    );
     return expanded.isEmpty ? fallback : expanded;
   }
 
@@ -1132,8 +1324,11 @@ class GenerationNotifier extends ChangeNotifier {
   /// save under [baseDir] from the pattern settings (issue #27). The path
   /// pattern can add auto-subfolders; `<digits>` counts the images already in
   /// the final folder, so counters reset per subfolder.
-  Future<_SaveTarget> _patternedTarget(String baseDir,
-      Map<String, dynamic> metadata, String fallbackBase) async {
+  Future<_SaveTarget> _patternedTarget(
+    String baseDir,
+    Map<String, dynamic> metadata,
+    String fallbackBase,
+  ) async {
     final pathPattern = _prefs.savePathPattern;
     final fnPattern = _prefs.filenamePattern;
     final prompt = (metadata['prompt'] as String? ?? '').trim();
@@ -1147,9 +1342,14 @@ class GenerationNotifier extends ChangeNotifier {
     final albumName = _defaultSaveAlbumName();
     var dirPath = baseDir;
     final sub = expandSavePathPattern(
-        pathPattern,
-        FilenamePatternContext(
-            prompt: prompt, seed: seed, savedAt: savedAt, albumName: albumName));
+      pathPattern,
+      FilenamePatternContext(
+        prompt: prompt,
+        seed: seed,
+        savedAt: savedAt,
+        albumName: albumName,
+      ),
+    );
     if (sub.isNotEmpty) dirPath = p.join(dirPath, sub);
     var base = fallbackBase;
     if (fnPattern.isNotEmpty) {
@@ -1158,13 +1358,15 @@ class GenerationNotifier extends ChangeNotifier {
           ? await nextImageSequence(dirPath)
           : 1;
       final expanded = expandFilenamePattern(
-          fnPattern,
-          FilenamePatternContext(
-              prompt: prompt,
-              seed: seed,
-              savedAt: savedAt,
-              albumName: albumName,
-              sequence: seq));
+        fnPattern,
+        FilenamePatternContext(
+          prompt: prompt,
+          seed: seed,
+          savedAt: savedAt,
+          albumName: albumName,
+          sequence: seq,
+        ),
+      );
       if (expanded.isNotEmpty) base = expanded;
     }
     return _SaveTarget(dirPath, base);
@@ -1183,7 +1385,12 @@ class GenerationNotifier extends ChangeNotifier {
     return '${baseName}_($i)';
   }
 
-  Future<File?> _saveToDisk(Uint8List bytes, Map<String, dynamic> metadata, {String prefix = 'Gen', String? timestamp}) async {
+  Future<File?> _saveToDisk(
+    Uint8List bytes,
+    Map<String, dynamic> metadata, {
+    String prefix = 'Gen',
+    String? timestamp,
+  }) async {
     // No filesystem on web. Bytes remain in memory; users use the existing
     // download/share path (XFile / share_plus) to get the image off-app.
     if (kIsWeb) return null;
@@ -1194,7 +1401,10 @@ class GenerationNotifier extends ChangeNotifier {
       final target = timestamp != null
           ? _SaveTarget(_outputDir, '${prefix}_$timestamp')
           : await _patternedTarget(
-              _outputDir, metadata, _buildFileName(metadata, prefix: prefix));
+              _outputDir,
+              metadata,
+              _buildFileName(metadata, prefix: prefix),
+            );
       final directory = Directory(target.dir);
       if (!await directory.exists()) {
         await directory.create(recursive: true);
@@ -1251,7 +1461,8 @@ class GenerationNotifier extends ChangeNotifier {
     // A saved character picked from the main prompt box can either be added as
     // its own character card (default) or inserted as plain expanded tags into
     // the main prompt, controlled by the insert-target preference.
-    if (tag.typeName == 'saved_character' && _prefs.charInsertTarget == 'editor') {
+    if (tag.typeName == 'saved_character' &&
+        _prefs.charInsertTarget == 'editor') {
       final result = _addSavedCharacterAsCard(tag);
       // Clear the just-typed query from the prompt regardless of outcome, so the
       // partial name the user typed doesn't linger.
@@ -1265,7 +1476,10 @@ class GenerationNotifier extends ChangeNotifier {
     // A saved character inserted into the GLOBAL prompt routes its negative
     // tags to the GLOBAL negative prompt.
     if (tag.typeName == 'saved_character') {
-      TagSuggestionHelper.appendNegatives(negativePromptController, tag.negativeExpansion);
+      TagSuggestionHelper.appendNegatives(
+        negativePromptController,
+        tag.negativeExpansion,
+      );
     }
     _state = _state.copyWith(tagSuggestions: [], currentTagQuery: "");
     notifyListeners();
@@ -1326,7 +1540,10 @@ class GenerationNotifier extends ChangeNotifier {
   }
 
   /// Apply a parsed metadata result, importing only the selected categories.
-  void applyImportedMetadata(MetadataImportResult result, Set<ImportCategory> categories) {
+  void applyImportedMetadata(
+    MetadataImportResult result,
+    Set<ImportCategory> categories,
+  ) {
     if (categories.contains(ImportCategory.prompt)) {
       promptController.value = TextEditingValue(
         text: result.prompt,
@@ -1336,7 +1553,9 @@ class GenerationNotifier extends ChangeNotifier {
     if (categories.contains(ImportCategory.negativePrompt)) {
       negativePromptController.value = TextEditingValue(
         text: result.negativePrompt,
-        selection: TextSelection.collapsed(offset: result.negativePrompt.length),
+        selection: TextSelection.collapsed(
+          offset: result.negativePrompt.length,
+        ),
       );
     }
     if (categories.contains(ImportCategory.seed) && result.seed != null) {
@@ -1345,20 +1564,38 @@ class GenerationNotifier extends ChangeNotifier {
 
     _state = _state.copyWith(
       width: categories.contains(ImportCategory.settings) ? result.width : null,
-      height: categories.contains(ImportCategory.settings) ? result.height : null,
+      height: categories.contains(ImportCategory.settings)
+          ? result.height
+          : null,
       scale: categories.contains(ImportCategory.settings) ? result.scale : null,
       steps: categories.contains(ImportCategory.settings) ? result.steps : null,
-      sampler: categories.contains(ImportCategory.settings) ? result.sampler : null,
+      sampler: categories.contains(ImportCategory.settings)
+          ? result.sampler
+          : null,
       smea: categories.contains(ImportCategory.settings) ? result.smea : null,
-      smeaDyn: categories.contains(ImportCategory.settings) ? result.smeaDyn : null,
-      decrisper: categories.contains(ImportCategory.settings) ? result.decrisper : null,
+      smeaDyn: categories.contains(ImportCategory.settings)
+          ? result.smeaDyn
+          : null,
+      decrisper: categories.contains(ImportCategory.settings)
+          ? result.decrisper
+          : null,
       randomizeSeed: categories.contains(ImportCategory.seed) ? false : null,
       generatedImage: result.imageBytes,
-      activeStyleNames: categories.contains(ImportCategory.styles) ? result.activeStyleNames : null,
-      isStyleEnabled: categories.contains(ImportCategory.styles) ? result.isStyleEnabled : null,
-      characters: categories.contains(ImportCategory.characters) ? result.characters : null,
-      interactions: categories.contains(ImportCategory.characters) ? result.interactions : null,
-      autoPositioning: categories.contains(ImportCategory.characters) ? result.autoPositioning : null,
+      activeStyleNames: categories.contains(ImportCategory.styles)
+          ? result.activeStyleNames
+          : null,
+      isStyleEnabled: categories.contains(ImportCategory.styles)
+          ? result.isStyleEnabled
+          : null,
+      characters: categories.contains(ImportCategory.characters)
+          ? result.characters
+          : null,
+      interactions: categories.contains(ImportCategory.characters)
+          ? result.interactions
+          : null,
+      autoPositioning: categories.contains(ImportCategory.characters)
+          ? result.autoPositioning
+          : null,
     );
     notifyListeners();
   }
@@ -1399,7 +1636,8 @@ class GenerationNotifier extends ChangeNotifier {
       vibeTransfers: _vibeTransferNotifier?.vibes.toList() ?? const [],
     );
 
-    final updatedPresets = List<GenerationPreset>.from(_state.presets)..add(newPreset);
+    final updatedPresets = List<GenerationPreset>.from(_state.presets)
+      ..add(newPreset);
     _state = _state.copyWith(presets: updatedPresets);
     notifyListeners();
     await _presetService.savePresets(updatedPresets);
@@ -1446,15 +1684,17 @@ class GenerationNotifier extends ChangeNotifier {
   }
 
   Future<void> deletePreset(int index) async {
-    final updatedPresets =
-        List<GenerationPreset>.from(_state.presets)..removeAt(index);
+    final updatedPresets = List<GenerationPreset>.from(_state.presets)
+      ..removeAt(index);
     _state = _state.copyWith(presets: updatedPresets);
     notifyListeners();
     await _presetService.savePresets(updatedPresets);
   }
 
-  Future<Uint8List?> generateQuickPreview(String tag,
-      {TagPreviewSettings? previewSettings}) async {
+  Future<Uint8List?> generateQuickPreview(
+    String tag, {
+    TagPreviewSettings? previewSettings,
+  }) async {
     final settings = previewSettings ?? TagPreviewSettings();
 
     try {
@@ -1495,17 +1735,25 @@ class GenerationNotifier extends ChangeNotifier {
       final seed = math.Random().nextInt(4294967295);
 
       // Process wildcards in cascade prompts
-      final processedCaption = await _wildcardProcessor.process(request.baseCaption);
-      final processedNeg = await _wildcardProcessor.process(request.negativePrompt);
+      final processedCaption = await _wildcardProcessor.process(
+        request.baseCaption,
+      );
+      final processedNeg = await _wildcardProcessor.process(
+        request.negativePrompt,
+      );
       final processedChars = await Future.wait(
-        request.characters.map((c) async => c.copyWith(
-          prompt: await _wildcardProcessor.process(c.prompt),
-          uc: await _wildcardProcessor.process(c.uc),
-        )),
+        request.characters.map(
+          (c) async => c.copyWith(
+            prompt: await _wildcardProcessor.process(c.prompt),
+            uc: await _wildcardProcessor.process(c.uc),
+          ),
+        ),
       );
 
-      final combinedNegative = [defaultNegativePrompt, processedNeg]
-          .where((s) => s.isNotEmpty).join(', ');
+      final combinedNegative = [
+        defaultNegativePrompt,
+        processedNeg,
+      ].where((s) => s.isNotEmpty).join(', ');
 
       final cascadePrompt = _state.furryMode
           ? "fur dataset, $processedCaption"
@@ -1553,14 +1801,18 @@ class GenerationNotifier extends ChangeNotifier {
     }
   }
 
-  Future<Uint8List?> generateImg2Img(Img2ImgRequest request, {Uint8List? sourceImageBytes}) async {
+  Future<Uint8List?> generateImg2Img(
+    Img2ImgRequest request, {
+    Uint8List? sourceImageBytes,
+  }) async {
     _state = _state.copyWith(isLoading: true, hasAuthError: false);
     notifyListeners();
 
     try {
       final seed = _state.randomizeSeed
           ? math.Random().nextInt(4294967295)
-          : (int.tryParse(seedController.text) ?? math.Random().nextInt(4294967295));
+          : (int.tryParse(seedController.text) ??
+                math.Random().nextInt(4294967295));
       if (_state.randomizeSeed) seedController.text = seed.toString();
 
       final dirPayload = _directorRefNotifier?.buildPayload();
@@ -1605,7 +1857,9 @@ class GenerationNotifier extends ChangeNotifier {
       _state = _state.copyWith(generatedImage: finalBytes);
 
       if (_state.autoSaveImages) {
-        final timestamp = DateFormat('yyyyMMdd_HHmmssSSS').format(DateTime.now());
+        final timestamp = DateFormat(
+          'yyyyMMdd_HHmmssSSS',
+        ).format(DateTime.now());
         String? srcPath;
         if (sourceImageBytes != null) {
           try {
@@ -1619,13 +1873,19 @@ class GenerationNotifier extends ChangeNotifier {
             debugPrint("Source image save error: $e");
           }
         }
-        final savedFile = await _saveToDisk(finalBytes, result.metadata, timestamp: timestamp);
+        final savedFile = await _saveToDisk(
+          finalBytes,
+          result.metadata,
+          timestamp: timestamp,
+        );
         if (savedFile != null) {
           _galleryNotifier?.addFile(savedFile, DateTime.now());
           _imageSaved = true;
           await _autoExportIfEnabled(finalBytes);
           if (srcPath != null) {
-            try { await File(srcPath).delete(); } catch (_) {}
+            try {
+              await File(srcPath).delete();
+            } catch (_) {}
           }
         }
       }
@@ -1691,6 +1951,7 @@ class GenerationNotifier extends ChangeNotifier {
       smeaDyn: _state.smeaDyn,
       decrisper: _state.decrisper,
       randomizeSeed: _state.randomizeSeed,
+      batchCount: _state.batchCount,
       autoPositioning: _state.autoPositioning,
       activeStyleNames: _state.activeStyleNames,
       isStyleEnabled: _state.isStyleEnabled,
@@ -1723,8 +1984,12 @@ class GenerationNotifier extends ChangeNotifier {
       smeaDyn: snapshot.smeaDyn,
       decrisper: snapshot.decrisper,
       randomizeSeed: snapshot.randomizeSeed,
+      batchCount: _clampBatchCount(snapshot.batchCount, 10),
       autoPositioning: snapshot.autoPositioning,
-      activeStyleNames: snapshot.activeStyleNames,
+      activeStyleNames: _normalizeRestoredStyleNames(
+        snapshot.activeStyleNames,
+        _state.styles,
+      ),
       isStyleEnabled: snapshot.isStyleEnabled,
       furryMode: snapshot.furryMode,
       useCurated: snapshot.useCurated,
@@ -1767,4 +2032,3 @@ class _SaveTarget {
   final String base;
   const _SaveTarget(this.dir, this.base);
 }
-

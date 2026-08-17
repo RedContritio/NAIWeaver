@@ -19,6 +19,7 @@ class SessionSnapshot {
   final bool smeaDyn;
   final bool decrisper;
   final bool randomizeSeed;
+  final int batchCount;
   final bool autoPositioning;
   final List<String> activeStyleNames;
   final bool isStyleEnabled;
@@ -42,6 +43,7 @@ class SessionSnapshot {
     required this.smeaDyn,
     required this.decrisper,
     required this.randomizeSeed,
+    required this.batchCount,
     required this.autoPositioning,
     required this.activeStyleNames,
     required this.isStyleEnabled,
@@ -54,45 +56,48 @@ class SessionSnapshot {
   });
 
   Map<String, dynamic> toJson() => {
-        'prompt': prompt,
-        'negative_prompt': negativePrompt,
-        'seed': seed,
-        'width': width,
-        'height': height,
-        'scale': scale,
-        'steps': steps,
-        'sampler': sampler,
-        'smea': smea,
-        'smea_dyn': smeaDyn,
-        'decrisper': decrisper,
-        'randomize_seed': randomizeSeed,
-        'auto_positioning': autoPositioning,
-        'active_style_names': activeStyleNames,
-        'is_style_enabled': isStyleEnabled,
-        'furry_mode': furryMode,
-        'use_curated': useCurated,
-        'characters': characters.map((c) => c.toJson()).toList(),
-        'interactions': interactions.map((i) => i.toJson()).toList(),
-        'director_references':
-            directorReferences.map((r) => r.toJson()).toList(),
-        'vibe_transfers': vibeTransfers.map((v) => v.toJson()).toList(),
-      };
+    'prompt': prompt,
+    'negative_prompt': negativePrompt,
+    'seed': seed,
+    'width': width,
+    'height': height,
+    'scale': scale,
+    'steps': steps,
+    'sampler': sampler,
+    'smea': smea,
+    'smea_dyn': smeaDyn,
+    'decrisper': decrisper,
+    'randomize_seed': randomizeSeed,
+    'batch_count': batchCount,
+    'auto_positioning': autoPositioning,
+    'active_style_names': activeStyleNames,
+    'is_style_enabled': isStyleEnabled,
+    'furry_mode': furryMode,
+    'use_curated': useCurated,
+    'characters': characters.map((c) => c.toJson()).toList(),
+    'interactions': interactions.map((i) => i.toJson()).toList(),
+    'director_references': directorReferences.map((r) => r.toJson()).toList(),
+    'vibe_transfers': vibeTransfers.map((v) => v.toJson()).toList(),
+  };
 
   factory SessionSnapshot.fromJson(Map<String, dynamic> json) {
-    final characters = (json['characters'] as List<dynamic>?)
+    final characters =
+        (json['characters'] as List<dynamic>?)
             ?.map((c) => NaiCharacter.fromJson(c as Map<String, dynamic>))
             .toList() ??
         [];
-    final interactions = (json['interactions'] as List<dynamic>?)
+    final interactions =
+        (json['interactions'] as List<dynamic>?)
             ?.map((i) => NaiInteraction.fromJson(i as Map<String, dynamic>))
             .toList() ??
         [];
-    final directorReferences = (json['director_references'] as List<dynamic>?)
-            ?.map(
-                (r) => DirectorReference.fromJson(r as Map<String, dynamic>))
+    final directorReferences =
+        (json['director_references'] as List<dynamic>?)
+            ?.map((r) => DirectorReference.fromJson(r as Map<String, dynamic>))
             .toList() ??
         [];
-    final vibeTransfers = (json['vibe_transfers'] as List<dynamic>?)
+    final vibeTransfers =
+        (json['vibe_transfers'] as List<dynamic>?)
             ?.map((v) => VibeTransfer.fromJson(v as Map<String, dynamic>))
             .toList() ??
         [];
@@ -110,8 +115,10 @@ class SessionSnapshot {
       smeaDyn: json['smea_dyn'] as bool? ?? false,
       decrisper: json['decrisper'] as bool? ?? false,
       randomizeSeed: json['randomize_seed'] as bool? ?? true,
+      batchCount: (json['batch_count'] as num?)?.toInt() ?? 1,
       autoPositioning: json['auto_positioning'] as bool? ?? false,
-      activeStyleNames: (json['active_style_names'] as List<dynamic>?)
+      activeStyleNames:
+          (json['active_style_names'] as List<dynamic>?)
               ?.cast<String>()
               .toList() ??
           [],

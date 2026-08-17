@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
@@ -18,11 +19,12 @@ Future<FilePickerResult?> pickImageFiles({
   bool withData = false,
   bool useFileBrowser = false,
 }) async {
+  final effectiveWithData = kIsWeb || withData;
   if (useFileBrowser && _isAndroid()) {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.any,
       allowMultiple: allowMultiple,
-      withData: withData,
+      withData: effectiveWithData,
       compressionQuality: 0,
     );
     if (result == null) return null;
@@ -36,12 +38,19 @@ Future<FilePickerResult?> pickImageFiles({
   return FilePicker.platform.pickFiles(
     type: FileType.image,
     allowMultiple: allowMultiple,
-    withData: withData,
+    withData: effectiveWithData,
     // file_picker 8.x defaults compressionQuality to 30, which forces a
     // JPEG re-encode on Android for image/* MIME and destroys PNG metadata
     // chunks (NovelAI Comment, etc.). Disable to preserve original bytes.
     compressionQuality: 0,
   );
+}
+
+Future<Uint8List?> readPickedFileBytes(PlatformFile file) async {
+  if (file.bytes != null) return file.bytes;
+  final path = file.path;
+  if (path == null) return null;
+  return File(path).readAsBytes();
 }
 
 /// Picks files with custom extensions, using [FileType.any] on Android
@@ -52,11 +61,12 @@ Future<FilePickerResult?> pickCustomFiles({
   bool withData = false,
 }) async {
   final android = _isAndroid();
+  final effectiveWithData = kIsWeb || withData;
   final result = await FilePicker.platform.pickFiles(
     type: android ? FileType.any : FileType.custom,
     allowedExtensions: android ? null : allowedExtensions,
     allowMultiple: allowMultiple,
-    withData: withData,
+    withData: effectiveWithData,
   );
   if (result == null || !android) return result;
 

@@ -6,6 +6,7 @@ import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
 
 import '../l10n/l10n_extensions.dart';
+import '../gateway/backend_permissions.dart';
 import '../ml/ml_notifier.dart';
 import '../ml/widgets/upscale_comparison_view.dart';
 import '../services/preferences_service.dart';
@@ -67,25 +68,42 @@ class QuickActionOverlay extends StatelessWidget {
     final double albumTop = nextTop;
     if (showAlbum) nextTop += step;
 
-    final bool showEdit = state.showEditButton;
+    final bool paidImageFeaturesAllowed = canUsePaidImageFeatures(context);
+    final bool imageAugmentAllowed = hasBackendPermission(
+      context,
+      BackendPermission.imageAugment,
+    );
+    final bool imageUpscaleAllowed = hasBackendPermission(
+      context,
+      BackendPermission.imageUpscale,
+    );
+
+    final bool showEdit = state.showEditButton && paidImageFeaturesAllowed;
     final double editTop = nextTop;
     if (showEdit) nextTop += step;
 
-    final bool showBgRemoval = state.showBgRemovalButton &&
-        (ml.hasBgRemovalModel || bgRemovalBackend == 'novelai');
+    final bool canUseBgRemovalBackend = bgRemovalBackend == 'novelai'
+        ? imageAugmentAllowed
+        : ml.hasBgRemovalModel;
+    final bool showBgRemoval =
+        state.showBgRemovalButton && canUseBgRemovalBackend;
     final double bgRemovalTop = nextTop;
     if (showBgRemoval) nextTop += step;
 
-    final bool showUpscale = state.showUpscaleButton &&
-        (ml.hasUpscaleModel || upscaleBackend == 'novelai');
+    final bool canUseUpscaleBackend = upscaleBackend == 'novelai'
+        ? imageUpscaleAllowed
+        : ml.hasUpscaleModel;
+    final bool showUpscale = state.showUpscaleButton && canUseUpscaleBackend;
     final double upscaleTop = nextTop;
     if (showUpscale) nextTop += step;
 
-    final bool showEnhance = state.showEnhanceButton;
+    final bool showEnhance =
+        state.showEnhanceButton && paidImageFeaturesAllowed;
     final double enhanceTop = nextTop;
     if (showEnhance) nextTop += step;
 
-    final bool showDirectorTools = state.showDirectorToolsButton;
+    final bool showDirectorTools =
+        state.showDirectorToolsButton && imageAugmentAllowed;
     final double directorToolsTop = nextTop;
 
     return Stack(
@@ -153,10 +171,15 @@ class QuickActionOverlay extends StatelessWidget {
             right: 20,
             child: _ActionButton(
               onTap: () {
-                context.read<Img2ImgNotifier>().loadSourceImage(state.generatedImage!);
+                context.read<Img2ImgNotifier>().loadSourceImage(
+                  state.generatedImage!,
+                );
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const ToolsHubScreen(initialToolId: 'img2img')),
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        const ToolsHubScreen(initialToolId: 'img2img'),
+                  ),
                 );
               },
               icon: Icons.brush,
@@ -183,7 +206,10 @@ class QuickActionOverlay extends StatelessWidget {
                         if (result != null && context.mounted) {
                           final gallery = context.read<GalleryNotifier>();
                           final timestamp = generateTimestamp();
-                          await gallery.saveMLResult(result, 'BG_gen_$timestamp.png');
+                          await gallery.saveMLResult(
+                            result,
+                            'BG_gen_$timestamp.png',
+                          );
                           if (context.mounted) {
                             showAppSnackBar(context, l.mlBgRemovedAndSaved);
                           }
@@ -209,11 +235,20 @@ class QuickActionOverlay extends StatelessWidget {
                   : () async {
                       final sourceBytes = state.generatedImage!;
                       if (upscaleBackend == 'novelai') {
-                        await _handleNovelAIUpscale(context, sourceBytes, state.autoSaveImages);
+                        await _handleNovelAIUpscale(
+                          context,
+                          sourceBytes,
+                          state.autoSaveImages,
+                        );
                       } else {
                         final result = await ml.upscaleImage(sourceBytes);
                         if (result != null && context.mounted) {
-                          _showUpscaleComparison(context, sourceBytes, result, state.autoSaveImages);
+                          _showUpscaleComparison(
+                            context,
+                            sourceBytes,
+                            result,
+                            state.autoSaveImages,
+                          );
                         }
                       }
                     },
@@ -232,10 +267,15 @@ class QuickActionOverlay extends StatelessWidget {
             right: 20,
             child: _ActionButton(
               onTap: () {
-                context.read<EnhanceNotifier>().setSourceImage(state.generatedImage!);
+                context.read<EnhanceNotifier>().setSourceImage(
+                  state.generatedImage!,
+                );
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const ToolsHubScreen(initialToolId: 'enhance')),
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        const ToolsHubScreen(initialToolId: 'enhance'),
+                  ),
                 );
               },
               icon: Icons.hd,
@@ -252,10 +292,15 @@ class QuickActionOverlay extends StatelessWidget {
             right: 20,
             child: _ActionButton(
               onTap: () {
-                context.read<DirectorToolsNotifier>().setSourceImage(state.generatedImage!);
+                context.read<DirectorToolsNotifier>().setSourceImage(
+                  state.generatedImage!,
+                );
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const ToolsHubScreen(initialToolId: 'director_tools')),
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        const ToolsHubScreen(initialToolId: 'director_tools'),
+                  ),
                 );
               },
               icon: Icons.auto_fix_high,
@@ -268,7 +313,11 @@ class QuickActionOverlay extends StatelessWidget {
     );
   }
 
-  Future<void> _handleNovelAIUpscale(BuildContext context, Uint8List sourceBytes, bool autoSave) async {
+  Future<void> _handleNovelAIUpscale(
+    BuildContext context,
+    Uint8List sourceBytes,
+    bool autoSave,
+  ) async {
     final service = context.read<GenerationNotifier>().service;
     final l = context.l;
 
@@ -279,7 +328,10 @@ class QuickActionOverlay extends StatelessWidget {
       final scale = NovelAIService.bestUpscaleScale(decoded.$1, decoded.$2);
       if (scale == null) {
         if (context.mounted) {
-          showErrorSnackBar(context, 'Image too large for NAI upscale (${decoded.$1}x${decoded.$2} exceeds 2048px limit per side)');
+          showErrorSnackBar(
+            context,
+            'Image too large for NAI upscale (${decoded.$1}x${decoded.$2} exceeds 2048px limit per side)',
+          );
         }
         return;
       }
@@ -297,7 +349,14 @@ class QuickActionOverlay extends StatelessWidget {
               children: [
                 const CircularProgressIndicator(),
                 const SizedBox(height: 16),
-                Text(l.naiUpscaling, style: TextStyle(fontSize: t.fontSize(10), letterSpacing: 2, color: t.textSecondary)),
+                Text(
+                  l.naiUpscaling,
+                  style: TextStyle(
+                    fontSize: t.fontSize(10),
+                    letterSpacing: 2,
+                    color: t.textSecondary,
+                  ),
+                ),
               ],
             ),
           );
@@ -323,7 +382,10 @@ class QuickActionOverlay extends StatelessWidget {
     }
   }
 
-  Future<void> _handleNovelAIBgRemoval(BuildContext context, Uint8List sourceBytes) async {
+  Future<void> _handleNovelAIBgRemoval(
+    BuildContext context,
+    Uint8List sourceBytes,
+  ) async {
     final service = context.read<GenerationNotifier>().service;
     final l = context.l;
 
@@ -344,7 +406,14 @@ class QuickActionOverlay extends StatelessWidget {
               children: [
                 const CircularProgressIndicator(),
                 const SizedBox(height: 16),
-                Text(l.mlRemovingBg, style: TextStyle(fontSize: t.fontSize(10), letterSpacing: 2, color: t.textSecondary)),
+                Text(
+                  l.mlRemovingBg,
+                  style: TextStyle(
+                    fontSize: t.fontSize(10),
+                    letterSpacing: 2,
+                    color: t.textSecondary,
+                  ),
+                ),
               ],
             ),
           );
@@ -375,7 +444,12 @@ class QuickActionOverlay extends StatelessWidget {
     }
   }
 
-  void _showUpscaleComparison(BuildContext context, Uint8List sourceBytes, Uint8List result, bool autoSave) {
+  void _showUpscaleComparison(
+    BuildContext context,
+    Uint8List sourceBytes,
+    Uint8List result,
+    bool autoSave,
+  ) {
     final gallery = context.read<GalleryNotifier>();
     final timestamp = generateTimestamp();
     final outputName = 'UP_gen_$timestamp.png';
@@ -388,8 +462,11 @@ class QuickActionOverlay extends StatelessWidget {
           outputName: outputName,
           autoSave: autoSave,
           onSave: () async {
-            await gallery.saveMLResultWithMetadata(result, outputName,
-                sourceBytes: sourceBytes);
+            await gallery.saveMLResultWithMetadata(
+              result,
+              outputName,
+              sourceBytes: sourceBytes,
+            );
           },
         ),
       ),
@@ -424,23 +501,53 @@ void _showAlbumPicker(
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 12, bottom: 4),
-            child: Container(width: 32, height: 3, decoration: BoxDecoration(color: t.borderMedium, borderRadius: BorderRadius.circular(2))),
+            child: Container(
+              width: 32,
+              height: 3,
+              decoration: BoxDecoration(
+                color: t.borderMedium,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
           ),
           Padding(
             padding: const EdgeInsets.all(12),
-            child: Text('ADD TO ALBUM', style: TextStyle(fontSize: t.fontSize(10), letterSpacing: 2, fontWeight: FontWeight.w900, color: t.textSecondary)),
+            child: Text(
+              'ADD TO ALBUM',
+              style: TextStyle(
+                fontSize: t.fontSize(10),
+                letterSpacing: 2,
+                fontWeight: FontWeight.w900,
+                color: t.textSecondary,
+              ),
+            ),
           ),
           for (final album in gallery.albums)
             ListTile(
-              leading: Icon(Icons.photo_album, size: 18, color: album.imageBasenames.contains(basename) ? t.accentSuccess : t.textDisabled),
-              title: Text(album.name, style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(12))),
+              leading: Icon(
+                Icons.photo_album,
+                size: 18,
+                color: album.imageBasenames.contains(basename)
+                    ? t.accentSuccess
+                    : t.textDisabled,
+              ),
+              title: Text(
+                album.name,
+                style: TextStyle(
+                  color: t.textPrimary,
+                  fontSize: t.fontSize(12),
+                ),
+              ),
               trailing: album.imageBasenames.contains(basename)
                   ? Icon(Icons.check, size: 16, color: t.accentSuccess)
                   : null,
               onTap: () {
                 gallery.addToAlbumByBasename(album.id, basename);
                 Navigator.pop(context);
-                showAppSnackBar(context, 'ADDED TO ${album.name.toUpperCase()}');
+                showAppSnackBar(
+                  context,
+                  'ADDED TO ${album.name.toUpperCase()}',
+                );
               },
             ),
           const SizedBox(height: 8),
@@ -475,7 +582,10 @@ class _SaveButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(4),
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: mobile ? 14 : 10, vertical: mobile ? 10 : 6),
+          padding: EdgeInsets.symmetric(
+            horizontal: mobile ? 14 : 10,
+            vertical: mobile ? 10 : 6,
+          ),
           decoration: BoxDecoration(
             color: t.background.withValues(alpha: 0.7),
             borderRadius: BorderRadius.circular(4),
@@ -544,7 +654,10 @@ class _ActionButton extends StatelessWidget {
                   ? SizedBox(
                       width: iconSize,
                       height: iconSize,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: color),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: color,
+                      ),
                     )
                   : Icon(icon, size: iconSize, color: color),
             ),

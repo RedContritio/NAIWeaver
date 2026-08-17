@@ -48,6 +48,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mainGallery => '图库';
 
   @override
+  String get mainServerHistory => '历史';
+
+  @override
   String get mainTools => '工具';
 
   @override
@@ -117,6 +120,61 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsApiKeyHint => 'pst-xxxx...';
+
+  @override
+  String get settingsApiManaged => 'NovelAI API Key 由后端托管';
+
+  @override
+  String get settingsApiManagedDesc =>
+      '此 Web 服务使用后端保存的 NovelAI token。浏览器不会保存或发送 NovelAI token。';
+
+  @override
+  String get gatewayUsername => '用户名';
+
+  @override
+  String get gatewayPassword => '密码';
+
+  @override
+  String get gatewayLogin => '登录';
+
+  @override
+  String get gatewayLogout => '退出登录';
+
+  @override
+  String get gatewayQueueStatus => '队列状态';
+
+  @override
+  String get gatewayQueueIdle => '空闲';
+
+  @override
+  String get gatewayQueueQueued => '排队';
+
+  @override
+  String get gatewayQueueActive => '生成中';
+
+  @override
+  String get gatewayQuotaFreeLabel => '免费额度';
+
+  @override
+  String get gatewayQuotaPaidLabel => '付费点数';
+
+  @override
+  String get gatewayQuotaFreeShort => '免';
+
+  @override
+  String get gatewayQuotaPaidShort => '点';
+
+  @override
+  String get gatewayQuotaUnlimited => '无限';
+
+  @override
+  String get gatewayQuotaRefresh => '点击刷新自己的额度';
+
+  @override
+  String get gatewayShowPassword => '显示密码';
+
+  @override
+  String get gatewayHidePassword => '隐藏密码';
 
   @override
   String get settingsAutoSave => '自动保存图片';
@@ -534,6 +592,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get panelSeed => '种子';
+
+  @override
+  String get panelBatchCount => '批量';
 
   @override
   String get panelCustom => '自定义';
@@ -2171,7 +2232,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsUpdateApply => '更新并重启';
 
   @override
-  String get mainAnlas => 'Anlas';
+  String get mainAnlas => '点';
+
+  @override
+  String get mainEstimatedCostLabel => '预计';
+
+  @override
+  String get mainEstimatedCostTooltip => '生成前预估；完成后按 NovelAI 实际扣点校准';
+
+  @override
+  String get mainEstimatedCostBase => '基础';
+
+  @override
+  String get mainEstimatedCostReference => '参考图';
+
+  @override
+  String get mainEstimatedCostVibe => 'Vibe';
+
+  @override
+  String get mainEstimatedCostSerialImages => '串行张数';
 
   @override
   String get settingsAnlasTracker => 'Anlas 追踪';
@@ -3466,4 +3545,19 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get textGenReasoning => '推理';
+
+  @override
+  String get serverHistoryTitle => '服务器历史';
+
+  @override
+  String get serverHistoryAllUsers => '全部用户';
+
+  @override
+  String get serverHistoryRefresh => '刷新';
+
+  @override
+  String get serverHistoryEmpty => '还没有服务器历史';
+
+  @override
+  String get serverHistoryDeleteConfirm => '从你的历史中隐藏这条记录。';
 }

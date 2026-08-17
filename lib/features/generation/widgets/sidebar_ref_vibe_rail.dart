@@ -41,7 +41,11 @@ class SidebarRefVibeRail extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (showRef) _RefSection(t: t),
-          if (showRef && showVibe) SizedBox(height: 8, child: Divider(color: t.borderSubtle, indent: 8, endIndent: 8)),
+          if (showRef && showVibe)
+            SizedBox(
+              height: 8,
+              child: Divider(color: t.borderSubtle, indent: 8, endIndent: 8),
+            ),
           if (showVibe) _VibeSection(t: t),
         ],
       ),
@@ -53,10 +57,14 @@ class _RefSection extends StatelessWidget {
   final VisionTokens t;
   const _RefSection({required this.t});
 
-  Future<void> _pickAndAdd(BuildContext context, {bool useFileBrowser = false}) async {
+  Future<void> _pickAndAdd(
+    BuildContext context, {
+    bool useFileBrowser = false,
+  }) async {
     final result = await pickImageFiles(useFileBrowser: useFileBrowser);
-    if (result != null && result.files.single.path != null) {
-      final bytes = await File(result.files.single.path!).readAsBytes();
+    if (result != null) {
+      final bytes = await readPickedFileBytes(result.files.single);
+      if (bytes == null) return;
       if (context.mounted) {
         context.read<DirectorRefNotifier>().addReference(bytes);
       }
@@ -71,7 +79,10 @@ class _RefSection extends StatelessWidget {
     final position = RelativeRect.fromRect(
       Rect.fromPoints(
         button.localToGlobal(Offset.zero, ancestor: overlay),
-        button.localToGlobal(button.size.bottomRight(Offset.zero), ancestor: overlay),
+        button.localToGlobal(
+          button.size.bottomRight(Offset.zero),
+          ancestor: overlay,
+        ),
       ),
       Offset.zero & overlay.size,
     );
@@ -87,14 +98,21 @@ class _RefSection extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.bookmark_outline, size: 14, color: menuT.accentRefCharacter),
+              Icon(
+                Icons.bookmark_outline,
+                size: 14,
+                color: menuT.accentRefCharacter,
+              ),
               const SizedBox(width: 8),
-              Text(l.refLoadSaved, style: TextStyle(
-                fontSize: menuT.fontSize(9),
-                letterSpacing: 1,
-                fontWeight: FontWeight.bold,
-                color: menuT.textPrimary,
-              )),
+              Text(
+                l.refLoadSaved,
+                style: TextStyle(
+                  fontSize: menuT.fontSize(9),
+                  letterSpacing: 1,
+                  fontWeight: FontWeight.bold,
+                  color: menuT.textPrimary,
+                ),
+              ),
             ],
           ),
         ),
@@ -103,14 +121,21 @@ class _RefSection extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.add_photo_alternate_outlined, size: 14, color: menuT.accentRefCharacter),
+              Icon(
+                Icons.add_photo_alternate_outlined,
+                size: 14,
+                color: menuT.accentRefCharacter,
+              ),
               const SizedBox(width: 8),
-              Text(l.refPickImage, style: TextStyle(
-                fontSize: menuT.fontSize(9),
-                letterSpacing: 1,
-                fontWeight: FontWeight.bold,
-                color: menuT.textPrimary,
-              )),
+              Text(
+                l.refPickImage,
+                style: TextStyle(
+                  fontSize: menuT.fontSize(9),
+                  letterSpacing: 1,
+                  fontWeight: FontWeight.bold,
+                  color: menuT.textPrimary,
+                ),
+              ),
             ],
           ),
         ),
@@ -120,14 +145,21 @@ class _RefSection extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.folder_open, size: 14, color: menuT.accentRefCharacter),
+                Icon(
+                  Icons.folder_open,
+                  size: 14,
+                  color: menuT.accentRefCharacter,
+                ),
                 const SizedBox(width: 8),
-                Text(l.refBrowseFiles, style: TextStyle(
-                  fontSize: menuT.fontSize(9),
-                  letterSpacing: 1,
-                  fontWeight: FontWeight.bold,
-                  color: menuT.textPrimary,
-                )),
+                Text(
+                  l.refBrowseFiles,
+                  style: TextStyle(
+                    fontSize: menuT.fontSize(9),
+                    letterSpacing: 1,
+                    fontWeight: FontWeight.bold,
+                    color: menuT.textPrimary,
+                  ),
+                ),
               ],
             ),
           ),
@@ -168,7 +200,11 @@ class _RefSection extends StatelessWidget {
     );
   }
 
-  void _openEditor(BuildContext context, DirectorRefNotifier notifier, DirectorReference ref) {
+  void _openEditor(
+    BuildContext context,
+    DirectorRefNotifier notifier,
+    DirectorReference ref,
+  ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -192,17 +228,19 @@ class _RefSection extends StatelessWidget {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ...refs.map((ref) => Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: _RailChip(
-                imageBytes: ref.originalImageBytes,
-                borderColor: _refBorderColor(ref.type, t),
-                icon: _refIcon(ref.type),
-                enabled: ref.enabled,
-                onTap: () => _openEditor(context, notifier, ref),
-                onLongPress: () => notifier.removeReference(ref.id),
+            ...refs.map(
+              (ref) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: _RailChip(
+                  imageBytes: ref.originalImageBytes,
+                  borderColor: _refBorderColor(ref.type, t),
+                  icon: _refIcon(ref.type),
+                  enabled: ref.enabled,
+                  onTap: () => _openEditor(context, notifier, ref),
+                  onLongPress: () => notifier.removeReference(ref.id),
+                ),
               ),
-            )),
+            ),
             _RailAddButton(
               label: 'REF',
               color: t.accentRefCharacter,
@@ -248,22 +286,21 @@ class _VibeSection extends StatelessWidget {
     if (result != null && context.mounted) {
       final notifier = context.read<VibeTransferNotifier>();
       for (final file in result.files) {
-        if (file.path != null) {
-          final bytes = await File(file.path!).readAsBytes();
-          if (!context.mounted) return;
-          try {
-            await notifier.addVibe(bytes);
-          } on UnauthorizedException {
-            if (context.mounted) {
-              showErrorSnackBar(context, 'API key missing or invalid');
-            }
-            return;
-          } catch (e) {
-            if (context.mounted) {
-              showErrorSnackBar(context, 'Failed to encode vibe image');
-            }
-            return;
+        final bytes = await readPickedFileBytes(file);
+        if (bytes == null) continue;
+        if (!context.mounted) return;
+        try {
+          await notifier.addVibe(bytes);
+        } on UnauthorizedException {
+          if (context.mounted) {
+            showErrorSnackBar(context, 'API key missing or invalid');
           }
+          return;
+        } catch (e) {
+          if (context.mounted) {
+            showErrorSnackBar(context, 'Failed to encode vibe image');
+          }
+          return;
         }
       }
     }
@@ -292,16 +329,18 @@ class _VibeSection extends StatelessWidget {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ...vibes.map((vibe) => Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: _RailChip(
-                imageBytes: vibe.originalImageBytes,
-                borderColor: t.accent,
-                enabled: vibe.enabled,
-                onTap: () => _openEditor(context, notifier, vibe),
-                onLongPress: () => notifier.removeVibe(vibe.id),
+            ...vibes.map(
+              (vibe) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: _RailChip(
+                  imageBytes: vibe.originalImageBytes,
+                  borderColor: t.accent,
+                  enabled: vibe.enabled,
+                  onTap: () => _openEditor(context, notifier, vibe),
+                  onLongPress: () => notifier.removeVibe(vibe.id),
+                ),
               ),
-            )),
+            ),
             _RailAddButton(
               label: 'VIBE',
               color: t.accent,
@@ -365,7 +404,9 @@ class _RailChip extends StatelessWidget {
                     padding: const EdgeInsets.all(1),
                     decoration: BoxDecoration(
                       color: t.background.withValues(alpha: 0.7),
-                      borderRadius: const BorderRadius.only(topLeft: Radius.circular(3)),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(3),
+                      ),
                     ),
                     child: Icon(
                       disabled ? Icons.visibility_off : icon,
@@ -415,7 +456,14 @@ class _RailAddButton extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (isProcessing)
-              SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, color: color))
+              SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.5,
+                  color: color,
+                ),
+              )
             else
               Icon(Icons.add, size: 14, color: color),
             Text(

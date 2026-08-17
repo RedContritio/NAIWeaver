@@ -178,6 +178,12 @@ abstract class AppLocalizations {
   /// **'Gallery'**
   String get mainGallery;
 
+  /// No description provided for @mainServerHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'History'**
+  String get mainServerHistory;
+
   /// No description provided for @mainTools.
   ///
   /// In en, this message translates to:
@@ -315,6 +321,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'pst-xxxx...'**
   String get settingsApiKeyHint;
+
+  /// No description provided for @settingsApiManaged.
+  ///
+  /// In en, this message translates to:
+  /// **'NovelAI API Key Managed By Server'**
+  String get settingsApiManaged;
+
+  /// No description provided for @settingsApiManagedDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'This web service uses the backend NovelAI token. The browser never stores or sends your NovelAI token.'**
+  String get settingsApiManagedDesc;
+
+  /// No description provided for @gatewayUsername.
+  ///
+  /// In en, this message translates to:
+  /// **'Username'**
+  String get gatewayUsername;
+
+  /// No description provided for @gatewayPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get gatewayPassword;
+
+  /// No description provided for @gatewayLogin.
+  ///
+  /// In en, this message translates to:
+  /// **'Log In'**
+  String get gatewayLogin;
+
+  /// No description provided for @gatewayLogout.
+  ///
+  /// In en, this message translates to:
+  /// **'Log Out'**
+  String get gatewayLogout;
+
+  /// No description provided for @gatewayQueueStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Queue status'**
+  String get gatewayQueueStatus;
+
+  /// No description provided for @gatewayQueueIdle.
+  ///
+  /// In en, this message translates to:
+  /// **'Idle'**
+  String get gatewayQueueIdle;
+
+  /// No description provided for @gatewayQueueQueued.
+  ///
+  /// In en, this message translates to:
+  /// **'Queued'**
+  String get gatewayQueueQueued;
+
+  /// No description provided for @gatewayQueueActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Running'**
+  String get gatewayQueueActive;
+
+  /// No description provided for @gatewayQuotaFreeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Free quota'**
+  String get gatewayQuotaFreeLabel;
+
+  /// No description provided for @gatewayQuotaPaidLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid points'**
+  String get gatewayQuotaPaidLabel;
+
+  /// No description provided for @gatewayQuotaFreeShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Free'**
+  String get gatewayQuotaFreeShort;
+
+  /// No description provided for @gatewayQuotaPaidShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Pts'**
+  String get gatewayQuotaPaidShort;
+
+  /// No description provided for @gatewayQuotaUnlimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited'**
+  String get gatewayQuotaUnlimited;
+
+  /// No description provided for @gatewayQuotaRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to refresh your quota'**
+  String get gatewayQuotaRefresh;
+
+  /// No description provided for @gatewayShowPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Show password'**
+  String get gatewayShowPassword;
+
+  /// No description provided for @gatewayHidePassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide password'**
+  String get gatewayHidePassword;
 
   /// No description provided for @settingsAutoSave.
   ///
@@ -1071,6 +1185,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Seed'**
   String get panelSeed;
+
+  /// No description provided for @panelBatchCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Batch'**
+  String get panelBatchCount;
 
   /// No description provided for @panelCustom.
   ///
@@ -4126,6 +4246,42 @@ abstract class AppLocalizations {
   /// **'Anlas'**
   String get mainAnlas;
 
+  /// No description provided for @mainEstimatedCostLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Estimated'**
+  String get mainEstimatedCostLabel;
+
+  /// No description provided for @mainEstimatedCostTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Pre-generation estimate; final charge is reconciled from NovelAI\'s actual balance delta'**
+  String get mainEstimatedCostTooltip;
+
+  /// No description provided for @mainEstimatedCostBase.
+  ///
+  /// In en, this message translates to:
+  /// **'Base'**
+  String get mainEstimatedCostBase;
+
+  /// No description provided for @mainEstimatedCostReference.
+  ///
+  /// In en, this message translates to:
+  /// **'Reference'**
+  String get mainEstimatedCostReference;
+
+  /// No description provided for @mainEstimatedCostVibe.
+  ///
+  /// In en, this message translates to:
+  /// **'Vibe'**
+  String get mainEstimatedCostVibe;
+
+  /// No description provided for @mainEstimatedCostSerialImages.
+  ///
+  /// In en, this message translates to:
+  /// **'Serial images'**
+  String get mainEstimatedCostSerialImages;
+
   /// No description provided for @settingsAnlasTracker.
   ///
   /// In en, this message translates to:
@@ -6607,6 +6763,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Reasoning'**
   String get textGenReasoning;
+
+  /// No description provided for @serverHistoryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Server History'**
+  String get serverHistoryTitle;
+
+  /// No description provided for @serverHistoryAllUsers.
+  ///
+  /// In en, this message translates to:
+  /// **'All Users'**
+  String get serverHistoryAllUsers;
+
+  /// No description provided for @serverHistoryRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get serverHistoryRefresh;
+
+  /// No description provided for @serverHistoryEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No server history yet'**
+  String get serverHistoryEmpty;
+
+  /// No description provided for @serverHistoryDeleteConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide this item from your history.'**
+  String get serverHistoryDeleteConfirm;
 }
 
 class _AppLocalizationsDelegate

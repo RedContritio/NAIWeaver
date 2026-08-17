@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:gal/gal.dart';
 import 'package:provider/provider.dart';
+import '../../../core/gateway/backend_permissions.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/services/preferences_service.dart';
 import '../../../core/services/saf_export_service.dart';
@@ -1538,7 +1539,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   ),
                 if (context.read<MLNotifier>().hasUpscaleModel)
                   SizedBox(width: mobile ? 12 : 8),
-                if (context.read<GenerationNotifier>().state.apiKey.isNotEmpty)
+                if (context.read<GenerationNotifier>().state.apiKey.isNotEmpty &&
+                    hasBackendPermission(context, BackendPermission.imageUpscale))
                   _ActionButton(
                     icon: Icons.cloud_upload_outlined,
                     label: context.l.naiUpscale.toUpperCase(),
@@ -1547,7 +1549,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
                     iconOnly: mobile,
                     onTap: count > 0 ? () => _bulkNaiUpscale(selectedItems) : null,
                   ),
-                if (context.read<GenerationNotifier>().state.apiKey.isNotEmpty)
+                if (context.read<GenerationNotifier>().state.apiKey.isNotEmpty &&
+                    hasBackendPermission(context, BackendPermission.imageUpscale))
                   SizedBox(width: mobile ? 12 : 8),
                 if (context.read<MLNotifier>().selectedSegmentationModelId != null && count == 1)
                   _ActionButton(

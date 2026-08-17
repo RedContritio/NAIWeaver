@@ -7,6 +7,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../core/gateway/backend_gateway.dart';
+import '../../../core/gateway/backend_permissions.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/l10n/locale_notifier.dart';
 import '../../../core/services/device_storage.dart';
@@ -56,10 +58,12 @@ class _AppSettingsState extends State<AppSettings> {
     super.initState();
     _apiKeyController = TextEditingController();
     final prefs = context.read<PreferencesService>();
-    _filenamePatternController =
-        TextEditingController(text: prefs.filenamePattern);
-    _savePathPatternController =
-        TextEditingController(text: prefs.savePathPattern);
+    _filenamePatternController = TextEditingController(
+      text: prefs.filenamePattern,
+    );
+    _savePathPatternController = TextEditingController(
+      text: prefs.savePathPattern,
+    );
     _loadApiKey();
     _loadRemovableVolumes();
   }
@@ -68,8 +72,7 @@ class _AppSettingsState extends State<AppSettings> {
     if (kIsWeb || !Platform.isAndroid) return;
     try {
       final dirs = await getExternalStorageDirectories();
-      final removable =
-          removableStorageDirs(dirs?.map((d) => d.path).toList());
+      final removable = removableStorageDirs(dirs?.map((d) => d.path).toList());
       if (mounted && removable.isNotEmpty) {
         setState(() => _removableVolumes = removable);
       }
@@ -79,6 +82,7 @@ class _AppSettingsState extends State<AppSettings> {
   }
 
   Future<void> _loadApiKey() async {
+    if (useBackendGateway) return;
     final prefs = context.read<PreferencesService>();
     final key = await prefs.getApiKey();
     if (mounted) {
@@ -101,6 +105,7 @@ class _AppSettingsState extends State<AppSettings> {
     final prefs = context.read<PreferencesService>();
     final t = context.t;
     final l = context.l;
+    final paidImageFeaturesAllowed = canUsePaidImageFeatures(context);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -238,22 +243,30 @@ class _AppSettingsState extends State<AppSettings> {
           const SizedBox(height: 12),
           _buildExportFolderPicker(t),
           const SizedBox(height: 12),
-          _buildShelfToggle(
-            label: l.settingsDirectorRefShelf.toUpperCase(),
-            description: l.settingsDirectorRefShelfDesc,
-            value: state.showDirectorRefShelf,
-            onChanged: (_) => notifier.toggleDirectorRefShelf(),
-            t: t,
-          ),
-          const SizedBox(height: 12),
-          _buildShelfToggle(
-            label: l.settingsVibeTransferShelf.toUpperCase(),
-            description: l.settingsVibeTransferShelfDesc,
-            value: state.showVibeTransferShelf,
-            onChanged: (_) => notifier.toggleVibeTransferShelf(),
-            t: t,
-          ),
-          const SizedBox(height: 12),
+          if (paidImageFeaturesAllowed) ...[
+            _buildShelfToggle(
+              label: l.settingsDirectorRefShelf.toUpperCase(),
+              description: l.settingsDirectorRefShelfDesc,
+              value: state.showDirectorRefShelf,
+              onChanged: (_) => notifier.toggleDirectorRefShelf(),
+              t: t,
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (paidImageFeaturesAllowed &&
+              hasBackendPermission(
+                context,
+                BackendPermission.imageEncodeVibe,
+              )) ...[
+            _buildShelfToggle(
+              label: l.settingsVibeTransferShelf.toUpperCase(),
+              description: l.settingsVibeTransferShelfDesc,
+              value: state.showVibeTransferShelf,
+              onChanged: (_) => notifier.toggleVibeTransferShelf(),
+              t: t,
+            ),
+            const SizedBox(height: 12),
+          ],
           _buildCharEditorModeToggle(notifier, state, t),
           const SizedBox(height: 12),
           _buildThemeBuilderButton(t),
@@ -300,18 +313,55 @@ class _AppSettingsState extends State<AppSettings> {
 
   Widget _buildApiKeyField(GenerationNotifier notifier, VisionTokens t) {
     final l = context.l;
+    if (useBackendGateway) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: t.borderSubtle,
+          border: Border.all(color: t.borderMedium),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              l.settingsApiManaged.toUpperCase(),
+              style: TextStyle(
+                color: t.headerText,
+                fontSize: t.fontSize(11),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              l.settingsApiManagedDesc,
+              style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
+            ),
+          ],
+        ),
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           l.settingsApiKeyLabel.toUpperCase(),
-          style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9), letterSpacing: 1),
+          style: TextStyle(
+            color: t.textTertiary,
+            fontSize: t.fontSize(9),
+            letterSpacing: 1,
+          ),
         ),
         const SizedBox(height: 8),
         TextField(
           controller: _apiKeyController,
           obscureText: _isObscured,
-          style: TextStyle(color: t.headerText, fontSize: t.fontSize(12), fontFamily: 'monospace'),
+          style: TextStyle(
+            color: t.headerText,
+            fontSize: t.fontSize(12),
+            fontFamily: 'monospace',
+          ),
           decoration: InputDecoration(
             filled: true,
             fillColor: t.borderSubtle,
@@ -340,7 +390,11 @@ class _AppSettingsState extends State<AppSettings> {
     );
   }
 
-  Widget _buildAutoSaveToggle(GenerationNotifier notifier, bool value, VisionTokens t) {
+  Widget _buildAutoSaveToggle(
+    GenerationNotifier notifier,
+    bool value,
+    VisionTokens t,
+  ) {
     final l = context.l;
     return Row(
       children: [
@@ -350,12 +404,19 @@ class _AppSettingsState extends State<AppSettings> {
             children: [
               Text(
                 l.settingsAutoSave.toUpperCase(),
-                style: TextStyle(color: t.headerText, fontSize: t.fontSize(11), fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: t.headerText,
+                  fontSize: t.fontSize(11),
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
                 l.settingsAutoSaveDesc,
-                style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
+                style: TextStyle(
+                  color: t.textTertiary,
+                  fontSize: t.fontSize(9),
+                ),
               ),
             ],
           ),
@@ -398,32 +459,45 @@ class _AppSettingsState extends State<AppSettings> {
           sequence: 1234,
         );
         final fnPattern = _filenamePatternController.text;
-        var name =
-            fnPattern.isEmpty ? '' : expandFilenamePattern(fnPattern, sample);
+        var name = fnPattern.isEmpty
+            ? ''
+            : expandFilenamePattern(fnPattern, sample);
         if (name.isEmpty) name = naiFilenameBase(sample.prompt, sample.seed);
-        final sub =
-            expandSavePathPattern(_savePathPatternController.text, sample);
+        final sub = expandSavePathPattern(
+          _savePathPatternController.text,
+          sample,
+        );
         final preview = '${sub.isEmpty ? '' : '$sub/'}$name.png';
 
-        Widget field(TextEditingController controller, String hint,
-            Future<void> Function(String) save) {
+        Widget field(
+          TextEditingController controller,
+          String hint,
+          Future<void> Function(String) save,
+        ) {
           return SizedBox(
             height: 36,
             child: TextField(
               controller: controller,
-              style:
-                  TextStyle(fontSize: t.fontSize(11), color: t.textSecondary),
+              style: TextStyle(
+                fontSize: t.fontSize(11),
+                color: t.textSecondary,
+              ),
               decoration: InputDecoration(
                 fillColor: t.borderSubtle,
                 filled: true,
                 hintText: hint,
-                hintStyle:
-                    TextStyle(fontSize: t.fontSize(11), color: t.textDisabled),
+                hintStyle: TextStyle(
+                  fontSize: t.fontSize(11),
+                  color: t.textDisabled,
+                ),
                 border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                    borderSide: BorderSide.none),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
               ),
               onChanged: (value) {
                 save(value.trim());
@@ -435,40 +509,55 @@ class _AppSettingsState extends State<AppSettings> {
         }
 
         Widget header(String label, String desc) => Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
-                    style: TextStyle(
-                        color: t.headerText,
-                        fontSize: t.fontSize(11),
-                        fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text(desc,
-                    style: TextStyle(
-                        color: t.textTertiary, fontSize: t.fontSize(9))),
-                const SizedBox(height: 8),
-              ],
-            );
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: t.headerText,
+                fontSize: t.fontSize(11),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              desc,
+              style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
+            ),
+            const SizedBox(height: 8),
+          ],
+        );
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            header(l.settingsFilenamePattern.toUpperCase(),
-                l.settingsFilenamePatternDesc),
-            field(_filenamePatternController, kDefaultFilenamePattern,
-                prefs.setFilenamePattern),
+            header(
+              l.settingsFilenamePattern.toUpperCase(),
+              l.settingsFilenamePatternDesc,
+            ),
+            field(
+              _filenamePatternController,
+              kDefaultFilenamePattern,
+              prefs.setFilenamePattern,
+            ),
             const SizedBox(height: 12),
-            header(l.settingsSavePathPattern.toUpperCase(),
-                l.settingsSavePathPatternDesc),
-            field(_savePathPatternController, '<year>/<month>/<day>',
-                prefs.setSavePathPattern),
+            header(
+              l.settingsSavePathPattern.toUpperCase(),
+              l.settingsSavePathPatternDesc,
+            ),
+            field(
+              _savePathPatternController,
+              '<year>/<month>/<day>',
+              prefs.setSavePathPattern,
+            ),
             const SizedBox(height: 8),
             Text(
               '${l.settingsPatternPreview.toUpperCase()}: $preview',
               style: TextStyle(
-                  color: t.textSecondary,
-                  fontSize: t.fontSize(9),
-                  fontStyle: FontStyle.italic),
+                color: t.textSecondary,
+                fontSize: t.fontSize(9),
+                fontStyle: FontStyle.italic,
+              ),
             ),
           ],
         );
@@ -488,7 +577,11 @@ class _AppSettingsState extends State<AppSettings> {
           children: [
             Text(
               l.settingsOutputFolder.toUpperCase(),
-              style: TextStyle(color: t.headerText, fontSize: t.fontSize(11), fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: t.headerText,
+                fontSize: t.fontSize(11),
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
@@ -500,7 +593,10 @@ class _AppSettingsState extends State<AppSettings> {
               children: [
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       border: Border.all(color: t.borderMedium),
                       borderRadius: BorderRadius.circular(4),
@@ -527,7 +623,10 @@ class _AppSettingsState extends State<AppSettings> {
                   },
                   borderRadius: BorderRadius.circular(4),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       border: Border.all(color: t.borderMedium),
                       borderRadius: BorderRadius.circular(4),
@@ -549,7 +648,10 @@ class _AppSettingsState extends State<AppSettings> {
                     onTap: () => _onUseSdCard(setLocalState),
                     borderRadius: BorderRadius.circular(4),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         border: Border.all(color: t.borderMedium),
                         borderRadius: BorderRadius.circular(4),
@@ -576,12 +678,17 @@ class _AppSettingsState extends State<AppSettings> {
                       paths.outputDirOverride = null;
                       final defaultDir = paths.outputDir;
                       context.read<GalleryNotifier>().setOutputDir(defaultDir);
-                      context.read<GenerationNotifier>().setOutputDir(defaultDir);
+                      context.read<GenerationNotifier>().setOutputDir(
+                        defaultDir,
+                      );
                       setLocalState(() {});
                     },
                     borderRadius: BorderRadius.circular(4),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         border: Border.all(color: t.borderMedium),
                         borderRadius: BorderRadius.circular(4),
@@ -636,26 +743,35 @@ class _AppSettingsState extends State<AppSettings> {
           context: context,
           builder: (ctx) => AlertDialog(
             backgroundColor: t.surfaceHigh,
-            title: Text(l.settingsSdResumeTitle.toUpperCase(),
-                style: TextStyle(
-                    fontSize: t.fontSize(10),
-                    letterSpacing: 2,
-                    color: t.textSecondary)),
-            content: Text(l.settingsSdResumeBody(remaining.length),
-                style: TextStyle(
-                    color: t.textPrimary, fontSize: t.fontSize(10))),
+            title: Text(
+              l.settingsSdResumeTitle.toUpperCase(),
+              style: TextStyle(
+                fontSize: t.fontSize(10),
+                letterSpacing: 2,
+                color: t.textSecondary,
+              ),
+            ),
+            content: Text(
+              l.settingsSdResumeBody(remaining.length),
+              style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(10)),
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(false),
-                child: Text(l.commonCancel.toUpperCase(),
-                    style: TextStyle(
-                        color: t.textDisabled, fontSize: t.fontSize(9))),
+                child: Text(
+                  l.commonCancel.toUpperCase(),
+                  style: TextStyle(
+                    color: t.textDisabled,
+                    fontSize: t.fontSize(9),
+                  ),
+                ),
               ),
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(true),
-                child: Text(l.settingsSdResume.toUpperCase(),
-                    style: TextStyle(
-                        color: t.accent, fontSize: t.fontSize(9))),
+                child: Text(
+                  l.settingsSdResume.toUpperCase(),
+                  style: TextStyle(color: t.accent, fontSize: t.fontSize(9)),
+                ),
               ),
             ],
           ),
@@ -690,11 +806,14 @@ class _AppSettingsState extends State<AppSettings> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: t.surfaceHigh,
-        title: Text(l.settingsSdDialogTitle.toUpperCase(),
-            style: TextStyle(
-                fontSize: t.fontSize(10),
-                letterSpacing: 2,
-                color: t.textSecondary)),
+        title: Text(
+          l.settingsSdDialogTitle.toUpperCase(),
+          style: TextStyle(
+            fontSize: t.fontSize(10),
+            letterSpacing: 2,
+            color: t.textSecondary,
+          ),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -702,7 +821,9 @@ class _AppSettingsState extends State<AppSettings> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                border: Border.all(color: t.accentDanger.withValues(alpha: 0.5)),
+                border: Border.all(
+                  color: t.accentDanger.withValues(alpha: 0.5),
+                ),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Row(
@@ -711,10 +832,13 @@ class _AppSettingsState extends State<AppSettings> {
                   Icon(Icons.warning_amber, size: 16, color: t.accentDanger),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(l.settingsSdUninstallWarning,
-                        style: TextStyle(
-                            color: t.accentDanger,
-                            fontSize: t.fontSize(9))),
+                    child: Text(
+                      l.settingsSdUninstallWarning,
+                      style: TextStyle(
+                        color: t.accentDanger,
+                        fontSize: t.fontSize(9),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -723,9 +847,13 @@ class _AppSettingsState extends State<AppSettings> {
               const SizedBox(height: 12),
               Text(
                 l.settingsSdExistingInfo(
-                    sourceFiles.length, formatMigrationBytes(sourceBytes)),
+                  sourceFiles.length,
+                  formatMigrationBytes(sourceBytes),
+                ),
                 style: TextStyle(
-                    color: t.textPrimary, fontSize: t.fontSize(10)),
+                  color: t.textPrimary,
+                  fontSize: t.fontSize(10),
+                ),
               ),
             ],
           ],
@@ -733,22 +861,25 @@ class _AppSettingsState extends State<AppSettings> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(l.commonCancel.toUpperCase(),
-                style: TextStyle(
-                    color: t.textDisabled, fontSize: t.fontSize(9))),
+            child: Text(
+              l.commonCancel.toUpperCase(),
+              style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9)),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(_SdChoice.fresh),
-            child: Text(l.settingsSdFreshButton.toUpperCase(),
-                style: TextStyle(
-                    color: t.textSecondary, fontSize: t.fontSize(9))),
+            child: Text(
+              l.settingsSdFreshButton.toUpperCase(),
+              style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(9)),
+            ),
           ),
           if (sourceFiles.isNotEmpty)
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(_SdChoice.move),
-              child: Text(l.settingsSdMoveButton.toUpperCase(),
-                  style: TextStyle(
-                      color: t.accent, fontSize: t.fontSize(9))),
+              child: Text(
+                l.settingsSdMoveButton.toUpperCase(),
+                style: TextStyle(color: t.accent, fontSize: t.fontSize(9)),
+              ),
             ),
         ],
       ),
@@ -771,11 +902,12 @@ class _AppSettingsState extends State<AppSettings> {
     if (free != null && !plan.fitsIn(free)) {
       if (mounted) {
         showErrorSnackBar(
-            context,
-            l.settingsSdNotEnoughSpace(
-                formatMigrationBytes(
-                    plan.bytesToCopy + migrationHeadroomBytes),
-                formatMigrationBytes(free)));
+          context,
+          l.settingsSdNotEnoughSpace(
+            formatMigrationBytes(plan.bytesToCopy + migrationHeadroomBytes),
+            formatMigrationBytes(free),
+          ),
+        );
       }
       return;
     }
@@ -815,20 +947,27 @@ class _AppSettingsState extends State<AppSettings> {
         canPop: false,
         child: AlertDialog(
           backgroundColor: t.surfaceHigh,
-          title: Text(l.settingsSdDialogTitle.toUpperCase(),
-              style: TextStyle(
-                  fontSize: t.fontSize(10),
-                  letterSpacing: 2,
-                  color: t.textSecondary)),
+          title: Text(
+            l.settingsSdDialogTitle.toUpperCase(),
+            style: TextStyle(
+              fontSize: t.fontSize(10),
+              letterSpacing: 2,
+              color: t.textSecondary,
+            ),
+          ),
           content: ValueListenableBuilder<(int, int)>(
             valueListenable: progress,
             builder: (ctx, p, _) => Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(l.settingsSdMoving,
-                    style: TextStyle(
-                        color: t.textPrimary, fontSize: t.fontSize(10))),
+                Text(
+                  l.settingsSdMoving,
+                  style: TextStyle(
+                    color: t.textPrimary,
+                    fontSize: t.fontSize(10),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 LinearProgressIndicator(
                   value: p.$2 == 0 ? null : p.$1 / p.$2,
@@ -836,18 +975,26 @@ class _AppSettingsState extends State<AppSettings> {
                   backgroundColor: t.borderSubtle,
                 ),
                 const SizedBox(height: 8),
-                Text('${p.$1} / ${p.$2}',
-                    style: TextStyle(
-                        color: t.textSecondary, fontSize: t.fontSize(10))),
+                Text(
+                  '${p.$1} / ${p.$2}',
+                  style: TextStyle(
+                    color: t.textSecondary,
+                    fontSize: t.fontSize(10),
+                  ),
+                ),
               ],
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => cancelRequested = true,
-              child: Text(l.commonCancel.toUpperCase(),
-                  style: TextStyle(
-                      color: t.textDisabled, fontSize: t.fontSize(9))),
+              child: Text(
+                l.commonCancel.toUpperCase(),
+                style: TextStyle(
+                  color: t.textDisabled,
+                  fontSize: t.fontSize(9),
+                ),
+              ),
             ),
           ],
         ),
@@ -868,7 +1015,11 @@ class _AppSettingsState extends State<AppSettings> {
       // A thrown run (not a per-file failure) must still close the progress
       // dialog and leave the pending-move pref for a retry.
       result = OutputMigrationResult(
-          moved: 0, failed: plan.totalFiles, cancelled: false, errors: ['$e']);
+        moved: 0,
+        failed: plan.totalFiles,
+        cancelled: false,
+        errors: ['$e'],
+      );
     }
 
     if (mounted) Navigator.of(context, rootNavigator: true).pop();
@@ -879,7 +1030,9 @@ class _AppSettingsState extends State<AppSettings> {
       showErrorSnackBar(context, l.settingsSdMoveFailed(result.failed));
     } else if (result.cancelled) {
       showAppSnackBar(
-          context, l.settingsSdMovePaused(plan.totalFiles - result.moved));
+        context,
+        l.settingsSdMovePaused(plan.totalFiles - result.moved),
+      );
     } else {
       await prefs.setSdMigrationSource('');
       if (mounted) showAppSnackBar(context, l.settingsSdMoveDone(result.moved));
@@ -902,12 +1055,19 @@ class _AppSettingsState extends State<AppSettings> {
                 children: [
                   Text(
                     l.settingsStripMetadata.toUpperCase(),
-                    style: TextStyle(color: t.headerText, fontSize: t.fontSize(11), fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: t.headerText,
+                      fontSize: t.fontSize(11),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     l.settingsStripMetadataDesc,
-                    style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
+                    style: TextStyle(
+                      color: t.textTertiary,
+                      fontSize: t.fontSize(9),
+                    ),
                   ),
                 ],
               ),
@@ -944,12 +1104,19 @@ class _AppSettingsState extends State<AppSettings> {
             children: [
               Text(
                 label,
-                style: TextStyle(color: t.headerText, fontSize: t.fontSize(11), fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: t.headerText,
+                  fontSize: t.fontSize(11),
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
                 description,
-                style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
+                style: TextStyle(
+                  color: t.textTertiary,
+                  fontSize: t.fontSize(9),
+                ),
               ),
             ],
           ),
@@ -978,7 +1145,11 @@ class _AppSettingsState extends State<AppSettings> {
       children: [
         Text(
           label,
-          style: TextStyle(color: t.headerText, fontSize: t.fontSize(11), fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: t.headerText,
+            fontSize: t.fontSize(11),
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 4),
         Text(
@@ -994,8 +1165,14 @@ class _AppSettingsState extends State<AppSettings> {
             decoration: InputDecoration(
               fillColor: t.borderSubtle,
               filled: true,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
             ),
             onSubmitted: onChanged,
             onTapOutside: (_) => FocusScope.of(context).unfocus(),
@@ -1018,12 +1195,19 @@ class _AppSettingsState extends State<AppSettings> {
                 children: [
                   Text(
                     l.settingsAnlasTracker.toUpperCase(),
-                    style: TextStyle(color: t.headerText, fontSize: t.fontSize(11), fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: t.headerText,
+                      fontSize: t.fontSize(11),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     l.settingsAnlasTrackerDesc,
-                    style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
+                    style: TextStyle(
+                      color: t.textTertiary,
+                      fontSize: t.fontSize(9),
+                    ),
                   ),
                 ],
               ),
@@ -1067,7 +1251,11 @@ class _AppSettingsState extends State<AppSettings> {
           children: [
             Text(
               l.settingsExportFolder.toUpperCase(),
-              style: TextStyle(color: t.headerText, fontSize: t.fontSize(11), fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: t.headerText,
+                fontSize: t.fontSize(11),
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
@@ -1079,7 +1267,10 @@ class _AppSettingsState extends State<AppSettings> {
               children: [
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: t.borderSubtle,
                       borderRadius: BorderRadius.circular(4),
@@ -1090,7 +1281,9 @@ class _AppSettingsState extends State<AppSettings> {
                           : _exportFolderLabel(currentPath),
                       style: TextStyle(
                         fontSize: t.fontSize(9),
-                        color: currentPath.isEmpty ? t.textDisabled : t.textSecondary,
+                        color: currentPath.isEmpty
+                            ? t.textDisabled
+                            : t.textSecondary,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1103,7 +1296,8 @@ class _AppSettingsState extends State<AppSettings> {
                     // a removable SD card (plain filesystem writes can't reach
                     // it under scoped storage — issue #13).
                     if (SafExportService.isSupported) {
-                      final folder = await SafExportService.instance.pickFolder();
+                      final folder = await SafExportService.instance
+                          .pickFolder();
                       if (folder != null) {
                         await prefs.setExportFolderPath(folder.uri);
                         setLocalState(() {});
@@ -1185,7 +1379,10 @@ class _AppSettingsState extends State<AppSettings> {
               const SizedBox(height: 4),
               Text(
                 'Scales all UI text. Default 100%.',
-                style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
+                style: TextStyle(
+                  color: t.textTertiary,
+                  fontSize: t.fontSize(9),
+                ),
               ),
               const SizedBox(height: 4),
               SliderTheme(
@@ -1237,12 +1434,19 @@ class _AppSettingsState extends State<AppSettings> {
                 children: [
                   Text(
                     l.settingsShowTooltips.toUpperCase(),
-                    style: TextStyle(color: t.headerText, fontSize: t.fontSize(11), fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: t.headerText,
+                      fontSize: t.fontSize(11),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     l.settingsShowTooltipsDesc,
-                    style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
+                    style: TextStyle(
+                      color: t.textTertiary,
+                      fontSize: t.fontSize(9),
+                    ),
                   ),
                 ],
               ),
@@ -1282,14 +1486,20 @@ class _AppSettingsState extends State<AppSettings> {
     );
   }
 
-  Widget _buildCharEditorModeToggle(GenerationNotifier notifier, GenerationState state, VisionTokens t) {
+  Widget _buildCharEditorModeToggle(
+    GenerationNotifier notifier,
+    GenerationState state,
+    VisionTokens t,
+  ) {
     final l = context.l;
     return _buildShelfToggle(
       label: l.settingsCharEditorMode.toUpperCase(),
       description: l.settingsCharEditorModeDesc,
       value: state.characterEditorMode == 'expanded',
       onChanged: (_) {
-        final newMode = state.characterEditorMode == 'expanded' ? 'compact' : 'expanded';
+        final newMode = state.characterEditorMode == 'expanded'
+            ? 'compact'
+            : 'expanded';
         notifier.setCharacterEditorMode(newMode);
       },
       t: t,
@@ -1305,7 +1515,11 @@ class _AppSettingsState extends State<AppSettings> {
       children: [
         Text(
           l.settingsLayoutMode.toUpperCase(),
-          style: TextStyle(color: t.headerText, fontSize: t.fontSize(11), fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: t.headerText,
+            fontSize: t.fontSize(11),
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 4),
         Text(
@@ -1315,11 +1529,29 @@ class _AppSettingsState extends State<AppSettings> {
         const SizedBox(height: 8),
         Row(
           children: [
-            _layoutChip(l.settingsLayoutAuto.toUpperCase(), 'auto', current, (v) => themeNotifier.setSidebarLayoutMode(v), t),
+            _layoutChip(
+              l.settingsLayoutAuto.toUpperCase(),
+              'auto',
+              current,
+              (v) => themeNotifier.setSidebarLayoutMode(v),
+              t,
+            ),
             const SizedBox(width: 8),
-            _layoutChip(l.settingsLayoutSidebar.toUpperCase(), 'always', current, (v) => themeNotifier.setSidebarLayoutMode(v), t),
+            _layoutChip(
+              l.settingsLayoutSidebar.toUpperCase(),
+              'always',
+              current,
+              (v) => themeNotifier.setSidebarLayoutMode(v),
+              t,
+            ),
             const SizedBox(width: 8),
-            _layoutChip(l.settingsLayoutClassic.toUpperCase(), 'never', current, (v) => themeNotifier.setSidebarLayoutMode(v), t),
+            _layoutChip(
+              l.settingsLayoutClassic.toUpperCase(),
+              'never',
+              current,
+              (v) => themeNotifier.setSidebarLayoutMode(v),
+              t,
+            ),
           ],
         ),
       ],
@@ -1339,7 +1571,11 @@ class _AppSettingsState extends State<AppSettings> {
         children: [
           Text(
             l.settingsSidebarWidth.toUpperCase(),
-            style: TextStyle(color: t.headerText, fontSize: t.fontSize(11), fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: t.headerText,
+              fontSize: t.fontSize(11),
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
@@ -1349,9 +1585,21 @@ class _AppSettingsState extends State<AppSettings> {
           const SizedBox(height: 8),
           Row(
             children: [
-              _layoutChip(l.settingsSidebarCompact.toUpperCase(), 'compact', current, (v) => themeNotifier.setSidebarWidthMode(v), t),
+              _layoutChip(
+                l.settingsSidebarCompact.toUpperCase(),
+                'compact',
+                current,
+                (v) => themeNotifier.setSidebarWidthMode(v),
+                t,
+              ),
               const SizedBox(width: 8),
-              _layoutChip(l.settingsSidebarNormal.toUpperCase(), 'normal', current, (v) => themeNotifier.setSidebarWidthMode(v), t),
+              _layoutChip(
+                l.settingsSidebarNormal.toUpperCase(),
+                'normal',
+                current,
+                (v) => themeNotifier.setSidebarWidthMode(v),
+                t,
+              ),
             ],
           ),
         ],
@@ -1369,31 +1617,53 @@ class _AppSettingsState extends State<AppSettings> {
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          l.settingsPromptPosition.toUpperCase(),
-          style: TextStyle(color: t.headerText, fontSize: t.fontSize(11), fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          l.settingsPromptPositionDesc,
-          style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            _layoutChip(l.settingsPromptLeft.toUpperCase(), 'left', current, (v) => themeNotifier.setSidebarPromptPosition(v), t),
-            const SizedBox(width: 8),
-            _layoutChip(l.settingsPromptRight.toUpperCase(), 'right', current, (v) => themeNotifier.setSidebarPromptPosition(v), t),
-          ],
-        ),
-      ],
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l.settingsPromptPosition.toUpperCase(),
+            style: TextStyle(
+              color: t.headerText,
+              fontSize: t.fontSize(11),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            l.settingsPromptPositionDesc,
+            style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _layoutChip(
+                l.settingsPromptLeft.toUpperCase(),
+                'left',
+                current,
+                (v) => themeNotifier.setSidebarPromptPosition(v),
+                t,
+              ),
+              const SizedBox(width: 8),
+              _layoutChip(
+                l.settingsPromptRight.toUpperCase(),
+                'right',
+                current,
+                (v) => themeNotifier.setSidebarPromptPosition(v),
+                t,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  Widget _layoutChip(String label, String value, String current, Function(String) onSelect, VisionTokens t) {
+  Widget _layoutChip(
+    String label,
+    String value,
+    String current,
+    Function(String) onSelect,
+    VisionTokens t,
+  ) {
     final selected = value == current;
     return InkWell(
       onTap: () => onSelect(value),
@@ -1403,7 +1673,9 @@ class _AppSettingsState extends State<AppSettings> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(4),
           border: Border.all(color: selected ? t.accent : t.borderMedium),
-          color: selected ? t.accent.withValues(alpha: 0.15) : Colors.transparent,
+          color: selected
+              ? t.accent.withValues(alpha: 0.15)
+              : Colors.transparent,
         ),
         child: Text(
           label,
@@ -1431,12 +1703,19 @@ class _AppSettingsState extends State<AppSettings> {
                 children: [
                   Text(
                     l.settingsSmartStyleImport.toUpperCase(),
-                    style: TextStyle(color: t.headerText, fontSize: t.fontSize(11), fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: t.headerText,
+                      fontSize: t.fontSize(11),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     l.settingsSmartStyleImportDesc,
-                    style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
+                    style: TextStyle(
+                      color: t.textTertiary,
+                      fontSize: t.fontSize(9),
+                    ),
                   ),
                 ],
               ),
@@ -1471,12 +1750,19 @@ class _AppSettingsState extends State<AppSettings> {
                 children: [
                   Text(
                     l.settingsCharInsertTarget.toUpperCase(),
-                    style: TextStyle(color: t.headerText, fontSize: t.fontSize(11), fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: t.headerText,
+                      fontSize: t.fontSize(11),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     l.settingsCharInsertTargetDesc,
-                    style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
+                    style: TextStyle(
+                      color: t.textTertiary,
+                      fontSize: t.fontSize(9),
+                    ),
                   ),
                 ],
               ),
@@ -1511,12 +1797,19 @@ class _AppSettingsState extends State<AppSettings> {
                 children: [
                   Text(
                     l.settingsRememberSession.toUpperCase(),
-                    style: TextStyle(color: t.headerText, fontSize: t.fontSize(11), fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: t.headerText,
+                      fontSize: t.fontSize(11),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     l.settingsRememberSessionDesc,
-                    style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
+                    style: TextStyle(
+                      color: t.textTertiary,
+                      fontSize: t.fontSize(9),
+                    ),
                   ),
                 ],
               ),
@@ -1555,12 +1848,19 @@ class _AppSettingsState extends State<AppSettings> {
                 children: [
                   Text(
                     l.settingsImg2ImgImportPrompt.toUpperCase(),
-                    style: TextStyle(color: t.headerText, fontSize: t.fontSize(11), fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: t.headerText,
+                      fontSize: t.fontSize(11),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     l.settingsImg2ImgImportPromptDesc,
-                    style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
+                    style: TextStyle(
+                      color: t.textTertiary,
+                      fontSize: t.fontSize(9),
+                    ),
                   ),
                 ],
               ),
@@ -1598,31 +1898,59 @@ class _AppSettingsState extends State<AppSettings> {
                 children: [
                   Text(
                     l.settingsSaveToAlbum.toUpperCase(),
-                    style: TextStyle(color: t.headerText, fontSize: t.fontSize(11), fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: t.headerText,
+                      fontSize: t.fontSize(11),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     l.settingsSaveToAlbumDesc,
-                    style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
+                    style: TextStyle(
+                      color: t.textTertiary,
+                      fontSize: t.fontSize(9),
+                    ),
                   ),
                 ],
               ),
             ),
             DropdownButton<String>(
-              value: currentId != null && albums.any((a) => a.id == currentId) ? currentId : null,
-              hint: Text(l.commonNone.toUpperCase(), style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(10))),
+              value: currentId != null && albums.any((a) => a.id == currentId)
+                  ? currentId
+                  : null,
+              hint: Text(
+                l.commonNone.toUpperCase(),
+                style: TextStyle(
+                  color: t.textDisabled,
+                  fontSize: t.fontSize(10),
+                ),
+              ),
               dropdownColor: t.surfaceHigh,
               underline: const SizedBox.shrink(),
-              style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(10), letterSpacing: 1),
+              style: TextStyle(
+                color: t.textSecondary,
+                fontSize: t.fontSize(10),
+                letterSpacing: 1,
+              ),
               items: [
                 DropdownMenuItem<String>(
                   value: null,
-                  child: Text(l.commonNone.toUpperCase(), style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(10))),
+                  child: Text(
+                    l.commonNone.toUpperCase(),
+                    style: TextStyle(
+                      color: t.textDisabled,
+                      fontSize: t.fontSize(10),
+                    ),
+                  ),
                 ),
                 for (final album in albums)
                   DropdownMenuItem<String>(
                     value: album.id,
-                    child: Text(album.name.toUpperCase(), style: TextStyle(fontSize: t.fontSize(10))),
+                    child: Text(
+                      album.name.toUpperCase(),
+                      style: TextStyle(fontSize: t.fontSize(10)),
+                    ),
                   ),
               ],
               onChanged: (val) async {
@@ -1647,7 +1975,11 @@ class _AppSettingsState extends State<AppSettings> {
             children: [
               Text(
                 l.settingsLanguage.toUpperCase(),
-                style: TextStyle(color: t.headerText, fontSize: t.fontSize(11), fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: t.headerText,
+                  fontSize: t.fontSize(11),
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -1656,20 +1988,15 @@ class _AppSettingsState extends State<AppSettings> {
           value: localeNotifier.locale,
           dropdownColor: t.surfaceHigh,
           underline: const SizedBox.shrink(),
-          style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(10), letterSpacing: 1),
+          style: TextStyle(
+            color: t.textSecondary,
+            fontSize: t.fontSize(10),
+            letterSpacing: 1,
+          ),
           items: const [
-            DropdownMenuItem(
-              value: Locale('en'),
-              child: Text('ENGLISH'),
-            ),
-            DropdownMenuItem(
-              value: Locale('ja'),
-              child: Text('日本語'),
-            ),
-            DropdownMenuItem(
-              value: Locale('zh'),
-              child: Text('中文 (简体)'),
-            ),
+            DropdownMenuItem(value: Locale('en'), child: Text('ENGLISH')),
+            DropdownMenuItem(value: Locale('ja'), child: Text('日本語')),
+            DropdownMenuItem(value: Locale('zh'), child: Text('中文 (简体)')),
           ],
           onChanged: (locale) {
             if (locale != null) {
@@ -1687,7 +2014,9 @@ class _AppSettingsState extends State<AppSettings> {
       onTap: () {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const ToolsHubScreen(initialToolId: 'theme')),
+          MaterialPageRoute(
+            builder: (context) => const ToolsHubScreen(initialToolId: 'theme'),
+          ),
         );
       },
       child: Container(
@@ -1776,10 +2105,15 @@ class _AppSettingsState extends State<AppSettings> {
                 onChanged: (_) async {
                   if (!prefs.pinBiometricEnabled) {
                     final auth = LocalAuthentication();
-                    final canCheck = await auth.canCheckBiometrics || await auth.isDeviceSupported();
+                    final canCheck =
+                        await auth.canCheckBiometrics ||
+                        await auth.isDeviceSupported();
                     if (!canCheck) {
                       if (context.mounted) {
-                        showErrorSnackBar(context, l.settingsBiometricsUnavailable);
+                        showErrorSnackBar(
+                          context,
+                          l.settingsBiometricsUnavailable,
+                        );
                       }
                       return;
                     }
@@ -1787,12 +2121,17 @@ class _AppSettingsState extends State<AppSettings> {
                     final available = await auth.getAvailableBiometrics();
                     if (available.isEmpty) {
                       if (context.mounted) {
-                        showErrorSnackBar(context, l.settingsBiometricsUnavailable);
+                        showErrorSnackBar(
+                          context,
+                          l.settingsBiometricsUnavailable,
+                        );
                       }
                       return;
                     }
                   }
-                  await prefs.setPinBiometricEnabled(!prefs.pinBiometricEnabled);
+                  await prefs.setPinBiometricEnabled(
+                    !prefs.pinBiometricEnabled,
+                  );
                   setSectionState(() {});
                 },
                 t: t,
@@ -1878,13 +2217,20 @@ class _AppSettingsState extends State<AppSettings> {
         const SizedBox(height: 16),
         Text(
           l.settingsTagSuggestionsHidden,
-          style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9), fontStyle: FontStyle.italic),
+          style: TextStyle(
+            color: t.textTertiary,
+            fontSize: t.fontSize(9),
+            fontStyle: FontStyle.italic,
+          ),
         ),
       ],
     );
   }
 
-  Future<void> _showDemoPrefixSettings(PreferencesService prefs, VisionTokens t) async {
+  Future<void> _showDemoPrefixSettings(
+    PreferencesService prefs,
+    VisionTokens t,
+  ) async {
     final posCtrl = TextEditingController(text: prefs.demoPositivePrefix);
     final negCtrl = TextEditingController(text: prefs.demoNegativePrefix);
     final l = context.l;
@@ -1907,7 +2253,11 @@ class _AppSettingsState extends State<AppSettings> {
           children: [
             Text(
               l.settingsPositivePrefix.toUpperCase(),
-              style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9), letterSpacing: 1),
+              style: TextStyle(
+                color: t.textTertiary,
+                fontSize: t.fontSize(9),
+                letterSpacing: 1,
+              ),
             ),
             const SizedBox(height: 6),
             TextField(
@@ -1931,7 +2281,11 @@ class _AppSettingsState extends State<AppSettings> {
             const SizedBox(height: 16),
             Text(
               l.settingsNegativePrefix.toUpperCase(),
-              style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9), letterSpacing: 1),
+              style: TextStyle(
+                color: t.textTertiary,
+                fontSize: t.fontSize(9),
+                letterSpacing: 1,
+              ),
             ),
             const SizedBox(height: 6),
             TextField(
@@ -1956,11 +2310,17 @@ class _AppSettingsState extends State<AppSettings> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(ctx.l.commonCancel.toUpperCase(), style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9))),
+            child: Text(
+              ctx.l.commonCancel.toUpperCase(),
+              style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9)),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(ctx.l.commonSave.toUpperCase(), style: TextStyle(color: t.accent, fontSize: t.fontSize(9))),
+            child: Text(
+              ctx.l.commonSave.toUpperCase(),
+              style: TextStyle(color: t.accent, fontSize: t.fontSize(9)),
+            ),
           ),
         ],
       ),
@@ -1977,10 +2337,16 @@ class _AppSettingsState extends State<AppSettings> {
 
   Widget _buildCreditsSection(VisionTokens t) {
     final l = context.l;
-    const names = ['Brudda', 'Uragan', 'Glockamoli', 'Perry Argoneco', 'Deadly Ham', 'baisumang', 'andreiagmu'];
-    const linkedNames = {
-      'andreiagmu': 'https://github.com/andreiagmu',
-    };
+    const names = [
+      'Brudda',
+      'Uragan',
+      'Glockamoli',
+      'Perry Argoneco',
+      'Deadly Ham',
+      'baisumang',
+      'andreiagmu',
+    ];
+    const linkedNames = {'andreiagmu': 'https://github.com/andreiagmu'};
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -2006,7 +2372,8 @@ class _AppSettingsState extends State<AppSettings> {
               padding: const EdgeInsets.symmetric(vertical: 2),
               child: linkedNames.containsKey(name)
                   ? InkWell(
-                      onTap: () => _confirmOpenExternalLink(t, linkedNames[name]!),
+                      onTap: () =>
+                          _confirmOpenExternalLink(t, linkedNames[name]!),
                       child: Text(
                         name,
                         style: TextStyle(
@@ -2042,8 +2409,10 @@ class _AppSettingsState extends State<AppSettings> {
     final l = context.l;
     return InkWell(
       onTap: () {
-        launchUrl(Uri.parse('https://github.com/ststoryweaver/NAIWeaver'),
-            mode: LaunchMode.externalApplication);
+        launchUrl(
+          Uri.parse('https://github.com/ststoryweaver/NAIWeaver'),
+          mode: LaunchMode.externalApplication,
+        );
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -2071,6 +2440,7 @@ class _AppSettingsState extends State<AppSettings> {
       ),
     );
   }
+
   Widget _buildUpdateCheckButton(VisionTokens t) {
     final l = context.l;
     return InkWell(
@@ -2080,8 +2450,9 @@ class _AppSettingsState extends State<AppSettings> {
               setState(() => _isCheckingUpdate = true);
               try {
                 final packageInfo = await PackageInfo.fromPlatform();
-                final result =
-                    await UpdateService.checkForUpdate(packageInfo.version);
+                final result = await UpdateService.checkForUpdate(
+                  packageInfo.version,
+                );
 
                 if (!mounted) return;
 
@@ -2153,18 +2524,12 @@ class _AppSettingsState extends State<AppSettings> {
           children: [
             Text(
               'You are about to leave NAIWeaver and open a new window:',
-              style: TextStyle(
-                color: t.textPrimary,
-                fontSize: t.fontSize(11),
-              ),
+              style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11)),
             ),
             const SizedBox(height: 8),
             Text(
               url,
-              style: TextStyle(
-                color: t.accent,
-                fontSize: t.fontSize(11),
-              ),
+              style: TextStyle(color: t.accent, fontSize: t.fontSize(11)),
             ),
           ],
         ),
@@ -2210,18 +2575,14 @@ class _AppSettingsState extends State<AppSettings> {
         ),
         content: Text(
           l.settingsUpdateAvailableDesc(result.latestVersion ?? ''),
-          style: TextStyle(
-            color: t.textPrimary,
-            fontSize: t.fontSize(11),
-          ),
+          style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: Text(
               l.commonClose.toUpperCase(),
-              style: TextStyle(
-                  color: t.textDisabled, fontSize: t.fontSize(9)),
+              style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9)),
             ),
           ),
           TextButton(
@@ -2232,8 +2593,7 @@ class _AppSettingsState extends State<AppSettings> {
             child: Text(
               (canApply ? l.settingsUpdateApply : l.settingsUpdateDownload)
                   .toUpperCase(),
-              style:
-                  TextStyle(color: t.accent, fontSize: t.fontSize(9)),
+              style: TextStyle(color: t.accent, fontSize: t.fontSize(9)),
             ),
           ),
         ],
@@ -2268,7 +2628,14 @@ class _SetPinDialogState extends State<_SetPinDialog> {
     final l = context.l;
     return AlertDialog(
       backgroundColor: t.surfaceHigh,
-      title: Text(l.settingsSetPin.toUpperCase(), style: TextStyle(fontSize: t.fontSize(10), letterSpacing: 2, color: t.textSecondary)),
+      title: Text(
+        l.settingsSetPin.toUpperCase(),
+        style: TextStyle(
+          fontSize: t.fontSize(10),
+          letterSpacing: 2,
+          color: t.textSecondary,
+        ),
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -2277,13 +2644,23 @@ class _SetPinDialogState extends State<_SetPinDialog> {
             obscureText: true,
             maxLength: 8,
             keyboardType: TextInputType.number,
-            style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(16), letterSpacing: 8),
+            style: TextStyle(
+              color: t.textPrimary,
+              fontSize: t.fontSize(16),
+              letterSpacing: 8,
+            ),
             textAlign: TextAlign.center,
             decoration: InputDecoration(
               hintText: l.settingsPinDigitsHint,
-              hintStyle: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9), letterSpacing: 2),
+              hintStyle: TextStyle(
+                color: t.textDisabled,
+                fontSize: t.fontSize(9),
+                letterSpacing: 2,
+              ),
               counterText: '',
-              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: t.borderMedium)),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: t.borderMedium),
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -2292,31 +2669,49 @@ class _SetPinDialogState extends State<_SetPinDialog> {
             obscureText: true,
             maxLength: 8,
             keyboardType: TextInputType.number,
-            style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(16), letterSpacing: 8),
+            style: TextStyle(
+              color: t.textPrimary,
+              fontSize: t.fontSize(16),
+              letterSpacing: 8,
+            ),
             textAlign: TextAlign.center,
             decoration: InputDecoration(
               hintText: l.commonConfirm.toUpperCase(),
-              hintStyle: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9), letterSpacing: 2),
+              hintStyle: TextStyle(
+                color: t.textDisabled,
+                fontSize: t.fontSize(9),
+                letterSpacing: 2,
+              ),
               counterText: '',
-              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: t.borderMedium)),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: t.borderMedium),
+              ),
             ),
           ),
           if (_error != null) ...[
             const SizedBox(height: 12),
-            Text(_error!, style: TextStyle(color: t.accentDanger, fontSize: t.fontSize(9))),
+            Text(
+              _error!,
+              style: TextStyle(color: t.accentDanger, fontSize: t.fontSize(9)),
+            ),
           ],
         ],
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: Text(l.commonCancel.toUpperCase(), style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9))),
+          child: Text(
+            l.commonCancel.toUpperCase(),
+            style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9)),
+          ),
         ),
         TextButton(
           onPressed: () async {
             final pin = _pinController.text;
             final confirm = _confirmController.text;
-            if (pin.length < 4 || pin.length > 8 || !RegExp(r'^\d{4,8}$').hasMatch(pin)) {
+            if (pin.length < 4 ||
+                pin.length > 8 ||
+                !RegExp(r'^\d{4,8}$').hasMatch(pin)) {
               setState(() => _error = l.settingsPinMustBeDigits);
               return;
             }
@@ -2333,7 +2728,10 @@ class _SetPinDialogState extends State<_SetPinDialog> {
             await prefs.setPinEnabled(true);
             if (context.mounted) Navigator.pop(context, true);
           },
-          child: Text(l.commonSet.toUpperCase(), style: TextStyle(color: t.accent, fontSize: t.fontSize(9))),
+          child: Text(
+            l.commonSet.toUpperCase(),
+            style: TextStyle(color: t.accent, fontSize: t.fontSize(9)),
+          ),
         ),
       ],
     );
@@ -2365,7 +2763,14 @@ class _VerifyPinDialogState extends State<_VerifyPinDialog> {
     final l = context.l;
     return AlertDialog(
       backgroundColor: t.surfaceHigh,
-      title: Text(l.settingsEnterCurrentPin.toUpperCase(), style: TextStyle(fontSize: t.fontSize(10), letterSpacing: 2, color: t.textSecondary)),
+      title: Text(
+        l.settingsEnterCurrentPin.toUpperCase(),
+        style: TextStyle(
+          fontSize: t.fontSize(10),
+          letterSpacing: 2,
+          color: t.textSecondary,
+        ),
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -2374,39 +2779,62 @@ class _VerifyPinDialogState extends State<_VerifyPinDialog> {
             obscureText: true,
             maxLength: 8,
             keyboardType: TextInputType.number,
-            style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(16), letterSpacing: 8),
+            style: TextStyle(
+              color: t.textPrimary,
+              fontSize: t.fontSize(16),
+              letterSpacing: 8,
+            ),
             textAlign: TextAlign.center,
             decoration: InputDecoration(
               hintText: l.settingsEnterPinHint.toUpperCase(),
-              hintStyle: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9), letterSpacing: 2),
+              hintStyle: TextStyle(
+                color: t.textDisabled,
+                fontSize: t.fontSize(9),
+                letterSpacing: 2,
+              ),
               counterText: '',
-              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: t.borderMedium)),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: t.borderMedium),
+              ),
             ),
           ),
           if (_error != null) ...[
             const SizedBox(height: 12),
-            Text(_error!, style: TextStyle(color: t.accentDanger, fontSize: t.fontSize(9))),
+            Text(
+              _error!,
+              style: TextStyle(color: t.accentDanger, fontSize: t.fontSize(9)),
+            ),
           ],
         ],
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: Text(l.commonCancel.toUpperCase(), style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9))),
+          child: Text(
+            l.commonCancel.toUpperCase(),
+            style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9)),
+          ),
         ),
         TextButton(
           onPressed: () {
             final pin = _pinController.text;
             final expectedHash = widget.prefs.pinHash;
             final salt = widget.prefs.pinSalt;
-            final enteredHash = verifyPinHash(salt, pin, widget.prefs.pinHashVersion);
+            final enteredHash = verifyPinHash(
+              salt,
+              pin,
+              widget.prefs.pinHashVersion,
+            );
             if (enteredHash == expectedHash) {
               Navigator.pop(context, true);
             } else {
               setState(() => _error = l.settingsIncorrectPin);
             }
           },
-          child: Text(l.commonConfirm.toUpperCase(), style: TextStyle(color: t.accentDanger, fontSize: t.fontSize(9))),
+          child: Text(
+            l.commonConfirm.toUpperCase(),
+            style: TextStyle(color: t.accentDanger, fontSize: t.fontSize(9)),
+          ),
         ),
       ],
     );

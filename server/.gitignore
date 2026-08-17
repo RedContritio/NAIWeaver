@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+data/
+secrets/*
+!secrets/
+!secrets/README.md
+!secrets/novelai_token.txt.placeholder
+static/web/
+.env

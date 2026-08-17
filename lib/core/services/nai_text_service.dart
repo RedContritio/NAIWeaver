@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import '../gateway/backend_gateway.dart';
 import 'text_gen_service.dart';
 
 /// NovelAI text-generation backend.
@@ -27,8 +28,6 @@ import 'text_gen_service.dart';
 /// Same `pst-` bearer token as image gen. Mirrors [NovelAIService]'s timeouts +
 /// light retry on transient 5xx/429.
 class NaiTextService implements TextGenService {
-  static const String _textHost = 'https://text.novelai.net';
-
   final Dio _dio = Dio();
   final String _apiKey;
   final Random _rng = Random();
@@ -37,12 +36,14 @@ class NaiTextService implements TextGenService {
     _dio.options.connectTimeout = const Duration(seconds: 60);
     _dio.options.receiveTimeout = const Duration(minutes: 5);
     if (kDebugMode) {
-      _dio.interceptors.add(LogInterceptor(
-        requestHeader: false,
-        requestBody: false,
-        responseHeader: false,
-        responseBody: false,
-      ));
+      _dio.interceptors.add(
+        LogInterceptor(
+          requestHeader: false,
+          requestBody: false,
+          responseHeader: false,
+          responseBody: false,
+        ),
+      );
     }
   }
 
@@ -52,18 +53,19 @@ class NaiTextService implements TextGenService {
   // ─── URLs ─────────────────────────────────────────────────────────────────
 
   String _urlFor(TextGenRequest req, {required bool stream}) {
+    final textHost = useBackendGateway
+        ? backendUrl('/api/nai/text')
+        : 'https://text.novelai.net';
     if (isChatStyleModel(req.model)) {
       // GLM/Xialong via NovelAI's OpenAI-compatible endpoints. Streaming is
       // toggled by `"stream": true` in the body, not a separate path.
       // `enable_thinking` only wires in via GLM's chat template, which the
       // *chat* completions endpoint applies — so route thinking requests there.
       return req.params.enableThinking
-          ? '$_textHost/oa/v1/chat/completions'
-          : '$_textHost/oa/v1/completions';
+          ? '$textHost/oa/v1/chat/completions'
+          : '$textHost/oa/v1/completions';
     }
-    return stream
-        ? '$_textHost/ai/generate-stream'
-        : '$_textHost/ai/generate';
+    return stream ? '$textHost/ai/generate-stream' : '$textHost/ai/generate';
   }
 
   // ─── headers ──────────────────────────────────────────────────────────────
@@ -72,21 +74,25 @@ class NaiTextService implements TextGenService {
     const alphabet =
         'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     return String.fromCharCodes(
-        List.generate(6, (_) => alphabet.codeUnitAt(_rng.nextInt(alphabet.length))));
+      List.generate(
+        6,
+        (_) => alphabet.codeUnitAt(_rng.nextInt(alphabet.length)),
+      ),
+    );
   }
 
   Map<String, String> _headers({required bool stream}) => {
-        'Authorization': 'Bearer $_apiKey',
-        'Content-Type': 'application/json',
-        'Accept': stream
-            ? 'text/event-stream, application/json'
-            : 'application/json',
-        'x-correlation-id': _correlationId(),
-        'x-initiated-at': DateTime.now().toUtc().toIso8601String(),
-      };
+    if (!useBackendGateway) 'Authorization': 'Bearer $_apiKey',
+    'Content-Type': 'application/json',
+    'Accept': stream
+        ? 'text/event-stream, application/json'
+        : 'application/json',
+    'x-correlation-id': _correlationId(),
+    'x-initiated-at': DateTime.now().toUtc().toIso8601String(),
+  };
 
   void _requireToken() {
-    if (_apiKey.trim().isEmpty) {
+    if (!useBackendGateway && _apiKey.trim().isEmpty) {
       throw TextGenException('NovelAI token not set — add it in Settings.');
     }
   }
@@ -127,12 +133,15 @@ class NaiTextService implements TextGenService {
           url,
           data: body,
           options: Options(
-              headers: _headers(stream: false),
-              responseType: ResponseType.json),
+            headers: _headers(stream: false),
+            responseType: ResponseType.json,
+          ),
         );
         if (kDebugMode && req.params.enableThinking) {
-          debugPrint('NaiTextService: thinking response from $url '
-              '(sent: ${jsonEncode(body)}) -> ${jsonEncode(response.data)}');
+          debugPrint(
+            'NaiTextService: thinking response from $url '
+            '(sent: ${jsonEncode(body)}) -> ${jsonEncode(response.data)}',
+          );
         }
         return _extractResult(response.data, req);
       } on DioException catch (e) {
@@ -142,9 +151,11 @@ class NaiTextService implements TextGenService {
           continue;
         }
         final bodyStr = await _readBodyString(e.response?.data);
-        debugPrint('NaiTextService: POST $url failed '
-            '${e.response?.statusCode}: $bodyStr'
-            '${kDebugMode ? '  (sent: ${jsonEncode(body)})' : ''}');
+        debugPrint(
+          'NaiTextService: POST $url failed '
+          '${e.response?.statusCode}: $bodyStr'
+          '${kDebugMode ? '  (sent: ${jsonEncode(body)})' : ''}',
+        );
         throw _exceptionForDio(e, bodyStr);
       }
     }
@@ -179,7 +190,8 @@ class NaiTextService implements TextGenService {
       }
     }
 
-    final raw = extractGeneratedResult(decoded) ?? const TextGenResult(text: '');
+    final raw =
+        extractGeneratedResult(decoded) ?? const TextGenResult(text: '');
     var text = raw.text;
     var reasoning = raw.reasoning;
 
@@ -256,9 +268,11 @@ class NaiTextService implements TextGenService {
         }
       } catch (e) {
         if (!controller.isClosed) {
-          controller.addError(streamError is TextGenException
-              ? streamError
-              : TextGenException('Text generation failed: $e'));
+          controller.addError(
+            streamError is TextGenException
+                ? streamError
+                : TextGenException('Text generation failed: $e'),
+          );
           await controller.close();
         }
       }
@@ -270,8 +284,9 @@ class NaiTextService implements TextGenService {
           url,
           data: body,
           options: Options(
-              headers: _headers(stream: true),
-              responseType: ResponseType.stream),
+            headers: _headers(stream: true),
+            responseType: ResponseType.stream,
+          ),
         );
 
         final rb = response.data;
@@ -280,9 +295,10 @@ class NaiTextService implements TextGenService {
           return;
         }
 
-        final contentType =
-            (response.headers.value('content-type') ?? '').toLowerCase();
-        final looksLikeStream = contentType.contains('event-stream') ||
+        final contentType = (response.headers.value('content-type') ?? '')
+            .toLowerCase();
+        final looksLikeStream =
+            contentType.contains('event-stream') ||
             contentType.isEmpty ||
             contentType.contains('text/');
 
@@ -378,7 +394,9 @@ class NaiTextService implements TextGenService {
                 await controller.close();
                 return;
               }
-            } catch (_) {/* fall through */}
+            } catch (_) {
+              /* fall through */
+            }
           }
           await fallbackToNonStream(null);
           return;
@@ -397,9 +415,11 @@ class NaiTextService implements TextGenService {
             }
           } catch (_) {}
         }
-        debugPrint('NaiTextService: POST $url failed '
-            '${e.response?.statusCode}: $bodyStr'
-            '${kDebugMode ? '  (sent: ${jsonEncode(body)})' : ''}');
+        debugPrint(
+          'NaiTextService: POST $url failed '
+          '${e.response?.statusCode}: $bodyStr'
+          '${kDebugMode ? '  (sent: ${jsonEncode(body)})' : ''}',
+        );
         final code = e.response?.statusCode;
         // For ambiguous server-side errors (not auth/billing/bad-request), the
         // non-stream endpoint might still work — try it once.
@@ -453,9 +473,9 @@ class NaiTextService implements TextGenService {
       return TextGenException(
         detail != null
             ? 'NovelAI: $detail (402 — an active subscription is required for '
-                'this endpoint or model).'
+                  'this endpoint or model).'
             : 'NovelAI requires an active subscription for this endpoint/model '
-                '(402).',
+                  '(402).',
         statusCode: 402,
       );
     }
@@ -464,7 +484,7 @@ class NaiTextService implements TextGenService {
         detail != null
             ? 'NovelAI refused the request (403): $detail'
             : 'NovelAI refused the request (403) — your tier may not allow this '
-                'model or length.',
+                  'model or length.',
         statusCode: 403,
       );
     }

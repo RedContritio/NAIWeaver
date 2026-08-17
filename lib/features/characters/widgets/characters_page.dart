@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/gateway/backend_permissions.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../../core/theme/vision_tokens.dart';
 import '../../../core/utils/app_snackbar.dart';
@@ -43,9 +44,15 @@ class _CharactersPageState extends State<CharactersPage> {
     final mobile = isMobile(context);
 
     final filtered = lib.characters
-        .where((c) => _filter.isEmpty || c.name.toLowerCase().contains(_filter.toLowerCase()))
+        .where(
+          (c) =>
+              _filter.isEmpty ||
+              c.name.toLowerCase().contains(_filter.toLowerCase()),
+        )
         .toList();
-    final selected = _selectedId == null ? null : lib.characterById(_selectedId!);
+    final selected = _selectedId == null
+        ? null
+        : lib.characterById(_selectedId!);
 
     if (mobile) {
       // On mobile: list, then editor pushed.
@@ -75,10 +82,18 @@ class _CharactersPageState extends State<CharactersPage> {
         Expanded(
           child: selected == null
               ? Center(
-                  child: Text('Select or create a character',
-                      style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(12))),
+                  child: Text(
+                    'Select or create a character',
+                    style: TextStyle(
+                      color: t.textTertiary,
+                      fontSize: t.fontSize(12),
+                    ),
+                  ),
                 )
-              : _CharacterEditor(key: ValueKey(selected.id), character: selected),
+              : _CharacterEditor(
+                  key: ValueKey(selected.id),
+                  character: selected,
+                ),
         ),
       ],
     );
@@ -98,9 +113,13 @@ class _CharactersPageState extends State<CharactersPage> {
     }
   }
 
-  Widget _buildListPane(BuildContext context, VisionTokens t,
-      CharacterLibraryNotifier lib, List<SavedCharacter> filtered,
-      {required bool isMobile}) {
+  Widget _buildListPane(
+    BuildContext context,
+    VisionTokens t,
+    CharacterLibraryNotifier lib,
+    List<SavedCharacter> filtered, {
+    required bool isMobile,
+  }) {
     final rowVerticalPad = isMobile ? 14.0 : 10.0;
     final rowHorizontalPad = isMobile ? 14.0 : 12.0;
     return Container(
@@ -114,31 +133,52 @@ class _CharactersPageState extends State<CharactersPage> {
                 Expanded(
                   child: TextField(
                     onChanged: (v) => setState(() => _filter = v),
-                    style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(12)),
+                    style: TextStyle(
+                      color: t.textPrimary,
+                      fontSize: t.fontSize(12),
+                    ),
                     decoration: InputDecoration(
                       hintText: 'Search…',
-                      hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(10)),
+                      hintStyle: TextStyle(
+                        color: t.textMinimal,
+                        fontSize: t.fontSize(10),
+                      ),
                       isDense: true,
-                      prefixIcon: Icon(Icons.search, size: 16, color: t.textMinimal),
+                      prefixIcon: Icon(
+                        Icons.search,
+                        size: 16,
+                        color: t.textMinimal,
+                      ),
                       contentPadding: const EdgeInsets.symmetric(vertical: 8),
                       enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: t.borderSubtle),
-                          borderRadius: BorderRadius.circular(4)),
+                        borderSide: BorderSide(color: t.borderSubtle),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 6),
-                Builder(builder: (ctx) {
-                  final canGen = ctx.watch<CharacterGenNotifier>().hasService;
-                  return IconButton(
-                    tooltip: canGen
-                        ? 'Generate a character'
-                        : 'Requires text generation (set an API key first)',
-                    icon: Icon(Icons.auto_awesome,
-                        color: canGen ? t.accent : t.textMinimal, size: 18),
-                    onPressed: canGen ? () => _generateCharacter(ctx) : null,
-                  );
-                }),
+                Builder(
+                  builder: (ctx) {
+                    final canGen =
+                        ctx.watch<CharacterGenNotifier>().hasService &&
+                        hasBackendPermission(
+                          ctx,
+                          BackendPermission.textGenerate,
+                        );
+                    return IconButton(
+                      tooltip: canGen
+                          ? 'Generate a character'
+                          : 'Requires text generation (set an API key first)',
+                      icon: Icon(
+                        Icons.auto_awesome,
+                        color: canGen ? t.accent : t.textMinimal,
+                        size: 18,
+                      ),
+                      onPressed: canGen ? () => _generateCharacter(ctx) : null,
+                    );
+                  },
+                ),
                 IconButton(
                   tooltip: 'New character',
                   icon: Icon(Icons.add, color: t.accent, size: 20),
@@ -153,8 +193,14 @@ class _CharactersPageState extends State<CharactersPage> {
           Expanded(
             child: filtered.isEmpty
                 ? Center(
-                    child: Text('No characters yet',
-                        style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(10))))
+                    child: Text(
+                      'No characters yet',
+                      style: TextStyle(
+                        color: t.textMinimal,
+                        fontSize: t.fontSize(10),
+                      ),
+                    ),
+                  )
                 : ListView.builder(
                     itemCount: filtered.length,
                     itemBuilder: (_, i) {
@@ -167,19 +213,24 @@ class _CharactersPageState extends State<CharactersPage> {
                         final parsed = _parseHex(c.themeAccent!);
                         if (parsed != null) swatch = parsed;
                       }
-                      final primaryDishevelled = primary != null &&
+                      final primaryDishevelled =
+                          primary != null &&
                           primary.items != null &&
                           anyNonIntact(primary.items!.cast<String, dynamic>());
                       return InkWell(
                         onTap: () => setState(() => _selectedId = c.id),
                         child: Container(
                           padding: EdgeInsets.symmetric(
-                              horizontal: rowHorizontalPad, vertical: rowVerticalPad),
+                            horizontal: rowHorizontalPad,
+                            vertical: rowVerticalPad,
+                          ),
                           decoration: BoxDecoration(
                             color: isSel ? t.borderSubtle : Colors.transparent,
                             border: Border(
                               left: BorderSide(
-                                  color: isSel ? t.accent : Colors.transparent, width: 2),
+                                color: isSel ? t.accent : Colors.transparent,
+                                width: 2,
+                              ),
                             ),
                           ),
                           child: Row(
@@ -188,7 +239,9 @@ class _CharactersPageState extends State<CharactersPage> {
                                 width: 10,
                                 height: 10,
                                 decoration: BoxDecoration(
-                                    color: swatch, borderRadius: BorderRadius.circular(2)),
+                                  color: swatch,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
                               ),
                               const SizedBox(width: 10),
                               Expanded(
@@ -199,11 +252,20 @@ class _CharactersPageState extends State<CharactersPage> {
                                       children: [
                                         Expanded(
                                           child: Text(
-                                            c.name.isEmpty ? '(unnamed)' : c.name,
+                                            c.name.isEmpty
+                                                ? '(unnamed)'
+                                                : c.name,
                                             style: TextStyle(
-                                                color: isSel ? t.textPrimary : t.textSecondary,
-                                                fontSize: t.fontSize(isMobile ? 13 : 12),
-                                                fontWeight: isSel ? FontWeight.bold : FontWeight.normal),
+                                              color: isSel
+                                                  ? t.textPrimary
+                                                  : t.textSecondary,
+                                              fontSize: t.fontSize(
+                                                isMobile ? 13 : 12,
+                                              ),
+                                              fontWeight: isSel
+                                                  ? FontWeight.bold
+                                                  : FontWeight.normal,
+                                            ),
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
@@ -211,17 +273,23 @@ class _CharactersPageState extends State<CharactersPage> {
                                           const SizedBox(width: 6),
                                           Container(
                                             padding: const EdgeInsets.symmetric(
-                                                horizontal: 5, vertical: 1),
+                                              horizontal: 5,
+                                              vertical: 1,
+                                            ),
                                             decoration: BoxDecoration(
-                                              color: t.background.withValues(alpha: 0.4),
-                                              borderRadius: BorderRadius.circular(8),
+                                              color: t.background.withValues(
+                                                alpha: 0.4,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
                                             ),
                                             child: Text(
                                               '$outfitCount',
                                               style: TextStyle(
-                                                  color: t.textMinimal,
-                                                  fontSize: t.fontSize(8),
-                                                  fontWeight: FontWeight.bold),
+                                                color: t.textMinimal,
+                                                fontSize: t.fontSize(8),
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                           ),
                                         ],
@@ -231,11 +299,14 @@ class _CharactersPageState extends State<CharactersPage> {
                                       Row(
                                         children: [
                                           Flexible(
-                                            child: Text(primary.name,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: TextStyle(
-                                                    color: t.textMinimal,
-                                                    fontSize: t.fontSize(9))),
+                                            child: Text(
+                                              primary.name,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: t.textMinimal,
+                                                fontSize: t.fontSize(9),
+                                              ),
+                                            ),
                                           ),
                                           if (primaryDishevelled) ...[
                                             const SizedBox(width: 6),
@@ -244,7 +315,8 @@ class _CharactersPageState extends State<CharactersPage> {
                                               height: 6,
                                               decoration: BoxDecoration(
                                                 color: t.accentDanger,
-                                                borderRadius: BorderRadius.circular(3),
+                                                borderRadius:
+                                                    BorderRadius.circular(3),
                                               ),
                                             ),
                                           ],
@@ -331,16 +403,34 @@ class _CharacterEditorState extends State<_CharacterEditor> {
     _description = TextEditingController(text: c.characterDescription);
     _soul = TextEditingController(text: c.soulMd);
     _gender = _genders.contains(c.gender) ? c.gender : '';
-    _showNsfw = c.nsfwTop.isNotEmpty || c.nsfwBottom.isNotEmpty || c.nsfwAlways.isNotEmpty;
-    _showStyle = c.artistTag.isNotEmpty || c.stylePrefix.isNotEmpty || c.characterDescription.isNotEmpty;
+    _showNsfw =
+        c.nsfwTop.isNotEmpty ||
+        c.nsfwBottom.isNotEmpty ||
+        c.nsfwAlways.isNotEmpty;
+    _showStyle =
+        c.artistTag.isNotEmpty ||
+        c.stylePrefix.isNotEmpty ||
+        c.characterDescription.isNotEmpty;
     _showSoul = c.soulMd.trim().isNotEmpty;
   }
 
   @override
   void dispose() {
     for (final c in [
-      _name, _notes, _base, _face, _hair, _body, _negativeTags,
-      _nsfwTop, _nsfwBottom, _nsfwAlways, _artist, _stylePrefix, _description, _soul,
+      _name,
+      _notes,
+      _base,
+      _face,
+      _hair,
+      _body,
+      _negativeTags,
+      _nsfwTop,
+      _nsfwBottom,
+      _nsfwAlways,
+      _artist,
+      _stylePrefix,
+      _description,
+      _soul,
     ]) {
       c.dispose();
     }
@@ -348,22 +438,22 @@ class _CharacterEditorState extends State<_CharacterEditor> {
   }
 
   SavedCharacter _collect() => widget.character.copyWith(
-        name: _name.text.trim(),
-        gender: _gender,
-        notes: _notes.text,
-        soulMd: _soul.text,
-        baseTags: _base.text.trim(),
-        faceTags: _face.text.trim(),
-        hairTags: _hair.text.trim(),
-        bodyTags: _body.text.trim(),
-        negativeTags: _negativeTags.text.trim(),
-        nsfwTop: _nsfwTop.text.trim(),
-        nsfwBottom: _nsfwBottom.text.trim(),
-        nsfwAlways: _nsfwAlways.text.trim(),
-        artistTag: _artist.text.trim(),
-        stylePrefix: _stylePrefix.text.trim(),
-        characterDescription: _description.text,
-      );
+    name: _name.text.trim(),
+    gender: _gender,
+    notes: _notes.text,
+    soulMd: _soul.text,
+    baseTags: _base.text.trim(),
+    faceTags: _face.text.trim(),
+    hairTags: _hair.text.trim(),
+    bodyTags: _body.text.trim(),
+    negativeTags: _negativeTags.text.trim(),
+    nsfwTop: _nsfwTop.text.trim(),
+    nsfwBottom: _nsfwBottom.text.trim(),
+    nsfwAlways: _nsfwAlways.text.trim(),
+    artistTag: _artist.text.trim(),
+    stylePrefix: _stylePrefix.text.trim(),
+    characterDescription: _description.text,
+  );
 
   Future<void> _save(CharacterLibraryNotifier lib) async {
     await lib.updateCharacter(_collect());
@@ -378,8 +468,10 @@ class _CharacterEditorState extends State<_CharacterEditor> {
     final pos = sel.isValid ? sel.baseOffset : text.length;
     final before = text.substring(0, pos);
     final after = text.substring(pos);
-    final needComma = before.trim().isNotEmpty && !before.trimRight().endsWith(',');
-    final insert = '${needComma ? ', ' : ''}$tags${dishevelled ? ', nsfw' : ''}, ';
+    final needComma =
+        before.trim().isNotEmpty && !before.trimRight().endsWith(',');
+    final insert =
+        '${needComma ? ', ' : ''}$tags${dishevelled ? ', nsfw' : ''}, ';
     final newBefore = before + insert;
     ctrl.value = TextEditingValue(
       text: newBefore + after,
@@ -411,16 +503,21 @@ class _CharacterEditorState extends State<_CharacterEditor> {
             children: [
               if (widget.onBack != null)
                 IconButton(
-                  icon: Icon(Icons.arrow_back, size: 18, color: t.textSecondary),
+                  icon: Icon(
+                    Icons.arrow_back,
+                    size: 18,
+                    color: t.textSecondary,
+                  ),
                   onPressed: widget.onBack,
                 ),
               Expanded(
                 child: TextField(
                   controller: _name,
                   style: TextStyle(
-                      color: t.textPrimary,
-                      fontSize: t.fontSize(16),
-                      fontWeight: FontWeight.bold),
+                    color: t.textPrimary,
+                    fontSize: t.fontSize(16),
+                    fontWeight: FontWeight.bold,
+                  ),
                   decoration: InputDecoration(
                     border: InputBorder.none,
                     hintText: 'Character name',
@@ -431,7 +528,11 @@ class _CharacterEditorState extends State<_CharacterEditor> {
               ),
               IconButton(
                 tooltip: 'Photoshoot',
-                icon: Icon(Icons.photo_camera_outlined, size: 18, color: t.accent),
+                icon: Icon(
+                  Icons.photo_camera_outlined,
+                  size: 18,
+                  color: t.accent,
+                ),
                 onPressed: lib.primaryOutfitFor(c.id) == null
                     ? null
                     : () async {
@@ -439,12 +540,14 @@ class _CharacterEditorState extends State<_CharacterEditor> {
                         if (!context.mounted) return;
                         final outfit = lib.primaryOutfitFor(c.id);
                         if (outfit == null) return;
-                        Navigator.of(context).push(MaterialPageRoute(
-                          builder: (_) => PhotoshootScreen(
-                            characterId: c.id,
-                            initialOutfitId: outfit.id,
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => PhotoshootScreen(
+                              characterId: c.id,
+                              initialOutfitId: outfit.id,
+                            ),
                           ),
-                        ));
+                        );
                       },
               ),
               IconButton(
@@ -454,13 +557,19 @@ class _CharacterEditorState extends State<_CharacterEditor> {
               ),
               IconButton(
                 tooltip: 'Delete character',
-                icon: Icon(Icons.delete_outline, size: 18, color: t.accentDanger),
+                icon: Icon(
+                  Icons.delete_outline,
+                  size: 18,
+                  color: t.accentDanger,
+                ),
                 onPressed: () async {
-                  final ok = await showConfirmDialog(context,
-                      title: 'Delete character',
-                      message: 'Delete "${c.name}" and its wardrobe?',
-                      confirmLabel: 'Delete',
-                      confirmColor: t.accentDanger);
+                  final ok = await showConfirmDialog(
+                    context,
+                    title: 'Delete character',
+                    message: 'Delete "${c.name}" and its wardrobe?',
+                    confirmLabel: 'Delete',
+                    confirmColor: t.accentDanger,
+                  );
                   if (ok == true && mounted) {
                     await lib.deleteCharacter(c.id);
                     widget.onBack?.call();
@@ -478,24 +587,33 @@ class _CharacterEditorState extends State<_CharacterEditor> {
               children: [
                 Row(
                   children: [
-                    Text('GENDER',
-                        style: TextStyle(
-                            color: t.textTertiary,
-                            fontSize: t.fontSize(8),
-                            letterSpacing: 1.5)),
+                    Text(
+                      'GENDER',
+                      style: TextStyle(
+                        color: t.textTertiary,
+                        fontSize: t.fontSize(8),
+                        letterSpacing: 1.5,
+                      ),
+                    ),
                     const SizedBox(width: 10),
                     DropdownButton<String>(
                       value: _gender,
                       isDense: true,
                       dropdownColor: t.surfaceHigh,
-                      style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11)),
+                      style: TextStyle(
+                        color: t.textPrimary,
+                        fontSize: t.fontSize(11),
+                      ),
                       onChanged: (v) => setState(() => _gender = v ?? ''),
                       items: [
                         for (final g in _genders)
                           DropdownMenuItem(
-                              value: g,
-                              child: Text(g.isEmpty ? '(unspecified)' : g,
-                                  style: TextStyle(fontSize: t.fontSize(11)))),
+                            value: g,
+                            child: Text(
+                              g.isEmpty ? '(unspecified)' : g,
+                              style: TextStyle(fontSize: t.fontSize(11)),
+                            ),
+                          ),
                       ],
                     ),
                     const Spacer(),
@@ -503,59 +621,138 @@ class _CharacterEditorState extends State<_CharacterEditor> {
                   ],
                 ),
                 const SizedBox(height: 14),
-                Text('IDENTITY TAGS — no clothing here',
-                    style: TextStyle(
-                        color: t.textTertiary,
-                        fontSize: t.fontSize(8),
-                        letterSpacing: 1.5,
-                        fontWeight: FontWeight.bold)),
+                Text(
+                  'IDENTITY TAGS — no clothing here',
+                  style: TextStyle(
+                    color: t.textTertiary,
+                    fontSize: t.fontSize(8),
+                    letterSpacing: 1.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(height: 8),
-                TagTextField(controller: _base, label: 'base — 1girl/1boy, ethnicity, age, permanent marks', minLines: 1, maxLines: 3),
+                TagTextField(
+                  controller: _base,
+                  label: 'base — 1girl/1boy, ethnicity, age, permanent marks',
+                  minLines: 1,
+                  maxLines: 3,
+                ),
                 const SizedBox(height: 10),
-                TagTextField(controller: _face, label: 'face — eye colour/shape, brows, nose, lips', minLines: 1, maxLines: 2),
+                TagTextField(
+                  controller: _face,
+                  label: 'face — eye colour/shape, brows, nose, lips',
+                  minLines: 1,
+                  maxLines: 2,
+                ),
                 const SizedBox(height: 10),
-                TagTextField(controller: _hair, label: 'hair — colour, length, style, texture', minLines: 1, maxLines: 2),
+                TagTextField(
+                  controller: _hair,
+                  label: 'hair — colour, length, style, texture',
+                  minLines: 1,
+                  maxLines: 2,
+                ),
                 const SizedBox(height: 10),
-                TagTextField(controller: _body, label: 'body — build, proportions, chest', minLines: 1, maxLines: 2),
+                TagTextField(
+                  controller: _body,
+                  label: 'body — build, proportions, chest',
+                  minLines: 1,
+                  maxLines: 2,
+                ),
                 const SizedBox(height: 10),
-                TagTextField(controller: _negativeTags, label: 'negative — injected into the UC when this character is used', minLines: 1, maxLines: 2),
+                TagTextField(
+                  controller: _negativeTags,
+                  label:
+                      'negative — injected into the UC when this character is used',
+                  minLines: 1,
+                  maxLines: 2,
+                ),
                 const SizedBox(height: 10),
-                _expander(t, 'NSFW sub-buckets (optional)', _showNsfw,
-                    () => setState(() => _showNsfw = !_showNsfw)),
+                _expander(
+                  t,
+                  'NSFW sub-buckets (optional)',
+                  _showNsfw,
+                  () => setState(() => _showNsfw = !_showNsfw),
+                ),
                 if (_showNsfw) ...[
                   const SizedBox(height: 8),
-                  TagTextField(controller: _nsfwTop, label: 'nsfw top', minLines: 1, maxLines: 2),
+                  TagTextField(
+                    controller: _nsfwTop,
+                    label: 'nsfw top',
+                    minLines: 1,
+                    maxLines: 2,
+                  ),
                   const SizedBox(height: 8),
-                  TagTextField(controller: _nsfwBottom, label: 'nsfw bottom', minLines: 1, maxLines: 2),
+                  TagTextField(
+                    controller: _nsfwBottom,
+                    label: 'nsfw bottom',
+                    minLines: 1,
+                    maxLines: 2,
+                  ),
                   const SizedBox(height: 8),
-                  TagTextField(controller: _nsfwAlways, label: 'nsfw always', minLines: 1, maxLines: 2),
+                  TagTextField(
+                    controller: _nsfwAlways,
+                    label: 'nsfw always',
+                    minLines: 1,
+                    maxLines: 2,
+                  ),
                 ],
                 const SizedBox(height: 10),
-                _expander(t, 'Style identity & description (optional)', _showStyle,
-                    () => setState(() => _showStyle = !_showStyle)),
+                _expander(
+                  t,
+                  'Style identity & description (optional)',
+                  _showStyle,
+                  () => setState(() => _showStyle = !_showStyle),
+                ),
                 if (_showStyle) ...[
                   const SizedBox(height: 8),
-                  TagTextField(controller: _artist, label: 'artist tag', minLines: 1, maxLines: 1),
+                  TagTextField(
+                    controller: _artist,
+                    label: 'artist tag',
+                    minLines: 1,
+                    maxLines: 1,
+                  ),
                   const SizedBox(height: 8),
-                  TagTextField(controller: _stylePrefix, label: 'style prefix', minLines: 1, maxLines: 1),
+                  TagTextField(
+                    controller: _stylePrefix,
+                    label: 'style prefix',
+                    minLines: 1,
+                    maxLines: 1,
+                  ),
                   const SizedBox(height: 8),
-                  _plainField(t, 'character description (natural language; not used by NAI image gen)', _description, maxLines: 3),
+                  _plainField(
+                    t,
+                    'character description (natural language; not used by NAI image gen)',
+                    _description,
+                    maxLines: 3,
+                  ),
                 ],
                 const SizedBox(height: 10),
-                _expander(t, 'Personality / soul (optional)', _showSoul,
-                    () => setState(() => _showSoul = !_showSoul)),
+                _expander(
+                  t,
+                  'Personality / soul (optional)',
+                  _showSoul,
+                  () => setState(() => _showSoul = !_showSoul),
+                ),
                 if (_showSoul) ...[
                   const SizedBox(height: 8),
                   if (c.personalitySummary.trim().isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(c.personalitySummary.trim(),
-                          style: TextStyle(
-                              color: t.textSecondary,
-                              fontSize: t.fontSize(11),
-                              fontStyle: FontStyle.italic)),
+                      child: Text(
+                        c.personalitySummary.trim(),
+                        style: TextStyle(
+                          color: t.textSecondary,
+                          fontSize: t.fontSize(11),
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
                     ),
-                  _plainField(t, 'soul — long-form personality doc (not used by image gen)', _soul, maxLines: 14),
+                  _plainField(
+                    t,
+                    'soul — long-form personality doc (not used by image gen)',
+                    _soul,
+                    maxLines: 14,
+                  ),
                 ],
                 const SizedBox(height: 14),
                 Container(
@@ -569,14 +766,22 @@ class _CharacterEditorState extends State<_CharacterEditor> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('COMBINED TAGS (preview — body + primary outfit)',
-                          style: TextStyle(
-                              color: t.textTertiary,
-                              fontSize: t.fontSize(8),
-                              letterSpacing: 1.5)),
+                      Text(
+                        'COMBINED TAGS (preview — body + primary outfit)',
+                        style: TextStyle(
+                          color: t.textTertiary,
+                          fontSize: t.fontSize(8),
+                          letterSpacing: 1.5,
+                        ),
+                      ),
                       const SizedBox(height: 4),
-                      SelectableText(combined.isEmpty ? '(empty)' : combined,
-                          style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11))),
+                      SelectableText(
+                        combined.isEmpty ? '(empty)' : combined,
+                        style: TextStyle(
+                          color: t.textPrimary,
+                          fontSize: t.fontSize(11),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -584,7 +789,8 @@ class _CharacterEditorState extends State<_CharacterEditor> {
                 _WardrobeSection(
                   characterId: c.id,
                   selectedOutfitId: _selectedOutfitId,
-                  onSelectOutfit: (id) => setState(() => _selectedOutfitId = id),
+                  onSelectOutfit: (id) =>
+                      setState(() => _selectedOutfitId = id),
                   onApplyToPrompt: _applyToPrompt,
                 ),
                 if (selectedOutfit != null) ...[
@@ -613,7 +819,11 @@ class _CharacterEditorState extends State<_CharacterEditor> {
     );
   }
 
-  List<Widget> _themeSwatches(VisionTokens t, SavedCharacter c, CharacterLibraryNotifier lib) {
+  List<Widget> _themeSwatches(
+    VisionTokens t,
+    SavedCharacter c,
+    CharacterLibraryNotifier lib,
+  ) {
     Widget swatch(String label, String? hex, void Function(String?) set) {
       final col = hex != null ? _parseHex(hex) : null;
       return Padding(
@@ -622,8 +832,11 @@ class _CharacterEditorState extends State<_CharacterEditor> {
           message: label,
           child: InkWell(
             onTap: () async {
-              final picked = await ColorPickerDialog.show(context,
-                  initialColor: col ?? t.accent, label: label);
+              final picked = await ColorPickerDialog.show(
+                context,
+                initialColor: col ?? t.accent,
+                label: label,
+              );
               if (picked != null) {
                 set(_toHex(picked));
               }
@@ -637,7 +850,9 @@ class _CharacterEditorState extends State<_CharacterEditor> {
                 borderRadius: BorderRadius.circular(3),
                 border: Border.all(color: t.borderMedium),
               ),
-              child: col == null ? Icon(Icons.add, size: 12, color: t.textMinimal) : null,
+              child: col == null
+                  ? Icon(Icons.add, size: 12, color: t.textMinimal)
+                  : null,
             ),
           ),
         ),
@@ -645,37 +860,82 @@ class _CharacterEditorState extends State<_CharacterEditor> {
     }
 
     return [
-      Text('TINT', style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(8), letterSpacing: 1.5)),
-      swatch('accent', c.themeAccent, (h) => lib.updateCharacter(c.copyWith(themeAccent: h))),
-      swatch('accent 2', c.themeAccentSecondary, (h) => lib.updateCharacter(c.copyWith(themeAccentSecondary: h))),
-      swatch('bg', c.themeBg, (h) => lib.updateCharacter(c.copyWith(themeBg: h))),
+      Text(
+        'TINT',
+        style: TextStyle(
+          color: t.textTertiary,
+          fontSize: t.fontSize(8),
+          letterSpacing: 1.5,
+        ),
+      ),
+      swatch(
+        'accent',
+        c.themeAccent,
+        (h) => lib.updateCharacter(c.copyWith(themeAccent: h)),
+      ),
+      swatch(
+        'accent 2',
+        c.themeAccentSecondary,
+        (h) => lib.updateCharacter(c.copyWith(themeAccentSecondary: h)),
+      ),
+      swatch(
+        'bg',
+        c.themeBg,
+        (h) => lib.updateCharacter(c.copyWith(themeBg: h)),
+      ),
     ];
   }
 
-  Widget _expander(VisionTokens t, String label, bool open, VoidCallback onTap) {
+  Widget _expander(
+    VisionTokens t,
+    String label,
+    bool open,
+    VoidCallback onTap,
+  ) {
     return InkWell(
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           children: [
-            Icon(open ? Icons.expand_less : Icons.expand_more, size: 16, color: t.textTertiary),
+            Icon(
+              open ? Icons.expand_less : Icons.expand_more,
+              size: 16,
+              color: t.textTertiary,
+            ),
             const SizedBox(width: 4),
-            Text(label.toUpperCase(),
-                style: TextStyle(
-                    color: t.textTertiary, fontSize: t.fontSize(8), letterSpacing: 1.5)),
+            Text(
+              label.toUpperCase(),
+              style: TextStyle(
+                color: t.textTertiary,
+                fontSize: t.fontSize(8),
+                letterSpacing: 1.5,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _plainField(VisionTokens t, String label, TextEditingController ctrl, {int maxLines = 1}) {
+  Widget _plainField(
+    VisionTokens t,
+    String label,
+    TextEditingController ctrl, {
+    int maxLines = 1,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label.toUpperCase(),
-            style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(9), letterSpacing: 2, fontWeight: FontWeight.bold)),
+        Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            color: t.textSecondary,
+            fontSize: t.fontSize(9),
+            letterSpacing: 2,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         const SizedBox(height: 4),
         TextField(
           controller: ctrl,
@@ -684,11 +944,18 @@ class _CharacterEditorState extends State<_CharacterEditor> {
           style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(12)),
           decoration: InputDecoration(
             isDense: true,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 8,
+            ),
             enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: t.borderSubtle), borderRadius: BorderRadius.circular(4)),
+              borderSide: BorderSide(color: t.borderSubtle),
+              borderRadius: BorderRadius.circular(4),
+            ),
             focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: t.accent), borderRadius: BorderRadius.circular(4)),
+              borderSide: BorderSide(color: t.accent),
+              borderRadius: BorderRadius.circular(4),
+            ),
           ),
         ),
       ],
@@ -723,7 +990,9 @@ class _WardrobeSectionState extends State<_WardrobeSection> {
     final closet = lib.closetFor(widget.characterId);
     final c = lib.characterById(widget.characterId);
     final textGen = context.watch<TextGenNotifier>();
-    final hasTextGen = textGen.hasService;
+    final hasTextGen =
+        textGen.hasService &&
+        hasBackendPermission(context, BackendPermission.textGenerate);
     final mobile = isMobile(context);
 
     final generateButton = Tooltip(
@@ -738,23 +1007,39 @@ class _WardrobeSectionState extends State<_WardrobeSection> {
             ? SizedBox(
                 width: 12,
                 height: 12,
-                child: CircularProgressIndicator(strokeWidth: 2, color: t.accent))
-            : Icon(Icons.auto_awesome, size: 14, color: hasTextGen ? t.accent : t.textMinimal),
-        label: Text(_generating ? 'GENERATING…' : '✨ GENERATE OUTFITS',
-            style: TextStyle(fontSize: t.fontSize(9), letterSpacing: 1)),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: t.accent,
+                ),
+              )
+            : Icon(
+                Icons.auto_awesome,
+                size: 14,
+                color: hasTextGen ? t.accent : t.textMinimal,
+              ),
+        label: Text(
+          _generating ? 'GENERATING…' : '✨ GENERATE OUTFITS',
+          style: TextStyle(fontSize: t.fontSize(9), letterSpacing: 1),
+        ),
       ),
     );
     final newOutfitButton = TextButton.icon(
       onPressed: () => _newOutfit(context, lib),
       icon: Icon(Icons.add, size: 14, color: t.accent),
-      label: Text('NEW OUTFIT', style: TextStyle(fontSize: t.fontSize(9), letterSpacing: 1)),
+      label: Text(
+        'NEW OUTFIT',
+        style: TextStyle(fontSize: t.fontSize(9), letterSpacing: 1),
+      ),
     );
-    final title = Text('WARDROBE',
-        style: TextStyle(
-            color: t.textSecondary,
-            fontSize: t.titleSize(10),
-            letterSpacing: 3,
-            fontWeight: FontWeight.bold));
+    final title = Text(
+      'WARDROBE',
+      style: TextStyle(
+        color: t.textSecondary,
+        fontSize: t.titleSize(10),
+        letterSpacing: 3,
+        fontWeight: FontWeight.bold,
+      ),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -786,8 +1071,10 @@ class _WardrobeSectionState extends State<_WardrobeSection> {
         if (closet.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text('No outfits yet — add one or generate a set.',
-                style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(10))),
+            child: Text(
+              'No outfits yet — add one or generate a set.',
+              style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(10)),
+            ),
           )
         else if (mobile)
           Column(
@@ -800,11 +1087,15 @@ class _WardrobeSectionState extends State<_WardrobeSection> {
                   isSelected: widget.selectedOutfitId == o.id,
                   mobile: true,
                   onTapState: () => widget.onSelectOutfit(
-                      widget.selectedOutfitId == o.id ? null : o.id),
+                    widget.selectedOutfitId == o.id ? null : o.id,
+                  ),
                   onWear: () => _wear(o, c),
-                  onEdit: () => _editOutfit(context, lib, o, c?.primaryOutfitId == o.id),
+                  onEdit: () =>
+                      _editOutfit(context, lib, o, c?.primaryOutfitId == o.id),
                   onSetPrimary: () => lib.setPrimaryOutfit(
-                      widget.characterId, c?.primaryOutfitId == o.id ? null : o.id),
+                    widget.characterId,
+                    c?.primaryOutfitId == o.id ? null : o.id,
+                  ),
                   onDelete: () => _confirmDelete(context, lib, o),
                 ),
                 const SizedBox(height: 8),
@@ -823,11 +1114,15 @@ class _WardrobeSectionState extends State<_WardrobeSection> {
                   isSelected: widget.selectedOutfitId == o.id,
                   mobile: false,
                   onTapState: () => widget.onSelectOutfit(
-                      widget.selectedOutfitId == o.id ? null : o.id),
+                    widget.selectedOutfitId == o.id ? null : o.id,
+                  ),
                   onWear: () => _wear(o, c),
-                  onEdit: () => _editOutfit(context, lib, o, c?.primaryOutfitId == o.id),
+                  onEdit: () =>
+                      _editOutfit(context, lib, o, c?.primaryOutfitId == o.id),
                   onSetPrimary: () => lib.setPrimaryOutfit(
-                      widget.characterId, c?.primaryOutfitId == o.id ? null : o.id),
+                    widget.characterId,
+                    c?.primaryOutfitId == o.id ? null : o.id,
+                  ),
                   onDelete: () => _confirmDelete(context, lib, o),
                 ),
             ],
@@ -849,13 +1144,18 @@ class _WardrobeSectionState extends State<_WardrobeSection> {
   }
 
   Future<void> _confirmDelete(
-      BuildContext context, CharacterLibraryNotifier lib, ClosetOutfit o) async {
+    BuildContext context,
+    CharacterLibraryNotifier lib,
+    ClosetOutfit o,
+  ) async {
     final t = context.t;
-    final ok = await showConfirmDialog(context,
-        title: 'Delete outfit',
-        message: 'Delete "${o.name}"?',
-        confirmLabel: 'Delete',
-        confirmColor: t.accentDanger);
+    final ok = await showConfirmDialog(
+      context,
+      title: 'Delete outfit',
+      message: 'Delete "${o.name}"?',
+      confirmLabel: 'Delete',
+      confirmColor: t.accentDanger,
+    );
     if (ok == true) {
       if (widget.selectedOutfitId == o.id) widget.onSelectOutfit(null);
       await lib.deleteOutfit(widget.characterId, o.id);
@@ -864,36 +1164,51 @@ class _WardrobeSectionState extends State<_WardrobeSection> {
 
   void _newOutfit(BuildContext context, CharacterLibraryNotifier lib) {
     final draft = ClosetOutfit.create(name: 'New Outfit');
-    OutfitEditorSheet.show(context,
-        outfit: draft,
-        isPrimary: false,
-        onSave: (o, makePrimary) async {
-          await lib.addOutfit(widget.characterId, o);
-          if (makePrimary) await lib.setPrimaryOutfit(widget.characterId, o.id);
-        });
+    OutfitEditorSheet.show(
+      context,
+      outfit: draft,
+      isPrimary: false,
+      onSave: (o, makePrimary) async {
+        await lib.addOutfit(widget.characterId, o);
+        if (makePrimary) await lib.setPrimaryOutfit(widget.characterId, o.id);
+      },
+    );
   }
 
-  void _editOutfit(BuildContext context, CharacterLibraryNotifier lib, ClosetOutfit o, bool isPrimary) {
-    OutfitEditorSheet.show(context,
-        outfit: o,
-        isPrimary: isPrimary,
-        onSave: (updated, makePrimary) async {
-          await lib.updateOutfit(widget.characterId, updated);
-          if (makePrimary && !isPrimary) {
-            await lib.setPrimaryOutfit(widget.characterId, updated.id);
-          } else if (!makePrimary && isPrimary) {
-            await lib.setPrimaryOutfit(widget.characterId, null);
-          }
-        });
+  void _editOutfit(
+    BuildContext context,
+    CharacterLibraryNotifier lib,
+    ClosetOutfit o,
+    bool isPrimary,
+  ) {
+    OutfitEditorSheet.show(
+      context,
+      outfit: o,
+      isPrimary: isPrimary,
+      onSave: (updated, makePrimary) async {
+        await lib.updateOutfit(widget.characterId, updated);
+        if (makePrimary && !isPrimary) {
+          await lib.setPrimaryOutfit(widget.characterId, updated.id);
+        } else if (!makePrimary && isPrimary) {
+          await lib.setPrimaryOutfit(widget.characterId, null);
+        }
+      },
+    );
   }
 
-  Future<void> _generate(BuildContext context, CharacterLibraryNotifier lib, SavedCharacter? c) async {
+  Future<void> _generate(
+    BuildContext context,
+    CharacterLibraryNotifier lib,
+    SavedCharacter? c,
+  ) async {
     if (c == null) return;
     final textGen = context.read<TextGenNotifier>();
     final messenger = ScaffoldMessenger.maybeOf(context);
     void snack(String msg, {Color? color}) {
       if (messenger == null) return;
-      messenger.showSnackBar(SnackBar(content: Text(msg), backgroundColor: color));
+      messenger.showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: color),
+      );
     }
 
     final params = await WardrobeGenerateDialog.show(context);
@@ -974,7 +1289,10 @@ class _OutfitCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: t.surfaceMid,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: isSelected ? t.accent : t.borderSubtle, width: isSelected ? 1.5 : 1),
+        border: Border.all(
+          color: isSelected ? t.accent : t.borderSubtle,
+          width: isSelected ? 1.5 : 1,
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(10),
@@ -984,25 +1302,33 @@ class _OutfitCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(outfit.name,
-                      style: TextStyle(
-                          color: t.textPrimary,
-                          fontSize: t.fontSize(12),
-                          fontWeight: FontWeight.bold),
-                      overflow: TextOverflow.ellipsis),
+                  child: Text(
+                    outfit.name,
+                    style: TextStyle(
+                      color: t.textPrimary,
+                      fontSize: t.fontSize(12),
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 InkWell(
                   onTap: onSetPrimary,
-                  child: Icon(isPrimary ? Icons.star : Icons.star_border,
-                      size: 16, color: isPrimary ? t.accentFavorite : t.textMinimal),
+                  child: Icon(
+                    isPrimary ? Icons.star : Icons.star_border,
+                    size: 16,
+                    color: isPrimary ? t.accentFavorite : t.textMinimal,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 4),
-            Text(rendered.isEmpty ? outfit.tags : rendered,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9))),
+            Text(
+              rendered.isEmpty ? outfit.tags : rendered,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
+            ),
             if (chips.isNotEmpty) ...[
               const SizedBox(height: 6),
               Wrap(
@@ -1011,12 +1337,21 @@ class _OutfitCard extends StatelessWidget {
                 children: [
                   for (final ch in chips)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
                       decoration: BoxDecoration(
                         color: t.background.withValues(alpha: 0.4),
                         borderRadius: BorderRadius.circular(2),
                       ),
-                      child: Text(ch, style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(7.5))),
+                      child: Text(
+                        ch,
+                        style: TextStyle(
+                          color: t.textMinimal,
+                          fontSize: t.fontSize(7.5),
+                        ),
+                      ),
                     ),
                 ],
               ),
@@ -1034,8 +1369,11 @@ class _OutfitCard extends StatelessWidget {
                   onTap: onDelete,
                   child: Padding(
                     padding: EdgeInsets.all(mobile ? 6 : 2),
-                    child: Icon(Icons.delete_outline,
-                        size: mobile ? 18 : 14, color: t.accentDanger),
+                    child: Icon(
+                      Icons.delete_outline,
+                      size: mobile ? 18 : 14,
+                      color: t.accentDanger,
+                    ),
                   ),
                 ),
               ],
@@ -1046,22 +1384,36 @@ class _OutfitCard extends StatelessWidget {
     );
   }
 
-  Widget _miniBtn(VisionTokens t, String label, VoidCallback onTap,
-      {bool accent = false, bool highlighted = false}) {
-    final color = accent ? t.accent : (highlighted ? t.accentEdit : t.textTertiary);
+  Widget _miniBtn(
+    VisionTokens t,
+    String label,
+    VoidCallback onTap, {
+    bool accent = false,
+    bool highlighted = false,
+  }) {
+    final color = accent
+        ? t.accent
+        : (highlighted ? t.accentEdit : t.textTertiary);
     return InkWell(
       onTap: onTap,
       child: Container(
         padding: EdgeInsets.symmetric(
-            horizontal: mobile ? 10 : 6, vertical: mobile ? 8 : 3),
+          horizontal: mobile ? 10 : 6,
+          vertical: mobile ? 8 : 3,
+        ),
         decoration: BoxDecoration(
           color: color.withValues(alpha: highlighted ? 0.2 : 0.1),
           borderRadius: BorderRadius.circular(3),
           border: Border.all(color: color.withValues(alpha: 0.4)),
         ),
-        child: Text(label,
-            style: TextStyle(
-                color: color, fontSize: t.fontSize(mobile ? 10 : 8), letterSpacing: 0.5)),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: t.fontSize(mobile ? 10 : 8),
+            letterSpacing: 0.5,
+          ),
+        ),
       ),
     );
   }

@@ -17,17 +17,25 @@ import 'director_ref_editor_sheet.dart';
 class DirectorRefShelf extends StatelessWidget {
   const DirectorRefShelf({super.key});
 
-  Future<void> _pickAndAdd(BuildContext context, {bool useFileBrowser = false}) async {
+  Future<void> _pickAndAdd(
+    BuildContext context, {
+    bool useFileBrowser = false,
+  }) async {
     final result = await pickImageFiles(useFileBrowser: useFileBrowser);
-    if (result != null && result.files.single.path != null) {
-      final bytes = await File(result.files.single.path!).readAsBytes();
+    if (result != null) {
+      final bytes = await readPickedFileBytes(result.files.single);
+      if (bytes == null) return;
       if (context.mounted) {
         context.read<DirectorRefNotifier>().addReference(bytes);
       }
     }
   }
 
-  void _openEditor(BuildContext context, DirectorRefNotifier notifier, DirectorReference ref) {
+  void _openEditor(
+    BuildContext context,
+    DirectorRefNotifier notifier,
+    DirectorReference ref,
+  ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -51,7 +59,10 @@ class DirectorRefShelf extends StatelessWidget {
     final position = RelativeRect.fromRect(
       Rect.fromPoints(
         button.localToGlobal(Offset.zero, ancestor: overlay),
-        button.localToGlobal(button.size.bottomRight(Offset.zero), ancestor: overlay),
+        button.localToGlobal(
+          button.size.bottomRight(Offset.zero),
+          ancestor: overlay,
+        ),
       ),
       Offset.zero & overlay.size,
     );
@@ -67,14 +78,21 @@ class DirectorRefShelf extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.bookmark_outline, size: 14, color: t.accentRefCharacter),
+              Icon(
+                Icons.bookmark_outline,
+                size: 14,
+                color: t.accentRefCharacter,
+              ),
               const SizedBox(width: 8),
-              Text(l.refLoadSaved, style: TextStyle(
-                fontSize: t.fontSize(9),
-                letterSpacing: 1,
-                fontWeight: FontWeight.bold,
-                color: t.textPrimary,
-              )),
+              Text(
+                l.refLoadSaved,
+                style: TextStyle(
+                  fontSize: t.fontSize(9),
+                  letterSpacing: 1,
+                  fontWeight: FontWeight.bold,
+                  color: t.textPrimary,
+                ),
+              ),
             ],
           ),
         ),
@@ -83,14 +101,21 @@ class DirectorRefShelf extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.add_photo_alternate_outlined, size: 14, color: t.accentRefCharacter),
+              Icon(
+                Icons.add_photo_alternate_outlined,
+                size: 14,
+                color: t.accentRefCharacter,
+              ),
               const SizedBox(width: 8),
-              Text(l.refPickImage, style: TextStyle(
-                fontSize: t.fontSize(9),
-                letterSpacing: 1,
-                fontWeight: FontWeight.bold,
-                color: t.textPrimary,
-              )),
+              Text(
+                l.refPickImage,
+                style: TextStyle(
+                  fontSize: t.fontSize(9),
+                  letterSpacing: 1,
+                  fontWeight: FontWeight.bold,
+                  color: t.textPrimary,
+                ),
+              ),
             ],
           ),
         ),
@@ -102,12 +127,15 @@ class DirectorRefShelf extends StatelessWidget {
               children: [
                 Icon(Icons.folder_open, size: 14, color: t.accentRefCharacter),
                 const SizedBox(width: 8),
-                Text(l.refBrowseFiles, style: TextStyle(
-                  fontSize: t.fontSize(9),
-                  letterSpacing: 1,
-                  fontWeight: FontWeight.bold,
-                  color: t.textPrimary,
-                )),
+                Text(
+                  l.refBrowseFiles,
+                  style: TextStyle(
+                    fontSize: t.fontSize(9),
+                    letterSpacing: 1,
+                    fontWeight: FontWeight.bold,
+                    color: t.textPrimary,
+                  ),
+                ),
               ],
             ),
           ),
@@ -163,11 +191,13 @@ class DirectorRefShelf extends StatelessWidget {
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: [
-                ...refs.map((ref) => DirectorRefChip(
-                  reference: ref,
-                  onTap: () => _openEditor(context, notifier, ref),
-                  onLongPress: () => notifier.removeReference(ref.id),
-                )),
+                ...refs.map(
+                  (ref) => DirectorRefChip(
+                    reference: ref,
+                    onTap: () => _openEditor(context, notifier, ref),
+                    onLongPress: () => notifier.removeReference(ref.id),
+                  ),
+                ),
                 _AddRefButton(
                   isProcessing: notifier.isProcessing,
                   onTap: () => _showSavedRefsSheet(context),
@@ -210,12 +240,15 @@ class _AddRefButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(4),
           ),
           alignment: Alignment.center,
-          child: Text('REF', style: TextStyle(
-            fontSize: t.fontSize(mobile ? 9 : 7),
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1,
-            color: t.accentRefCharacter,
-          )),
+          child: Text(
+            'REF',
+            style: TextStyle(
+              fontSize: t.fontSize(mobile ? 9 : 7),
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1,
+              color: t.accentRefCharacter,
+            ),
+          ),
         ),
       ),
     );
@@ -343,7 +376,10 @@ class _SavedRefsSheetState extends State<SavedRefsSheet> {
           if (_loading)
             Padding(
               padding: const EdgeInsets.all(24),
-              child: CircularProgressIndicator(strokeWidth: 2, color: t.textMinimal),
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: t.textMinimal,
+              ),
             )
           else if (_savedRefs.isEmpty)
             Padding(
@@ -361,7 +397,10 @@ class _SavedRefsSheetState extends State<SavedRefsSheet> {
             Flexible(
               child: ListView.builder(
                 shrinkWrap: true,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 itemCount: _savedRefs.length,
                 itemBuilder: (context, index) {
                   final saved = _savedRefs[index];
@@ -427,7 +466,9 @@ class _SavedRefTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(3),
               ),
               clipBehavior: Clip.antiAlias,
-              child: preview ?? Icon(Icons.image, size: 14, color: t.accentRefCharacter),
+              child:
+                  preview ??
+                  Icon(Icons.image, size: 14, color: t.accentRefCharacter),
             ),
             const SizedBox(width: 10),
             Expanded(

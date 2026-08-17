@@ -48,6 +48,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mainGallery => 'Gallery';
 
   @override
+  String get mainServerHistory => 'History';
+
+  @override
   String get mainTools => 'Tools';
 
   @override
@@ -117,6 +120,61 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsApiKeyHint => 'pst-xxxx...';
+
+  @override
+  String get settingsApiManaged => 'NovelAI API Key Managed By Server';
+
+  @override
+  String get settingsApiManagedDesc =>
+      'This web service uses the backend NovelAI token. The browser never stores or sends your NovelAI token.';
+
+  @override
+  String get gatewayUsername => 'Username';
+
+  @override
+  String get gatewayPassword => 'Password';
+
+  @override
+  String get gatewayLogin => 'Log In';
+
+  @override
+  String get gatewayLogout => 'Log Out';
+
+  @override
+  String get gatewayQueueStatus => 'Queue status';
+
+  @override
+  String get gatewayQueueIdle => 'Idle';
+
+  @override
+  String get gatewayQueueQueued => 'Queued';
+
+  @override
+  String get gatewayQueueActive => 'Running';
+
+  @override
+  String get gatewayQuotaFreeLabel => 'Free quota';
+
+  @override
+  String get gatewayQuotaPaidLabel => 'Paid points';
+
+  @override
+  String get gatewayQuotaFreeShort => 'Free';
+
+  @override
+  String get gatewayQuotaPaidShort => 'Pts';
+
+  @override
+  String get gatewayQuotaUnlimited => 'Unlimited';
+
+  @override
+  String get gatewayQuotaRefresh => 'Tap to refresh your quota';
+
+  @override
+  String get gatewayShowPassword => 'Show password';
+
+  @override
+  String get gatewayHidePassword => 'Hide password';
 
   @override
   String get settingsAutoSave => 'Auto-Save Images';
@@ -549,6 +607,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get panelSeed => 'Seed';
+
+  @override
+  String get panelBatchCount => 'Batch';
 
   @override
   String get panelCustom => 'Custom';
@@ -2221,6 +2282,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mainAnlas => 'Anlas';
 
   @override
+  String get mainEstimatedCostLabel => 'Estimated';
+
+  @override
+  String get mainEstimatedCostTooltip =>
+      'Pre-generation estimate; final charge is reconciled from NovelAI\'s actual balance delta';
+
+  @override
+  String get mainEstimatedCostBase => 'Base';
+
+  @override
+  String get mainEstimatedCostReference => 'Reference';
+
+  @override
+  String get mainEstimatedCostVibe => 'Vibe';
+
+  @override
+  String get mainEstimatedCostSerialImages => 'Serial images';
+
+  @override
   String get settingsAnlasTracker => 'Anlas Tracker';
 
   @override
@@ -3543,4 +3623,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get textGenReasoning => 'Reasoning';
+
+  @override
+  String get serverHistoryTitle => 'Server History';
+
+  @override
+  String get serverHistoryAllUsers => 'All Users';
+
+  @override
+  String get serverHistoryRefresh => 'Refresh';
+
+  @override
+  String get serverHistoryEmpty => 'No server history yet';
+
+  @override
+  String get serverHistoryDeleteConfirm => 'Hide this item from your history.';
 }
