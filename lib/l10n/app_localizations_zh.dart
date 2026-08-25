@@ -48,6 +48,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mainGallery => '图库';
 
   @override
+  String get mainResultsGrid => '网格';
+
+  @override
+  String get mainResultsViewer => '看图';
+
+  @override
+  String get mainResultGenerating => '生成中';
+
+  @override
+  String get mainResultPending => '排队中';
+
+  @override
   String get mainServerHistory => '历史';
 
   @override
@@ -220,16 +232,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsEditButtonDesc => '在图片查看器中显示编辑/重绘按钮';
 
   @override
-  String get settingsDirectorRefShelf => '导演参考栏';
+  String get settingsDirectorRefShelf => '导演参考';
 
   @override
-  String get settingsDirectorRefShelfDesc => '在主界面显示参考图栏';
+  String get settingsDirectorRefShelfDesc => '在高级选项中显示导演参考控件';
 
   @override
-  String get settingsVibeTransferShelf => '氛围迁移栏';
+  String get settingsVibeTransferShelf => '氛围迁移';
 
   @override
-  String get settingsVibeTransferShelfDesc => '在主界面显示氛围迁移栏';
+  String get settingsVibeTransferShelfDesc => '在高级选项中显示氛围迁移控件';
 
   @override
   String get settingsCharEditorMode => '角色编辑模式';
@@ -3406,6 +3418,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get duplicateImageRandomize => '随机化';
 
   @override
+  String get generationNoParametersVaried => '参数没有变化，请检查 Seed。';
+
+  @override
+  String get generationRandomizeSeed => '随机 Seed';
+
+  @override
   String get settingsCredits => '制作人员';
 
   @override
@@ -3559,5 +3577,29 @@ class AppLocalizationsZh extends AppLocalizations {
   String get serverHistoryEmpty => '还没有服务器历史';
 
   @override
+  String get serverHistoryImportParameters => '导入参数';
+
+  @override
+  String get serverHistoryImportSuccess => '已导入参数';
+
+  @override
+  String get serverHistoryDownload => '下载';
+
+  @override
   String get serverHistoryDeleteConfirm => '从你的历史中隐藏这条记录。';
+
+  @override
+  String get serverHistoryBatchImportParameters => '导入本组参数';
+
+  @override
+  String get serverHistoryBatchImportSuccess => '已导入本组参数';
+
+  @override
+  String get serverHistoryBatchDownload => '下载整组';
+
+  @override
+  String get serverHistoryBatchDelete => '删除整组';
+
+  @override
+  String get serverHistoryBatchDeleteConfirm => '从你的历史中隐藏这一组的全部图片？';
 }

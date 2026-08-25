@@ -49,90 +49,123 @@ class _MaskToolbarState extends State<MaskToolbar> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              // Undo
-              IconButton(
-                icon: Icon(Icons.undo, size: 16, color: t.textTertiary),
-                onPressed: notifier.hasMask ? notifier.undoLastStroke : null,
-                tooltip: 'Undo stroke',
-                splashRadius: 16,
-              ),
-              // Clear
-              IconButton(
-                icon: Icon(Icons.delete_outline, size: 16, color: t.textTertiary),
-                onPressed: notifier.hasMask ? notifier.clearMask : null,
-                tooltip: 'Clear mask',
-                splashRadius: 16,
-              ),
-
-              const SizedBox(width: 8),
-
-              // Brush shape toggle (round/square)
-              IconButton(
-                icon: Icon(
-                  notifier.maskBrushRound ? Icons.circle_outlined : Icons.square_outlined,
-                  size: 16,
-                  color: t.textTertiary,
+          SingleChildScrollView(
+            key: const ValueKey<String>('mask-toolbar-primary-scroll'),
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Undo
+                IconButton(
+                  icon: Icon(Icons.undo, size: 16, color: t.textTertiary),
+                  onPressed: notifier.hasMask ? notifier.undoLastStroke : null,
+                  tooltip: 'Undo stroke',
+                  splashRadius: 16,
                 ),
-                onPressed: () => notifier.setMaskBrushRound(!notifier.maskBrushRound),
-                tooltip: notifier.maskBrushRound ? 'Round brush' : 'Square brush',
-                splashRadius: 16,
-              ),
-
-              const SizedBox(width: 8),
-
-              // Brush size slider
-              Text(
-                'SIZE',
-                style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(8), letterSpacing: 1),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 120,
-                child: VisionSlider.subtle(
-                  value: notifier.brushRadius,
-                  min: 0.005,
-                  max: 0.15,
-                  onChanged: notifier.setBrushRadius,
-                  t: t,
+                // Clear
+                IconButton(
+                  icon: Icon(
+                    Icons.delete_outline,
+                    size: 16,
+                    color: t.textTertiary,
+                  ),
+                  onPressed: notifier.hasMask ? notifier.clearMask : null,
+                  tooltip: 'Clear mask',
+                  splashRadius: 16,
                 ),
-              ),
 
-              const Spacer(),
+                const SizedBox(width: 8),
 
-              // Mask display settings toggle
-              IconButton(
-                icon: Icon(
-                  Icons.tune,
-                  size: 16,
-                  color: _showSettings ? t.accentEdit : t.textTertiary,
+                // Brush shape toggle (round/square)
+                IconButton(
+                  icon: Icon(
+                    notifier.maskBrushRound
+                        ? Icons.circle_outlined
+                        : Icons.square_outlined,
+                    size: 16,
+                    color: t.textTertiary,
+                  ),
+                  onPressed: () =>
+                      notifier.setMaskBrushRound(!notifier.maskBrushRound),
+                  tooltip: notifier.maskBrushRound
+                      ? 'Round brush'
+                      : 'Square brush',
+                  splashRadius: 16,
                 ),
-                onPressed: () => setState(() => _showSettings = !_showSettings),
-                tooltip: 'Mask display settings',
-                splashRadius: 16,
-              ),
 
-              // Save mask
-              IconButton(
-                icon: Icon(Icons.save_outlined, size: 16, color: t.textTertiary),
-                onPressed: notifier.hasMask ? () => _saveMask(context, notifier) : null,
-                tooltip: 'Save mask',
-                splashRadius: 16,
-              ),
-              // Load mask
-              IconButton(
-                icon: Icon(Icons.folder_open, size: 16, color: t.textTertiary),
-                onPressed: () => _loadMask(context, notifier),
-                tooltip: 'Load mask',
-                splashRadius: 16,
-              ),
-            ],
+                const SizedBox(width: 8),
+
+                // Brush size slider
+                Text(
+                  'SIZE',
+                  style: TextStyle(
+                    color: t.textDisabled,
+                    fontSize: t.fontSize(8),
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 120,
+                  child: VisionSlider.subtle(
+                    value: notifier.brushRadius,
+                    min: 0.005,
+                    max: 0.15,
+                    onChanged: notifier.setBrushRadius,
+                    t: t,
+                  ),
+                ),
+
+                const SizedBox(width: 20),
+
+                // Mask display settings toggle
+                IconButton(
+                  icon: Icon(
+                    Icons.tune,
+                    size: 16,
+                    color: _showSettings ? t.accentEdit : t.textTertiary,
+                  ),
+                  onPressed: () =>
+                      setState(() => _showSettings = !_showSettings),
+                  tooltip: 'Mask display settings',
+                  splashRadius: 16,
+                ),
+
+                // Save mask
+                IconButton(
+                  icon: Icon(
+                    Icons.save_outlined,
+                    size: 16,
+                    color: t.textTertiary,
+                  ),
+                  onPressed: notifier.hasMask
+                      ? () => _saveMask(context, notifier)
+                      : null,
+                  tooltip: 'Save mask',
+                  splashRadius: 16,
+                ),
+                // Load mask
+                IconButton(
+                  icon: Icon(
+                    Icons.folder_open,
+                    size: 16,
+                    color: t.textTertiary,
+                  ),
+                  onPressed: () => _loadMask(context, notifier),
+                  tooltip: 'Load mask',
+                  splashRadius: 16,
+                ),
+              ],
+            ),
           ),
           // Mask display settings row
           if (_showSettings) ...[
             const SizedBox(height: 6),
-            _buildMaskSettingsRow(t, notifier),
+            SingleChildScrollView(
+              key: const ValueKey<String>('mask-toolbar-settings-scroll'),
+              scrollDirection: Axis.horizontal,
+              child: _buildMaskSettingsRow(t, notifier),
+            ),
           ],
         ],
       ),
@@ -141,11 +174,16 @@ class _MaskToolbarState extends State<MaskToolbar> {
 
   Widget _buildMaskSettingsRow(VisionTokens t, Img2ImgNotifier notifier) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         // Color label + swatches
         Text(
           'COLOR',
-          style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(7), letterSpacing: 1),
+          style: TextStyle(
+            color: t.textDisabled,
+            fontSize: t.fontSize(7),
+            letterSpacing: 1,
+          ),
         ),
         const SizedBox(width: 6),
         ...List.generate(_maskColorPresets.length, (i) {
@@ -166,8 +204,8 @@ class _MaskToolbarState extends State<MaskToolbar> {
                   border: Border.all(
                     color: isSelected
                         ? (Color(color).computeLuminance() > 0.5
-                            ? Colors.black
-                            : Colors.white)
+                              ? Colors.black
+                              : Colors.white)
                         : t.borderMedium,
                     width: isSelected ? 2 : 1,
                   ),
@@ -182,7 +220,11 @@ class _MaskToolbarState extends State<MaskToolbar> {
         // Opacity slider
         Text(
           'OPACITY',
-          style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(7), letterSpacing: 1),
+          style: TextStyle(
+            color: t.textDisabled,
+            fontSize: t.fontSize(7),
+            letterSpacing: 1,
+          ),
         ),
         const SizedBox(width: 4),
         SizedBox(
@@ -226,7 +268,9 @@ class _MaskToolbarState extends State<MaskToolbar> {
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(3),
                 border: Border.all(
-                  color: notifier.maskShowBorder ? t.accentEdit : t.borderSubtle,
+                  color: notifier.maskShowBorder
+                      ? t.accentEdit
+                      : t.borderSubtle,
                 ),
               ),
               child: Row(
@@ -235,13 +279,17 @@ class _MaskToolbarState extends State<MaskToolbar> {
                   Icon(
                     Icons.border_style,
                     size: 12,
-                    color: notifier.maskShowBorder ? t.accentEdit : t.textTertiary,
+                    color: notifier.maskShowBorder
+                        ? t.accentEdit
+                        : t.textTertiary,
                   ),
                   const SizedBox(width: 4),
                   Text(
                     'BORDER',
                     style: TextStyle(
-                      color: notifier.maskShowBorder ? t.accentEdit : t.textTertiary,
+                      color: notifier.maskShowBorder
+                          ? t.accentEdit
+                          : t.textTertiary,
                       fontSize: t.fontSize(7),
                       fontWeight: FontWeight.bold,
                       letterSpacing: 0.5,
@@ -280,9 +328,9 @@ class _MaskToolbarState extends State<MaskToolbar> {
     }
 
     if (Platform.isAndroid || Platform.isIOS) {
-      await Share.shareXFiles(
-        [XFile.fromData(maskBytes, mimeType: 'image/png', name: 'mask.png')],
-      );
+      await Share.shareXFiles([
+        XFile.fromData(maskBytes, mimeType: 'image/png', name: 'mask.png'),
+      ]);
       return;
     }
 
@@ -303,7 +351,11 @@ class _MaskToolbarState extends State<MaskToolbar> {
     final result = await pickCustomFiles(
       allowedExtensions: ['png', 'jpg', 'jpeg'],
     );
-    if (result == null || result.files.isEmpty || result.files.first.path == null) return;
+    if (result == null ||
+        result.files.isEmpty ||
+        result.files.first.path == null) {
+      return;
+    }
 
     final bytes = await File(result.files.first.path!).readAsBytes();
     notifier.loadMask(bytes);

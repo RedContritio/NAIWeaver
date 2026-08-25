@@ -13,6 +13,7 @@ import '../providers/img2img_notifier.dart';
 import '../services/img2img_request_builder.dart';
 import '../../../../core/ml/ml_notifier.dart';
 import '../../ml/widgets/segmentation_overlay.dart';
+import '../../widgets/tool_config_bottom_sheet.dart';
 import 'mask_canvas.dart';
 import 'mask_toolbar.dart';
 import 'img2img_settings_panel.dart';
@@ -31,7 +32,8 @@ class Img2ImgEditor extends StatefulWidget {
 class _Img2ImgEditorState extends State<Img2ImgEditor> {
   final TextEditingController _promptController = TextEditingController();
   final TextEditingController _negativePromptController = TextEditingController(
-    text: 'lowres, {bad}, error, fewer, extra, missing, worst quality, jpeg artifacts, bad quality, watermark, unfinished, displeasing, chromatic aberration, signature, extra digits, artistic error, username, scan, [abstract]',
+    text:
+        'lowres, {bad}, error, fewer, extra, missing, worst quality, jpeg artifacts, bad quality, watermark, unfinished, displeasing, chromatic aberration, signature, extra digits, artistic error, username, scan, [abstract]',
   );
 
   final FocusNode _img2imgFocusNode = FocusNode(skipTraversal: true);
@@ -54,8 +56,12 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
 
     // Sync controllers when a new session loads or source image changes
     final hasSession = img2imgNotifier.hasSession;
-    final currentSource = hasSession ? img2imgNotifier.session!.sourceImageBytes : null;
-    final isNewLoad = (hasSession && !_hadSession) || (hasSession && !identical(currentSource, _lastSourceImage));
+    final currentSource = hasSession
+        ? img2imgNotifier.session!.sourceImageBytes
+        : null;
+    final isNewLoad =
+        (hasSession && !_hadSession) ||
+        (hasSession && !identical(currentSource, _lastSourceImage));
     if (isNewLoad) {
       final session = img2imgNotifier.session!;
       if (session.prompt.isNotEmpty) {
@@ -130,7 +136,10 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
                 top: 8,
                 left: 8,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: showingResult
                         ? const Color(0xCC00CC66)
@@ -158,7 +167,9 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
     return Focus(
       focusNode: _img2imgFocusNode,
       onKeyEvent: (node, event) {
-        if (event is! KeyDownEvent && event is! KeyRepeatEvent) return KeyEventResult.ignored;
+        if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+          return KeyEventResult.ignored;
+        }
         if (event.logicalKey == LogicalKeyboardKey.enter &&
             HardwareKeyboard.instance.isControlPressed) {
           if (!genNotifier.state.isLoading) {
@@ -168,70 +179,34 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
         }
         return KeyEventResult.ignored;
       },
-      child: Stack(
-      children: [
-        Column(
-          children: [
-            _buildHeader(context, img2imgNotifier, genNotifier, isLoading),
-            Expanded(
-              child: mobile
-                  ? canvasArea
-                  : Row(
-                      children: [
-                        Expanded(flex: 3, child: canvasArea),
-                        SizedBox(
-                          width: 280,
-                          child: Img2ImgSettingsPanel(
-                            promptController: _promptController,
-                            negativePromptController: _negativePromptController,
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-          ],
-        ),
-        // Mobile FAB for settings
-        if (mobile)
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: FloatingActionButton(
-              mini: true,
-              tooltip: context.l.img2imgSettings,
-              backgroundColor: t.accentEdit,
-              onPressed: () {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: t.surfaceHigh,
-                  builder: (_) => DraggableScrollableSheet(
-                    initialChildSize: 0.6,
-                    maxChildSize: 0.9,
-                    minChildSize: 0.3,
-                    expand: false,
-                    builder: (_, scrollController) => SingleChildScrollView(
-                      controller: scrollController,
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        children: [
+          _buildHeader(context, img2imgNotifier, genNotifier, isLoading),
+          Expanded(
+            child: mobile
+                ? canvasArea
+                : Row(
+                    children: [
+                      Expanded(flex: 3, child: canvasArea),
+                      SizedBox(
+                        width: 280,
                         child: Img2ImgSettingsPanel(
                           promptController: _promptController,
                           negativePromptController: _negativePromptController,
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                );
-              },
-              child: const Icon(Icons.tune, size: 20),
-            ),
           ),
-      ],
-    ),
+        ],
+      ),
     );
   }
 
-  Widget _buildResultView(Uint8List resultBytes, Img2ImgNotifier img2imgNotifier) {
+  Widget _buildResultView(
+    Uint8List resultBytes,
+    Img2ImgNotifier img2imgNotifier,
+  ) {
     final t = context.t;
     final l = context.l;
 
@@ -268,7 +243,11 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
                   label: Text(l.img2imgCanvas),
                   style: TextButton.styleFrom(
                     foregroundColor: t.textTertiary,
-                    textStyle: TextStyle(fontSize: t.fontSize(10), fontWeight: FontWeight.bold, letterSpacing: 1),
+                    textStyle: TextStyle(
+                      fontSize: t.fontSize(10),
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -283,9 +262,15 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: t.accentEdit,
                     foregroundColor: t.textPrimary,
-                    textStyle: TextStyle(fontSize: t.fontSize(10), fontWeight: FontWeight.bold, letterSpacing: 1),
+                    textStyle: TextStyle(
+                      fontSize: t.fontSize(10),
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                     elevation: 0,
                   ),
                 ),
@@ -308,6 +293,7 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
     final session = img2imgNotifier.session;
     final hasResult = session?.resultImageBytes != null;
     final ml = context.watch<MLNotifier>();
+    final mobile = isMobile(context);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -324,24 +310,46 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
           ),
           const Spacer(),
 
+          if (mobile)
+            IconButton(
+              onPressed: () => showToolConfigBottomSheet(
+                context: context,
+                contentBuilder: (_) => Img2ImgSettingsPanel(
+                  promptController: _promptController,
+                  negativePromptController: _negativePromptController,
+                ),
+              ),
+              icon: const Icon(Icons.tune, size: 17),
+              tooltip: l.img2imgSettings,
+              style: IconButton.styleFrom(foregroundColor: t.accentEdit),
+            ),
+
           // Edit in Canvas button (only when session exists)
           if (session != null) ...[
             SizedBox(
               height: 36,
               child: isMobile(context)
                   ? IconButton(
-                      onPressed: () => _openCanvasEditor(context, img2imgNotifier),
+                      onPressed: () =>
+                          _openCanvasEditor(context, img2imgNotifier),
                       icon: const Icon(Icons.palette, size: 14),
                       tooltip: l.canvasEditInCanvas,
-                      style: IconButton.styleFrom(foregroundColor: t.accentEdit),
+                      style: IconButton.styleFrom(
+                        foregroundColor: t.accentEdit,
+                      ),
                     )
                   : TextButton.icon(
-                      onPressed: () => _openCanvasEditor(context, img2imgNotifier),
+                      onPressed: () =>
+                          _openCanvasEditor(context, img2imgNotifier),
                       icon: Icon(Icons.palette, size: 14),
                       label: Text(l.canvasEditInCanvas),
                       style: TextButton.styleFrom(
                         foregroundColor: t.accentEdit,
-                        textStyle: TextStyle(fontSize: t.fontSize(10), fontWeight: FontWeight.bold, letterSpacing: 1),
+                        textStyle: TextStyle(
+                          fontSize: t.fontSize(10),
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1,
+                        ),
                       ),
                     ),
             ),
@@ -355,15 +363,25 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
               child: ml.isProcessing
                   ? const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 8),
-                      child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+                      child: SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
                     )
                   : TextButton.icon(
                       onPressed: () => _handleMLRemoveBg(img2imgNotifier),
                       icon: Icon(Icons.content_cut, size: 14),
-                      label: isMobile(context) ? const SizedBox.shrink() : Text(context.l.mlRemoveBg.toUpperCase()),
+                      label: isMobile(context)
+                          ? const SizedBox.shrink()
+                          : Text(context.l.mlRemoveBg.toUpperCase()),
                       style: TextButton.styleFrom(
                         foregroundColor: t.accent,
-                        textStyle: TextStyle(fontSize: t.fontSize(10), fontWeight: FontWeight.bold, letterSpacing: 1),
+                        textStyle: TextStyle(
+                          fontSize: t.fontSize(10),
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1,
+                        ),
                       ),
                     ),
             ),
@@ -379,10 +397,16 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
                   : TextButton.icon(
                       onPressed: () => _handleMLUpscale(img2imgNotifier),
                       icon: Icon(Icons.zoom_out_map, size: 14),
-                      label: isMobile(context) ? const SizedBox.shrink() : Text(context.l.mlUpscale.toUpperCase()),
+                      label: isMobile(context)
+                          ? const SizedBox.shrink()
+                          : Text(context.l.mlUpscale.toUpperCase()),
                       style: TextButton.styleFrom(
                         foregroundColor: t.accent,
-                        textStyle: TextStyle(fontSize: t.fontSize(10), fontWeight: FontWeight.bold, letterSpacing: 1),
+                        textStyle: TextStyle(
+                          fontSize: t.fontSize(10),
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1,
+                        ),
                       ),
                     ),
             ),
@@ -398,10 +422,16 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
                   : TextButton.icon(
                       onPressed: () => _handleMLSegment(img2imgNotifier),
                       icon: const Icon(Icons.auto_awesome, size: 14),
-                      label: isMobile(context) ? const SizedBox.shrink() : Text(context.l.mlSegment.toUpperCase()),
+                      label: isMobile(context)
+                          ? const SizedBox.shrink()
+                          : Text(context.l.mlSegment.toUpperCase()),
                       style: TextButton.styleFrom(
                         foregroundColor: t.accent,
-                        textStyle: TextStyle(fontSize: t.fontSize(10), fontWeight: FontWeight.bold, letterSpacing: 1),
+                        textStyle: TextStyle(
+                          fontSize: t.fontSize(10),
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1,
+                        ),
                       ),
                     ),
             ),
@@ -416,9 +446,7 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
                 onPressed: () => setState(() => _showResult = !_showResult),
                 icon: Icon(Icons.swap_horiz, size: 18),
                 tooltip: _showResult ? l.img2imgCanvas : l.img2imgResult,
-                style: IconButton.styleFrom(
-                  foregroundColor: t.textTertiary,
-                ),
+                style: IconButton.styleFrom(foregroundColor: t.textTertiary),
               ),
             ),
             const SizedBox(width: 4),
@@ -429,12 +457,17 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
             SizedBox(
               height: 36,
               child: IconButton(
-                onPressed: isLoading ? null : () => _generate(img2imgNotifier, genNotifier),
+                onPressed: isLoading
+                    ? null
+                    : () => _generate(img2imgNotifier, genNotifier),
                 icon: isLoading
                     ? SizedBox(
                         width: 14,
                         height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: t.background),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: t.background,
+                        ),
                       )
                     : const Icon(Icons.auto_awesome, size: 14),
                 tooltip: isLoading ? l.img2imgGenerating : l.img2imgGenerate,
@@ -448,21 +481,34 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
             SizedBox(
               height: 36,
               child: ElevatedButton.icon(
-                onPressed: isLoading ? null : () => _generate(img2imgNotifier, genNotifier),
+                onPressed: isLoading
+                    ? null
+                    : () => _generate(img2imgNotifier, genNotifier),
                 icon: isLoading
                     ? SizedBox(
                         width: 14,
                         height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: t.background),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: t.background,
+                        ),
                       )
                     : const Icon(Icons.auto_awesome, size: 14),
-                label: Text(isLoading ? l.img2imgGenerating : l.img2imgGenerate),
+                label: Text(
+                  isLoading ? l.img2imgGenerating : l.img2imgGenerate,
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: t.accent,
                   foregroundColor: t.background,
-                  textStyle: TextStyle(fontSize: t.fontSize(10), fontWeight: FontWeight.bold, letterSpacing: 1),
+                  textStyle: TextStyle(
+                    fontSize: t.fontSize(10),
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                   elevation: 0,
                 ),
               ),
@@ -472,7 +518,10 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
     );
   }
 
-  void _openCanvasEditor(BuildContext context, Img2ImgNotifier img2imgNotifier) async {
+  void _openCanvasEditor(
+    BuildContext context,
+    Img2ImgNotifier img2imgNotifier,
+  ) async {
     final session = img2imgNotifier.session;
     if (session == null) return;
 
@@ -480,8 +529,9 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
 
     // Check for sidecar canvas state from a previous flatten
     if (session.sourceFilePath != null) {
-      final restored =
-          await CanvasGalleryService.loadSession(session.sourceFilePath!);
+      final restored = await CanvasGalleryService.loadSession(
+        session.sourceFilePath!,
+      );
       if (restored != null) {
         canvasNotifier.restoreSession(restored);
         if (!context.mounted) return;
@@ -614,7 +664,9 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
         styleNegativeContent: styleResult.negative,
         characters: genState.characters,
         interactions: genState.interactions,
-        useCoords: genState.characters.isNotEmpty ? !genState.autoPositioning : false,
+        useCoords: genState.characters.isNotEmpty
+            ? !genState.autoPositioning
+            : false,
       );
 
       final resultBytes = await genNotifier.generateImg2Img(
@@ -631,7 +683,10 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
       genNotifier.setLoading(false);
       debugPrint('Img2Img generate error: $e');
       if (mounted) {
-        showErrorSnackBar(context, context.l.img2imgGenerationFailed(e.toString()));
+        showErrorSnackBar(
+          context,
+          context.l.img2imgGenerationFailed(e.toString()),
+        );
       }
     }
   }

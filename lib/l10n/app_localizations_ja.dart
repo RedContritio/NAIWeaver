@@ -48,6 +48,18 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mainGallery => 'ギャラリー';
 
   @override
+  String get mainResultsGrid => 'グリッド';
+
+  @override
+  String get mainResultsViewer => 'ビューア';
+
+  @override
+  String get mainResultGenerating => '生成中';
+
+  @override
+  String get mainResultPending => '待機中';
+
+  @override
   String get mainServerHistory => '履歴';
 
   @override
@@ -222,16 +234,16 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsEditButtonDesc => '画像ビューアに編集/インペインティングボタンを表示します';
 
   @override
-  String get settingsDirectorRefShelf => 'ディレクターリファレンスシェルフ';
+  String get settingsDirectorRefShelf => 'ディレクターリファレンス';
 
   @override
-  String get settingsDirectorRefShelfDesc => 'メイン画面にリファレンス画像シェルフを表示します';
+  String get settingsDirectorRefShelfDesc => '詳細設定にディレクターリファレンスを表示します';
 
   @override
-  String get settingsVibeTransferShelf => 'バイブトランスファーシェルフ';
+  String get settingsVibeTransferShelf => 'バイブトランスファー';
 
   @override
-  String get settingsVibeTransferShelfDesc => 'メイン画面にバイブトランスファーシェルフを表示します';
+  String get settingsVibeTransferShelfDesc => '詳細設定にバイブトランスファーを表示します';
 
   @override
   String get settingsCharEditorMode => 'キャラクターエディターモード';
@@ -3418,6 +3430,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get duplicateImageRandomize => 'ランダム化';
 
   @override
+  String get generationNoParametersVaried => 'パラメータに変更がありません。シードを確認してください。';
+
+  @override
+  String get generationRandomizeSeed => 'シードをランダム化';
+
+  @override
   String get settingsCredits => 'クレジット';
 
   @override
@@ -3572,5 +3590,29 @@ class AppLocalizationsJa extends AppLocalizations {
   String get serverHistoryEmpty => 'サーバー履歴はまだありません';
 
   @override
+  String get serverHistoryImportParameters => 'パラメータをインポート';
+
+  @override
+  String get serverHistoryImportSuccess => 'パラメータをインポートしました';
+
+  @override
+  String get serverHistoryDownload => 'ダウンロード';
+
+  @override
   String get serverHistoryDeleteConfirm => 'この項目を自分の履歴から非表示にします。';
+
+  @override
+  String get serverHistoryBatchImportParameters => 'バッチ設定をインポート';
+
+  @override
+  String get serverHistoryBatchImportSuccess => 'バッチ設定をインポートしました';
+
+  @override
+  String get serverHistoryBatchDownload => 'バッチをダウンロード';
+
+  @override
+  String get serverHistoryBatchDelete => 'バッチを削除';
+
+  @override
+  String get serverHistoryBatchDeleteConfirm => 'このバッチのすべての画像を履歴から非表示にしますか？';
 }

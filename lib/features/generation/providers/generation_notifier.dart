@@ -21,6 +21,7 @@ import '../../../core/utils/web_download.dart';
 import '../../../core/services/saf_export_service.dart';
 import '../../../core/services/preferences_service.dart';
 import '../../../core/services/novel_ai_service.dart';
+import '../../../core/services/backend_history_api.dart';
 import '../../../core/services/nai_text_service.dart';
 import '../../../core/services/wildcard_processor.dart';
 import '../../../core/services/presets.dart';
@@ -64,8 +65,95 @@ enum ApplyTagResult {
   characterLimitReached,
 }
 
+enum GenerationErrorTone { general, greenPoints, redPoints }
+
+enum GenerationTaskProgress { queued, generating, failed, rejected, cancelled }
+
+class GenerationError {
+  final String message;
+  final GenerationErrorTone tone;
+  final bool suggestRandomSeed;
+
+  const GenerationError(
+    this.message, [
+    this.tone = GenerationErrorTone.general,
+    this.suggestRandomSeed = false,
+  ]);
+}
+
+class GeneratedImageItem {
+  final String id;
+  final Uint8List? bytes;
+  final Map<String, dynamic>? metadata;
+  final int batchIndex;
+  final int batchCount;
+  final int? seed;
+  final bool isLoading;
+  final GenerationTaskProgress progress;
+  final bool duplicateImageDetected;
+  final bool saved;
+  final String? savedBasename;
+  final String? errorMessage;
+
+  const GeneratedImageItem({
+    required this.id,
+    required this.batchIndex,
+    required this.batchCount,
+    this.bytes,
+    this.metadata,
+    this.seed,
+    this.isLoading = false,
+    this.progress = GenerationTaskProgress.queued,
+    this.duplicateImageDetected = false,
+    this.saved = false,
+    this.savedBasename,
+    this.errorMessage,
+  });
+
+  bool get isComplete => bytes != null;
+  bool get isTerminal =>
+      isComplete ||
+      progress == GenerationTaskProgress.failed ||
+      progress == GenerationTaskProgress.rejected ||
+      progress == GenerationTaskProgress.cancelled;
+
+  GeneratedImageItem copyWith({
+    Uint8List? bytes,
+    Map<String, dynamic>? metadata,
+    int? seed,
+    bool? isLoading,
+    GenerationTaskProgress? progress,
+    bool? duplicateImageDetected,
+    bool? saved,
+    String? savedBasename,
+    String? errorMessage,
+    bool clearErrorMessage = false,
+  }) {
+    return GeneratedImageItem(
+      id: id,
+      batchIndex: batchIndex,
+      batchCount: batchCount,
+      bytes: bytes ?? this.bytes,
+      metadata: metadata ?? this.metadata,
+      seed: seed ?? this.seed,
+      isLoading: isLoading ?? this.isLoading,
+      progress: progress ?? this.progress,
+      duplicateImageDetected:
+          duplicateImageDetected ?? this.duplicateImageDetected,
+      saved: saved ?? this.saved,
+      savedBasename: savedBasename ?? this.savedBasename,
+      errorMessage: clearErrorMessage
+          ? null
+          : errorMessage ?? this.errorMessage,
+    );
+  }
+}
+
 class GenerationState {
   final Uint8List? generatedImage;
+  final List<GeneratedImageItem> generatedImages;
+  final String? selectedGeneratedImageId;
+  final bool autoFollowLatestImage;
   final bool isLoading;
   final bool isDragging;
   final bool isSettingsExpanded;
@@ -104,6 +192,8 @@ class GenerationState {
   final bool furryMode;
   final bool useCurated;
   final String? errorMessage;
+  final GenerationErrorTone errorTone;
+  final bool errorSuggestRandomSeed;
   final int? anlas;
   final String characterEditorMode;
   final List<CharacterPreset> characterPresets;
@@ -111,6 +201,9 @@ class GenerationState {
 
   GenerationState({
     this.generatedImage,
+    this.generatedImages = const [],
+    this.selectedGeneratedImageId,
+    this.autoFollowLatestImage = true,
     this.isLoading = false,
     this.isDragging = false,
     this.isSettingsExpanded = false,
@@ -147,6 +240,8 @@ class GenerationState {
     this.furryMode = false,
     this.useCurated = false,
     this.errorMessage,
+    this.errorTone = GenerationErrorTone.general,
+    this.errorSuggestRandomSeed = false,
     this.anlas,
     this.characterEditorMode = 'expanded',
     this.characterPresets = const [],
@@ -155,6 +250,11 @@ class GenerationState {
 
   GenerationState copyWith({
     Uint8List? generatedImage,
+    bool clearGeneratedImage = false,
+    List<GeneratedImageItem>? generatedImages,
+    String? selectedGeneratedImageId,
+    bool clearSelectedGeneratedImageId = false,
+    bool? autoFollowLatestImage,
     bool? isLoading,
     bool? isDragging,
     bool? isSettingsExpanded,
@@ -191,6 +291,8 @@ class GenerationState {
     bool? furryMode,
     bool? useCurated,
     String? errorMessage,
+    GenerationErrorTone? errorTone,
+    bool? errorSuggestRandomSeed,
     bool clearErrorMessage = false,
     int? anlas,
     bool clearAnlas = false,
@@ -199,7 +301,15 @@ class GenerationState {
     bool? duplicateImageDetected,
   }) {
     return GenerationState(
-      generatedImage: generatedImage ?? this.generatedImage,
+      generatedImage: clearGeneratedImage
+          ? null
+          : generatedImage ?? this.generatedImage,
+      generatedImages: generatedImages ?? this.generatedImages,
+      selectedGeneratedImageId: clearSelectedGeneratedImageId
+          ? null
+          : selectedGeneratedImageId ?? this.selectedGeneratedImageId,
+      autoFollowLatestImage:
+          autoFollowLatestImage ?? this.autoFollowLatestImage,
       isLoading: isLoading ?? this.isLoading,
       isDragging: isDragging ?? this.isDragging,
       isSettingsExpanded: isSettingsExpanded ?? this.isSettingsExpanded,
@@ -240,6 +350,12 @@ class GenerationState {
       errorMessage: clearErrorMessage
           ? null
           : (errorMessage ?? this.errorMessage),
+      errorTone: clearErrorMessage
+          ? GenerationErrorTone.general
+          : (errorTone ?? this.errorTone),
+      errorSuggestRandomSeed: clearErrorMessage
+          ? false
+          : (errorSuggestRandomSeed ?? this.errorSuggestRandomSeed),
       anlas: clearAnlas ? null : (anlas ?? this.anlas),
       characterEditorMode: characterEditorMode ?? this.characterEditorMode,
       characterPresets: characterPresets ?? this.characterPresets,
@@ -257,6 +373,9 @@ class GenerationNotifier extends ChangeNotifier {
   GenerationState get state => _state;
 
   late NovelAIService _service;
+  final BackendHistoryApi _historyApi = BackendHistoryApi();
+  int? _backendUserId;
+  bool _restoringGatewayWorkspace = false;
   NovelAIService get service => _service;
   late final WildcardProcessor _wildcardProcessor;
   final TagService _tagService;
@@ -345,6 +464,195 @@ class GenerationNotifier extends ChangeNotifier {
 
   void updateGalleryNotifier(GalleryNotifier galleryNotifier) {
     _galleryNotifier = galleryNotifier;
+  }
+
+  /// Rebuild the result workspace after a browser reload. Generation tasks are
+  /// durable on the gateway; the UI is only a view of those server records.
+  void updateBackendUserId(int? userId) {
+    if (_backendUserId == userId) return;
+    _backendUserId = userId;
+    if (useBackendGateway && userId != null) {
+      unawaited(_restoreGatewayWorkspace(userId));
+    }
+  }
+
+  Future<void> _restoreGatewayWorkspace(int userId) async {
+    if (_restoringGatewayWorkspace || _state.isLoading) return;
+    _restoringGatewayWorkspace = true;
+    try {
+      final currentTask = await _historyApi.fetchCurrentTask();
+      var history = currentTask?.items ?? const <ServerHistoryItem>[];
+      // Existing sessions predate the cookie; retain the time-window fallback
+      // for those users until they submit a new explicit batch.
+      if (history.isEmpty) {
+        history = await _historyApi.fetchHistory(limit: 20, currentBatch: true);
+      }
+      if (history.isEmpty) {
+        history = await _historyApi.fetchHistory(limit: 20);
+      }
+      if (_backendUserId != userId || _state.isLoading) return;
+      final visible = history.toList(growable: false);
+      if (visible.isEmpty) return;
+      // A browser batch submits all of its tasks together. Restore that most
+      // recent batch only, rather than replacing the workspace with all of a
+      // user's old server history.
+      final recoverable = currentTask != null
+          ? visible
+          : (() {
+              final latestBatchId = visible.first.batchId;
+              final sameSubmission = latestBatchId == null
+                  ? <ServerHistoryItem>[visible.first]
+                  : visible
+                        .where((item) => item.batchId == latestBatchId)
+                        .toList();
+              return sameSubmission.reversed.toList(growable: false);
+            })();
+      if (recoverable.isEmpty) return;
+
+      final restored = List<GeneratedImageItem>.generate(recoverable.length, (
+        index,
+      ) {
+        final task = recoverable[index];
+        return GeneratedImageItem(
+          id: task.id,
+          batchIndex: index + 1,
+          batchCount: recoverable.length,
+          seed: task.seed,
+          metadata: task.generationMetadata,
+          isLoading: task.status == 'queued' || task.status == 'running',
+          progress: _progressForGatewayStatus(task.status),
+          errorMessage: task.errorMessage,
+        );
+      });
+      _state = _state.copyWith(
+        generatedImages: restored,
+        selectedGeneratedImageId: restored.first.id,
+        autoFollowLatestImage: true,
+        clearGeneratedImage: true,
+      );
+      notifyListeners();
+
+      for (final task in recoverable.where(
+        (item) => item.status == 'success',
+      )) {
+        unawaited(_restoreGatewayImage(task, userId));
+      }
+      unawaited(_resumeGatewayTasks(recoverable, userId));
+    } catch (error) {
+      debugPrint('Could not restore gateway generation workspace: $error');
+    } finally {
+      _restoringGatewayWorkspace = false;
+    }
+  }
+
+  Future<void> _restoreGatewayImage(ServerHistoryItem task, int userId) async {
+    try {
+      final bytes = await _historyApi.fetchImageBytes(task.id);
+      _applyRestoredGatewayImage(task, userId, bytes);
+    } catch (error) {
+      debugPrint('Could not restore gateway image ${task.id}: $error');
+      if (_backendUserId != userId) return;
+      _state = _state.copyWith(
+        generatedImages: _replaceGeneratedImageItem(
+          task.id,
+          (item) => item.copyWith(
+            isLoading: false,
+            progress: GenerationTaskProgress.failed,
+            errorMessage: error.toString().replaceFirst('Exception: ', ''),
+          ),
+        ),
+      );
+      notifyListeners();
+    }
+  }
+
+  void _applyRestoredGatewayImage(
+    ServerHistoryItem task,
+    int userId,
+    Uint8List bytes,
+  ) {
+    if (_backendUserId != userId) return;
+    final metadata = _historyMetadata(task);
+    final existing = _state.generatedImages
+        .where((item) => item.id == task.id)
+        .firstOrNull;
+    if (existing == null) return;
+    final completed = existing.copyWith(
+      bytes: bytes,
+      metadata: metadata,
+      seed: task.seed,
+      isLoading: false,
+    );
+    final shouldSelect =
+        _state.autoFollowLatestImage || _state.selectedGeneratedImageId == null;
+    _state = _state.copyWith(
+      generatedImages: _replaceGeneratedImageItem(task.id, (_) => completed),
+      selectedGeneratedImageId: shouldSelect ? task.id : null,
+      generatedImage: shouldSelect ? bytes : null,
+    );
+    if (shouldSelect) _lastMetadata = metadata;
+    notifyListeners();
+  }
+
+  Future<void> _resumeGatewayTask(ServerHistoryItem task, int userId) async {
+    try {
+      final bytes = await _service.waitForGatewayGeneration(
+        task.id,
+        onStatus: (status) {
+          if (_backendUserId != userId || status != 'running') return;
+          _state = _state.copyWith(
+            generatedImages: _replaceGeneratedImageItem(
+              task.id,
+              (item) =>
+                  item.copyWith(progress: GenerationTaskProgress.generating),
+            ),
+          );
+          notifyListeners();
+        },
+      );
+      if (_backendUserId != userId) return;
+      _applyRestoredGatewayImage(task, userId, bytes);
+    } catch (error) {
+      debugPrint('Could not resume gateway task ${task.id}: $error');
+      if (_backendUserId != userId) return;
+      _state = _state.copyWith(
+        generatedImages: _replaceGeneratedImageItem(
+          task.id,
+          (item) => item.copyWith(
+            isLoading: false,
+            progress: GenerationTaskProgress.failed,
+            errorMessage: error.toString().replaceFirst('Exception: ', ''),
+          ),
+        ),
+      );
+      notifyListeners();
+    }
+  }
+
+  Future<void> _resumeGatewayTasks(
+    List<ServerHistoryItem> tasks,
+    int userId,
+  ) async {
+    for (final task in tasks) {
+      if (task.status != 'queued' && task.status != 'running') continue;
+      if (_backendUserId != userId) return;
+      await _resumeGatewayTask(task, userId);
+    }
+  }
+
+  Map<String, dynamic> _historyMetadata(ServerHistoryItem task) => {
+    ...task.generationMetadata,
+    'seed': task.seed,
+  };
+
+  static GenerationTaskProgress _progressForGatewayStatus(String status) {
+    return switch (status) {
+      'running' => GenerationTaskProgress.generating,
+      'failed' => GenerationTaskProgress.failed,
+      'rejected' => GenerationTaskProgress.rejected,
+      'cancelled' => GenerationTaskProgress.cancelled,
+      _ => GenerationTaskProgress.queued,
+    };
   }
 
   void updateCharacterLibraryNotifier(CharacterLibraryNotifier notifier) {
@@ -669,8 +977,55 @@ class GenerationNotifier extends ChangeNotifier {
   }
 
   void setGeneratedImage(Uint8List? image) {
-    _state = _state.copyWith(generatedImage: image);
+    _state = _state.copyWith(
+      generatedImage: image,
+      clearGeneratedImage: image == null,
+      generatedImages: const [],
+      clearSelectedGeneratedImageId: true,
+      autoFollowLatestImage: true,
+    );
     notifyListeners();
+  }
+
+  void selectGeneratedImage(String id, {bool userInitiated = true}) {
+    final selected = _state.generatedImages
+        .where((item) => item.id == id)
+        .firstOrNull;
+    if (selected == null) return;
+
+    _state = _state.copyWith(
+      selectedGeneratedImageId: id,
+      autoFollowLatestImage: userInitiated
+          ? false
+          : _state.autoFollowLatestImage,
+      generatedImage: selected.bytes,
+      clearGeneratedImage: selected.bytes == null,
+      duplicateImageDetected: selected.duplicateImageDetected,
+    );
+    _lastMetadata = selected.metadata;
+    _imageSaved = selected.saved;
+    _lastSavedBasename = selected.savedBasename;
+    notifyListeners();
+  }
+
+  List<GeneratedImageItem> _replaceGeneratedImageItem(
+    String id,
+    GeneratedImageItem Function(GeneratedImageItem item) update,
+  ) {
+    return _state.generatedImages
+        .map((item) => item.id == id ? update(item) : item)
+        .toList(growable: false);
+  }
+
+  void _markSelectedImageSaved(String basename) {
+    final id = _state.selectedGeneratedImageId;
+    if (id == null) return;
+    _state = _state.copyWith(
+      generatedImages: _replaceGeneratedImageItem(
+        id,
+        (item) => item.copyWith(saved: true, savedBasename: basename),
+      ),
+    );
   }
 
   Future<void> saveCurrentImage() async {
@@ -689,6 +1044,7 @@ class GenerationNotifier extends ChangeNotifier {
         _webDownloadedNames.add('$baseName.png');
         _imageSaved = true;
         _lastSavedBasename = '$baseName.png';
+        _markSelectedImageSaved('$baseName.png');
         notifyListeners();
       }
       return;
@@ -699,9 +1055,10 @@ class GenerationNotifier extends ChangeNotifier {
       _galleryNotifier?.addFile(savedFile, DateTime.now());
       _imageSaved = true;
       _lastSavedBasename = p.basename(savedFile.path);
+      _markSelectedImageSaved(_lastSavedBasename!);
       notifyListeners();
 
-      await _autoExportIfEnabled(_state.generatedImage!);
+      await _autoExportIfEnabled(_state.generatedImage!, _lastMetadata!);
     }
   }
 
@@ -906,16 +1263,17 @@ class GenerationNotifier extends ChangeNotifier {
     }
     final dir = Directory(folderPath);
     if (!await dir.exists()) await dir.create(recursive: true);
-    final file = File(p.join(folderPath, '$fileName.png'));
+    final file = File(await uniqueFilePath(folderPath, fileName, 'png'));
     await file.writeAsBytes(bytes);
   }
 
-  Future<void> _autoExportIfEnabled(Uint8List bytes) async {
+  Future<void> _autoExportIfEnabled(
+    Uint8List bytes,
+    Map<String, dynamic> metadata,
+  ) async {
     if (!_prefs.autoExportToDevice) return;
     try {
-      final fallbackName = _lastMetadata != null
-          ? _buildFileName(_lastMetadata!)
-          : 'Gen_${DateFormat('yyyyMMdd_HHmmssSSS').format(DateTime.now())}';
+      final fallbackName = _buildFileName(metadata);
 
       // Custom folder takes priority on all platforms — but a legacy plain
       // filesystem path is unreachable under Android scoped storage (issue
@@ -930,12 +1288,12 @@ class GenerationNotifier extends ChangeNotifier {
           await _exportToFolder(
             bytes,
             customFolder,
-            _patternedName(_lastMetadata, fallbackName),
+            _patternedName(metadata, fallbackName),
           );
         } else {
           final target = await _patternedTarget(
             customFolder,
-            _lastMetadata ?? const {},
+            metadata,
             fallbackName,
           );
           await _exportToFolder(bytes, target.dir, target.base);
@@ -946,12 +1304,12 @@ class GenerationNotifier extends ChangeNotifier {
       if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
         await _exportBytesToMobileGallery(
           bytes,
-          _patternedName(_lastMetadata, fallbackName),
+          _patternedName(metadata, fallbackName),
         );
       } else if (!kIsWeb) {
         final target = await _patternedTarget(
           _outputDir,
-          _lastMetadata ?? const {},
+          metadata,
           fallbackName,
         );
         await _exportToFolder(bytes, target.dir, target.base);
@@ -1090,15 +1448,74 @@ class GenerationNotifier extends ChangeNotifier {
     return math.max(1, math.min(value, max));
   }
 
+  @visibleForTesting
+  static List<int> buildBatchSeeds({
+    required int count,
+    required bool randomize,
+    required int fixedSeed,
+    math.Random? random,
+  }) {
+    if (!randomize) {
+      return List<int>.generate(
+        count,
+        (index) => (fixedSeed + index) & 0xFFFFFFFF,
+      );
+    }
+    final source = random ?? math.Random();
+    final used = <int>{};
+    final seeds = <int>[];
+    while (seeds.length < count) {
+      final seed = _randomUint32(source);
+      if (used.add(seed)) seeds.add(seed);
+    }
+    return seeds;
+  }
+
+  static int _randomUint32(math.Random source) {
+    // Two 16-bit draws work consistently on native and web and cover the
+    // complete uint32 seed range, including 0xFFFFFFFF.
+    return source.nextInt(1 << 16) * (1 << 16) + source.nextInt(1 << 16);
+  }
+
   Future<void> generate({int batchLimit = 1}) async {
     clearTagSuggestions();
 
     final batchCount = _clampBatchCount(_state.batchCount, batchLimit);
-    _state = _state.copyWith(
-      isLoading: true,
-      hasAuthError: false,
-      batchCount: batchCount,
+    final nonceSource = math.Random.secure();
+    final batchRunId = [
+      DateTime.now().microsecondsSinceEpoch.toRadixString(16),
+      _randomUint32(nonceSource).toRadixString(16).padLeft(8, '0'),
+      _randomUint32(nonceSource).toRadixString(16).padLeft(8, '0'),
+    ].join('-');
+    final gatewayBatch = useBackendGateway;
+    var gatewaySubmissionAccepted = false;
+    final placeholders = List<GeneratedImageItem>.generate(
+      batchCount,
+      (index) => GeneratedImageItem(
+        id: '$batchRunId-$index',
+        batchIndex: index + 1,
+        batchCount: batchCount,
+        isLoading: true,
+      ),
     );
+    _state = gatewayBatch
+        ? _state.copyWith(
+            isLoading: true,
+            hasAuthError: false,
+            batchCount: batchCount,
+            clearErrorMessage: true,
+          )
+        : _state.copyWith(
+            isLoading: true,
+            hasAuthError: false,
+            batchCount: batchCount,
+            generatedImages: placeholders,
+            selectedGeneratedImageId: placeholders.first.id,
+            autoFollowLatestImage: true,
+            clearGeneratedImage: true,
+            duplicateImageDetected: false,
+            clearErrorMessage: true,
+          );
     notifyListeners();
 
     // Keep screen/CPU awake during generation to prevent network drops
@@ -1122,7 +1539,6 @@ class GenerationNotifier extends ChangeNotifier {
         }
       }
 
-      final seedRandom = math.Random();
       final fixedSeed = int.tryParse(seedController.text) ?? 0;
 
       final styleResult = resolveStyles(
@@ -1167,15 +1583,17 @@ class GenerationNotifier extends ChangeNotifier {
         ),
       );
 
-      for (var index = 0; index < batchCount; index++) {
-        final seed = _state.randomizeSeed
-            ? seedRandom.nextInt(4294967295)
-            : (fixedSeed + index) % 4294967295;
-        if (_state.randomizeSeed) {
-          seedController.text = seed.toString();
-        }
+      final seeds = buildBatchSeeds(
+        count: batchCount,
+        randomize: _state.randomizeSeed,
+        fixedSeed: fixedSeed,
+      );
+      if (_state.randomizeSeed) {
+        seedController.text = seeds.last.toString();
+      }
 
-        final result = await _service.generateImage(
+      ImageGenerationRequest buildRequest(int seed) {
+        return _service.buildImageGenerationRequest(
           prompt: finalPrompt,
           negativePrompt: fullNegativePrompt,
           width: _state.width.toInt(),
@@ -1204,6 +1622,14 @@ class GenerationNotifier extends ChangeNotifier {
           vibeTransferInfoExtracted: vibePayload?.infoExtracted,
           useCurated: _state.useCurated,
         );
+      }
+
+      Future<void> applyResult(int index, GenerationResult result) async {
+        final currentItem = _state.generatedImages.firstWhere(
+          (item) => item.batchIndex == index + 1,
+        );
+        final itemId = currentItem.id;
+        final seed = seeds[index];
 
         // Save active style info in metadata for round-trip restore.
         result.metadata['active_style_names'] =
@@ -1222,11 +1648,31 @@ class GenerationNotifier extends ChangeNotifier {
             listEquals(result.imageBytes, _previousImageBytes);
         _previousImageBytes = Uint8List.fromList(result.imageBytes);
 
-        _lastMetadata = result.metadata;
-        _imageSaved = false;
-        _lastSavedBasename = null;
+        final completedItem = currentItem.copyWith(
+          bytes: result.imageBytes,
+          metadata: result.metadata,
+          seed: seed,
+          isLoading: false,
+          duplicateImageDetected: isDuplicate,
+          saved: false,
+          clearErrorMessage: true,
+        );
+        final shouldSelect =
+            _state.autoFollowLatestImage ||
+            _state.selectedGeneratedImageId == itemId ||
+            _state.selectedGeneratedImageId == null;
+        if (shouldSelect) {
+          _lastMetadata = result.metadata;
+          _imageSaved = false;
+          _lastSavedBasename = null;
+        }
         _state = _state.copyWith(
-          generatedImage: result.imageBytes,
+          generatedImages: _replaceGeneratedImageItem(
+            itemId,
+            (_) => completedItem,
+          ),
+          selectedGeneratedImageId: shouldSelect ? itemId : null,
+          generatedImage: shouldSelect ? result.imageBytes : null,
           duplicateImageDetected: isDuplicate,
         );
         notifyListeners();
@@ -1238,19 +1684,259 @@ class GenerationNotifier extends ChangeNotifier {
           );
           if (savedFile != null) {
             _galleryNotifier?.addFile(savedFile, DateTime.now());
-            _imageSaved = true;
-            _lastSavedBasename = p.basename(savedFile.path);
-            await _autoExportIfEnabled(result.imageBytes);
+            final basename = p.basename(savedFile.path);
+            final savedImages = _replaceGeneratedImageItem(
+              itemId,
+              (item) => item.copyWith(saved: true, savedBasename: basename),
+            );
+            if (_state.selectedGeneratedImageId == itemId) {
+              _imageSaved = true;
+              _lastSavedBasename = basename;
+            }
+            _state = _state.copyWith(generatedImages: savedImages);
+            notifyListeners();
+            await _autoExportIfEnabled(result.imageBytes, result.metadata);
           }
+        }
+      }
+
+      if (gatewayBatch) {
+        final preparedRequest = buildRequest(seeds.first);
+        final submission = await _service.submitGatewayGenerationBatch(
+          request: preparedRequest,
+          seeds: seeds,
+          clientRequestId: batchRunId,
+        );
+        final submittedItems = submission.items.toList()
+          ..sort((a, b) => a.batchIndex.compareTo(b.batchIndex));
+        final acceptedImages = List<GeneratedImageItem>.generate(batchCount, (
+          index,
+        ) {
+          final accepted = submittedItems[index];
+          final metadata = Map<String, dynamic>.from(
+            buildRequest(seeds[index]).metadata,
+          );
+          return GeneratedImageItem(
+            id: accepted.id,
+            batchIndex: index + 1,
+            batchCount: batchCount,
+            metadata: metadata,
+            seed: seeds[index],
+            isLoading: true,
+            progress: _progressForGatewayStatus(accepted.status),
+          );
+        });
+        _state = _state.copyWith(
+          generatedImages: acceptedImages,
+          selectedGeneratedImageId: acceptedImages.first.id,
+          autoFollowLatestImage: true,
+          clearGeneratedImage: true,
+          duplicateImageDetected: false,
+        );
+        gatewaySubmissionAccepted = true;
+        notifyListeners();
+
+        var retryDelay = const Duration(seconds: 1);
+        var taskFetchFailures = 0;
+        final downloadFailures = <String, int>{};
+        while (true) {
+          ServerGenerationTask task;
+          try {
+            task = await _historyApi.fetchGenerationTask(submission.taskId);
+            retryDelay = const Duration(seconds: 1);
+            taskFetchFailures = 0;
+          } on DioException catch (error) {
+            if (error.response?.statusCode == 401) {
+              throw UnauthorizedException();
+            }
+            if (error.response?.statusCode == 403 ||
+                error.response?.statusCode == 404) {
+              rethrow;
+            }
+            taskFetchFailures++;
+            if (taskFetchFailures >= 8) rethrow;
+            await Future.delayed(retryDelay);
+            retryDelay = Duration(
+              seconds: (retryDelay.inSeconds * 2).clamp(1, 15),
+            );
+            continue;
+          }
+
+          var changed = false;
+          for (final serverItem in task.items) {
+            final existing = _state.generatedImages
+                .where((item) => item.id == serverItem.id)
+                .firstOrNull;
+            if (existing == null || existing.isTerminal) continue;
+            final progress = _progressForGatewayStatus(serverItem.status);
+            final loading =
+                serverItem.status == 'queued' || serverItem.status == 'running';
+            _state = _state.copyWith(
+              generatedImages: _replaceGeneratedImageItem(
+                serverItem.id,
+                (item) => item.copyWith(
+                  progress: progress,
+                  isLoading: loading || serverItem.status == 'success',
+                  errorMessage: serverItem.errorMessage,
+                ),
+              ),
+            );
+            changed = true;
+          }
+          if (changed) notifyListeners();
+
+          var successfulDownloadsComplete = true;
+          for (final serverItem in task.items.where(
+            (item) => item.status == 'success',
+          )) {
+            final existing = _state.generatedImages
+                .where((item) => item.id == serverItem.id)
+                .firstOrNull;
+            if (existing == null || existing.isTerminal) continue;
+            try {
+              final bytes = await _historyApi.fetchImageBytes(serverItem.id);
+              final index =
+                  serverItem.batchIndex ??
+                  _state.generatedImages.indexWhere(
+                    (item) => item.id == serverItem.id,
+                  );
+              if (index < 0 || index >= batchCount) continue;
+              final metadata = Map<String, dynamic>.from(
+                buildRequest(seeds[index]).metadata,
+              );
+              await applyResult(
+                index,
+                GenerationResult(imageBytes: bytes, metadata: metadata),
+              );
+            } on DioException catch (error) {
+              if (error.response?.statusCode == 401) {
+                throw UnauthorizedException();
+              }
+              final failures = (downloadFailures[serverItem.id] ?? 0) + 1;
+              downloadFailures[serverItem.id] = failures;
+              final statusCode = error.response?.statusCode;
+              final permanent =
+                  statusCode == 403 ||
+                  (statusCode == 404 && failures >= 3) ||
+                  failures >= 8;
+              if (!permanent) {
+                successfulDownloadsComplete = false;
+                continue;
+              }
+              _state = _state.copyWith(
+                generatedImages: _replaceGeneratedImageItem(
+                  serverItem.id,
+                  (item) => item.copyWith(
+                    isLoading: false,
+                    progress: GenerationTaskProgress.failed,
+                    errorMessage: statusCode == null
+                        ? 'Could not download the generated image'
+                        : 'Could not download the generated image (HTTP $statusCode)',
+                  ),
+                ),
+              );
+              notifyListeners();
+            }
+          }
+
+          final statusesTerminal =
+              task.items.isNotEmpty &&
+              task.items.every(
+                (item) =>
+                    item.status == 'success' ||
+                    item.status == 'failed' ||
+                    item.status == 'rejected' ||
+                    item.status == 'cancelled',
+              );
+          if (statusesTerminal && successfulDownloadsComplete) break;
+          await Future.delayed(const Duration(seconds: 1));
+        }
+      } else {
+        Object? firstError;
+        await Future.wait(
+          List<Future<void>>.generate(batchCount, (index) async {
+            try {
+              final result = await _service.generateImage(
+                prompt: finalPrompt,
+                negativePrompt: fullNegativePrompt,
+                width: _state.width.toInt(),
+                height: _state.height.toInt(),
+                scale: _state.scale,
+                steps: _state.steps.toInt(),
+                sampler: _state.sampler,
+                smea: _state.smea,
+                smeaDyn: _state.smeaDyn,
+                decrisper: _state.decrisper,
+                seed: seeds[index],
+                promptPrefix: combinedPrefix,
+                promptSuffix: combinedSuffix,
+                characters: processedCharacters,
+                interactions: _state.interactions,
+                useCoords: _state.characters.isNotEmpty
+                    ? !_state.autoPositioning
+                    : false,
+                directorRefImages: dirPayload?.images,
+                directorRefDescriptions: dirPayload?.descriptions,
+                directorRefStrengths: dirPayload?.strengths,
+                directorRefSecondaryStrengths: dirPayload?.secondaryStrengths,
+                directorRefInfoExtracted: dirPayload?.infoExtracted,
+                vibeTransferImages: vibePayload?.vibeVectors,
+                vibeTransferStrengths: vibePayload?.strengths,
+                vibeTransferInfoExtracted: vibePayload?.infoExtracted,
+                useCurated: _state.useCurated,
+              );
+              await applyResult(index, result);
+            } catch (error) {
+              firstError ??= error;
+              _state = _state.copyWith(
+                generatedImages: _replaceGeneratedImageItem(
+                  placeholders[index].id,
+                  (item) => item.copyWith(
+                    isLoading: false,
+                    progress: GenerationTaskProgress.failed,
+                    errorMessage: _formatError(error).message,
+                  ),
+                ),
+              );
+              notifyListeners();
+            }
+          }),
+        );
+        if (firstError != null) {
+          final capturedError = firstError!;
+          if (capturedError is UnauthorizedException) throw capturedError;
+          final error = _formatError(capturedError);
+          _state = _state.copyWith(
+            errorMessage: error.message,
+            errorTone: error.tone,
+            errorSuggestRandomSeed: error.suggestRandomSeed,
+          );
         }
       }
     } on UnauthorizedException {
       _state = _state.copyWith(hasAuthError: true);
     } catch (e) {
       debugPrint("Generation error: $e");
-      _state = _state.copyWith(errorMessage: _formatError(e));
+      final error = _formatError(e);
+      _state = _state.copyWith(
+        errorMessage: error.message,
+        errorTone: error.tone,
+        errorSuggestRandomSeed: error.suggestRandomSeed,
+      );
     } finally {
-      _state = _state.copyWith(isLoading: false);
+      final settleWorkspace = !gatewayBatch || gatewaySubmissionAccepted;
+      final settledImages = settleWorkspace
+          ? _state.generatedImages
+                .map(
+                  (item) =>
+                      item.isLoading ? item.copyWith(isLoading: false) : item,
+                )
+                .toList(growable: false)
+          : _state.generatedImages;
+      _state = _state.copyWith(
+        isLoading: false,
+        generatedImages: settledImages,
+      );
       notifyListeners();
       fetchAnlas();
       if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
@@ -1539,6 +2225,15 @@ class GenerationNotifier extends ChangeNotifier {
     );
   }
 
+  /// Parse metadata from raw image bytes without applying it to state.
+  Future<MetadataImportResult> parseImageMetadataBytes(Uint8List bytes) async {
+    return _metadataImportService.parseImageMetadataBytes(
+      bytes,
+      smartStyleImport: _prefs.smartStyleImport,
+      availableStyles: _state.styles,
+    );
+  }
+
   /// Apply a parsed metadata result, importing only the selected categories.
   void applyImportedMetadata(
     MetadataImportResult result,
@@ -1581,6 +2276,9 @@ class GenerationNotifier extends ChangeNotifier {
           : null,
       randomizeSeed: categories.contains(ImportCategory.seed) ? false : null,
       generatedImage: result.imageBytes,
+      generatedImages: const [],
+      clearSelectedGeneratedImageId: true,
+      autoFollowLatestImage: true,
       activeStyleNames: categories.contains(ImportCategory.styles)
           ? result.activeStyleNames
           : null,
@@ -1698,7 +2396,7 @@ class GenerationNotifier extends ChangeNotifier {
     final settings = previewSettings ?? TagPreviewSettings();
 
     try {
-      final seed = settings.seed ?? math.Random().nextInt(4294967295);
+      final seed = settings.seed ?? _randomUint32(math.Random());
       final result = await _service.generateImage(
         prompt: "${settings.positivePrompt}, $tag",
         negativePrompt: settings.negativePrompt,
@@ -1716,7 +2414,7 @@ class GenerationNotifier extends ChangeNotifier {
         final savedFile = await _saveToDisk(result.imageBytes, result.metadata);
         if (savedFile != null) {
           _galleryNotifier?.addFile(savedFile, DateTime.now());
-          await _autoExportIfEnabled(result.imageBytes);
+          await _autoExportIfEnabled(result.imageBytes, result.metadata);
         }
       }
 
@@ -1732,7 +2430,7 @@ class GenerationNotifier extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final seed = math.Random().nextInt(4294967295);
+      final seed = _randomUint32(math.Random());
 
       // Process wildcards in cascade prompts
       final processedCaption = await _wildcardProcessor.process(
@@ -1775,14 +2473,19 @@ class GenerationNotifier extends ChangeNotifier {
 
       _lastMetadata = result.metadata;
       _imageSaved = false;
-      _state = _state.copyWith(generatedImage: result.imageBytes);
+      _state = _state.copyWith(
+        generatedImage: result.imageBytes,
+        generatedImages: const [],
+        clearSelectedGeneratedImageId: true,
+        autoFollowLatestImage: true,
+      );
 
       if (_state.autoSaveImages) {
         final savedFile = await _saveToDisk(result.imageBytes, result.metadata);
         if (savedFile != null) {
           _galleryNotifier?.addFile(savedFile, DateTime.now());
           _imageSaved = true;
-          await _autoExportIfEnabled(result.imageBytes);
+          await _autoExportIfEnabled(result.imageBytes, result.metadata);
         }
       }
 
@@ -1792,7 +2495,12 @@ class GenerationNotifier extends ChangeNotifier {
       return null;
     } catch (e) {
       debugPrint("Cascade generation error: $e");
-      _state = _state.copyWith(errorMessage: _formatError(e));
+      final error = _formatError(e);
+      _state = _state.copyWith(
+        errorMessage: error.message,
+        errorTone: error.tone,
+        errorSuggestRandomSeed: error.suggestRandomSeed,
+      );
       return null;
     } finally {
       _state = _state.copyWith(isLoading: false);
@@ -1810,9 +2518,8 @@ class GenerationNotifier extends ChangeNotifier {
 
     try {
       final seed = _state.randomizeSeed
-          ? math.Random().nextInt(4294967295)
-          : (int.tryParse(seedController.text) ??
-                math.Random().nextInt(4294967295));
+          ? _randomUint32(math.Random())
+          : (int.tryParse(seedController.text) ?? _randomUint32(math.Random()));
       if (_state.randomizeSeed) seedController.text = seed.toString();
 
       final dirPayload = _directorRefNotifier?.buildPayload();
@@ -1854,7 +2561,12 @@ class GenerationNotifier extends ChangeNotifier {
 
       _lastMetadata = result.metadata;
       _imageSaved = false;
-      _state = _state.copyWith(generatedImage: finalBytes);
+      _state = _state.copyWith(
+        generatedImage: finalBytes,
+        generatedImages: const [],
+        clearSelectedGeneratedImageId: true,
+        autoFollowLatestImage: true,
+      );
 
       if (_state.autoSaveImages) {
         final timestamp = DateFormat(
@@ -1881,7 +2593,7 @@ class GenerationNotifier extends ChangeNotifier {
         if (savedFile != null) {
           _galleryNotifier?.addFile(savedFile, DateTime.now());
           _imageSaved = true;
-          await _autoExportIfEnabled(finalBytes);
+          await _autoExportIfEnabled(finalBytes, result.metadata);
           if (srcPath != null) {
             try {
               await File(srcPath).delete();
@@ -1896,7 +2608,12 @@ class GenerationNotifier extends ChangeNotifier {
       return null;
     } catch (e) {
       debugPrint("Img2Img generation error: $e");
-      _state = _state.copyWith(errorMessage: _formatError(e));
+      final error = _formatError(e);
+      _state = _state.copyWith(
+        errorMessage: error.message,
+        errorTone: error.tone,
+        errorSuggestRandomSeed: error.suggestRandomSeed,
+      );
       return null;
     } finally {
       _state = _state.copyWith(isLoading: false);
@@ -1905,20 +2622,68 @@ class GenerationNotifier extends ChangeNotifier {
     }
   }
 
-  String _formatError(Object e) {
+  GenerationError _formatError(Object e) {
+    if (e is GenerationRequestException) {
+      if (e.code == 'duplicate_generation' ||
+          e.code == 'duplicate_within_batch') {
+        return const GenerationError(
+          '参数没有变化，请检查 Seed。',
+          GenerationErrorTone.general,
+          true,
+        );
+      }
+      if (e.code == 'queue_capacity_reached') {
+        return const GenerationError('当前未完成的生成任务已达上限，请等待部分任务完成后再提交。');
+      }
+      if (e.code == 'points_insufficient') {
+        return GenerationError(
+          '可用点数不足，无法提交本次生成。',
+          e.pointKind == 'red'
+              ? GenerationErrorTone.redPoints
+              : GenerationErrorTone.greenPoints,
+        );
+      }
+      return _messageForGenerationStatus(e.statusCode, e.message);
+    }
     if (e is DioException) {
       final status = e.response?.statusCode;
-      if (status != null) return 'API ERROR $status';
+      if (status != null) {
+        return _messageForGenerationStatus(status, null);
+      }
       if (e.type == DioExceptionType.connectionTimeout ||
           e.type == DioExceptionType.receiveTimeout) {
-        return 'CONNECTION TIMEOUT';
+        return const GenerationError('连接超时，请检查网络后重试。');
       }
       if (e.type == DioExceptionType.connectionError) {
-        return 'CONNECTION ERROR';
+        return const GenerationError('无法连接到生成服务，请检查网络后重试。');
       }
-      return 'NETWORK ERROR';
+      return const GenerationError('网络请求失败，请稍后重试。');
     }
-    return 'GENERATION FAILED';
+    return const GenerationError('生成失败，请稍后重试。');
+  }
+
+  GenerationError _messageForGenerationStatus(int? status, String? detail) {
+    switch (status) {
+      case 400:
+        return const GenerationError('生成参数无效，请检查尺寸、步数或采样器。');
+      case 401:
+        return const GenerationError('登录已失效，请重新登录后再试。');
+      case 403:
+        return const GenerationError('当前账号没有使用此生成选项的权限。');
+      case 409:
+        return const GenerationError('生成请求与当前账户状态冲突。');
+      case 429:
+        return const GenerationError('当前未完成的生成任务已达上限，请等待部分任务完成后再提交。');
+      case 500:
+      case 502:
+      case 503:
+      case 504:
+        return const GenerationError('生成服务暂时不可用，请稍后重试。');
+      default:
+        return GenerationError(
+          detail?.isNotEmpty == true ? '生成请求被拒绝：$detail' : '生成失败，请稍后重试。',
+        );
+    }
   }
 
   // — Session snapshot (remember session) —

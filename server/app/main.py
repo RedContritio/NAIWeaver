@@ -9,6 +9,7 @@ from datetime import date, datetime, timedelta, timezone
 import ipaddress
 from io import BytesIO
 import json
+import math
 import os
 from pathlib import Path
 import secrets
@@ -18,7 +19,7 @@ from zipfile import ZipFile
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
 from webauthn import (
@@ -81,16 +82,22 @@ CORS_ORIGINS = [
     if origin.strip()
 ]
 
-DEFAULT_FREE_DAILY_LIMIT = int(os.environ.get("NAIWEAVER_FREE_DAILY_LIMIT", "200"))
-DEFAULT_PAID_DAILY_LIMIT = int(os.environ.get("NAIWEAVER_PAID_DAILY_LIMIT", "1000"))
-DEFAULT_PAID_POINT_LIMIT = int(os.environ.get("NAIWEAVER_PAID_POINT_LIMIT", "3000"))
-DEFAULT_ADMIN_POINT_LIMIT = int(os.environ.get("NAIWEAVER_ADMIN_POINT_LIMIT", "5000"))
+DEFAULT_GREEN_POINT_LIMIT = int(os.environ.get("NAIWEAVER_GREEN_POINT_LIMIT", "4000"))
+STANDARD_GREEN_IMAGE_POINTS = 20
+DEFAULT_RED_POINTS = int(os.environ.get("NAIWEAVER_RED_POINTS", "3000"))
+DEFAULT_ADMIN_RED_POINTS = int(
+    os.environ.get("NAIWEAVER_ADMIN_RED_POINTS", "5000")
+)
 MAX_STEPS_FREE = int(os.environ.get("NAIWEAVER_FREE_MAX_STEPS", "28"))
 MAX_STEPS_PAID = int(os.environ.get("NAIWEAVER_PAID_MAX_STEPS", "50"))
 MAX_STEPS_ADMIN = int(os.environ.get("NAIWEAVER_ADMIN_MAX_STEPS", "50"))
 MAX_DIMENSION = int(os.environ.get("NAIWEAVER_MAX_DIMENSION", "2048"))
 FREE_IMAGE_SIZES = frozenset({(832, 1216), (1216, 832), (1024, 1024)})
+# A standard 1MP / 28-step image costs 20 green points without Opus.
 TEXT_GLOBAL_CONCURRENCY = int(os.environ.get("NAIWEAVER_TEXT_CONCURRENCY", "3"))
+MAX_QUEUED_IMAGE_TASKS_PER_USER = int(
+    os.environ.get("NAIWEAVER_MAX_QUEUED_IMAGE_TASKS_PER_USER", "20")
+)
 THUMBNAIL_MAX_SIZE = int(os.environ.get("NAIWEAVER_THUMBNAIL_MAX_SIZE", "512"))
 THUMBNAIL_WEBP_QUALITY = int(os.environ.get("NAIWEAVER_THUMBNAIL_WEBP_QUALITY", "76"))
 
@@ -161,22 +168,38 @@ ALLOWED_API_PROXY_PATHS = {"user/subscription"}
 SCHEMA = """
 PRAGMA foreign_keys = ON;
 
+CREATE TABLE IF NOT EXISTS schema_migrations (
+  migration_key TEXT PRIMARY KEY,
+  applied_at TEXT NOT NULL
+);
+
+-- Keep the source values for destructive quota-schema migrations. This is
+-- intentionally separate from users so a later repair never has to guess
+-- what a retired column contained.
+CREATE TABLE IF NOT EXISTS legacy_quota_snapshots (
+  user_id INTEGER PRIMARY KEY,
+  values_json TEXT NOT NULL,
+  captured_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   username TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   is_admin INTEGER NOT NULL DEFAULT 0,
   disabled INTEGER NOT NULL DEFAULT 0,
-  can_generate_free INTEGER NOT NULL DEFAULT 1,
   can_generate_paid INTEGER NOT NULL DEFAULT 0,
   can_text_generate INTEGER NOT NULL DEFAULT 1,
   can_image_upscale INTEGER NOT NULL DEFAULT 1,
   can_image_augment INTEGER NOT NULL DEFAULT 1,
   can_image_encode_vibe INTEGER NOT NULL DEFAULT 1,
-  daily_limit INTEGER,
-  paid_daily_limit INTEGER,
-  paid_point_limit INTEGER NOT NULL DEFAULT 3000,
-  paid_point_used INTEGER NOT NULL DEFAULT 0,
+  green_point_limit INTEGER NOT NULL DEFAULT 4000,
+  green_point_used INTEGER NOT NULL DEFAULT 0,
+  green_points_reserved INTEGER NOT NULL DEFAULT 0,
+  green_point_discount INTEGER NOT NULL DEFAULT 0,
+  red_points INTEGER NOT NULL DEFAULT 3000,
+  red_points_used INTEGER NOT NULL DEFAULT 0,
+  red_points_reserved INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL
 );
 
@@ -218,12 +241,48 @@ CREATE TABLE IF NOT EXISTS generation_tasks (
   anlas_before INTEGER,
   anlas_after INTEGER,
   paid_points_charged INTEGER NOT NULL DEFAULT 0,
+  reserved_points INTEGER NOT NULL DEFAULT 0,
+  reserved_green_points INTEGER NOT NULL DEFAULT 0,
+  reserved_red_points INTEGER NOT NULL DEFAULT 0,
+  consumed_green_points INTEGER NOT NULL DEFAULT 0,
+  consumed_red_points INTEGER NOT NULL DEFAULT 0,
+  released_green_points INTEGER NOT NULL DEFAULT 0,
+  released_red_points INTEGER NOT NULL DEFAULT 0,
+  batch_id TEXT,
+  batch_index INTEGER,
+  request_fingerprint TEXT,
   request_json TEXT NOT NULL,
   queued_at TEXT,
   started_at TEXT,
   completed_at TEXT,
   created_at TEXT NOT NULL
 );
+
+-- A task is one user submission. Existing generation_tasks rows are its
+-- image-level items; their batch_id is migrated into this parent record.
+CREATE TABLE IF NOT EXISTS generation_submission_tasks (
+  id TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  client_request_id TEXT,
+  request_hash TEXT,
+  type TEXT NOT NULL CHECK(type IN ('single', 'batch')),
+  status TEXT NOT NULL,
+  item_count INTEGER NOT NULL DEFAULT 0,
+  reserved_points INTEGER NOT NULL DEFAULT 0,
+  consumed_points INTEGER NOT NULL DEFAULT 0,
+  released_points INTEGER NOT NULL DEFAULT 0,
+  reserved_green_points INTEGER NOT NULL DEFAULT 0,
+  reserved_red_points INTEGER NOT NULL DEFAULT 0,
+  consumed_green_points INTEGER NOT NULL DEFAULT 0,
+  consumed_red_points INTEGER NOT NULL DEFAULT 0,
+  released_green_points INTEGER NOT NULL DEFAULT 0,
+  released_red_points INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  completed_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_generation_submission_tasks_user_created
+ON generation_submission_tasks(user_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS history_hidden (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -318,12 +377,11 @@ class ProxyJob:
     negative_weight: int
     created_at: str
     user_id: int = field(compare=False)
-    username: str = field(compare=False)
     task_id: str = field(compare=False)
     service: str = field(compare=False)
     path: str = field(compare=False)
-    future: asyncio.Future[tuple[int, dict[str, str], bytes]] = field(compare=False)
     body: bytes = field(compare=False)
+    cost: int = field(compare=False, default=1)
     quota_mode: str | None = field(compare=False, default=None)
 
     def __post_init__(self) -> None:
@@ -357,16 +415,16 @@ class UserUpdateRequest(BaseModel):
     password: str | None = Field(default=None, min_length=1, max_length=256)
     is_admin: bool | None = None
     disabled: bool | None = None
-    can_generate_free: bool | None = None
+    green_point_discount: int | None = Field(default=None, ge=0, le=100)
     can_generate_paid: bool | None = None
     can_text_generate: bool | None = None
     can_image_upscale: bool | None = None
     can_image_augment: bool | None = None
     can_image_encode_vibe: bool | None = None
-    daily_limit: int | None = Field(default=None, ge=0)
-    paid_daily_limit: int | None = Field(default=None, ge=0)
-    paid_point_limit: int | None = Field(default=None, ge=0)
-    paid_point_used: int | None = Field(default=None, ge=0)
+    green_point_limit: int | None = Field(default=None, ge=0)
+    green_point_used: int | None = Field(default=None, ge=0)
+    red_points: int | None = Field(default=None, ge=0)
+    red_points_used: int | None = Field(default=None, ge=0)
 
 
 class UserCreateRequest(BaseModel):
@@ -376,16 +434,16 @@ class UserCreateRequest(BaseModel):
     password: str | None = Field(default=None, min_length=1, max_length=256)
     is_admin: bool = False
     disabled: bool = False
-    can_generate_free: bool = True
+    green_point_discount: int = Field(default=0, ge=0, le=100)
     can_generate_paid: bool = False
     can_text_generate: bool = True
     can_image_upscale: bool = True
     can_image_augment: bool = True
     can_image_encode_vibe: bool = True
-    daily_limit: int | None = Field(default=DEFAULT_FREE_DAILY_LIMIT, ge=0)
-    paid_daily_limit: int | None = Field(default=DEFAULT_PAID_DAILY_LIMIT, ge=0)
-    paid_point_limit: int | None = Field(default=DEFAULT_PAID_POINT_LIMIT, ge=0)
-    paid_point_used: int = Field(default=0, ge=0)
+    green_point_limit: int = Field(default=DEFAULT_GREEN_POINT_LIMIT, ge=0)
+    green_point_used: int = Field(default=0, ge=0)
+    red_points: int = Field(default=DEFAULT_RED_POINTS, ge=0)
+    red_points_used: int = Field(default=0, ge=0)
 
 
 class WebAuthnRegisterOptionsRequest(BaseModel):
@@ -496,12 +554,115 @@ def migrate_db(db: sqlite3.Connection) -> None:
         "can_image_upscale": "INTEGER NOT NULL DEFAULT 1",
         "can_image_augment": "INTEGER NOT NULL DEFAULT 1",
         "can_image_encode_vibe": "INTEGER NOT NULL DEFAULT 1",
-        "paid_point_limit": f"INTEGER NOT NULL DEFAULT {DEFAULT_PAID_POINT_LIMIT}",
-        "paid_point_used": "INTEGER NOT NULL DEFAULT 0",
+        "green_point_limit": f"INTEGER NOT NULL DEFAULT {DEFAULT_GREEN_POINT_LIMIT}",
+        "green_point_used": "INTEGER NOT NULL DEFAULT 0",
+        "green_points_reserved": "INTEGER NOT NULL DEFAULT 0",
+        "green_point_discount": "INTEGER NOT NULL DEFAULT 0",
+        "red_points": f"INTEGER NOT NULL DEFAULT {DEFAULT_RED_POINTS}",
+        "red_points_used": "INTEGER NOT NULL DEFAULT 0",
+        "red_points_reserved": "INTEGER NOT NULL DEFAULT 0",
     }
     for name, definition in user_columns.items():
         if name not in table_columns:
             db.execute(f"ALTER TABLE users ADD COLUMN {name} {definition}")
+    submission_columns = {
+        "client_request_id": "TEXT",
+        "request_hash": "TEXT",
+        "reserved_green_points": "INTEGER NOT NULL DEFAULT 0",
+        "reserved_red_points": "INTEGER NOT NULL DEFAULT 0",
+        "consumed_green_points": "INTEGER NOT NULL DEFAULT 0",
+        "consumed_red_points": "INTEGER NOT NULL DEFAULT 0",
+        "released_green_points": "INTEGER NOT NULL DEFAULT 0",
+        "released_red_points": "INTEGER NOT NULL DEFAULT 0",
+    }
+    existing_submission_columns = {
+        row["name"] for row in db.execute("PRAGMA table_info(generation_submission_tasks)").fetchall()
+    }
+    for name, definition in submission_columns.items():
+        if name not in existing_submission_columns:
+            db.execute(f"ALTER TABLE generation_submission_tasks ADD COLUMN {name} {definition}")
+    db.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_generation_submission_tasks_idempotency "
+        "ON generation_submission_tasks(user_id, client_request_id) "
+        "WHERE client_request_id IS NOT NULL"
+    )
+    legacy_quota_columns = (
+        "daily_limit",
+        "paid_daily_limit",
+        "can_generate_free",
+        "paid_point_limit",
+        "paid_point_used",
+        "red_point_limit",
+        "red_point_used",
+    )
+    present_legacy_columns = [
+        name for name in legacy_quota_columns if name in table_columns
+    ]
+    if present_legacy_columns:
+        # Snapshot before ALTER TABLE DROP COLUMN. Do not include credentials or
+        # other unrelated user data in the recovery record.
+        select_columns = ", ".join(["id", *present_legacy_columns])
+        for row in db.execute(f"SELECT {select_columns} FROM users").fetchall():
+            values = {name: row[name] for name in present_legacy_columns}
+            db.execute(
+                "INSERT OR IGNORE INTO legacy_quota_snapshots"
+                "(user_id, values_json, captured_at) VALUES (?, ?, ?)",
+                (row["id"], json.dumps(values, sort_keys=True), now_iso()),
+            )
+
+    # Copy retired quota values once before physically removing their columns.
+    if "green_point_limit" not in table_columns and "daily_limit" in table_columns:
+        free_permission = (
+            "WHEN can_generate_free = 0 THEN 0 "
+            if "can_generate_free" in table_columns
+            else ""
+        )
+        db.execute(
+            "UPDATE users SET green_point_limit = CASE "
+            "WHEN is_admin = 1 THEN ? "
+            f"{free_permission}"
+            "WHEN daily_limit IS NULL OR daily_limit < 0 THEN ? "
+            "ELSE daily_limit * ? END",
+            (
+                DEFAULT_GREEN_POINT_LIMIT,
+                DEFAULT_GREEN_POINT_LIMIT,
+                STANDARD_GREEN_IMAGE_POINTS,
+            ),
+        )
+    if "green_point_used" not in table_columns:
+        db.execute(
+            """
+            UPDATE users
+            SET green_point_used = COALESCE((
+              SELECT SUM(used) * ? FROM quota_usage
+              WHERE quota_usage.user_id = users.id AND mode = 'free'
+                AND quota_date = ?
+            ), 0)
+            """,
+            (STANDARD_GREEN_IMAGE_POINTS, today_key()),
+        )
+    if "green_point_discount" not in table_columns:
+        # Only administrators are unlimited. Legacy free-generation access is
+        # represented by the migrated green-point limit, not a 100% discount.
+        db.execute(
+            "UPDATE users SET green_point_discount = CASE "
+            "WHEN is_admin = 1 THEN 100 ELSE 0 END"
+        )
+    if "red_points" not in table_columns:
+        if "red_point_limit" in table_columns:
+            db.execute("UPDATE users SET red_points = red_point_limit")
+        else:
+            db.execute("UPDATE users SET red_points = COALESCE(paid_point_limit, 0)")
+    if "red_points_used" not in table_columns:
+        if "red_point_used" in table_columns:
+            db.execute("UPDATE users SET red_points_used = red_point_used")
+        else:
+            db.execute("UPDATE users SET red_points_used = COALESCE(paid_point_used, 0)")
+    # This is a one-time physical schema migration, not a compatibility layer.
+    # All values are copied above before the retired quota columns are removed.
+    for legacy_column in legacy_quota_columns:
+        if legacy_column in table_columns:
+            db.execute(f"ALTER TABLE users DROP COLUMN {legacy_column}")
     task_columns = {
         row["name"] for row in db.execute("PRAGMA table_info(generation_tasks)").fetchall()
     }
@@ -512,10 +673,119 @@ def migrate_db(db: sqlite3.Connection) -> None:
         "anlas_before": "INTEGER",
         "anlas_after": "INTEGER",
         "paid_points_charged": "INTEGER NOT NULL DEFAULT 0",
+        "reserved_points": "INTEGER NOT NULL DEFAULT 0",
+        "reserved_green_points": "INTEGER NOT NULL DEFAULT 0",
+        "reserved_red_points": "INTEGER NOT NULL DEFAULT 0",
+        "consumed_green_points": "INTEGER NOT NULL DEFAULT 0",
+        "consumed_red_points": "INTEGER NOT NULL DEFAULT 0",
+        "released_green_points": "INTEGER NOT NULL DEFAULT 0",
+        "released_red_points": "INTEGER NOT NULL DEFAULT 0",
+        "batch_id": "TEXT",
+        "batch_index": "INTEGER",
+        "request_fingerprint": "TEXT",
     }
     for name, definition in generation_task_columns.items():
         if name not in task_columns:
             db.execute(f"ALTER TABLE generation_tasks ADD COLUMN {name} {definition}")
+    # Only backfill accounting columns when upgrading a schema that did not
+    # have them. Rewriting them on every boot can destroy legitimate manual
+    # adjustments and makes an interrupted migration impossible to audit.
+    accounting_columns = {
+        "reserved_green_points",
+        "reserved_red_points",
+        "consumed_green_points",
+        "consumed_red_points",
+        "released_green_points",
+        "released_red_points",
+    }
+    if not accounting_columns.issubset(task_columns):
+        db.execute(
+            """
+            UPDATE generation_tasks
+            SET reserved_green_points = CASE WHEN mode = 'free' THEN reserved_points ELSE 0 END,
+                reserved_red_points = CASE WHEN mode = 'paid' THEN reserved_points ELSE 0 END,
+                consumed_green_points = CASE WHEN mode = 'free' AND status = 'success' THEN reserved_points ELSE 0 END,
+                consumed_red_points = CASE WHEN mode = 'paid' AND status = 'success' THEN paid_points_charged ELSE 0 END,
+                released_green_points = CASE WHEN mode = 'free' AND status IN ('failed', 'rejected', 'cancelled') THEN reserved_points ELSE 0 END,
+                released_red_points = CASE WHEN mode = 'paid' AND status IN ('failed', 'rejected', 'cancelled') THEN reserved_points ELSE 0 END
+            """
+        )
+    fingerprint_rows = db.execute(
+        "SELECT id, request_json FROM generation_tasks WHERE request_fingerprint IS NULL"
+    ).fetchall()
+    for row in fingerprint_rows:
+        try:
+            parsed_request = json.loads(row["request_json"])
+            fingerprint = generation_request_fingerprint(parsed_request)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            continue
+        db.execute(
+            "UPDATE generation_tasks SET request_fingerprint = ? WHERE id = ?",
+            (fingerprint, row["id"]),
+        )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_generation_tasks_user_fingerprint "
+        "ON generation_tasks(user_id, request_fingerprint)"
+    )
+    # Backfill the outer task for every historical image item. Explicit batch
+    # IDs are authoritative. Rows from before explicit batch IDs are kept as
+    # separate submissions; timing proximity is not proof of one batch.
+    rows = db.execute(
+        "SELECT id, user_id, batch_id, created_at, status, reserved_points "
+        "FROM generation_tasks ORDER BY user_id, created_at, id"
+    ).fetchall()
+    for row in rows:
+        explicit = row["batch_id"]
+        if explicit:
+            parent_id = explicit
+        else:
+            parent_id = f"legacy-{row['id']}"
+        db.execute(
+            "INSERT OR IGNORE INTO generation_submission_tasks "
+            "(id, user_id, type, status, created_at) VALUES (?, ?, 'single', 'queued', ?)",
+            (parent_id, row["user_id"], row["created_at"]),
+        )
+        db.execute("UPDATE generation_tasks SET batch_id = ? WHERE id = ?", (parent_id, row["id"]))
+    db.execute(
+        """
+        UPDATE generation_submission_tasks
+        SET item_count = (SELECT COUNT(*) FROM generation_tasks i WHERE i.batch_id = generation_submission_tasks.id),
+            reserved_points = (SELECT COALESCE(SUM(reserved_points), 0) FROM generation_tasks i WHERE i.batch_id = generation_submission_tasks.id),
+            type = CASE WHEN (SELECT COUNT(*) FROM generation_tasks i WHERE i.batch_id = generation_submission_tasks.id) > 1 THEN 'batch' ELSE 'single' END
+        """
+    )
+    for row in db.execute("SELECT id FROM generation_submission_tasks").fetchall():
+        refresh_submission_task(db, row["id"])
+    # A submission without items cannot ever run. Removing stale active shells
+    # lets an idempotent client retry instead of replaying an empty task.
+    db.execute(
+        """
+        DELETE FROM generation_submission_tasks
+        WHERE status IN ('queued', 'running')
+          AND NOT EXISTS (
+            SELECT 1 FROM generation_tasks i
+            WHERE i.batch_id = generation_submission_tasks.id
+          )
+        """
+    )
+    # Reserved counters are a cache of durable active item reservations. This
+    # repairs leaked counters after an interrupted older implementation while
+    # preserving consumed point balances.
+    db.execute(
+        """
+        UPDATE users
+        SET green_points_reserved = COALESCE((
+              SELECT SUM(reserved_points) FROM generation_tasks i
+              WHERE i.user_id = users.id AND i.mode = 'free'
+                AND i.status IN ('queued', 'running')
+            ), 0),
+            red_points_reserved = COALESCE((
+              SELECT SUM(reserved_points) FROM generation_tasks i
+              WHERE i.user_id = users.id AND i.mode = 'paid'
+                AND i.status IN ('queued', 'running')
+            ), 0)
+        """
+    )
     db.execute(
         """
         CREATE TABLE IF NOT EXISTS history_hidden (
@@ -628,17 +898,16 @@ def bootstrap_users() -> None:
     admin_password_env = os.environ.get("NAIWEAVER_ADMIN_PASSWORD")
     admin_password = admin_password_env or "local-test-admin"
     samples = [
-        ("admin", admin_password, 1, 1, 1, None, None, DEFAULT_ADMIN_POINT_LIMIT),
-        ("free_user", "free-test-pass", 0, 1, 0, DEFAULT_FREE_DAILY_LIMIT, 0, 0),
+        ("admin", admin_password, 1, 1, 100, DEFAULT_GREEN_POINT_LIMIT, DEFAULT_ADMIN_RED_POINTS),
+        ("free_user", "free-test-pass", 0, 0, 0, DEFAULT_GREEN_POINT_LIMIT, 0),
         (
             "paid_user",
             "paid-test-pass",
             0,
             1,
-            1,
-            None,
-            DEFAULT_PAID_DAILY_LIMIT,
-            DEFAULT_PAID_POINT_LIMIT,
+            0,
+            DEFAULT_GREEN_POINT_LIMIT,
+            DEFAULT_RED_POINTS,
         ),
     ]
     with db_connect() as db:
@@ -646,10 +915,9 @@ def bootstrap_users() -> None:
             username,
             password,
             is_admin,
-            can_free,
             can_paid,
-            daily,
-            paid_daily,
+            green_discount,
+            green_limit,
             paid_points,
         ) in samples:
             existing = db.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
@@ -659,30 +927,29 @@ def bootstrap_users() -> None:
                         """
                         UPDATE users
                         SET password_hash = ?, is_admin = 1, disabled = 0,
-                            can_generate_free = 1, can_generate_paid = 1,
-                            paid_point_limit = ?
+                            green_point_discount = 100, can_generate_paid = 1,
+                            red_points = ?
                         WHERE username = 'admin'
                         """,
-                        (hash_password(admin_password), DEFAULT_ADMIN_POINT_LIMIT),
+                        (hash_password(admin_password), DEFAULT_ADMIN_RED_POINTS),
                     )
                 continue
             db.execute(
                 """
                 INSERT INTO users(
-                  username, password_hash, is_admin, can_generate_free,
-                  can_generate_paid, daily_limit, paid_daily_limit,
-                  paid_point_limit, paid_point_used, created_at
+                  username, password_hash, is_admin, green_point_discount,
+                  can_generate_paid, green_point_limit,
+                  red_points, red_points_used, created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)
                 """,
                 (
                     username,
                     hash_password(password),
                     is_admin,
-                    can_free,
+                    green_discount,
                     can_paid,
-                    daily,
-                    paid_daily,
+                    green_limit,
                     paid_points,
                     now_iso(),
                 ),
@@ -722,6 +989,7 @@ async def lifespan(_: FastAPI):
     http_client = httpx.AsyncClient(timeout=timeout)
     queue_condition = asyncio.Condition()
     text_queue_condition = asyncio.Condition()
+    await restore_generation_queue()
     queue_worker_task = asyncio.create_task(queue_worker())
     try:
         yield
@@ -807,7 +1075,7 @@ def user_to_dict(
 ) -> dict[str, Any]:
     permissions = {"history.read"}
     has_paid_budget = paid_image_budget_available(user, db)
-    if user["can_generate_free"]:
+    if user["is_admin"] or user["green_point_discount"] > 0 or user["green_point_limit"] > user["green_point_used"]:
         permissions.add("image.generate.free")
     if has_paid_budget:
         permissions.add("image.generate.paid")
@@ -838,16 +1106,16 @@ def user_admin_dict(user: sqlite3.Row) -> dict[str, Any]:
     return {
         **user_to_dict(user),
         "disabled": bool(user["disabled"]),
-        "can_generate_free": bool(user["can_generate_free"]),
+        "green_point_discount": user["green_point_discount"],
         "can_generate_paid": bool(user["can_generate_paid"]),
         "can_text_generate": bool(user["can_text_generate"]),
         "can_image_upscale": bool(user["can_image_upscale"]),
         "can_image_augment": bool(user["can_image_augment"]),
         "can_image_encode_vibe": bool(user["can_image_encode_vibe"]),
-        "daily_limit": user["daily_limit"],
-        "paid_daily_limit": user["paid_daily_limit"],
-        "paid_point_limit": user["paid_point_limit"],
-        "paid_point_used": user["paid_point_used"],
+        "green_point_limit": user["green_point_limit"],
+        "green_point_used": user["green_point_used"],
+        "red_points": user["red_points"],
+        "red_points_used": user["red_points_used"],
         "created_at": user["created_at"],
     }
 
@@ -922,6 +1190,7 @@ def logout(request: Request, response: Response, db: sqlite3.Connection = Depend
         except TokenError:
             pass
     response.delete_cookie("access_token", path="/")
+    response.delete_cookie("naiweaver_current_task", path="/")
     return {"ok": True}
 
 
@@ -1198,41 +1467,56 @@ def usage_for(db: sqlite3.Connection, user_id: int, mode: str) -> int:
 
 def quota_limit(user: sqlite3.Row, mode: str) -> int | None:
     if mode == "free":
-        if user["is_admin"]:
-            return None
-        if user["can_generate_paid"]:
-            return None
-        return user["daily_limit"] if user["daily_limit"] is not None else DEFAULT_FREE_DAILY_LIMIT
+        configured = user["green_point_limit"]
+        return DEFAULT_GREEN_POINT_LIMIT if configured is None else int(configured)
     if mode == "paid":
-        if user["paid_point_limit"] is None:
-            return DEFAULT_ADMIN_POINT_LIMIT if user["is_admin"] else DEFAULT_PAID_POINT_LIMIT
-        return int(user["paid_point_limit"])
+        if user["red_points"] is None:
+            return DEFAULT_ADMIN_RED_POINTS if user["is_admin"] else DEFAULT_RED_POINTS
+        return int(user["red_points"])
     return 0
 
 
 def quota_bucket(db: sqlite3.Connection, user: sqlite3.Row, mode: str) -> dict[str, Any]:
     limit = quota_limit(user, mode)
+    discount = green_point_discount_for(user)
+    enabled = bool(
+        user["is_admin"]
+        or (mode == "free" and (
+            discount > 0
+            or user["green_point_limit"] > user["green_point_used"]
+        ))
+        or (mode == "paid" and user["can_generate_paid"])
+    )
     if mode == "paid":
-        used = int(user["paid_point_used"])
+        reserved = int(user["red_points_reserved"])
+        used = int(user["red_points_used"]) + reserved
         return {
             "date": None,
             "mode": mode,
             "kind": "points",
-            "daily_limit": limit,
+            "red_points": limit,
             "point_limit": limit,
             "used": used,
+            "reserved": reserved,
             "remaining": None if limit is None else limit - used,
             "unlimited": limit is None,
+            "enabled": enabled,
         }
-    used = usage_for(db, int(user["id"]), mode)
+    reserved = int(user["green_points_reserved"])
+    used = int(user["green_point_used"]) + reserved
+    fully_discounted = discount >= 100
     return {
-        "date": today_key(),
+        "date": None,
         "mode": mode,
-        "kind": "daily_count",
-        "daily_limit": limit,
+        "kind": "points",
+        "green_point_limit": limit,
+        "green_point_discount": discount,
+        "point_limit": limit,
         "used": used,
-        "remaining": None if limit is None else max(0, limit - used),
-        "unlimited": limit is None,
+        "reserved": reserved,
+        "remaining": 0 if fully_discounted else max(0, limit - used),
+        "unlimited": fully_discounted,
+        "enabled": enabled,
     }
 
 
@@ -1248,8 +1532,29 @@ def quota(user: sqlite3.Row = Depends(require_user), db: sqlite3.Connection = De
     return quota_for_user(db, user)
 
 
+def recent_image_generation_seconds(db: sqlite3.Connection) -> float:
+    """Use recent successful jobs to give the queue a deliberately simple ETA."""
+    row = db.execute(
+        """
+        SELECT AVG((julianday(completed_at) - julianday(started_at)) * 86400.0)
+        FROM (
+          SELECT started_at, completed_at
+          FROM generation_tasks
+          WHERE status = 'success' AND started_at IS NOT NULL AND completed_at IS NOT NULL
+          ORDER BY completed_at DESC
+          LIMIT 50
+        )
+        """
+    ).fetchone()
+    value = float(row[0]) if row and row[0] is not None else 30.0
+    return max(5.0, min(value, 300.0))
+
+
 @app.get("/api/queue")
-async def queue_status(user: sqlite3.Row = Depends(require_user)):
+async def queue_status(
+    user: sqlite3.Row = Depends(require_user),
+    db: sqlite3.Connection = Depends(get_db),
+):
     assert queue_condition is not None
     assert text_queue_condition is not None
     async with queue_condition:
@@ -1260,6 +1565,7 @@ async def queue_status(user: sqlite3.Row = Depends(require_user)):
         image_queued = len(pending_jobs)
         image_active = len(active_user_ids)
         user_image_active = int(user["id"]) in active_user_ids
+        user_pending_count = sum(job.user_id == user["id"] for job in pending_jobs)
     async with text_queue_condition:
         text_own_index = next(
             (
@@ -1277,12 +1583,23 @@ async def queue_status(user: sqlite3.Row = Depends(require_user)):
     ]
     tasks_ahead = min(own_indices) if own_indices else None
     user_queued = image_own_index is not None or text_own_index is not None
+    # A single image worker executes the ordered image queue. The currently
+    # running request counts as one average job before the first queued item.
+    image_wait_seconds = (
+        0
+        if user_image_active
+        else round((image_own_index + image_active) * recent_image_generation_seconds(db))
+        if image_own_index is not None
+        else None
+    )
     return {
         "queued": image_queued + text_queued,
         "active": image_active + text_active,
         "user_active": user_image_active or user_text_active,
         "user_queued": user_queued,
         "tasks_ahead": tasks_ahead,
+        "estimated_wait_seconds": image_wait_seconds,
+        "user_pending_count": user_pending_count,
         "text_concurrency": TEXT_GLOBAL_CONCURRENCY,
     }
 
@@ -1371,10 +1688,10 @@ def admin_create_user(
         db.execute(
             """
             INSERT INTO users(
-              username, password_hash, is_admin, disabled, can_generate_free,
+              username, password_hash, is_admin, disabled, green_point_discount,
               can_generate_paid, can_text_generate, can_image_upscale,
-              can_image_augment, can_image_encode_vibe, daily_limit,
-              paid_daily_limit, paid_point_limit, paid_point_used, created_at
+              can_image_augment, can_image_encode_vibe, green_point_limit,
+              green_point_used, red_points, red_points_used, created_at
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
@@ -1383,16 +1700,16 @@ def admin_create_user(
                 hash_password(payload.password or secrets.token_urlsafe(32)),
                 int(payload.is_admin),
                 int(payload.disabled),
-                int(payload.can_generate_free),
+                100 if payload.is_admin else payload.green_point_discount,
                 int(payload.can_generate_paid),
                 int(payload.can_text_generate),
                 int(payload.can_image_upscale),
                 int(payload.can_image_augment),
                 int(payload.can_image_encode_vibe),
-                payload.daily_limit,
-                payload.paid_daily_limit,
-                payload.paid_point_limit,
-                payload.paid_point_used,
+                payload.green_point_limit,
+                payload.green_point_used,
+                payload.red_points,
+                payload.red_points_used,
                 now_iso(),
             ),
         )
@@ -1419,14 +1736,19 @@ def admin_update_user(
     bool_fields = {
         "is_admin",
         "disabled",
-        "can_generate_free",
         "can_generate_paid",
         "can_text_generate",
         "can_image_upscale",
         "can_image_augment",
         "can_image_encode_vibe",
     }
-    int_fields = {"daily_limit", "paid_daily_limit", "paid_point_limit", "paid_point_used"}
+    int_fields = {
+        "green_point_discount",
+        "green_point_limit",
+        "green_point_used",
+        "red_points",
+        "red_points_used",
+    }
     for field in sorted(payload.model_fields_set):
         if field == "password":
             if payload.password:
@@ -1449,10 +1771,10 @@ def admin_update_user(
 @app.get("/api/admin/config")
 def admin_config(_: sqlite3.Row = Depends(require_admin)):
     return {
-        "free_daily_limit": DEFAULT_FREE_DAILY_LIMIT,
-        "paid_daily_limit": DEFAULT_PAID_DAILY_LIMIT,
-        "paid_point_limit": DEFAULT_PAID_POINT_LIMIT,
-        "admin_point_limit": DEFAULT_ADMIN_POINT_LIMIT,
+        "green_point_limit": DEFAULT_GREEN_POINT_LIMIT,
+        "green_point_discount": 0,
+        "red_points": DEFAULT_RED_POINTS,
+        "admin_red_points": DEFAULT_ADMIN_RED_POINTS,
         "free_max_steps": MAX_STEPS_FREE,
         "paid_max_steps": MAX_STEPS_PAID,
         "admin_max_steps": MAX_STEPS_ADMIN,
@@ -1609,34 +1931,151 @@ def is_free_opus_generation(
     return not any(nonempty_parameter(params, key) for key in PAID_ONLY_IMAGE_PARAMETERS)
 
 
-def check_quota(db: sqlite3.Connection, user: sqlite3.Row, mode: str) -> None:
-    bucket = quota_bucket(db, user, mode)
-    if bucket["remaining"] is not None and bucket["remaining"] <= 0:
-        if mode == "paid":
-            raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Paid points exhausted")
-        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Daily quota exhausted")
-
-
-def increment_quota(db: sqlite3.Connection, user_id: int, mode: str) -> None:
-    if mode == "paid":
-        charge_paid_points(db, user_id, 1)
-        return
-    db.execute(
-        """
-        INSERT INTO quota_usage(user_id, quota_date, mode, used)
-        VALUES (?, ?, ?, 1)
-        ON CONFLICT(user_id, quota_date, mode)
-        DO UPDATE SET used = used + 1
-        """,
-        (user_id, today_key(), mode),
+def estimate_image_points(data: dict[str, Any], params: dict[str, Any]) -> int:
+    """Match the client-side non-Opus Anlas estimate for green-point billing."""
+    width = max(1, int(params.get("width", 1)))
+    height = max(1, int(params.get("height", 1)))
+    steps = max(1, int(params.get("steps", 1)))
+    multiplier = 1.4 if truthy_parameter(params.get("sm_dyn")) else (
+        1.2 if truthy_parameter(params.get("sm")) else 1.0
     )
+    raw_base = (2.951823174884865e-6 * width * height) + (
+        5.753298233447344e-7 * width * height * steps
+    )
+    base = max(math.ceil(math.ceil(raw_base) * multiplier), 2)
+    director_count = len(params.get("director_reference_images", []) or [])
+    vibe_count = len(params.get("reference_image_multiple", []) or [])
+    return base + director_count * 5 + max(0, vibe_count - 4) * 2
+
+
+def check_quota(
+    db: sqlite3.Connection, user: sqlite3.Row, mode: str, required_points: int = 1
+) -> None:
+    if mode == "free":
+        required_points = discounted_green_points(user, required_points)
+        if required_points == 0:
+            return
+    bucket = quota_bucket(db, user, mode)
+    if (
+        bucket["remaining"] is not None
+        and bucket["remaining"] < max(1, required_points)
+    ):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail={
+                "code": "points_insufficient",
+                "point_kind": "red" if mode == "paid" else "green",
+                "message": "Available points are insufficient",
+            },
+        )
+
+
+def reserve_generation_quota(
+    db: sqlite3.Connection, user_id: int, mode: str | None, points: int
+) -> int:
+    """Reserve this task's cost at submit time.
+
+    The full estimated cost must be available before the task is admitted.
+    Zero-cost work never needs a reservation.
+    """
+    if mode is None:
+        return 0
+    user = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+    charge = discounted_green_points(user, points) if mode == "free" else max(0, points)
+    if charge == 0:
+        return 0
+    bucket = quota_bucket(db, user, mode)
+    remaining = bucket["remaining"]
+    if remaining is not None and remaining < charge:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail={
+                "code": "points_insufficient",
+                "point_kind": "red" if mode == "paid" else "green",
+                "message": "Available points are insufficient",
+            },
+        )
+    column = "red_points_reserved" if mode == "paid" else "green_points_reserved"
+    db.execute(f"UPDATE users SET {column} = {column} + ? WHERE id = ?", (charge, user_id))
+    return charge
+
+
+def settle_generation_reservation(
+    db: sqlite3.Connection,
+    user_id: int,
+    mode: str | None,
+    reserved_points: int,
+    *,
+    actual_points: int | None,
+) -> None:
+    if mode is None or reserved_points <= 0:
+        return
+    reserved_column = "red_points_reserved" if mode == "paid" else "green_points_reserved"
+    used_column = "red_points_used" if mode == "paid" else "green_point_used"
+    charged = reserved_points if actual_points is None else max(0, actual_points)
+    db.execute(
+        f"""
+        UPDATE users
+        SET {reserved_column} = MAX(0, {reserved_column} - ?),
+            {used_column} = {used_column} + ?
+        WHERE id = ?
+        """,
+        (reserved_points, charged, user_id),
+    )
+
+
+def release_generation_reservation(
+    db: sqlite3.Connection, user_id: int, mode: str | None, reserved_points: int
+) -> None:
+    if mode is None or reserved_points <= 0:
+        return
+    reserved_column = "red_points_reserved" if mode == "paid" else "green_points_reserved"
+    db.execute(
+        f"UPDATE users SET {reserved_column} = MAX(0, {reserved_column} - ?) WHERE id = ?",
+        (reserved_points, user_id),
+    )
+
+
+def increment_quota(
+    db: sqlite3.Connection, user_id: int, mode: str, points: int = 1
+) -> None:
+    if mode == "paid":
+        charge_paid_points(db, user_id, points)
+        return
+    row = db.execute(
+        "SELECT green_point_discount FROM users WHERE id = ?", (user_id,)
+    ).fetchone()
+    if row and int(row["green_point_discount"]) >= 100:
+        return
+    discount = int(row["green_point_discount"]) if row else 0
+    charged = max(0, math.ceil(max(1, points) * (100 - discount) / 100))
+    db.execute(
+        "UPDATE users SET green_point_used = green_point_used + ? WHERE id = ?",
+        (charged, user_id),
+    )
+
+
+def discounted_green_points(user: sqlite3.Row, points: int) -> int:
+    """Return the permanent green-point charge after the user's discount."""
+    if points <= 0:
+        return 0
+    discount = green_point_discount_for(user)
+    return max(0, math.ceil(points * (100 - discount) / 100))
+
+
+def green_point_discount_for(user: sqlite3.Row) -> int:
+    if user["is_admin"]:
+        return 100
+    return min(100, max(0, int(user["green_point_discount"])))
 
 
 def charge_paid_points(db: sqlite3.Connection, user_id: int, points: int) -> None:
     if points <= 0:
         return
     db.execute(
-        "UPDATE users SET paid_point_used = paid_point_used + ? WHERE id = ?",
+        "UPDATE users SET red_points_used = red_points_used + ? WHERE id = ?",
         (points, user_id),
     )
 
@@ -1644,7 +2083,7 @@ def charge_paid_points(db: sqlite3.Connection, user_id: int, points: int) -> Non
 def sanitize_novelai_generate_body(
     body: bytes, user: sqlite3.Row
 ) -> tuple[bytes, dict[str, Any], str | None]:
-    if not (user["can_generate_free"] or user["can_generate_paid"] or user["is_admin"]):
+    if not (user["can_generate_paid"] or user["is_admin"] or user["green_point_limit"] > user["green_point_used"] or user["green_point_discount"] > 0):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Image generation is not allowed")
     try:
         data = json.loads(body.decode("utf-8"))
@@ -1689,11 +2128,6 @@ def sanitize_novelai_generate_body(
                 "This image option requires paid image quota",
             )
         quota_mode = "paid"
-    if quota_mode == "free" and not user["can_generate_free"]:
-        if user["can_generate_paid"]:
-            quota_mode = "paid"
-        else:
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "Free image generation is not allowed")
     return (
         json.dumps(data, separators=(",", ":"), ensure_ascii=False).encode("utf-8"),
         data,
@@ -1731,7 +2165,7 @@ def require_novelai_proxy_permission(
         if path not in ALLOWED_IMAGE_PROXY_PATHS:
             raise HTTPException(status.HTTP_403_FORBIDDEN, "NovelAI endpoint is not allowed")
         if path == "ai/generate-image":
-            if not (user["can_generate_free"] or user["can_generate_paid"]):
+            if not (user["can_generate_paid"] or user["green_point_limit"] > user["green_point_used"] or user["green_point_discount"] > 0):
                 raise HTTPException(status.HTTP_403_FORBIDDEN, "Image generation is not allowed")
             return
         if path == "ai/upscale":
@@ -2123,6 +2557,89 @@ async def save_history_image(task_id: str, data: bytes) -> str | None:
     return image_path
 
 
+def job_from_task_row(task: sqlite3.Row) -> ProxyJob:
+    """Rebuild an executable job from its durable queue record."""
+    try:
+        payload = json.loads(task["request_json"])
+        if not isinstance(payload, dict) or not isinstance(payload.get("parameters"), dict):
+            raise ValueError("Invalid request structure")
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Task {task['id']} has invalid request data") from exc
+    mode = str(task["mode"])
+    cost = (
+        estimate_image_points(payload, payload["parameters"])
+        if mode == "free"
+        else int(task["cost"] or 1)
+    )
+    return ProxyJob(
+        virtual_finish=float(task["virtual_finish"] or 0),
+        negative_weight=-int(task["queue_weight"] or QUEUE_WEIGHTS["free"]),
+        created_at=str(task["queued_at"] or task["created_at"]),
+        user_id=int(task["user_id"]),
+        task_id=str(task["id"]),
+        service="image",
+        path="ai/generate-image",
+        body=body,
+        cost=cost,
+        quota_mode=mode if mode in {"free", "paid"} else None,
+    )
+
+
+async def restore_generation_queue() -> None:
+    """Restore queued work after a gateway restart instead of losing it in RAM."""
+    global queue_virtual_time
+    assert queue_condition is not None
+    with db_connect() as db:
+        # The prior process cannot still be executing after a clean restart.
+        interrupted_parents = db.execute(
+            "SELECT DISTINCT batch_id FROM generation_tasks "
+            "WHERE status = 'running' AND batch_id IS NOT NULL"
+        ).fetchall()
+        db.execute(
+            "UPDATE generation_tasks SET status = 'queued', started_at = NULL "
+            "WHERE status = 'running'"
+        )
+        for parent in interrupted_parents:
+            refresh_submission_task(db, str(parent["batch_id"]))
+        rows = db.execute(
+            "SELECT * FROM generation_tasks WHERE status = 'queued' "
+            "ORDER BY virtual_finish ASC, queued_at ASC, id ASC"
+        ).fetchall()
+        db.commit()
+    jobs: list[ProxyJob] = []
+    for row in rows:
+        try:
+            jobs.append(job_from_task_row(row))
+        except ValueError:
+            with db_connect() as db:
+                release_generation_reservation(
+                    db,
+                    int(row["user_id"]),
+                    str(row["mode"]) if row["mode"] else None,
+                    int(row["reserved_points"] or 0),
+                )
+                db.execute(
+                    """
+                    UPDATE generation_tasks
+                    SET status = 'failed', error_message = ?,
+                        released_green_points = CASE WHEN mode = 'free' THEN reserved_points ELSE 0 END,
+                        released_red_points = CASE WHEN mode = 'paid' THEN reserved_points ELSE 0 END,
+                        completed_at = ?
+                    WHERE id = ?
+                    """,
+                    ("Queued request data is invalid", now_iso(), row["id"]),
+                )
+                if row["batch_id"]:
+                    refresh_submission_task(db, str(row["batch_id"]))
+                db.commit()
+    async with queue_condition:
+        pending_jobs.extend(jobs)
+        pending_jobs.sort(key=lambda job: job.sort_key)
+        if pending_jobs:
+            queue_virtual_time = max(job.virtual_finish for job in pending_jobs)
+
+
 def visible_history_task(
     task_id: str,
     user: sqlite3.Row,
@@ -2142,6 +2659,50 @@ def visible_history_task(
     return task
 
 
+def refresh_submission_task(db: sqlite3.Connection, task_id: str) -> None:
+    """Derive durable outer-task status and point totals from its items."""
+    items = db.execute(
+        "SELECT status, mode, reserved_points, paid_points_charged FROM generation_tasks "
+        "WHERE batch_id = ? ORDER BY batch_index, created_at, id",
+        (task_id,),
+    ).fetchall()
+    if not items:
+        return
+    statuses = [str(item["status"]) for item in items]
+    active = any(value in {"queued", "running"} for value in statuses)
+    success = sum(value == "success" for value in statuses)
+    if active:
+        task_status = "running" if ("running" in statuses or success) else "queued"
+    elif success == len(items):
+        task_status = "success"
+    elif success:
+        task_status = "partial_failed"
+    elif all(value == "cancelled" for value in statuses):
+        task_status = "cancelled"
+    else:
+        task_status = "failed"
+    reserved_green = sum(int(item["reserved_points"] or 0) for item in items if item["mode"] == "free")
+    reserved_red = sum(int(item["reserved_points"] or 0) for item in items if item["mode"] == "paid")
+    consumed_green = sum(int(item["reserved_points"] or 0) for item in items if item["mode"] == "free" and item["status"] == "success")
+    consumed_red = sum(int(item["paid_points_charged"] or 0) for item in items if item["mode"] == "paid" and item["status"] == "success")
+    released_green = sum(int(item["reserved_points"] or 0) for item in items if item["mode"] == "free" and item["status"] in {"failed", "rejected", "cancelled"})
+    released_red = sum(int(item["reserved_points"] or 0) for item in items if item["mode"] == "paid" and item["status"] in {"failed", "rejected", "cancelled"})
+    db.execute(
+        """
+        UPDATE generation_submission_tasks
+        SET status = ?, item_count = ?, reserved_points = ?, consumed_points = ?,
+            released_points = ?, reserved_green_points = ?, reserved_red_points = ?,
+            consumed_green_points = ?, consumed_red_points = ?, released_green_points = ?,
+            released_red_points = ?,
+            completed_at = CASE WHEN ? THEN COALESCE(completed_at, ?) ELSE NULL END
+        WHERE id = ?
+        """,
+        (task_status, len(items), reserved_green + reserved_red, consumed_green + consumed_red,
+         released_green + released_red, reserved_green, reserved_red, consumed_green,
+         consumed_red, released_green, released_red, not active, now_iso(), task_id),
+    )
+
+
 async def enqueue_generate(
     *,
     user: sqlite3.Row,
@@ -2151,32 +2712,108 @@ async def enqueue_generate(
     parsed: dict[str, Any],
     quota_mode: str | None,
     db: sqlite3.Connection,
-) -> tuple[int, dict[str, str], bytes]:
+    batch_id: str | None = None,
+    batch_index: int | None = None,
+    task_type: str = "single",
+) -> tuple[str, str]:
     global queue_virtual_time
     assert queue_condition is not None
     user_id = int(user["id"])
+    fingerprint = generation_request_fingerprint(parsed)
+    parent_task_id = batch_id or secrets.token_urlsafe(18)
     queue_class = mode_for_user(user)
-    if quota_mode is not None:
-        check_quota(db, user, quota_mode)
+    estimated_cost = estimate_image_points(parsed, parsed["parameters"])
     async with queue_condition:
-        if user_id in active_user_ids or any(job.user_id == user_id for job in pending_jobs):
-            raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "User already has an active generation")
+        duplicate = db.execute(
+            """
+            SELECT id, status, created_at FROM generation_tasks
+            WHERE user_id = ? AND request_fingerprint = ?
+              AND status IN ('queued', 'running', 'success')
+            ORDER BY created_at DESC LIMIT 1
+            """,
+            (user_id, fingerprint),
+        ).fetchone()
+        if duplicate:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail={
+                    "code": "duplicate_generation",
+                    "message": "No parameters varied. Check the seed.",
+                    "task_id": duplicate["id"],
+                    "task_status": duplicate["status"],
+                    "created_at": duplicate["created_at"],
+                },
+            )
+        outstanding = db.execute(
+            """
+            SELECT COUNT(*) FROM generation_tasks
+            WHERE user_id = ? AND status IN ('queued', 'running')
+            """,
+            (user_id,),
+        ).fetchone()[0]
+        if outstanding >= MAX_QUEUED_IMAGE_TASKS_PER_USER:
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                detail={
+                    "code": "queue_capacity_reached",
+                    "message": "Too many unfinished image tasks",
+                    "limit": MAX_QUEUED_IMAGE_TASKS_PER_USER,
+                },
+            )
         weight = QUEUE_WEIGHTS[queue_class]
-        base = max(queue_virtual_time, queue_last_finish[queue_class])
-        virtual_finish = base + (1.0 / weight)
-        queue_last_finish[queue_class] = virtual_finish
         task_id = secrets.token_urlsafe(18)
         params = parsed["parameters"]
         created = now_iso()
         billing_mode = quota_mode or queue_class
+        existing_parent = db.execute(
+            "SELECT user_id FROM generation_submission_tasks WHERE id = ?",
+            (parent_task_id,),
+        ).fetchone()
+        if existing_parent and int(existing_parent["user_id"]) != user_id:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Forbidden batch id")
+        db.execute(
+            "INSERT OR IGNORE INTO generation_submission_tasks "
+            "(id, user_id, type, status, created_at) VALUES (?, ?, ?, 'queued', ?)",
+            (parent_task_id, user_id, task_type if task_type in {"single", "batch"} else "single", created),
+        )
+        try:
+            reserved_points = reserve_generation_quota(
+                db, user_id, quota_mode, estimated_cost
+            )
+        except HTTPException as exc:
+            db.execute(
+                """
+                INSERT INTO generation_tasks(
+                  id, user_id, mode, queue_class, queue_weight, virtual_finish,
+                  status, prompt, negative_prompt, width, height, steps, scale,
+                  sampler, seed, cost, batch_id, batch_index, request_fingerprint,
+                  request_json, error_message, completed_at, created_at
+                ) VALUES (?, ?, ?, ?, ?, 0, 'rejected', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    task_id, user_id, billing_mode, queue_class, weight,
+                    str(parsed.get("input", ""))[:4000], str(params.get("uc", ""))[:4000],
+                    int(params.get("width", 0)), int(params.get("height", 0)),
+                    int(params.get("steps", 0)), float(params.get("scale", 0)),
+                    str(params.get("sampler", "")), params.get("seed"), estimated_cost,
+                    parent_task_id, batch_index, fingerprint,
+                    json.dumps(parsed, ensure_ascii=False), str(exc.detail), created, created,
+                ),
+            )
+            refresh_submission_task(db, parent_task_id)
+            db.commit()
+            return parent_task_id, task_id
+        base = max(queue_virtual_time, queue_last_finish[queue_class])
+        virtual_finish = base + (1.0 / weight)
+        queue_last_finish[queue_class] = virtual_finish
         db.execute(
             """
             INSERT INTO generation_tasks(
               id, user_id, mode, queue_class, queue_weight, virtual_finish,
               status, prompt, negative_prompt, width, height, steps, scale,
-              sampler, seed, cost, request_json, queued_at, created_at
+              sampler, seed, cost, reserved_points, reserved_green_points, reserved_red_points, batch_id, batch_index, request_fingerprint, request_json, queued_at, created_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 task_id,
@@ -2193,32 +2830,325 @@ async def enqueue_generate(
                 float(params.get("scale", 0)),
                 str(params.get("sampler", "")),
                 params.get("seed"),
+                estimated_cost,
+                reserved_points,
+                reserved_points if billing_mode == "free" else 0,
+                reserved_points if billing_mode == "paid" else 0,
+                parent_task_id,
+                batch_index,
+                fingerprint,
                 json.dumps(parsed, ensure_ascii=False),
                 created,
                 created,
             ),
         )
         db.commit()
-        loop = asyncio.get_running_loop()
-        future: asyncio.Future[tuple[int, dict[str, str], bytes]] = loop.create_future()
+        refresh_submission_task(db, parent_task_id)
+        db.commit()
         pending_jobs.append(
             ProxyJob(
                 virtual_finish=virtual_finish,
                 negative_weight=-weight,
                 created_at=created,
                 user_id=user_id,
-                username=user["username"],
                 task_id=task_id,
                 service=service,
                 path=path,
-                future=future,
                 body=body,
+                cost=estimated_cost,
                 quota_mode=quota_mode,
             )
         )
         pending_jobs.sort(key=lambda job: job.sort_key)
-        queue_condition.notify()
-    return await future
+        queue_condition.notify_all()
+    return parent_task_id, task_id
+
+
+def generation_request_fingerprint(parsed: dict[str, Any]) -> str:
+    """Hash the normalized, server-validated generation request deterministically."""
+    normalized = json.dumps(
+        parsed,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def generation_batch_request_hash(items: list[dict[str, Any]]) -> str:
+    """Hash an ordered, normalized batch for idempotency-key validation."""
+    normalized = json.dumps(
+        items,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+async def enqueue_generation_batch(
+    *,
+    user: sqlite3.Row,
+    client_request_id: str,
+    items: list[tuple[bytes, dict[str, Any], str | None]],
+    db: sqlite3.Connection,
+) -> tuple[str, list[str], bool]:
+    """Atomically validate, reserve, and enqueue one complete image batch.
+
+    The idempotency key is checked before semantic duplicate detection. A lost
+    202 response can therefore be replayed safely, while a new user action with
+    identical effective generation parameters is still rejected.
+    """
+    global queue_virtual_time
+    assert queue_condition is not None
+    if not items:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Batch is empty")
+    if len(items) > 10:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Batch is too large")
+
+    user_id = int(user["id"])
+    parsed_items = [item[1] for item in items]
+    request_hash = generation_batch_request_hash(parsed_items)
+    fingerprints = [generation_request_fingerprint(item) for item in parsed_items]
+
+    async with queue_condition:
+        existing_submission = db.execute(
+            """
+            SELECT id, request_hash FROM generation_submission_tasks
+            WHERE user_id = ? AND client_request_id = ?
+            """,
+            (user_id, client_request_id),
+        ).fetchone()
+        if existing_submission:
+            if existing_submission["request_hash"] != request_hash:
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    detail={
+                        "code": "idempotency_key_conflict",
+                        "message": "Idempotency key was reused with different parameters",
+                    },
+                )
+            existing_items = db.execute(
+                "SELECT id FROM generation_tasks WHERE batch_id = ? "
+                "ORDER BY batch_index, created_at, id",
+                (existing_submission["id"],),
+            ).fetchall()
+            return (
+                str(existing_submission["id"]),
+                [str(item["id"]) for item in existing_items],
+                True,
+            )
+
+        duplicate_positions: dict[str, list[int]] = {}
+        for index, fingerprint in enumerate(fingerprints):
+            duplicate_positions.setdefault(fingerprint, []).append(index)
+        repeated = [positions for positions in duplicate_positions.values() if len(positions) > 1]
+        if repeated:
+            first_positions = repeated[0]
+            seed = parsed_items[first_positions[0]]["parameters"].get("seed")
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail={
+                    "code": "duplicate_within_batch",
+                    "message": "No parameters varied. Check the seed.",
+                    "batch_indexes": first_positions,
+                    "seed": seed,
+                },
+            )
+
+        for index, fingerprint in enumerate(fingerprints):
+            duplicate = db.execute(
+                """
+                SELECT id, status, created_at, seed FROM generation_tasks
+                WHERE user_id = ? AND request_fingerprint = ?
+                  AND status IN ('queued', 'running', 'success')
+                ORDER BY created_at DESC LIMIT 1
+                """,
+                (user_id, fingerprint),
+            ).fetchone()
+            if duplicate:
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    detail={
+                        "code": "duplicate_generation",
+                        "message": "No parameters varied. Check the seed.",
+                        "task_id": duplicate["id"],
+                        "task_status": duplicate["status"],
+                        "created_at": duplicate["created_at"],
+                        "batch_index": index,
+                        "seed": duplicate["seed"],
+                    },
+                )
+
+        outstanding = int(
+            db.execute(
+                """
+                SELECT COUNT(*) FROM generation_tasks
+                WHERE user_id = ? AND status IN ('queued', 'running')
+                """,
+                (user_id,),
+            ).fetchone()[0]
+        )
+        if outstanding + len(items) > MAX_QUEUED_IMAGE_TASKS_PER_USER:
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                detail={
+                    "code": "queue_capacity_reached",
+                    "message": "Too many unfinished image tasks",
+                    "limit": MAX_QUEUED_IMAGE_TASKS_PER_USER,
+                },
+            )
+
+        fresh_user = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not fresh_user:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+        costs = [estimate_image_points(parsed, parsed["parameters"]) for parsed in parsed_items]
+        reservations: list[int] = []
+        green_total = 0
+        red_total = 0
+        for (_, _, quota_mode), cost in zip(items, costs):
+            if quota_mode == "free":
+                reserved = discounted_green_points(fresh_user, cost)
+                green_total += reserved
+            elif quota_mode == "paid":
+                reserved = max(0, cost)
+                red_total += reserved
+            else:
+                reserved = 0
+            reservations.append(reserved)
+        for mode, required in (("free", green_total), ("paid", red_total)):
+            if required <= 0:
+                continue
+            remaining = quota_bucket(db, fresh_user, mode)["remaining"]
+            if remaining is not None and remaining < required:
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    detail={
+                        "code": "points_insufficient",
+                        "point_kind": "red" if mode == "paid" else "green",
+                        "message": "Available points are insufficient",
+                    },
+                )
+
+        queue_class = mode_for_user(user)
+        weight = QUEUE_WEIGHTS[queue_class]
+        parent_task_id = secrets.token_urlsafe(18)
+        created = now_iso()
+        item_ids: list[str] = []
+        jobs: list[ProxyJob] = []
+        try:
+            db.execute("BEGIN IMMEDIATE")
+            db.execute(
+                """
+                INSERT INTO generation_submission_tasks(
+                  id, user_id, client_request_id, request_hash, type, status,
+                  item_count, created_at
+                ) VALUES (?, ?, ?, ?, ?, 'queued', ?, ?)
+                """,
+                (
+                    parent_task_id,
+                    user_id,
+                    client_request_id,
+                    request_hash,
+                    "batch" if len(items) > 1 else "single",
+                    len(items),
+                    created,
+                ),
+            )
+            if green_total:
+                db.execute(
+                    "UPDATE users SET green_points_reserved = green_points_reserved + ? WHERE id = ?",
+                    (green_total, user_id),
+                )
+            if red_total:
+                db.execute(
+                    "UPDATE users SET red_points_reserved = red_points_reserved + ? WHERE id = ?",
+                    (red_total, user_id),
+                )
+
+            for index, ((body, parsed, quota_mode), cost, reserved, fingerprint) in enumerate(
+                zip(items, costs, reservations, fingerprints)
+            ):
+                item_id = secrets.token_urlsafe(18)
+                item_created = now_iso()
+                billing_mode = quota_mode or queue_class
+                base = max(queue_virtual_time, queue_last_finish[queue_class])
+                virtual_finish = base + (1.0 / weight)
+                queue_last_finish[queue_class] = virtual_finish
+                params = parsed["parameters"]
+                db.execute(
+                    """
+                    INSERT INTO generation_tasks(
+                      id, user_id, mode, queue_class, queue_weight, virtual_finish,
+                      status, prompt, negative_prompt, width, height, steps, scale,
+                      sampler, seed, cost, reserved_points, reserved_green_points,
+                      reserved_red_points, batch_id, batch_index, request_fingerprint,
+                      request_json, queued_at, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        item_id,
+                        user_id,
+                        billing_mode,
+                        queue_class,
+                        weight,
+                        virtual_finish,
+                        str(parsed.get("input", ""))[:4000],
+                        str(params.get("uc", ""))[:4000],
+                        int(params.get("width", 0)),
+                        int(params.get("height", 0)),
+                        int(params.get("steps", 0)),
+                        float(params.get("scale", 0)),
+                        str(params.get("sampler", "")),
+                        params.get("seed"),
+                        cost,
+                        reserved,
+                        reserved if billing_mode == "free" else 0,
+                        reserved if billing_mode == "paid" else 0,
+                        parent_task_id,
+                        index,
+                        fingerprint,
+                        json.dumps(parsed, ensure_ascii=False),
+                        item_created,
+                        item_created,
+                    ),
+                )
+                item_ids.append(item_id)
+                jobs.append(
+                    ProxyJob(
+                        virtual_finish=virtual_finish,
+                        negative_weight=-weight,
+                        created_at=item_created,
+                        user_id=user_id,
+                        task_id=item_id,
+                        service="image",
+                        path="ai/generate-image",
+                        body=body,
+                        cost=cost,
+                        quota_mode=quota_mode,
+                    )
+                )
+            refresh_submission_task(db, parent_task_id)
+            db.commit()
+        except Exception:
+            db.rollback()
+            # These values are scheduling hints only, but keeping a failed
+            # transaction out of their accounting avoids artificial gaps.
+            for queue_name in queue_last_finish:
+                queue_last_finish[queue_name] = max(
+                    (
+                        job.virtual_finish
+                        for job in pending_jobs
+                        if mode_for_user_id(db, job.user_id) == queue_name
+                    ),
+                    default=queue_virtual_time,
+                )
+            raise
+
+        pending_jobs.extend(jobs)
+        pending_jobs.sort(key=lambda job: job.sort_key)
+        queue_condition.notify_all()
+        return parent_task_id, item_ids, False
 
 
 async def queue_worker() -> None:
@@ -2236,6 +3166,11 @@ async def queue_worker() -> None:
                 "UPDATE generation_tasks SET status = 'running', started_at = ? WHERE id = ?",
                 (now_iso(), job.task_id),
             )
+            parent = db.execute(
+                "SELECT batch_id FROM generation_tasks WHERE id = ?", (job.task_id,)
+            ).fetchone()
+            if parent and parent["batch_id"]:
+                refresh_submission_task(db, parent["batch_id"])
             db.commit()
         try:
             anlas_before: int | None = None
@@ -2252,20 +3187,43 @@ async def queue_worker() -> None:
             assert not isinstance(result, StreamingResponse)
             status_code, headers, content = result
             with db_connect() as db:
+                task = db.execute(
+                    "SELECT reserved_points, batch_id FROM generation_tasks WHERE id = ?",
+                    (job.task_id,),
+                ).fetchone()
+                reserved_points = int(task["reserved_points"]) if task else 0
                 if status_code == 200:
                     image_path = await save_history_image(job.task_id, content)
+                    if image_path is None:
+                        raise HTTPException(
+                            status.HTTP_502_BAD_GATEWAY,
+                            "NovelAI returned no valid image",
+                        )
                     if job.quota_mode == "paid":
+                        # If the post-request balance lookup fails, keep the
+                        # conservative reservation instead of charging zero for
+                        # work NovelAI already completed.
+                        paid_points_charged = reserved_points
                         anlas_after = await fetch_anlas_balance()
                         if anlas_after is not None and anlas_before is not None:
                             paid_points_charged = max(0, anlas_before - anlas_after)
-                            charge_paid_points(db, job.user_id, paid_points_charged)
-                    elif job.quota_mode == "free":
-                        increment_quota(db, job.user_id, job.quota_mode)
+                    settle_generation_reservation(
+                        db,
+                        job.user_id,
+                        job.quota_mode,
+                        reserved_points,
+                        actual_points=(
+                            paid_points_charged if job.quota_mode == "paid" else None
+                        ),
+                    )
                     db.execute(
                         """
                         UPDATE generation_tasks
                         SET status = 'success', image_path = ?, anlas_before = ?,
-                            anlas_after = ?, paid_points_charged = ?, completed_at = ?
+                            anlas_after = ?, paid_points_charged = ?,
+                            consumed_green_points = CASE WHEN mode = 'free' THEN reserved_points ELSE 0 END,
+                            consumed_red_points = CASE WHEN mode = 'paid' THEN ? ELSE 0 END,
+                            completed_at = ?
                         WHERE id = ?
                         """,
                         (
@@ -2273,16 +3231,23 @@ async def queue_worker() -> None:
                             anlas_before,
                             anlas_after,
                             paid_points_charged,
+                            paid_points_charged,
                             now_iso(),
                             job.task_id,
                         ),
                     )
                 else:
+                    release_generation_reservation(
+                        db, job.user_id, job.quota_mode, reserved_points
+                    )
                     db.execute(
                         """
                         UPDATE generation_tasks
                         SET status = 'failed', error_message = ?, anlas_before = ?,
-                            anlas_after = ?, paid_points_charged = ?, completed_at = ?
+                            anlas_after = ?, paid_points_charged = ?,
+                            released_green_points = CASE WHEN mode = 'free' THEN reserved_points ELSE 0 END,
+                            released_red_points = CASE WHEN mode = 'paid' THEN reserved_points ELSE 0 END,
+                            completed_at = ?
                         WHERE id = ?
                         """,
                         (
@@ -2294,35 +3259,61 @@ async def queue_worker() -> None:
                             job.task_id,
                         ),
                     )
+                if task and task["batch_id"]:
+                    refresh_submission_task(db, task["batch_id"])
                 db.commit()
-            if not job.future.done():
-                job.future.set_result((status_code, headers, content))
         except HTTPException as exc:
             with db_connect() as db:
+                task = db.execute(
+                    "SELECT reserved_points, batch_id FROM generation_tasks WHERE id = ?",
+                    (job.task_id,),
+                ).fetchone()
+                release_generation_reservation(
+                    db,
+                    job.user_id,
+                    job.quota_mode,
+                    int(task["reserved_points"]) if task else 0,
+                )
                 db.execute(
                     """
                     UPDATE generation_tasks
-                    SET status = 'failed', error_message = ?, completed_at = ?
+                    SET status = 'failed', error_message = ?,
+                        released_green_points = CASE WHEN mode = 'free' THEN reserved_points ELSE 0 END,
+                        released_red_points = CASE WHEN mode = 'paid' THEN reserved_points ELSE 0 END,
+                        completed_at = ?
                     WHERE id = ?
                     """,
                     (str(exc.detail), now_iso(), job.task_id),
                 )
+                if task and task["batch_id"]:
+                    refresh_submission_task(db, task["batch_id"])
                 db.commit()
-            if not job.future.done():
-                job.future.set_exception(exc)
         except Exception as exc:
             with db_connect() as db:
+                task = db.execute(
+                    "SELECT reserved_points, batch_id FROM generation_tasks WHERE id = ?",
+                    (job.task_id,),
+                ).fetchone()
+                release_generation_reservation(
+                    db,
+                    job.user_id,
+                    job.quota_mode,
+                    int(task["reserved_points"]) if task else 0,
+                )
                 db.execute(
                     """
                     UPDATE generation_tasks
-                    SET status = 'failed', error_message = ?, completed_at = ?
+                    SET status = 'failed', error_message = ?,
+                        released_green_points = CASE WHEN mode = 'free' THEN reserved_points ELSE 0 END,
+                        released_red_points = CASE WHEN mode = 'paid' THEN reserved_points ELSE 0 END,
+                        completed_at = ?
                     WHERE id = ?
                     """,
                     ("Generation failed", now_iso(), job.task_id),
                 )
+                if task and task["batch_id"]:
+                    refresh_submission_task(db, task["batch_id"])
                 db.commit()
-            if not job.future.done():
-                job.future.set_exception(exc)
         finally:
             async with queue_condition:
                 active_user_ids.discard(job.user_id)
@@ -2334,6 +3325,39 @@ def mode_for_user_id(db: sqlite3.Connection, user_id: int) -> str:
     if not user:
         return "free"
     return mode_for_user(user)
+
+
+async def legacy_generation_response(item_id: str) -> Response:
+    """Wait for a durable task and preserve the old synchronous ZIP contract."""
+    deadline = asyncio.get_running_loop().time() + 10 * 60
+    while asyncio.get_running_loop().time() < deadline:
+        with db_connect() as task_db:
+            item = task_db.execute(
+                "SELECT status, image_path, error_message FROM generation_tasks WHERE id = ?",
+                (item_id,),
+            ).fetchone()
+        if not item:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Generation task not found")
+        item_status = str(item["status"])
+        if item_status == "success":
+            if not item["image_path"]:
+                raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Image not available")
+            image = resolve_history_image_file(str(item["image_path"])).read_bytes()
+            archive_buffer = BytesIO()
+            with ZipFile(archive_buffer, "w") as archive:
+                archive.writestr("image_0.png", image)
+            return Response(
+                content=archive_buffer.getvalue(),
+                status_code=status.HTTP_200_OK,
+                media_type="application/zip",
+            )
+        if item_status in {"failed", "rejected"}:
+            raise HTTPException(
+                status.HTTP_502_BAD_GATEWAY,
+                str(item["error_message"] or "Generation failed"),
+            )
+        await asyncio.sleep(0.25)
+    raise HTTPException(status.HTTP_504_GATEWAY_TIMEOUT, "Generation timed out")
 
 
 @app.api_route("/api/nai/{service}/{path:path}", methods=["GET", "POST"])
@@ -2360,7 +3384,7 @@ async def novelai_proxy(
         )
         if service == "image" and path == "ai/generate-image" and method == "POST":
             sanitized, parsed, quota_mode = sanitize_novelai_generate_body(body, user)
-            result = await enqueue_generate(
+            _, item_id = await enqueue_generate(
                 user=user,
                 service=service,
                 path=path,
@@ -2369,8 +3393,11 @@ async def novelai_proxy(
                 quota_mode=quota_mode,
                 db=db,
             )
-            complete_audit_log(db, audit_id, status_code=result[0])
-            return Response(content=result[2], status_code=result[0], headers=result[1])
+            # New clients use /api/generation-tasks. This route deliberately
+            # keeps the historical synchronous ZIP response for old clients.
+            response = await legacy_generation_response(item_id)
+            complete_audit_log(db, audit_id, status_code=response.status_code)
+            return response
         if service == "image" and path in PAID_DIRECT_IMAGE_PATHS and method == "POST":
             result = await forward_paid_image_tool_and_charge(
                 user,
@@ -2405,6 +3432,7 @@ async def novelai_proxy(
         complete_audit_log(db, audit_id, status_code=status_code)
         return Response(content=content, status_code=status_code, headers=headers)
     except HTTPException as exc:
+        db.rollback()
         complete_audit_log(
             db,
             audit_id,
@@ -2413,43 +3441,317 @@ async def novelai_proxy(
         )
         raise
     except Exception:
+        db.rollback()
         complete_audit_log(
             db, audit_id, status_code=500, error_message="Proxy request failed"
         )
         raise
 
 
+@app.post("/api/generation-tasks", status_code=status.HTTP_202_ACCEPTED)
+async def submit_generation_task(
+    request: Request,
+    user: sqlite3.Row = Depends(require_user),
+    db: sqlite3.Connection = Depends(get_db),
+):
+    """Durably accept an image-generation request without waiting for it."""
+    body = await request.body()
+    audit_id = create_audit_log(
+        db,
+        user,
+        service="image",
+        path="ai/generate-image",
+        method="POST",
+        body=body,
+        content_type=request.headers.get("content-type", ""),
+    )
+    try:
+        try:
+            envelope = json.loads(body)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            envelope = None
+        is_atomic_batch = (
+            isinstance(envelope, dict)
+            and isinstance(envelope.get("request"), dict)
+            and isinstance(envelope.get("seeds"), list)
+        )
+        if is_atomic_batch:
+            client_request_id = str(envelope.get("client_request_id", "")).strip()
+            if not (8 <= len(client_request_id) <= 128):
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST, "Invalid client request id"
+                )
+            seeds = envelope["seeds"]
+            if not seeds or len(seeds) > 10:
+                raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid batch size")
+            batch_items: list[tuple[bytes, dict[str, Any], str | None]] = []
+            for raw_seed in seeds:
+                if isinstance(raw_seed, bool) or not isinstance(raw_seed, int):
+                    raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid seed")
+                if raw_seed < 0 or raw_seed > 0xFFFFFFFF:
+                    raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid seed")
+                item_request = json.loads(
+                    json.dumps(envelope["request"], ensure_ascii=False)
+                )
+                parameters = item_request.get("parameters")
+                if not isinstance(parameters, dict):
+                    raise HTTPException(
+                        status.HTTP_400_BAD_REQUEST,
+                        "Invalid generation parameters",
+                    )
+                parameters["seed"] = raw_seed
+                if item_request.get("action") == "img2img":
+                    parameters["extra_noise_seed"] = raw_seed
+                item_body = json.dumps(item_request, ensure_ascii=False).encode("utf-8")
+                batch_items.append(sanitize_novelai_generate_body(item_body, user))
+            task_id, item_ids, _ = await enqueue_generation_batch(
+                user=user,
+                client_request_id=client_request_id,
+                items=batch_items,
+                db=db,
+            )
+        else:
+            sanitized, parsed, quota_mode = sanitize_novelai_generate_body(body, user)
+            task_id, item_id = await enqueue_generate(
+                user=user,
+                service="image",
+                path="ai/generate-image",
+                body=sanitized,
+                parsed=parsed,
+                quota_mode=quota_mode,
+                db=db,
+                batch_id=request.headers.get("x-naiweaver-batch-id") or None,
+                batch_index=int(request.headers["x-naiweaver-batch-index"])
+                if request.headers.get("x-naiweaver-batch-index", "").isdigit()
+                else None,
+                task_type=request.headers.get("x-naiweaver-task-type", "single"),
+            )
+            item_ids = [item_id]
+    except HTTPException as exc:
+        db.rollback()
+        complete_audit_log(
+            db,
+            audit_id,
+            status_code=exc.status_code,
+            error_message=str(exc.detail),
+        )
+        raise
+    complete_audit_log(db, audit_id, status_code=status.HTTP_202_ACCEPTED)
+    response_items = []
+    for index, item_id in enumerate(item_ids):
+        row = db.execute(
+            "SELECT status, batch_index FROM generation_tasks WHERE id = ?",
+            (item_id,),
+        ).fetchone()
+        response_items.append(
+            {
+                "id": item_id,
+                "batch_index": (
+                    int(row["batch_index"])
+                    if row and row["batch_index"] is not None
+                    else index
+                ),
+                "status": str(row["status"]) if row else "queued",
+            }
+        )
+    response = JSONResponse(
+        {
+            "task_id": task_id,
+            "item_id": item_ids[0],
+            "items": response_items,
+            "status": generation_task_status(task_id, user, db)["status"],
+        },
+        status_code=status.HTTP_202_ACCEPTED,
+    )
+    response.set_cookie(
+        "naiweaver_current_task",
+        task_id,
+        max_age=60 * 60 * 24 * 14,
+        httponly=True,
+        samesite="lax",
+        secure=COOKIE_SECURE,
+    )
+    return response
+
+
+def public_generation_item(item: sqlite3.Row) -> dict[str, Any]:
+    """Return restorable parameters without echoing image/vector payloads."""
+    result = dict(item)
+    try:
+        request_data = json.loads(str(item["request_json"]))
+        if not isinstance(request_data, dict):
+            raise ValueError("Invalid generation request")
+        parameters = request_data.get("parameters")
+        if isinstance(parameters, dict):
+            parameters = dict(parameters)
+            for key in (
+                "image",
+                "mask",
+                "director_reference_images",
+                "reference_image_multiple",
+            ):
+                value = parameters.pop(key, None)
+                if isinstance(value, list):
+                    parameters[f"{key}_count"] = len(value)
+                elif value is not None:
+                    parameters[f"{key}_available"] = True
+            request_data = {**request_data, "parameters": parameters}
+        result["request_json"] = json.dumps(request_data, ensure_ascii=False)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        result["request_json"] = ""
+    return result
+
+
+@app.get("/api/generation-tasks/{task_id}")
+def generation_task_status(
+    task_id: str,
+    user: sqlite3.Row = Depends(require_user),
+    db: sqlite3.Connection = Depends(get_db),
+):
+    task = db.execute("SELECT * FROM generation_submission_tasks WHERE id = ?", (task_id,)).fetchone()
+    if not task:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Task not found")
+    if task["user_id"] != user["id"] and not user["is_admin"]:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Forbidden")
+    items = db.execute(
+        "SELECT * "
+        "FROM generation_tasks WHERE batch_id = ? ORDER BY batch_index, created_at, id",
+        (task_id,),
+    ).fetchall()
+    return {
+        **dict(task),
+        "items": [
+            {
+                **public_generation_item(item),
+                "image_url": (
+                    f"/api/history/{item['id']}/image"
+                    if item["image_path"]
+                    else None
+                ),
+            }
+            for item in items
+        ],
+    }
+
+
+@app.get("/api/generation-items/{item_id}")
+def generation_item_status(
+    item_id: str,
+    user: sqlite3.Row = Depends(require_user),
+    db: sqlite3.Connection = Depends(get_db),
+):
+    item = visible_history_task(item_id, user, db)
+    return {
+        "id": item["id"],
+        "task_id": item["batch_id"],
+        "status": item["status"],
+        "error_message": item["error_message"],
+        "image_url": f"/api/history/{item['id']}/image" if item["image_path"] else None,
+    }
+
+
+@app.get("/api/current-generation-task")
+def current_generation_task(
+    user: sqlite3.Row = Depends(require_user),
+    db: sqlite3.Connection = Depends(get_db),
+):
+    task = db.execute(
+        """
+        SELECT * FROM generation_submission_tasks
+        WHERE user_id = ?
+        ORDER BY CASE WHEN status IN ('queued', 'running') THEN 0 ELSE 1 END,
+                 created_at DESC
+        LIMIT 1
+        """,
+        (user["id"],),
+    ).fetchone()
+    if not task:
+        return {"task": None}
+    return {"task": generation_task_status(str(task["id"]), user, db)}
+
+
 @app.get("/api/history")
 def history(
-    limit: int = 50,
+    request: Request,
+    limit: int = 20,
+    offset: int = 0,
     user_id: int | None = None,
+    all_users: bool = False,
+    current_batch: bool = False,
     user: sqlite3.Row = Depends(require_user),
     db: sqlite3.Connection = Depends(get_db),
 ):
     where = ["h.task_id IS NULL"]
     params: list[Any] = [user["id"]]
-    if user["is_admin"]:
-        if user_id is not None:
-            where.append("t.user_id = ?")
-            params.append(user_id)
-    else:
+    if user["is_admin"] and user_id is not None:
+        where.append("t.user_id = ?")
+        params.append(user_id)
+    elif not (user["is_admin"] and all_users):
         where.append("t.user_id = ?")
         params.append(user["id"])
+    if current_batch:
+        task_id = request.cookies.get("naiweaver_current_task")
+        if task_id:
+            where.append("t.batch_id = ?")
+            params.append(task_id)
     where_sql = f"WHERE {' AND '.join(where)}" if where else ""
-    params.append(max(1, min(limit, 100)))
-    rows = db.execute(
+    page_limit = max(1, min(limit, 100))
+    page_offset = max(0, offset)
+    total = db.execute(
         f"""
-        SELECT t.*, u.username
+        SELECT COUNT(DISTINCT COALESCE(t.batch_id, t.id))
         FROM generation_tasks t
         JOIN users u ON u.id = t.user_id
         LEFT JOIN history_hidden h ON h.task_id = t.id AND h.user_id = ?
         {where_sql}
-        ORDER BY t.created_at DESC
-        LIMIT ?
         """,
         params,
+    ).fetchone()[0]
+    page_params = [*params, page_limit, page_offset]
+    batch_rows = db.execute(
+        f"""
+        SELECT COALESCE(t.batch_id, t.id) AS batch_key,
+               MAX(t.created_at) AS latest_created_at
+        FROM generation_tasks t
+        JOIN users u ON u.id = t.user_id
+        LEFT JOIN history_hidden h ON h.task_id = t.id AND h.user_id = ?
+        {where_sql}
+        GROUP BY COALESCE(t.batch_id, t.id)
+        ORDER BY latest_created_at DESC, batch_key DESC
+        LIMIT ? OFFSET ?
+        """,
+        page_params,
     ).fetchall()
-    return {"items": [dict(row) for row in rows]}
+    batch_keys = [str(row["batch_key"]) for row in batch_rows]
+    rows: list[sqlite3.Row] = []
+    if batch_keys:
+        placeholders = ", ".join("?" for _ in batch_keys)
+        rows = db.execute(
+            f"""
+            SELECT t.*, u.username
+            FROM generation_tasks t
+            JOIN users u ON u.id = t.user_id
+            LEFT JOIN history_hidden h ON h.task_id = t.id AND h.user_id = ?
+            {where_sql}
+              AND COALESCE(t.batch_id, t.id) IN ({placeholders})
+            """,
+            [*params, *batch_keys],
+        ).fetchall()
+        batch_order = {key: index for index, key in enumerate(batch_keys)}
+        rows = sorted(
+            rows,
+            key=lambda row: (
+                batch_order[str(row["batch_id"] or row["id"])],
+                int(row["batch_index"] if row["batch_index"] is not None else 0),
+                str(row["created_at"]),
+            ),
+        )
+    return {
+        "items": [public_generation_item(row) for row in rows],
+        "total": int(total),
+        "limit": page_limit,
+        "offset": page_offset,
+    }
 
 
 @app.get("/api/history/{task_id}/image")
@@ -2484,6 +3786,35 @@ def history_thumbnail(
         media_type="image/webp",
         headers={"Cache-Control": "private, max-age=86400"},
     )
+
+
+@app.delete("/api/history/batches/{batch_id}")
+def delete_history_batch(
+    batch_id: str,
+    user: sqlite3.Row = Depends(require_user),
+    db: sqlite3.Connection = Depends(get_db),
+):
+    tasks = db.execute(
+        "SELECT id, user_id, status FROM generation_tasks WHERE batch_id = ?",
+        (batch_id,),
+    ).fetchall()
+    if not tasks:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Batch not found")
+    if any(task["user_id"] != user["id"] for task in tasks) and not user["is_admin"]:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Forbidden")
+    if any(task["status"] in {"queued", "running"} for task in tasks):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Cannot delete an active batch")
+
+    hidden_at = now_iso()
+    with db:
+        db.executemany(
+            """
+            INSERT OR IGNORE INTO history_hidden(user_id, task_id, hidden_at)
+            VALUES (?, ?, ?)
+            """,
+            [(user["id"], task["id"], hidden_at) for task in tasks],
+        )
+    return {"ok": True, "hidden": len(tasks)}
 
 
 @app.delete("/api/history/{task_id}")
@@ -2522,10 +3853,19 @@ def serve_web(path: str):
             and target.is_file()
             and (target == web_root or web_root in target.parents)
         ):
-            return FileResponse(target)
+            # Flutter's entry scripts keep stable filenames across builds.
+            # Revalidate them so a deployed UI cannot be held behind a stale
+            # browser or installed-PWA cache.
+            headers = (
+                {"Cache-Control": "no-cache, must-revalidate"}
+                if target.name
+                in {"index.html", "flutter_bootstrap.js", "flutter.js", "main.dart.js"}
+                else None
+            )
+            return FileResponse(target, headers=headers)
     index = WEB_BUILD_DIR / "index.html"
     if index.exists():
-        return FileResponse(index)
+        return FileResponse(index, headers={"Cache-Control": "no-cache, must-revalidate"})
     fallback = STATIC_DIR / "index.html"
     if fallback.exists():
         return FileResponse(fallback)

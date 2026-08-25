@@ -15,6 +15,10 @@
   "commonSaveChanges": "保存更改",
 
   "mainGallery": "图库",
+  "mainResultsGrid": "网格",
+  "mainResultsViewer": "看图",
+  "mainResultGenerating": "生成中",
+  "mainResultPending": "排队中",
   "mainServerHistory": "历史",
   "mainTools": "工具",
   "mainSave": "保存",
@@ -73,10 +77,10 @@
   "settingsSaveToAlbumDesc": "自动将新生成的内容添加到此相册",
   "settingsEditButton": "编辑按钮",
   "settingsEditButtonDesc": "在图片查看器中显示编辑/重绘按钮",
-  "settingsDirectorRefShelf": "导演参考栏",
-  "settingsDirectorRefShelfDesc": "在主界面显示参考图栏",
-  "settingsVibeTransferShelf": "氛围迁移栏",
-  "settingsVibeTransferShelfDesc": "在主界面显示氛围迁移栏",
+  "settingsDirectorRefShelf": "导演参考",
+  "settingsDirectorRefShelfDesc": "在高级选项中显示导演参考控件",
+  "settingsVibeTransferShelf": "氛围迁移",
+  "settingsVibeTransferShelfDesc": "在高级选项中显示氛围迁移控件",
   "settingsCharEditorMode": "角色编辑模式",
   "settingsCharEditorModeDesc": "在设置面板使用展开式角色编辑器，而非紧凑栏",
   "settingsThemeBuilder": "主题编辑器",
@@ -1209,6 +1213,8 @@
 
   "duplicateImageWarning": "生成的图像与上次完全相同——请尝试更换种子或检查氛围迁移/参考图",
   "duplicateImageRandomize": "随机化",
+  "generationNoParametersVaried": "参数没有变化，请检查 Seed。",
+  "generationRandomizeSeed": "随机 Seed",
 
   "settingsCredits": "制作人员",
   "settingsSpecialThanks": "特别感谢",
@@ -1263,5 +1269,13 @@
   "serverHistoryAllUsers": "全部用户",
   "serverHistoryRefresh": "刷新",
   "serverHistoryEmpty": "还没有服务器历史",
-  "serverHistoryDeleteConfirm": "从你的历史中隐藏这条记录。"
+  "serverHistoryImportParameters": "导入参数",
+  "serverHistoryImportSuccess": "已导入参数",
+  "serverHistoryDownload": "下载",
+  "serverHistoryDeleteConfirm": "从你的历史中隐藏这条记录。",
+  "serverHistoryBatchImportParameters": "导入本组参数",
+  "serverHistoryBatchImportSuccess": "已导入本组参数",
+  "serverHistoryBatchDownload": "下载整组",
+  "serverHistoryBatchDelete": "删除整组",
+  "serverHistoryBatchDeleteConfirm": "从你的历史中隐藏这一组的全部图片？"
 }

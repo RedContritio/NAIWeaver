@@ -462,6 +462,73 @@ class _TagExamplesOverlay extends StatelessWidget {
   }
 }
 
+class TagPreviewResponsiveLayout extends StatelessWidget {
+  final Widget header;
+  final Widget preview;
+  final Widget footer;
+
+  const TagPreviewResponsiveLayout({
+    super.key,
+    required this.header,
+    required this.preview,
+    required this.footer,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final viewportHeight = MediaQuery.sizeOf(context).height;
+        final availableHeight = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : viewportHeight * 0.85;
+        final dialogHeight =
+            availableHeight > 640 ? 640.0 : availableHeight;
+        final previewMaxHeight =
+            (dialogHeight - 180).clamp(120.0, 450.0);
+
+        return SizedBox(
+          width: 400,
+          height: dialogHeight,
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                header,
+                const SizedBox(height: 16),
+                Flexible(
+                  child: SingleChildScrollView(
+                    key: const ValueKey('quick-tag-preview-scroll-view'),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Center(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: 300,
+                              maxHeight: previewMaxHeight,
+                            ),
+                            child: AspectRatio(
+                              aspectRatio: 2 / 3,
+                              child: preview,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        footer,
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _QuickTagPreviewDialog extends StatefulWidget {
   final String tag;
 
@@ -506,81 +573,75 @@ class _QuickTagPreviewDialogState extends State<_QuickTagPreviewDialog> {
 
     return Dialog(
       backgroundColor: t.surfaceHigh,
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        constraints: const BoxConstraints(maxWidth: 400),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      child: TagPreviewResponsiveLayout(
+        header: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    l.tagLibTesting(widget.tag.toUpperCase()),
-                    style: TextStyle(
-                      color: t.textPrimary,
-                      fontSize: t.fontSize(10),
-                      letterSpacing: 2,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+            Expanded(
+              child: Text(
+                l.tagLibTesting(widget.tag.toUpperCase()),
+                style: TextStyle(
+                  color: t.textPrimary,
+                  fontSize: t.fontSize(10),
+                  letterSpacing: 2,
+                  fontWeight: FontWeight.bold,
                 ),
-                IconButton(
-                  icon: Icon(Icons.close, size: 16, color: t.textDisabled),
-                  onPressed: () => Navigator.pop(context),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            Container(
-              width: 300,
-              height: 450,
-              decoration: BoxDecoration(
-                color: t.background,
-                border: Border.all(color: t.textMinimal),
+                overflow: TextOverflow.ellipsis,
               ),
-              child: _isLoading
+            ),
+            IconButton(
+              icon: Icon(Icons.close, size: 16, color: t.textDisabled),
+              onPressed: () => Navigator.pop(context),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ],
+        ),
+        preview: Container(
+          decoration: BoxDecoration(
+            color: t.background,
+            border: Border.all(color: t.textMinimal),
+          ),
+          child: _isLoading
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: t.textMinimal,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        l.tagLibGeneratingPreview,
+                        style: TextStyle(
+                          color: t.textMinimal,
+                          fontSize: t.fontSize(8),
+                          letterSpacing: 2,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : _error != null
                   ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: t.textMinimal,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            l.tagLibGeneratingPreview,
-                            style: TextStyle(
-                              color: t.textMinimal,
-                              fontSize: t.fontSize(8),
-                              letterSpacing: 2,
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        _error!,
+                        style: TextStyle(
+                          color: t.accentDanger,
+                          fontSize: t.fontSize(9),
+                          letterSpacing: 1,
+                        ),
                       ),
                     )
-                  : _error != null
-                      ? Center(
-                          child: Text(
-                            _error!,
-                            style: TextStyle(
-                              color: t.accentDanger,
-                              fontSize: t.fontSize(9),
-                              letterSpacing: 1,
-                            ),
-                          ),
-                        )
-                      : Image.memory(
-                          _imageBytes!,
-                          fit: BoxFit.contain,
-                        ),
-            ),
-            const SizedBox(height: 16),
+                  : Image.memory(
+                      _imageBytes!,
+                      fit: BoxFit.contain,
+                    ),
+        ),
+        footer: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
             if (_imageBytes != null)
               SizedBox(
                 width: double.infinity,
@@ -599,9 +660,9 @@ class _QuickTagPreviewDialogState extends State<_QuickTagPreviewDialog> {
             const SizedBox(height: 16),
             Consumer<TagLibraryNotifier>(
               builder: (context, notifier, child) {
-                final s = notifier.state.previewSettings;
+                final settings = notifier.state.previewSettings;
                 return Text(
-                  "P: ${s.positivePrompt.toUpperCase()} | ${s.width.toInt()}X${s.height.toInt()} | STEPS: ${s.steps} | SCALE: ${s.scale}",
+                  "P: ${settings.positivePrompt.toUpperCase()} | ${settings.width.toInt()}X${settings.height.toInt()} | STEPS: ${settings.steps} | SCALE: ${settings.scale}",
                   style: TextStyle(
                     color: t.textMinimal,
                     fontSize: t.fontSize(7),

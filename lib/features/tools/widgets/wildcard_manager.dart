@@ -12,6 +12,7 @@ import '../../../core/widgets/confirm_dialog.dart';
 import '../../../core/widgets/tag_suggestion_overlay.dart';
 import '../../../core/services/wildcard_processor.dart';
 import '../providers/wildcard_notifier.dart';
+import 'manager_shell.dart';
 
 class WildcardManager extends StatefulWidget {
   const WildcardManager({super.key});
@@ -29,41 +30,16 @@ class _WildcardManagerState extends State<WildcardManager> {
     final mobile = isMobile(context);
     final t = context.t;
 
-    if (mobile) {
-      return Column(
-        children: [
-          _buildHeader(t),
-          Divider(height: 1, color: t.textMinimal),
-          Expanded(
-            child: _showingEditor && notifier.state.selectedFile != null
-                ? Column(
-                    children: [
-                      _buildMobileEditorBar(notifier, t),
-                      Expanded(child: _buildEditor(context, notifier, t)),
-                    ],
-                  )
-                : _buildFileList(context, notifier, t, fullWidth: true),
-          ),
-        ],
-      );
-    }
-
-    return Column(
-      children: [
-        _buildHeader(t),
-        Divider(height: 1, color: t.textMinimal),
-        Expanded(
-          child: Row(
-            children: [
-              _buildFileList(context, notifier, t),
-              VerticalDivider(width: 1, color: t.textMinimal),
-              Expanded(
-                child: _buildEditor(context, notifier, t),
-              ),
-            ],
-          ),
-        ),
-      ],
+    final showDetail = _showingEditor && notifier.state.selectedFile != null;
+    return ManagerMasterDetailShell(
+      mobile: mobile,
+      showDetail: showDetail,
+      masterHeader: _buildHeader(t),
+      detailHeader: _buildMobileEditorBar(notifier, t),
+      master: _buildFileList(context, notifier, t, fullWidth: mobile),
+      detail: _buildEditor(context, notifier, t),
+      dividerColor: t.textMinimal,
+      showMasterHeaderOnMobile: false,
     );
   }
 
@@ -71,19 +47,12 @@ class _WildcardManagerState extends State<WildcardManager> {
     final fileName = notifier.state.selectedFile != null
         ? p.basenameWithoutExtension(notifier.state.selectedFile!.path).toUpperCase()
         : '';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      color: t.surfaceMid,
-      child: Row(
-        children: [
-          IconButton(
-            icon: Icon(Icons.arrow_back, size: 18, color: t.textDisabled),
-            onPressed: () => setState(() => _showingEditor = false),
-          ),
-          const SizedBox(width: 8),
-          Text(fileName, style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(11), letterSpacing: 1, fontWeight: FontWeight.bold)),
-        ],
-      ),
+    return ManagerDetailHeader(
+      title: fileName,
+      backgroundColor: t.surfaceMid,
+      iconColor: t.textDisabled,
+      textStyle: TextStyle(color: t.textSecondary, fontSize: t.fontSize(11), letterSpacing: 1, fontWeight: FontWeight.bold),
+      onBack: () => setState(() => _showingEditor = false),
     );
   }
 
@@ -145,12 +114,27 @@ class _WildcardManagerState extends State<WildcardManager> {
                   context.l.wildcardFiles,
                   style: TextStyle(color: t.secondaryText, fontSize: t.fontSize(8), letterSpacing: 2, fontWeight: FontWeight.bold),
                 ),
-                IconButton(
-                  icon: Icon(Icons.add, size: 14, color: t.secondaryText),
-                  onPressed: () => _showCreateDialog(context, notifier, t),
-                  tooltip: context.l.wildcardNew,
-                  constraints: const BoxConstraints(),
-                  padding: EdgeInsets.zero,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (fullWidth) ...[
+                      IconButton(
+                        icon: Icon(Icons.help_outline, size: 16, color: t.textDisabled),
+                        onPressed: () => _showWildcardHelp(t),
+                        tooltip: context.l.wildcardHelp,
+                        constraints: const BoxConstraints(),
+                        padding: EdgeInsets.zero,
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    IconButton(
+                      icon: Icon(Icons.add, size: 14, color: t.secondaryText),
+                      onPressed: () => _showCreateDialog(context, notifier, t),
+                      tooltip: context.l.wildcardNew,
+                      constraints: const BoxConstraints(),
+                      padding: EdgeInsets.zero,
+                    ),
+                  ],
                 ),
               ],
             ),

@@ -34,6 +34,7 @@ class _ReferencesManagerState extends State<ReferencesManager>
     return Column(
       children: [
         Container(
+          key: const ValueKey<String>('references-tab-toolbar'),
           color: t.surfaceMid,
           child: TabBar(
             controller: _tabController,

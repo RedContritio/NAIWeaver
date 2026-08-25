@@ -10,6 +10,7 @@ import '../../../core/widgets/vision_slider.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/tag_suggestion_overlay.dart';
 import '../../../core/services/presets.dart';
+import 'manager_shell.dart';
 import '../../director_ref/models/director_reference.dart';
 import '../../director_ref/services/reference_image_processor.dart';
 import '../../generation/models/nai_character.dart';
@@ -56,61 +57,36 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
     final mobile = isMobile(context);
     final t = context.t;
 
-    if (mobile) {
-      return Column(
-        children: [
-          _buildHeader(context, notifier, t),
-          Divider(height: 1, color: t.textMinimal),
-          Expanded(
-            child: _showingEditor && notifier.state.selectedPreset != null
-                ? Column(
-                    children: [
-                      _buildMobileEditorBar(notifier, t),
-                      Expanded(child: _buildEditor(context, notifier, t)),
-                    ],
-                  )
-                : _buildPresetList(context, notifier, t, fullWidth: true),
-          ),
-        ],
-      );
-    }
-
-    return Column(
-      children: [
-        _buildHeader(context, notifier, t),
-        Divider(height: 1, color: t.textMinimal),
-        Expanded(
-          child: Row(
-            children: [
-              _buildPresetList(context, notifier, t),
-              VerticalDivider(width: 1, color: t.textMinimal),
-              Expanded(
-                child: _buildEditor(context, notifier, t),
-              ),
-            ],
-          ),
-        ),
-      ],
+    final showDetail = _showingEditor && notifier.state.selectedPreset != null;
+    return ManagerMasterDetailShell(
+      mobile: mobile,
+      showDetail: showDetail,
+      masterHeader: _buildHeader(context, notifier, t),
+      detailHeader: _buildMobileEditorBar(notifier, t),
+      master: _buildPresetList(
+        context,
+        notifier,
+        t,
+        fullWidth: mobile,
+      ),
+      detail: _buildEditor(context, notifier, t),
+      dividerColor: t.textMinimal,
+      showMasterHeaderOnMobile: false,
     );
   }
 
   Widget _buildMobileEditorBar(PresetNotifier notifier, VisionTokens t) {
     final name = notifier.state.selectedPreset?.name.toUpperCase() ?? '';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      color: t.surfaceMid,
-      child: Row(
-        children: [
+    return ManagerDetailHeader(
+      title: name,
+      backgroundColor: t.surfaceMid,
+      iconColor: t.textDisabled,
+      textStyle: TextStyle(color: t.textSecondary, fontSize: t.fontSize(11), letterSpacing: 1, fontWeight: FontWeight.bold),
+      onBack: () => setState(() => _showingEditor = false),
+      actions: [
+        if (notifier.state.isModified)
           IconButton(
-            icon: Icon(Icons.arrow_back, size: 18, color: t.textDisabled),
-            onPressed: () => setState(() => _showingEditor = false),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(name, style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(11), letterSpacing: 1, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
-          ),
-          if (notifier.state.isModified)
-            IconButton(
+              key: const ValueKey<String>('preset-mobile-save'),
               icon: Icon(Icons.save_outlined, size: 20, color: t.textPrimary),
               tooltip: context.l.commonSave,
               onPressed: () {
@@ -121,8 +97,7 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
                 }
               },
             ),
-        ],
-      ),
+      ],
     );
   }
 

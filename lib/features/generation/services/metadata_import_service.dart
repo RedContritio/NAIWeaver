@@ -5,7 +5,14 @@ import '../../../core/services/styles.dart';
 import '../models/nai_character.dart';
 
 /// Categories of metadata that can be selectively imported.
-enum ImportCategory { prompt, negativePrompt, characters, seed, styles, settings }
+enum ImportCategory {
+  prompt,
+  negativePrompt,
+  characters,
+  seed,
+  styles,
+  settings,
+}
 
 /// Result of fuzzy-matching styles against a composed prompt.
 class StyleMatchResult {
@@ -72,7 +79,9 @@ class MetadataImportResult {
     if (characters.isNotEmpty) cats.add(ImportCategory.characters);
     if (seed != null) cats.add(ImportCategory.seed);
     if (activeStyleNames != null) cats.add(ImportCategory.styles);
-    if (width != null || scale != null || steps != null || sampler != null) cats.add(ImportCategory.settings);
+    if (width != null || scale != null || steps != null || sampler != null) {
+      cats.add(ImportCategory.settings);
+    }
     return cats;
   }
 }
@@ -82,7 +91,8 @@ class MetadataImportResult {
 class MetadataImportService {
   /// Try to match a composed prompt against available styles by checking
   /// prefix/suffix content. Strips matched content from the prompt.
-  static String _norm(String s) => s.toLowerCase().trim().replaceAll(RegExp(r',\s*$'), '');
+  static String _norm(String s) =>
+      s.toLowerCase().trim().replaceAll(RegExp(r',\s*$'), '');
 
   static StyleMatchResult tryMatchStyles({
     required String composedPrompt,
@@ -119,17 +129,25 @@ class MetadataImportService {
           final np = _norm(prompt);
           final ns = _norm(style.suffix);
           if (np.endsWith(ns)) {
-            prompt = prompt.substring(0, prompt.length - style.suffix.length).trimRight();
-            if (prompt.endsWith(',')) prompt = prompt.substring(0, prompt.length - 1).trimRight();
+            prompt = prompt
+                .substring(0, prompt.length - style.suffix.length)
+                .trimRight();
+            if (prompt.endsWith(',')) {
+              prompt = prompt.substring(0, prompt.length - 1).trimRight();
+            }
             didMatch = true;
           }
         }
 
         // Negative match (case-insensitive)
         if (style.negativeContent.isNotEmpty) {
-          final idx = negative.toLowerCase().indexOf(style.negativeContent.toLowerCase());
+          final idx = negative.toLowerCase().indexOf(
+            style.negativeContent.toLowerCase(),
+          );
           if (idx >= 0) {
-            negative = negative.substring(0, idx) + negative.substring(idx + style.negativeContent.length);
+            negative =
+                negative.substring(0, idx) +
+                negative.substring(idx + style.negativeContent.length);
             negative = negative.replaceAll(RegExp(r',\s*,'), ',');
             negative = negative.replaceAll(RegExp(r'^\s*,\s*'), '');
             negative = negative.replaceAll(RegExp(r'\s*,\s*$'), '');
@@ -161,6 +179,19 @@ class MetadataImportService {
     List<PromptStyle> availableStyles = const [],
   }) async {
     final bytes = await file.readAsBytes();
+    return parseImageMetadataBytes(
+      bytes,
+      smartStyleImport: smartStyleImport,
+      availableStyles: availableStyles,
+    );
+  }
+
+  /// Parse metadata from raw image bytes (PNG, WebP, JPEG).
+  Future<MetadataImportResult> parseImageMetadataBytes(
+    Uint8List bytes, {
+    required bool smartStyleImport,
+    List<PromptStyle> availableStyles = const [],
+  }) async {
     final metadata = await compute(extractMetadata, bytes);
 
     if (metadata == null || metadata.isEmpty) {
@@ -271,28 +302,30 @@ class MetadataImportService {
       if (v4Prompt is Map) {
         final charCaptions = v4Prompt['caption']?['char_captions'];
         if (charCaptions is List && charCaptions.isNotEmpty) {
-          final negCaption =
-              (v4Negative is Map) ? v4Negative['caption'] : null;
-          final negCharCaptions =
-              (negCaption is Map) ? negCaption['char_captions'] as List? : null;
+          final negCaption = (v4Negative is Map) ? v4Negative['caption'] : null;
+          final negCharCaptions = (negCaption is Map)
+              ? negCaption['char_captions'] as List?
+              : null;
 
-          final interactionPattern =
-              RegExp(r'^(source|target|mutual)#([^,]+),\s*');
+          final interactionPattern = RegExp(
+            r'^(source|target|mutual)#([^,]+),\s*',
+          );
           final parsedCharacters = <NaiCharacter>[];
-          final rawTags =
-              <({int charIndex, String type, String action})>[];
+          final rawTags = <({int charIndex, String type, String action})>[];
 
           for (int i = 0; i < charCaptions.length; i++) {
             final cc = charCaptions[i] as Map<String, dynamic>;
             final centers = cc['centers'] as List?;
             final center = (centers != null && centers.isNotEmpty)
                 ? NaiCoordinate.fromJson(
-                    Map<String, dynamic>.from(centers.first as Map))
+                    Map<String, dynamic>.from(centers.first as Map),
+                  )
                 : NaiCoordinate(x: 0.5, y: 0.5);
 
             String uc = '';
             if (negCharCaptions != null && i < negCharCaptions.length) {
-              uc = (negCharCaptions[i]
+              uc =
+                  (negCharCaptions[i]
                       as Map<String, dynamic>)['char_caption'] ??
                   '';
             }
@@ -310,23 +343,23 @@ class MetadataImportService {
               caption = caption.substring(match.end);
             }
 
-            parsedCharacters.add(NaiCharacter(
-              prompt: caption,
-              uc: uc,
-              center: center,
-            ));
+            parsedCharacters.add(
+              NaiCharacter(prompt: caption, uc: uc, center: center),
+            );
           }
 
           // Build NaiInteraction objects by grouping chars with the same (type, action)
           final parsedInteractions = <NaiInteraction>[];
-          final actionGroups = <String,
-              ({List<int> sources, List<int> targets, List<int> mutuals})>{};
+          final actionGroups =
+              <
+                String,
+                ({List<int> sources, List<int> targets, List<int> mutuals})
+              >{};
 
           for (final tag in rawTags) {
             final group = actionGroups.putIfAbsent(
               tag.action,
-              () =>
-                  (sources: <int>[], targets: <int>[], mutuals: <int>[]),
+              () => (sources: <int>[], targets: <int>[], mutuals: <int>[]),
             );
             if (tag.type == 'source') {
               group.sources.add(tag.charIndex);
@@ -340,20 +373,24 @@ class MetadataImportService {
           for (final entry in actionGroups.entries) {
             final g = entry.value;
             if (g.sources.isNotEmpty && g.targets.isNotEmpty) {
-              parsedInteractions.add(NaiInteraction(
-                sourceCharacterIndices: g.sources,
-                targetCharacterIndices: g.targets,
-                actionName: entry.key,
-                type: InteractionType.sourceTarget,
-              ));
+              parsedInteractions.add(
+                NaiInteraction(
+                  sourceCharacterIndices: g.sources,
+                  targetCharacterIndices: g.targets,
+                  actionName: entry.key,
+                  type: InteractionType.sourceTarget,
+                ),
+              );
             }
             if (g.mutuals.isNotEmpty) {
-              parsedInteractions.add(NaiInteraction(
-                sourceCharacterIndices: g.mutuals,
-                targetCharacterIndices: [],
-                actionName: entry.key,
-                type: InteractionType.mutual,
-              ));
+              parsedInteractions.add(
+                NaiInteraction(
+                  sourceCharacterIndices: g.mutuals,
+                  targetCharacterIndices: [],
+                  actionName: entry.key,
+                  type: InteractionType.mutual,
+                ),
+              );
             }
           }
 

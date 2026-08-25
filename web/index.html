@@ -31,6 +31,7 @@
 
   <title>NAIWeaver</title>
   <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="vendor/photoswipe/photoswipe.css">
   <style>
     input,
     textarea,
@@ -41,10 +42,48 @@
       -webkit-user-select: text !important;
       user-select: text !important;
     }
+    .naiweaver-native-image {
+      -webkit-touch-callout: default !important;
+      -webkit-user-drag: auto !important;
+      -webkit-user-select: auto !important;
+      user-select: auto !important;
+    }
+    .naiweaver-photoswipe-host .pswp {
+      position: absolute !important;
+      inset: 0;
+      z-index: 0;
+    }
+    .naiweaver-photoswipe-host .pswp__bg {
+      background: #000;
+    }
+    .naiweaver-photoswipe-host .pswp__img {
+      -webkit-touch-callout: default !important;
+      -webkit-user-drag: auto !important;
+      -webkit-user-select: auto !important;
+      user-select: auto !important;
+    }
+    .naiweaver-photoswipe-host .pswp__button--close {
+      display: none;
+    }
+    .naiweaver-native-textarea::selection {
+      background: var(--naiweaver-selection-background, rgba(86, 156, 214, 0.72));
+      color: var(--naiweaver-selection-foreground, #ffffff);
+    }
+    .naiweaver-native-textarea::-moz-selection {
+      background: var(--naiweaver-selection-background, rgba(86, 156, 214, 0.72));
+      color: var(--naiweaver-selection-foreground, #ffffff);
+    }
   </style>
 </head>
 <body>
   <script>
+    document.addEventListener('contextmenu', (event) => {
+      const target = event.target;
+      if (target && target.closest && target.closest('.naiweaver-native-image, .pswp__img')) {
+        event.stopImmediatePropagation();
+      }
+    }, true);
+
     (() => {
       const b64ToBytes = (value) => {
         const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
@@ -137,6 +176,18 @@
             throw webauthnError(error);
           }
         },
+      };
+    })();
+  </script>
+  <script>
+    (() => {
+      const ready = import('./photoswipe_bridge.js').then(
+        () => window.naiweaverPhotoSwipe,
+      );
+      window.naiweaverPhotoSwipe = {
+        mount: (...args) => ready.then((api) => api.mount(...args)),
+        update: (...args) => ready.then((api) => api.update(...args)),
+        dispose: (...args) => ready.then((api) => api.dispose(...args)),
       };
     })();
   </script>

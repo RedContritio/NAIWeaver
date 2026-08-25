@@ -9,6 +9,7 @@ import 'vision_tokens.dart';
 class ThemeNotifier extends ChangeNotifier {
   static const defaultSectionOrder = [
     'characters',
+    'reference_images',
     'dimensions_seed',
     'steps_scale',
     'sampler_post',
@@ -38,7 +39,8 @@ class ThemeNotifier extends ChangeNotifier {
 
   // — Public getters —
   AppThemeConfig get activeConfig => _previewConfig ?? _activeConfig;
-  VisionTokens get tokens => _previewConfig != null ? VisionTokens(_previewConfig!) : _tokens;
+  VisionTokens get tokens =>
+      _previewConfig != null ? VisionTokens(_previewConfig!) : _tokens;
   List<AppThemeConfig> get allThemes => [...BuiltInThemes.all, ..._userThemes];
   List<AppThemeConfig> get userThemes => _userThemes;
   String get activeThemeId => _activeConfig.id;
@@ -89,7 +91,9 @@ class ThemeNotifier extends ChangeNotifier {
     final savedOrder = _prefs.settingsSectionOrder;
     if (savedOrder != null) {
       // Add any new section IDs not in saved order
-      final missing = defaultSectionOrder.where((id) => !savedOrder.contains(id)).toList();
+      final missing = defaultSectionOrder
+          .where((id) => !savedOrder.contains(id))
+          .toList();
       _sectionOrder = [...savedOrder, ...missing];
       // Remove any IDs no longer in defaults
       _sectionOrder.removeWhere((id) => !defaultSectionOrder.contains(id));
@@ -143,7 +147,9 @@ class ThemeNotifier extends ChangeNotifier {
 
   // — Toggle bright mode —
   Future<void> toggleBrightMode() async {
-    _activeConfig = _activeConfig.copyWith(brightMode: !_activeConfig.brightMode);
+    _activeConfig = _activeConfig.copyWith(
+      brightMode: !_activeConfig.brightMode,
+    );
     _tokens = VisionTokens(_activeConfig);
     await _prefs.setBrightTheme(_activeConfig.brightMode);
     await _persist();
@@ -183,7 +189,10 @@ class ThemeNotifier extends ChangeNotifier {
   }
 
   // — Save current config as a new user theme —
-  Future<AppThemeConfig> saveAsUserTheme(String name, AppThemeConfig config) async {
+  Future<AppThemeConfig> saveAsUserTheme(
+    String name,
+    AppThemeConfig config,
+  ) async {
     final newConfig = config.copyWith(
       id: 'user_${DateTime.now().millisecondsSinceEpoch}',
       name: name,
@@ -323,7 +332,10 @@ class ThemeNotifier extends ChangeNotifier {
         border: OutlineInputBorder(
           borderSide: BorderSide(color: config.borderStrong),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
       ),
       cardTheme: CardThemeData(
         color: config.background,

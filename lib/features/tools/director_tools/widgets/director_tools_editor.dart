@@ -12,6 +12,7 @@ import '../../../../core/widgets/comparison_slider.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../gallery/providers/gallery_notifier.dart';
 import '../../../generation/providers/generation_notifier.dart';
+import '../../widgets/tool_config_bottom_sheet.dart';
 import '../models/augment_tool.dart';
 import '../providers/director_tools_notifier.dart';
 import 'tool_selector.dart';
@@ -110,7 +111,8 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
                 label: context.l.directorToolsUseCurrent,
                 description: context.l.directorToolsUseCurrentDesc,
                 accentColor: t.accent,
-                onTap: () => notifier.setSourceImage(genNotifier.state.generatedImage!),
+                onTap: () =>
+                    notifier.setSourceImage(genNotifier.state.generatedImage!),
               ),
               const SizedBox(height: 12),
             ],
@@ -123,14 +125,17 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
               onTap: () async {
                 final result = await pickImageFiles();
                 if (result != null && result.files.single.path != null) {
-                  final bytes = await File(result.files.single.path!).readAsBytes();
+                  final bytes = await File(
+                    result.files.single.path!,
+                  ).readAsBytes();
                   notifier.setSourceImage(bytes);
                 }
               },
             ),
             const SizedBox(height: 12),
 
-            if (!galleryNotifier.demoMode && galleryNotifier.items.isNotEmpty) ...[
+            if (!galleryNotifier.demoMode &&
+                galleryNotifier.items.isNotEmpty) ...[
               Align(
                 alignment: Alignment.centerLeft,
                 child: Padding(
@@ -171,7 +176,11 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(2),
-                          child: Image.file(item.file, fit: BoxFit.cover, filterQuality: FilterQuality.medium),
+                          child: Image.file(
+                            item.file,
+                            fit: BoxFit.cover,
+                            filterQuality: FilterQuality.medium,
+                          ),
                         ),
                       ),
                     );
@@ -187,66 +196,34 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
 
   Widget _buildWorkspace(BuildContext context, DirectorToolsNotifier notifier) {
     final mobile = isMobile(context);
-    final t = context.t;
 
     Widget imageArea = _buildImageArea(context, notifier);
 
-    return Stack(
+    return Column(
       children: [
-        Column(
-          children: [
-            _buildHeader(context, notifier),
-            Expanded(
-              child: mobile
-                  ? imageArea
-                  : Row(
-                      children: [
-                        Expanded(flex: 3, child: imageArea),
-                        SizedBox(
-                          width: 300,
-                          child: SingleChildScrollView(
-                            child: _buildConfigPanel(context, notifier),
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-          ],
-        ),
-        if (mobile)
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: FloatingActionButton(
-              mini: true,
-              tooltip: context.l.directorToolsSettingsTooltip,
-              backgroundColor: t.accentEdit,
-              onPressed: () {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: t.surfaceHigh,
-                  builder: (_) => DraggableScrollableSheet(
-                    initialChildSize: 0.6,
-                    maxChildSize: 0.9,
-                    minChildSize: 0.3,
-                    expand: false,
-                    builder: (_, scrollController) => ListenableBuilder(
-                      listenable: notifier,
-                      builder: (sheetContext, _) => SingleChildScrollView(
-                        controller: scrollController,
-                        child: Padding(
-                          padding: EdgeInsets.only(
-                            bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 24,
-                          ),
-                          child: _buildConfigPanel(context, notifier),
-                        ),
+        _buildHeader(context, notifier),
+        Expanded(
+          child: mobile
+              ? imageArea
+              : Row(
+                  children: [
+                    Expanded(flex: 3, child: imageArea),
+                    SizedBox(
+                      width: 300,
+                      child: SingleChildScrollView(
+                        child: _buildConfigPanel(context, notifier),
                       ),
                     ),
-                  ),
-                );
-              },
-              child: const Icon(Icons.tune, size: 20),
+                  ],
+                ),
+        ),
+        if (mobile)
+          ToolSettingsDock(
+            tooltip: context.l.directorToolsSettingsTooltip,
+            onPressed: () => showToolConfigBottomSheet(
+              context: context,
+              listenable: notifier,
+              contentBuilder: (_) => _buildConfigPanel(context, notifier),
             ),
           ),
       ],
@@ -272,7 +249,8 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
             tooltip: l.img2imgBackToPicker,
           ),
           const Spacer(),
-          if (notifier.hasResult && !context.read<GenerationNotifier>().state.autoSaveImages) ...[
+          if (notifier.hasResult &&
+              !context.read<GenerationNotifier>().state.autoSaveImages) ...[
             if (mobile)
               SizedBox(
                 height: 36,
@@ -296,9 +274,15 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: t.accentSuccess,
                     foregroundColor: t.background,
-                    textStyle: TextStyle(fontSize: t.fontSize(10), fontWeight: FontWeight.bold, letterSpacing: 1),
+                    textStyle: TextStyle(
+                      fontSize: t.fontSize(10),
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                     elevation: 0,
                   ),
                 ),
@@ -309,18 +293,27 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
             SizedBox(
               height: 36,
               child: IconButton(
-                onPressed: notifier.isProcessing ? null : () async {
-                  final gen = context.read<GenerationNotifier>();
-                  notifier.setPrompt(_promptController.text);
-                  await notifier.process();
-                  if (notifier.hasResult && mounted) {
-                    if (gen.state.autoSaveImages) {
-                      _saveResult(notifier);
-                    }
-                  }
-                },
+                onPressed: notifier.isProcessing
+                    ? null
+                    : () async {
+                        final gen = context.read<GenerationNotifier>();
+                        notifier.setPrompt(_promptController.text);
+                        await notifier.process();
+                        if (notifier.hasResult && mounted) {
+                          if (gen.state.autoSaveImages) {
+                            _saveResult(notifier);
+                          }
+                        }
+                      },
                 icon: notifier.isProcessing
-                    ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: t.background))
+                    ? SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: t.background,
+                        ),
+                      )
                     : const Icon(Icons.auto_fix_high, size: 14),
                 style: IconButton.styleFrom(
                   backgroundColor: t.accent,
@@ -332,26 +325,45 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
             SizedBox(
               height: 36,
               child: ElevatedButton.icon(
-                onPressed: notifier.isProcessing ? null : () async {
-                  final gen = context.read<GenerationNotifier>();
-                  notifier.setPrompt(_promptController.text);
-                  await notifier.process();
-                  if (notifier.hasResult && mounted) {
-                    if (gen.state.autoSaveImages) {
-                      _saveResult(notifier);
-                    }
-                  }
-                },
+                onPressed: notifier.isProcessing
+                    ? null
+                    : () async {
+                        final gen = context.read<GenerationNotifier>();
+                        notifier.setPrompt(_promptController.text);
+                        await notifier.process();
+                        if (notifier.hasResult && mounted) {
+                          if (gen.state.autoSaveImages) {
+                            _saveResult(notifier);
+                          }
+                        }
+                      },
                 icon: notifier.isProcessing
-                    ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: t.background))
+                    ? SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: t.background,
+                        ),
+                      )
                     : const Icon(Icons.auto_fix_high, size: 14),
-                label: Text(notifier.isProcessing ? l.directorToolsProcessing : l.directorToolsProcess),
+                label: Text(
+                  notifier.isProcessing
+                      ? l.directorToolsProcessing
+                      : l.directorToolsProcess,
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: t.accent,
                   foregroundColor: t.background,
-                  textStyle: TextStyle(fontSize: t.fontSize(10), fontWeight: FontWeight.bold, letterSpacing: 1),
+                  textStyle: TextStyle(
+                    fontSize: t.fontSize(10),
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                   elevation: 0,
                 ),
               ),
@@ -399,11 +411,16 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
               decoration: BoxDecoration(
                 color: t.accentDanger.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: t.accentDanger.withValues(alpha: 0.4)),
+                border: Border.all(
+                  color: t.accentDanger.withValues(alpha: 0.4),
+                ),
               ),
               child: Text(
                 notifier.error!,
-                style: TextStyle(color: t.accentDanger, fontSize: t.fontSize(9)),
+                style: TextStyle(
+                  color: t.accentDanger,
+                  fontSize: t.fontSize(9),
+                ),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -413,7 +430,10 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
     );
   }
 
-  Widget _buildConfigPanel(BuildContext context, DirectorToolsNotifier notifier) {
+  Widget _buildConfigPanel(
+    BuildContext context,
+    DirectorToolsNotifier notifier,
+  ) {
     final t = context.t;
     final l = context.l;
     final labelSize = responsiveFont(context, 9, 11);
@@ -443,7 +463,10 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
           // Info text about current tool
           Text(
             '${notifier.sourceWidth} x ${notifier.sourceHeight}',
-            style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(labelSize)),
+            style: TextStyle(
+              color: t.textMinimal,
+              fontSize: t.fontSize(labelSize),
+            ),
           ),
           const SizedBox(height: 12),
 
@@ -474,7 +497,10 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
                   width: 30,
                   child: Text(
                     '${notifier.defry}',
-                    style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(10)),
+                    style: TextStyle(
+                      color: t.textPrimary,
+                      fontSize: t.fontSize(10),
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -523,8 +549,14 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
               style: TextStyle(fontSize: t.fontSize(10), color: t.textPrimary),
               decoration: InputDecoration(
                 hintText: l.directorToolsPromptHint,
-                hintStyle: TextStyle(color: t.hintText, fontSize: t.fontSize(9)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                hintStyle: TextStyle(
+                  color: t.hintText,
+                  fontSize: t.fontSize(9),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 filled: true,
                 fillColor: t.borderSubtle,
                 border: OutlineInputBorder(
@@ -548,7 +580,11 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
     final gallery = context.read<GalleryNotifier>();
     final timestamp = generateTimestamp();
     final toolName = notifier.selectedTool.apiValue.replaceAll('-', '');
-    gallery.saveMLResultWithMetadata(notifier.resultBytes!, 'DT_${toolName}_$timestamp.png', sourceBytes: notifier.sourceImageBytes);
+    gallery.saveMLResultWithMetadata(
+      notifier.resultBytes!,
+      'DT_${toolName}_$timestamp.png',
+      sourceBytes: notifier.sourceImageBytes,
+    );
 
     if (mounted) {
       showAppSnackBar(context, context.l.directorToolsSaved);
@@ -605,12 +641,19 @@ class _PickerOption extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     description,
-                    style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9)),
+                    style: TextStyle(
+                      color: t.textDisabled,
+                      fontSize: t.fontSize(9),
+                    ),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.arrow_forward_ios, size: 12, color: accentColor.withValues(alpha: 0.5)),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 12,
+              color: accentColor.withValues(alpha: 0.5),
+            ),
           ],
         ),
       ),

@@ -36,6 +36,32 @@ class _BackendAuthGateState extends State<BackendAuthGate> {
   }
 }
 
+class _ScrollableCenteredAuthBody extends StatelessWidget {
+  final Widget child;
+
+  const _ScrollableCenteredAuthBody({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    const pagePadding = 24.0;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          key: const ValueKey('backend-auth-scroll-view'),
+          padding: const EdgeInsets.all(pagePadding),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: (constraints.maxHeight - pagePadding * 2)
+                  .clamp(0.0, double.infinity),
+            ),
+            child: Center(child: child),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _LoginScreen extends StatefulWidget {
   const _LoginScreen();
 
@@ -80,11 +106,10 @@ class _LoginScreenState extends State<_LoginScreen> {
     );
     return Scaffold(
       backgroundColor: t.background,
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
+      body: SafeArea(
+        child: _ScrollableCenteredAuthBody(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
             child: FutureBuilder<BackendWebAuthnOptions>(
               future: optionsFuture,
               builder: (context, snapshot) {

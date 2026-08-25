@@ -11,6 +11,7 @@ import '../../../core/utils/responsive.dart';
 import '../../../core/services/novel_ai_service.dart';
 import '../models/vibe_transfer.dart';
 import '../providers/vibe_transfer_notifier.dart';
+import '../../tools/widgets/manager_shell.dart';
 
 class VibeTransferManager extends StatefulWidget {
   const VibeTransferManager({super.key});
@@ -168,54 +169,20 @@ class _VibeTransferManagerState extends State<VibeTransferManager> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    context.l.refVibeTransfers,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: t.fontSize(12),
-                      letterSpacing: 4,
-                      color: t.textPrimary,
-                    ),
-                  ),
-                  Flexible(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (vibes.isNotEmpty)
-                          TextButton(
-                            onPressed: notifier.clearAll,
-                            child: Text(
-                              context.l.refClearAll,
-                              style: TextStyle(
-                                color: t.accentDanger,
-                                fontSize: t.fontSize(9),
-                                letterSpacing: 1,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            context.l.refVibeCount(vibes.length),
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: t.textDisabled,
-                              fontSize: t.fontSize(9),
-                              letterSpacing: 1,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+            ManagerCountToolbar(
+              countLabel: context.l.refVibeCount(vibes.length),
+              clearLabel: context.l.refClearAll,
+              onClear: vibes.isEmpty ? null : notifier.clearAll,
+              countStyle: TextStyle(
+                color: t.textDisabled,
+                fontSize: t.fontSize(9),
+                letterSpacing: 1,
+              ),
+              clearStyle: TextStyle(
+                color: t.accentDanger,
+                fontSize: t.fontSize(9),
+                letterSpacing: 1,
+                fontWeight: FontWeight.bold,
               ),
             ),
 

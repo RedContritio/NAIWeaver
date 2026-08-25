@@ -2,8 +2,8 @@ import 'dart:math' as math;
 
 const double _areaCoefficient = 2.951823174884865e-6;
 const double _stepAreaCoefficient = 5.753298233447344e-7;
-const int _opusFreeMaxPixels = 1024 * 1024;
 const int _opusFreeMaxSteps = 28;
+const Set<(int, int)> _opusFreeSizes = {(832, 1216), (1216, 832), (1024, 1024)};
 const int _preciseReferenceAnlas = 5;
 const int _extraVibeAnlas = 2;
 
@@ -38,7 +38,7 @@ bool isOpusFreeBaseImage({
   required bool hasImageInput,
 }) {
   return !hasImageInput &&
-      width * height <= _opusFreeMaxPixels &&
+      _opusFreeSizes.contains((width, height)) &&
       steps <= _opusFreeMaxSteps;
 }
 

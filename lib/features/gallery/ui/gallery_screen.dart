@@ -29,6 +29,7 @@ import '../../tools/canvas/providers/canvas_notifier.dart';
 import '../../tools/canvas/widgets/canvas_editor.dart';
 import '../../tools/ml/widgets/segmentation_overlay.dart';
 import 'comparison_view.dart';
+import 'gallery_layout.dart';
 import 'image_detail_view.dart';
 import 'import_metadata_dialog.dart';
 
@@ -1154,18 +1155,28 @@ class _GalleryScreenState extends State<GalleryScreen> {
   }
 
   Widget _buildGrid(List<GalleryItem> items, bool mobile) {
-    final grid = GridView.builder(
-      key: _gridKey,
-      controller: _scrollController,
-      padding: const EdgeInsets.only(left: 8, right: 8, top: 8, bottom: 80),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: _crossAxisCount!,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-        childAspectRatio: 1,
+    final grid = TweenAnimationBuilder<double>(
+      tween: Tween<double>(end: galleryGridBottomInset(_isSelectionMode)),
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      builder: (context, bottomInset, _) => GridView.builder(
+        key: _gridKey,
+        controller: _scrollController,
+        padding: EdgeInsets.only(
+          left: 8,
+          right: 8,
+          top: 8,
+          bottom: bottomInset,
+        ),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: _crossAxisCount!,
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
+          childAspectRatio: 1,
+        ),
+        itemCount: items.length,
+        itemBuilder: (context, index) => _buildGridItem(items, index, mobile),
       ),
-      itemCount: items.length,
-      itemBuilder: (context, index) => _buildGridItem(items, index, mobile),
     );
 
     late final Widget content;

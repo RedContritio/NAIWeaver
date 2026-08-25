@@ -98,7 +98,7 @@ class _DemoImagePickerState extends State<DemoImagePicker> {
               ),
             )
           : GridView.builder(
-              padding: const EdgeInsets.only(left: 8, right: 8, top: 8, bottom: 80),
+              padding: const EdgeInsets.all(8),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: _crossAxisCount!,
                 crossAxisSpacing: 8,

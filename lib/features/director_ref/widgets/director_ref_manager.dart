@@ -9,6 +9,7 @@ import '../../../core/widgets/vision_slider.dart';
 import '../../../core/utils/responsive.dart';
 import '../models/director_reference.dart';
 import '../providers/director_ref_notifier.dart';
+import '../../tools/widgets/manager_shell.dart';
 
 class DirectorRefManager extends StatefulWidget {
   const DirectorRefManager({super.key});
@@ -158,54 +159,20 @@ class _DirectorRefManagerState extends State<DirectorRefManager> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    context.l.refPreciseReferences,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: t.fontSize(12),
-                      letterSpacing: 4,
-                      color: t.textPrimary,
-                    ),
-                  ),
-                  Flexible(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (refs.isNotEmpty)
-                          TextButton(
-                            onPressed: notifier.clearAll,
-                            child: Text(
-                              context.l.refClearAll,
-                              style: TextStyle(
-                                color: t.accentDanger,
-                                fontSize: t.fontSize(9),
-                                letterSpacing: 1,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            context.l.refReferenceCount(refs.length),
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: t.textDisabled,
-                              fontSize: t.fontSize(9),
-                              letterSpacing: 1,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+            ManagerCountToolbar(
+              countLabel: context.l.refReferenceCount(refs.length),
+              clearLabel: context.l.refClearAll,
+              onClear: refs.isEmpty ? null : notifier.clearAll,
+              countStyle: TextStyle(
+                color: t.textDisabled,
+                fontSize: t.fontSize(9),
+                letterSpacing: 1,
+              ),
+              clearStyle: TextStyle(
+                color: t.accentDanger,
+                fontSize: t.fontSize(9),
+                letterSpacing: 1,
+                fontWeight: FontWeight.bold,
               ),
             ),
 

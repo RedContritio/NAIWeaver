@@ -14,6 +14,7 @@ import '../../../core/services/tag_service.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/utils/tag_suggestion_helper.dart';
 import '../../../core/widgets/tag_suggestion_overlay.dart';
+import '../../../core/widgets/browser_native_text_area.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/theme/vision_tokens.dart';
@@ -23,8 +24,11 @@ import '../../../core/widgets/editable_slider_value.dart';
 import '../../../core/widgets/vision_slider.dart';
 import '../../../core/services/styles.dart';
 import '../../gallery/providers/gallery_notifier.dart';
+import '../../director_ref/widgets/director_ref_shelf.dart';
 import '../providers/generation_notifier.dart';
+import 'generation_seed_control.dart';
 import 'inline_character_editor.dart';
+import 'vibe_transfer_shelf.dart';
 
 class ResolutionOption {
   final String label;
@@ -58,6 +62,11 @@ class ResolutionOption {
 }
 
 class AdvancedSettingsPanel extends StatelessWidget {
+  static double collapsedExtent(BuildContext context) {
+    final headerHeight = isMobile(context) ? 48.0 : 40.0;
+    return headerHeight + MediaQuery.viewPaddingOf(context).bottom;
+  }
+
   static List<ResolutionOption> resolutionOptions(BuildContext context) {
     final l = context.l;
     final builtIn = [
@@ -164,9 +173,8 @@ class AdvancedSettingsPanel extends StatelessWidget {
         final notifier = context.read<GenerationNotifier>();
 
         final mobile = isMobile(context);
-        final bottomInset = MediaQuery.of(context).viewPadding.bottom;
         final headerH = mobile ? 48.0 : 40.0;
-        final collapsedH = headerH + bottomInset;
+        final collapsedH = collapsedExtent(context);
         final expandedH = math.max(
           MediaQuery.of(context).size.height * (mobile ? 0.75 : 0.6),
           collapsedH,
@@ -408,6 +416,8 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
       'sampler_post': () =>
           _buildSamplerPost(notifier, state, mobile, t, compact: compact),
       'characters': () => const InlineCharacterEditor(),
+      if (canUsePaidImageFeatures(context))
+        'reference_images': () => _buildReferenceImages(state, mobile, t),
       'styles': () => _buildStyles(notifier, state, t),
       'negative_prompt': () => _buildNegativePrompt(notifier, t),
       'presets': () => _buildPresets(notifier, state, t),
@@ -444,6 +454,55 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
             MediaQuery.of(context).viewInsets.bottom,
       ),
       children: sections,
+    );
+  }
+
+  Widget _buildReferenceImages(
+    GenerationState state,
+    bool mobile,
+    VisionTokens t,
+  ) {
+    final showRef = state.showDirectorRefShelf;
+    final showVibe =
+        state.showVibeTransferShelf &&
+        hasBackendPermission(context, BackendPermission.imageEncodeVibe);
+    if (!showRef && !showVibe) return const SizedBox.shrink();
+
+    final labelStyle = TextStyle(
+      fontWeight: FontWeight.w900,
+      fontSize: t.fontSize(mobile ? 11 : 9),
+      letterSpacing: 1.5,
+      color: t.secondaryText,
+    );
+    return DecoratedBox(
+      key: const ValueKey<String>('advanced-reference-images'),
+      decoration: BoxDecoration(
+        color: t.borderSubtle.withValues(alpha: 0.32),
+        border: Border.all(color: t.borderSubtle),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (showRef) ...[
+              Text(
+                context.l.refPreciseReferences.toUpperCase(),
+                style: labelStyle,
+              ),
+              const SizedBox(height: 6),
+              const DirectorRefShelf(),
+            ],
+            if (showRef && showVibe) const SizedBox(height: 10),
+            if (showVibe) ...[
+              Text(context.l.refVibeTransfer.toUpperCase(), style: labelStyle),
+              const SizedBox(height: 6),
+              const VibeTransferShelf(),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
@@ -598,47 +657,11 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
       ],
     );
 
-    Widget seedField = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(context.l.panelSeed.toUpperCase(), style: labelStyle),
-        const SizedBox(height: 12),
-        TextField(
-          controller: notifier.seedController,
-          readOnly: state.randomizeSeed,
-          keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          style: TextStyle(
-            fontSize: t.fontSize(11),
-            color: state.randomizeSeed ? t.textDisabled : t.textPrimary,
-          ),
-          decoration: InputDecoration(
-            hintText: context.l.panelSeed.toUpperCase(),
-            hintStyle: TextStyle(fontSize: t.fontSize(9), color: t.textMinimal),
-            fillColor: t.borderSubtle,
-            filled: true,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: BorderSide.none,
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 10,
-            ),
-            suffixIcon: IconButton(
-              onPressed: () =>
-                  notifier.updateSettings(randomizeSeed: !state.randomizeSeed),
-              icon: Icon(
-                state.randomizeSeed ? Icons.shuffle : Icons.tag,
-                size: 14,
-                color: state.randomizeSeed ? t.textSecondary : t.textDisabled,
-              ),
-              constraints: const BoxConstraints(),
-              padding: EdgeInsets.zero,
-            ),
-          ),
-        ),
-      ],
+    final seedField = GenerationSeedControl(
+      controller: notifier.seedController,
+      randomize: state.randomizeSeed,
+      onRandomizeChanged: (randomize) =>
+          notifier.updateSettings(randomizeSeed: randomize),
     );
 
     Widget batchField = Column(
@@ -1172,29 +1195,53 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
           ),
         ),
         const SizedBox(height: 12),
-        ScrollConfiguration(
-          behavior: ScrollConfiguration.of(context).copyWith(
-            dragDevices: {PointerDeviceKind.touch, PointerDeviceKind.stylus},
+        BrowserNativeTextArea(
+          controller: notifier.negativePromptController,
+          focusNode: _negativePromptFocus,
+          onBlur: () {
+            if (_negativeSuggestions.isNotEmpty && mounted) {
+              setState(() => _negativeSuggestions = []);
+            }
+          },
+          style: TextStyle(
+            fontSize: t.fontSize(11),
+            color: t.textSecondary,
+            height: 1.4,
           ),
-          child: TextField(
-            focusNode: _negativePromptFocus,
-            controller: notifier.negativePromptController,
-            maxLines: 3,
-            onTap: _scrollToNegativePrompt,
-            onChanged: (_) => _onNegativePromptChanged(),
-            style: TextStyle(
-              fontSize: t.fontSize(11),
-              color: t.textSecondary,
-              height: 1.4,
+          backgroundColor: t.borderSubtle,
+          selectionColor: t.accent.withValues(alpha: 0.72),
+          selectionTextColor:
+              ThemeData.estimateBrightnessForColor(t.accent) == Brightness.dark
+              ? Colors.white
+              : Colors.black,
+          padding: const EdgeInsets.all(16),
+          height: t.fontSize(11) * 1.4 * 3 + 32,
+          onChanged: (_) => _onNegativePromptChanged(),
+          onTap: _scrollToNegativePrompt,
+          fallback: ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(
+              dragDevices: {PointerDeviceKind.touch, PointerDeviceKind.stylus},
             ),
-            decoration: InputDecoration(
-              fillColor: t.borderSubtle,
-              filled: true,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-                borderSide: BorderSide.none,
+            child: TextField(
+              focusNode: _negativePromptFocus,
+              controller: notifier.negativePromptController,
+              maxLines: 3,
+              onTap: _scrollToNegativePrompt,
+              onChanged: (_) => _onNegativePromptChanged(),
+              style: TextStyle(
+                fontSize: t.fontSize(11),
+                color: t.textSecondary,
+                height: 1.4,
               ),
-              contentPadding: const EdgeInsets.all(16),
+              decoration: InputDecoration(
+                fillColor: t.borderSubtle,
+                filled: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.all(16),
+              ),
             ),
           ),
         ),

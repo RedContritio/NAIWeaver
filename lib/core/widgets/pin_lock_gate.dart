@@ -276,7 +276,7 @@ class _PinEntryScreenState extends State<PinEntryScreen>
     return Scaffold(
       backgroundColor: t.background,
       body: SafeArea(
-        child: Center(
+        child: _ScrollableCenteredPinBody(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -447,6 +447,32 @@ class _PinEntryScreenState extends State<PinEntryScreen>
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ScrollableCenteredPinBody extends StatelessWidget {
+  final Widget child;
+
+  const _ScrollableCenteredPinBody({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    const verticalPadding = 16.0;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          key: const ValueKey('pin-entry-scroll-view'),
+          padding: const EdgeInsets.symmetric(vertical: verticalPadding),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: (constraints.maxHeight - verticalPadding * 2)
+                  .clamp(0.0, double.infinity),
+            ),
+            child: Center(child: child),
+          ),
+        );
+      },
     );
   }
 }

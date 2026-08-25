@@ -12,6 +12,7 @@ import '../../../../core/widgets/vision_slider.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../gallery/providers/gallery_notifier.dart';
 import '../../../generation/providers/generation_notifier.dart';
+import '../../widgets/tool_config_bottom_sheet.dart';
 import '../providers/enhance_notifier.dart';
 
 class EnhanceEditor extends StatefulWidget {
@@ -23,7 +24,8 @@ class EnhanceEditor extends StatefulWidget {
 
 class _EnhanceEditorState extends State<EnhanceEditor> {
   final TextEditingController _promptController = TextEditingController();
-  final TextEditingController _negativePromptController = TextEditingController();
+  final TextEditingController _negativePromptController =
+      TextEditingController();
   bool _initialized = false;
 
   @override
@@ -122,7 +124,9 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
               onTap: () async {
                 final result = await pickImageFiles();
                 if (result != null && result.files.single.path != null) {
-                  final bytes = await File(result.files.single.path!).readAsBytes();
+                  final bytes = await File(
+                    result.files.single.path!,
+                  ).readAsBytes();
                   notifier.setSourceImage(bytes);
                   _negativePromptController.text = notifier.negativePrompt;
                   _initialized = true;
@@ -131,7 +135,8 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
             ),
             const SizedBox(height: 12),
 
-            if (!galleryNotifier.demoMode && galleryNotifier.items.isNotEmpty) ...[
+            if (!galleryNotifier.demoMode &&
+                galleryNotifier.items.isNotEmpty) ...[
               Align(
                 alignment: Alignment.centerLeft,
                 child: Padding(
@@ -163,7 +168,8 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
                       onTap: () async {
                         final bytes = await item.file.readAsBytes();
                         notifier.setSourceImage(bytes);
-                        _negativePromptController.text = notifier.negativePrompt;
+                        _negativePromptController.text =
+                            notifier.negativePrompt;
                         _initialized = true;
                       },
                       child: Container(
@@ -174,7 +180,11 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(2),
-                          child: Image.file(item.file, fit: BoxFit.cover, filterQuality: FilterQuality.medium),
+                          child: Image.file(
+                            item.file,
+                            fit: BoxFit.cover,
+                            filterQuality: FilterQuality.medium,
+                          ),
                         ),
                       ),
                     );
@@ -190,64 +200,34 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
 
   Widget _buildWorkspace(BuildContext context, EnhanceNotifier notifier) {
     final mobile = isMobile(context);
-    final t = context.t;
 
     Widget imageArea = _buildImageArea(context, notifier);
 
-    return Stack(
+    return Column(
       children: [
-        Column(
-          children: [
-            _buildHeader(context, notifier),
-            Expanded(
-              child: mobile
-                  ? imageArea
-                  : Row(
-                      children: [
-                        Expanded(flex: 3, child: imageArea),
-                        SizedBox(
-                          width: 300,
-                          child: SingleChildScrollView(
-                            child: _buildConfigPanel(context, notifier),
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-          ],
-        ),
-        if (mobile)
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: FloatingActionButton(
-              mini: true,
-              tooltip: context.l.enhanceSettingsTooltip,
-              backgroundColor: t.accentEdit,
-              onPressed: () {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: t.surfaceHigh,
-                  builder: (_) => DraggableScrollableSheet(
-                    initialChildSize: 0.6,
-                    maxChildSize: 0.9,
-                    minChildSize: 0.3,
-                    expand: false,
-                    builder: (_, scrollController) => ListenableBuilder(
-                      listenable: notifier,
-                      builder: (_, _) => SingleChildScrollView(
-                        controller: scrollController,
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 24),
-                          child: _buildConfigPanel(context, notifier),
-                        ),
+        _buildHeader(context, notifier),
+        Expanded(
+          child: mobile
+              ? imageArea
+              : Row(
+                  children: [
+                    Expanded(flex: 3, child: imageArea),
+                    SizedBox(
+                      width: 300,
+                      child: SingleChildScrollView(
+                        child: _buildConfigPanel(context, notifier),
                       ),
                     ),
-                  ),
-                );
-              },
-              child: const Icon(Icons.tune, size: 20),
+                  ],
+                ),
+        ),
+        if (mobile)
+          ToolSettingsDock(
+            tooltip: context.l.enhanceSettingsTooltip,
+            onPressed: () => showToolConfigBottomSheet(
+              context: context,
+              listenable: notifier,
+              contentBuilder: (_) => _buildConfigPanel(context, notifier),
             ),
           ),
       ],
@@ -273,7 +253,8 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
             tooltip: l.img2imgBackToPicker,
           ),
           const Spacer(),
-          if (notifier.hasResult && !context.read<GenerationNotifier>().state.autoSaveImages) ...[
+          if (notifier.hasResult &&
+              !context.read<GenerationNotifier>().state.autoSaveImages) ...[
             if (mobile)
               SizedBox(
                 height: 36,
@@ -297,9 +278,15 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: t.accentSuccess,
                     foregroundColor: t.background,
-                    textStyle: TextStyle(fontSize: t.fontSize(10), fontWeight: FontWeight.bold, letterSpacing: 1),
+                    textStyle: TextStyle(
+                      fontSize: t.fontSize(10),
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                     elevation: 0,
                   ),
                 ),
@@ -310,20 +297,31 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
             SizedBox(
               height: 36,
               child: IconButton(
-                onPressed: notifier.isProcessing ? null : () async {
-                  final gen = context.read<GenerationNotifier>();
-                  notifier.setPrompt(_promptController.text);
-                  notifier.setNegativePrompt(_negativePromptController.text);
-                  _syncStylesAndCharacters(notifier, gen);
-                  await notifier.enhance();
-                  if (notifier.hasResult && mounted) {
-                    if (gen.state.autoSaveImages) {
-                      _saveResult(notifier);
-                    }
-                  }
-                },
+                onPressed: notifier.isProcessing
+                    ? null
+                    : () async {
+                        final gen = context.read<GenerationNotifier>();
+                        notifier.setPrompt(_promptController.text);
+                        notifier.setNegativePrompt(
+                          _negativePromptController.text,
+                        );
+                        _syncStylesAndCharacters(notifier, gen);
+                        await notifier.enhance();
+                        if (notifier.hasResult && mounted) {
+                          if (gen.state.autoSaveImages) {
+                            _saveResult(notifier);
+                          }
+                        }
+                      },
                 icon: notifier.isProcessing
-                    ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: t.background))
+                    ? SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: t.background,
+                        ),
+                      )
                     : const Icon(Icons.auto_awesome, size: 14),
                 style: IconButton.styleFrom(
                   backgroundColor: t.accent,
@@ -335,30 +333,51 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
             SizedBox(
               height: 36,
               child: ElevatedButton.icon(
-                onPressed: notifier.isProcessing ? null : () async {
-                  final gen = context.read<GenerationNotifier>();
-                  notifier.setPrompt(_promptController.text);
-                  notifier.setNegativePrompt(_negativePromptController.text);
-                  _syncStylesAndCharacters(notifier, gen);
-                  await notifier.enhance();
-                  if (notifier.hasResult && mounted) {
-                    if (gen.state.autoSaveImages) {
-                      _saveResult(notifier);
-                    }
-                  }
-                },
+                onPressed: notifier.isProcessing
+                    ? null
+                    : () async {
+                        final gen = context.read<GenerationNotifier>();
+                        notifier.setPrompt(_promptController.text);
+                        notifier.setNegativePrompt(
+                          _negativePromptController.text,
+                        );
+                        _syncStylesAndCharacters(notifier, gen);
+                        await notifier.enhance();
+                        if (notifier.hasResult && mounted) {
+                          if (gen.state.autoSaveImages) {
+                            _saveResult(notifier);
+                          }
+                        }
+                      },
                 icon: notifier.isProcessing
-                    ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: t.background))
+                    ? SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: t.background,
+                        ),
+                      )
                     : const Icon(Icons.auto_awesome, size: 14),
-                label: Text(notifier.isProcessing
-                    ? (notifier.status.isNotEmpty ? notifier.status.toUpperCase() : l.enhanceProcessing)
-                    : l.enhanceProcess),
+                label: Text(
+                  notifier.isProcessing
+                      ? (notifier.status.isNotEmpty
+                            ? notifier.status.toUpperCase()
+                            : l.enhanceProcessing)
+                      : l.enhanceProcess,
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: t.accent,
                   foregroundColor: t.background,
-                  textStyle: TextStyle(fontSize: t.fontSize(10), fontWeight: FontWeight.bold, letterSpacing: 1),
+                  textStyle: TextStyle(
+                    fontSize: t.fontSize(10),
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                   elevation: 0,
                 ),
               ),
@@ -405,11 +424,16 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
               decoration: BoxDecoration(
                 color: t.accentDanger.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: t.accentDanger.withValues(alpha: 0.4)),
+                border: Border.all(
+                  color: t.accentDanger.withValues(alpha: 0.4),
+                ),
               ),
               child: Text(
                 notifier.error!,
-                style: TextStyle(color: t.accentDanger, fontSize: t.fontSize(9)),
+                style: TextStyle(
+                  color: t.accentDanger,
+                  fontSize: t.fontSize(9),
+                ),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -448,7 +472,10 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
             decoration: InputDecoration(
               hintText: l.img2imgPromptHint,
               hintStyle: TextStyle(color: t.hintText, fontSize: t.fontSize(9)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
               filled: true,
               fillColor: t.borderSubtle,
               border: OutlineInputBorder(
@@ -481,7 +508,10 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
             decoration: InputDecoration(
               hintText: l.img2imgNegativeHint,
               hintStyle: TextStyle(color: t.hintText, fontSize: t.fontSize(9)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
               filled: true,
               fillColor: t.borderSubtle,
               border: OutlineInputBorder(
@@ -513,17 +543,38 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: FilterChip(
-                    label: Text('${scale}x', style: TextStyle(fontSize: t.fontSize(9), fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    label: Text(
+                      '${scale}x',
+                      style: TextStyle(
+                        fontSize: t.fontSize(9),
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                      ),
+                    ),
                     selected: notifier.config.scale == scale,
                     onSelected: (_) => notifier.setScale(scale),
                     backgroundColor: t.borderSubtle,
                     selectedColor: t.accent,
                     checkmarkColor: t.background,
-                    labelStyle: TextStyle(color: notifier.config.scale == scale ? t.background : t.textTertiary),
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    labelStyle: TextStyle(
+                      color: notifier.config.scale == scale
+                          ? t.background
+                          : t.textTertiary,
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
-                    side: BorderSide(color: notifier.config.scale == scale ? t.accent : t.textMinimal, width: 0.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    side: BorderSide(
+                      color: notifier.config.scale == scale
+                          ? t.accent
+                          : t.textMinimal,
+                      width: 0.5,
+                    ),
                   ),
                 ),
             ],
@@ -553,14 +604,20 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
             notifier.config.scale > 1.0
                 ? '${notifier.sourceWidth}x${notifier.sourceHeight} → ${((notifier.sourceWidth * notifier.config.scale) / 64).round() * 64}x${((notifier.sourceHeight * notifier.config.scale) / 64).round() * 64}'
                 : '${notifier.sourceWidth}x${notifier.sourceHeight}',
-            style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(labelSize)),
+            style: TextStyle(
+              color: t.textMinimal,
+              fontSize: t.fontSize(labelSize),
+            ),
           ),
         ],
       ),
     );
   }
 
-  void _syncStylesAndCharacters(EnhanceNotifier notifier, GenerationNotifier gen) {
+  void _syncStylesAndCharacters(
+    EnhanceNotifier notifier,
+    GenerationNotifier gen,
+  ) {
     final genState = gen.state;
     final styleResult = GenerationNotifier.resolveStyles(
       isStyleEnabled: genState.isStyleEnabled,
@@ -576,7 +633,9 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
     notifier.setCharacterData(
       characters: genState.characters,
       interactions: genState.interactions,
-      useCoords: genState.characters.isNotEmpty ? !genState.autoPositioning : false,
+      useCoords: genState.characters.isNotEmpty
+          ? !genState.autoPositioning
+          : false,
     );
   }
 
@@ -584,7 +643,11 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
     if (notifier.resultBytes == null) return;
     final gallery = context.read<GalleryNotifier>();
     final timestamp = generateTimestamp();
-    gallery.saveMLResultWithMetadata(notifier.resultBytes!, 'ENH_$timestamp.png', sourceBytes: notifier.sourceImageBytes);
+    gallery.saveMLResultWithMetadata(
+      notifier.resultBytes!,
+      'ENH_$timestamp.png',
+      sourceBytes: notifier.sourceImageBytes,
+    );
 
     if (mounted) {
       showAppSnackBar(context, context.l.enhanceSaved);
@@ -690,12 +753,19 @@ class _PickerOption extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     description,
-                    style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9)),
+                    style: TextStyle(
+                      color: t.textDisabled,
+                      fontSize: t.fontSize(9),
+                    ),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.arrow_forward_ios, size: 12, color: accentColor.withValues(alpha: 0.5)),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 12,
+              color: accentColor.withValues(alpha: 0.5),
+            ),
           ],
         ),
       ),

@@ -190,6 +190,7 @@ class DirectorRefShelf extends StatelessWidget {
             margin: const EdgeInsets.only(top: 2, bottom: 2),
             child: ListView(
               scrollDirection: Axis.horizontal,
+              shrinkWrap: true,
               children: [
                 ...refs.map(
                   (ref) => DirectorRefChip(

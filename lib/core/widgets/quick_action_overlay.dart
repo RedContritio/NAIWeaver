@@ -45,29 +45,11 @@ class QuickActionOverlay extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    // Button step size: compact icon-only buttons with small gap
-    final double step = mobile ? 40 : 32;
-
-    // Calculate dynamic top offsets
-    double nextTop = 12;
-
     final bool showSave = !state.autoSaveImages && !notifier.imageSaved;
-    final double saveTop = nextTop;
-    if (showSave) nextTop += step;
-
     final bool showExport = prefs.showExportButton && !kIsWeb;
-    final double exportTop = nextTop;
-    if (showExport) nextTop += step;
-
     final bool showCopy = prefs.showCopyButton && !kIsWeb;
-    final double copyTop = nextTop;
-    if (showCopy) nextTop += step;
-
     final gallery = context.watch<GalleryNotifier>();
     final bool showAlbum = gallery.albums.isNotEmpty;
-    final double albumTop = nextTop;
-    if (showAlbum) nextTop += step;
-
     final bool paidImageFeaturesAllowed = canUsePaidImageFeatures(context);
     final bool imageAugmentAllowed = hasBackendPermission(
       context,
@@ -79,237 +61,231 @@ class QuickActionOverlay extends StatelessWidget {
     );
 
     final bool showEdit = state.showEditButton && paidImageFeaturesAllowed;
-    final double editTop = nextTop;
-    if (showEdit) nextTop += step;
-
     final bool canUseBgRemovalBackend = bgRemovalBackend == 'novelai'
         ? imageAugmentAllowed
         : ml.hasBgRemovalModel;
     final bool showBgRemoval =
         state.showBgRemovalButton && canUseBgRemovalBackend;
-    final double bgRemovalTop = nextTop;
-    if (showBgRemoval) nextTop += step;
-
     final bool canUseUpscaleBackend = upscaleBackend == 'novelai'
         ? imageUpscaleAllowed
         : ml.hasUpscaleModel;
     final bool showUpscale = state.showUpscaleButton && canUseUpscaleBackend;
-    final double upscaleTop = nextTop;
-    if (showUpscale) nextTop += step;
-
     final bool showEnhance =
         state.showEnhanceButton && paidImageFeaturesAllowed;
-    final double enhanceTop = nextTop;
-    if (showEnhance) nextTop += step;
-
     final bool showDirectorTools =
         state.showDirectorToolsButton && imageAugmentAllowed;
-    final double directorToolsTop = nextTop;
+    final actions = <Widget>[];
+    void addAction(Widget action) {
+      if (actions.isNotEmpty) actions.add(const SizedBox(height: 4));
+      actions.add(action);
+    }
 
-    return Stack(
-      children: [
-        // SAVE button (keeps current text style — different category)
-        if (showSave)
-          Positioned(
-            top: saveTop,
-            right: 20,
-            child: _SaveButton(
-              onTap: () => notifier.saveCurrentImage(),
-              icon: Icons.save_alt,
-              label: l.mainSave.toUpperCase(),
-              color: t.accentSuccess,
-              mobile: mobile,
-            ),
-          ),
-
-        // EXPORT to device
-        if (showExport)
-          Positioned(
-            top: exportTop,
-            right: 20,
-            child: _ActionButton(
-              onTap: () => notifier.exportToDevice(context),
-              icon: Icons.download,
-              label: l.mainExport,
-              color: t.accent,
-              mobile: mobile,
-            ),
-          ),
-
-        // COPY (desktop clipboard) / SHARE (mobile share sheet)
-        if (showCopy)
-          Positioned(
-            top: copyTop,
-            right: 20,
-            child: _ActionButton(
-              onTap: () => notifier.copyToClipboard(context),
-              icon: mobile ? Icons.share : Icons.copy,
-              label: mobile ? 'SHARE' : 'COPY',
-              color: t.accent,
-              mobile: mobile,
-            ),
-          ),
-
-        // ALBUM
-        if (showAlbum)
-          Positioned(
-            top: albumTop,
-            right: 20,
-            child: _ActionButton(
-              onTap: () => _showAlbumPicker(context, notifier, gallery, t),
-              icon: Icons.photo_album_outlined,
-              label: 'ALBUM',
-              color: t.accent,
-              mobile: mobile,
-            ),
-          ),
-
-        // EDIT
-        if (showEdit)
-          Positioned(
-            top: editTop,
-            right: 20,
-            child: _ActionButton(
-              onTap: () {
-                context.read<Img2ImgNotifier>().loadSourceImage(
-                  state.generatedImage!,
-                );
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        const ToolsHubScreen(initialToolId: 'img2img'),
-                  ),
-                );
-              },
-              icon: Icons.brush,
-              label: l.mainEdit,
-              color: t.accentEdit,
-              mobile: mobile,
-            ),
-          ),
-
-        // REMOVE BG
-        if (showBgRemoval)
-          Positioned(
-            top: bgRemovalTop,
-            right: 20,
-            child: _ActionButton(
-              onTap: ml.isProcessing
-                  ? null
-                  : () async {
-                      final sourceBytes = state.generatedImage!;
-                      if (bgRemovalBackend == 'novelai') {
-                        await _handleNovelAIBgRemoval(context, sourceBytes);
-                      } else {
-                        final result = await ml.removeBackground(sourceBytes);
-                        if (result != null && context.mounted) {
-                          final gallery = context.read<GalleryNotifier>();
-                          final timestamp = generateTimestamp();
-                          await gallery.saveMLResult(
-                            result,
-                            'BG_gen_$timestamp.png',
-                          );
-                          if (context.mounted) {
-                            showAppSnackBar(context, l.mlBgRemovedAndSaved);
-                          }
-                        }
+    if (showSave) {
+      addAction(
+        _SaveButton(
+          onTap: () => notifier.saveCurrentImage(),
+          icon: Icons.save_alt,
+          label: l.mainSave.toUpperCase(),
+          color: t.accentSuccess,
+          mobile: mobile,
+        ),
+      );
+    }
+    if (showExport) {
+      addAction(
+        _ActionButton(
+          onTap: () => notifier.exportToDevice(context),
+          icon: Icons.download,
+          label: l.mainExport,
+          color: t.accent,
+          mobile: mobile,
+        ),
+      );
+    }
+    if (showCopy) {
+      addAction(
+        _ActionButton(
+          onTap: () => notifier.copyToClipboard(context),
+          icon: mobile ? Icons.share : Icons.copy,
+          label: mobile ? 'SHARE' : 'COPY',
+          color: t.accent,
+          mobile: mobile,
+        ),
+      );
+    }
+    if (showAlbum) {
+      addAction(
+        _ActionButton(
+          onTap: () => _showAlbumPicker(context, notifier, gallery, t),
+          icon: Icons.photo_album_outlined,
+          label: 'ALBUM',
+          color: t.accent,
+          mobile: mobile,
+        ),
+      );
+    }
+    if (showEdit) {
+      addAction(
+        _ActionButton(
+          onTap: () {
+            context.read<Img2ImgNotifier>().loadSourceImage(
+              state.generatedImage!,
+            );
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    const ToolsHubScreen(initialToolId: 'img2img'),
+              ),
+            );
+          },
+          icon: Icons.brush,
+          label: l.mainEdit,
+          color: t.accentEdit,
+          mobile: mobile,
+        ),
+      );
+    }
+    if (showBgRemoval) {
+      addAction(
+        _ActionButton(
+          onTap: ml.isProcessing
+              ? null
+              : () async {
+                  final sourceBytes = state.generatedImage!;
+                  if (bgRemovalBackend == 'novelai') {
+                    await _handleNovelAIBgRemoval(context, sourceBytes);
+                  } else {
+                    final result = await ml.removeBackground(sourceBytes);
+                    if (result != null && context.mounted) {
+                      final gallery = context.read<GalleryNotifier>();
+                      final timestamp = generateTimestamp();
+                      await gallery.saveMLResult(
+                        result,
+                        'BG_gen_$timestamp.png',
+                      );
+                      if (context.mounted) {
+                        showAppSnackBar(context, l.mlBgRemovedAndSaved);
                       }
-                    },
-              icon: Icons.content_cut,
-              label: l.mlRemoveBg,
-              color: t.accentBgRemoval,
-              isProcessing: ml.isProcessing,
-              mobile: mobile,
-            ),
-          ),
+                    }
+                  }
+                },
+          icon: Icons.content_cut,
+          label: l.mlRemoveBg,
+          color: t.accentBgRemoval,
+          isProcessing: ml.isProcessing,
+          mobile: mobile,
+        ),
+      );
+    }
+    if (showUpscale) {
+      addAction(
+        _ActionButton(
+          onTap: ml.isProcessing
+              ? null
+              : () async {
+                  final sourceBytes = state.generatedImage!;
+                  if (upscaleBackend == 'novelai') {
+                    await _handleNovelAIUpscale(
+                      context,
+                      sourceBytes,
+                      state.autoSaveImages,
+                    );
+                  } else {
+                    final result = await ml.upscaleImage(sourceBytes);
+                    if (result != null && context.mounted) {
+                      _showUpscaleComparison(
+                        context,
+                        sourceBytes,
+                        result,
+                        state.autoSaveImages,
+                      );
+                    }
+                  }
+                },
+          icon: Icons.zoom_out_map,
+          label: l.mlUpscale,
+          color: t.accentUpscale,
+          isProcessing: ml.isProcessing,
+          mobile: mobile,
+        ),
+      );
+    }
+    if (showEnhance) {
+      addAction(
+        _ActionButton(
+          onTap: () {
+            context.read<EnhanceNotifier>().setSourceImage(
+              state.generatedImage!,
+            );
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ToolsHubScreen(initialToolId: 'enhance'),
+              ),
+            );
+          },
+          icon: Icons.hd,
+          label: l.quickActionEnhance,
+          color: t.accent,
+          mobile: mobile,
+        ),
+      );
+    }
+    if (showDirectorTools) {
+      addAction(
+        _ActionButton(
+          onTap: () {
+            context.read<DirectorToolsNotifier>().setSourceImage(
+              state.generatedImage!,
+            );
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    const ToolsHubScreen(initialToolId: 'director_tools'),
+              ),
+            );
+          },
+          icon: Icons.auto_fix_high,
+          label: l.quickActionDirectorTools,
+          color: t.accent,
+          mobile: mobile,
+        ),
+      );
+    }
+    if (actions.isEmpty) return const SizedBox.shrink();
 
-        // UPSCALE
-        if (showUpscale)
-          Positioned(
-            top: upscaleTop,
-            right: 20,
-            child: _ActionButton(
-              onTap: ml.isProcessing
-                  ? null
-                  : () async {
-                      final sourceBytes = state.generatedImage!;
-                      if (upscaleBackend == 'novelai') {
-                        await _handleNovelAIUpscale(
-                          context,
-                          sourceBytes,
-                          state.autoSaveImages,
-                        );
-                      } else {
-                        final result = await ml.upscaleImage(sourceBytes);
-                        if (result != null && context.mounted) {
-                          _showUpscaleComparison(
-                            context,
-                            sourceBytes,
-                            result,
-                            state.autoSaveImages,
-                          );
-                        }
-                      }
-                    },
-              icon: Icons.zoom_out_map,
-              label: l.mlUpscale,
-              color: t.accentUpscale,
-              isProcessing: ml.isProcessing,
-              mobile: mobile,
+    return LayoutBuilder(
+      builder: (context, constraints) => Align(
+        alignment: Alignment.topRight,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 20, 12),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: (constraints.maxHeight - 24)
+                  .clamp(0.0, double.infinity)
+                  .toDouble(),
+            ),
+            child: DecoratedBox(
+              key: const ValueKey<String>('quick-action-rail'),
+              decoration: BoxDecoration(
+                color: t.background.withValues(alpha: 0.78),
+                border: Border.all(color: t.borderSubtle),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  children: actions,
+                ),
+              ),
             ),
           ),
-
-        // ENHANCE
-        if (showEnhance)
-          Positioned(
-            top: enhanceTop,
-            right: 20,
-            child: _ActionButton(
-              onTap: () {
-                context.read<EnhanceNotifier>().setSourceImage(
-                  state.generatedImage!,
-                );
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        const ToolsHubScreen(initialToolId: 'enhance'),
-                  ),
-                );
-              },
-              icon: Icons.hd,
-              label: l.quickActionEnhance,
-              color: t.accent,
-              mobile: mobile,
-            ),
-          ),
-
-        // DIRECTOR TOOLS
-        if (showDirectorTools)
-          Positioned(
-            top: directorToolsTop,
-            right: 20,
-            child: _ActionButton(
-              onTap: () {
-                context.read<DirectorToolsNotifier>().setSourceImage(
-                  state.generatedImage!,
-                );
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        const ToolsHubScreen(initialToolId: 'director_tools'),
-                  ),
-                );
-              },
-              icon: Icons.auto_fix_high,
-              label: l.quickActionDirectorTools,
-              color: t.accent,
-              mobile: mobile,
-            ),
-          ),
-      ],
+        ),
+      ),
     );
   }
 

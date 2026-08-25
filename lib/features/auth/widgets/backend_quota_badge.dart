@@ -17,21 +17,27 @@ class BackendQuotaBadge extends StatelessWidget {
     final quota = auth.quota;
     if (user == null || quota == null) return const SizedBox.shrink();
 
-    final showPaid =
-        user.isAdmin || user.permissions.contains('image.generate.paid');
-    final bucket = showPaid ? quota.paid : quota.free;
+    // A fully discounted bucket has no useful balance to display. In
+    // particular, administrators should see their finite red-point balance,
+    // not a misleading green infinity symbol.
+    final showGreen =
+        !quota.free.unlimited &&
+        (quota.free.enabled ||
+            quota.free.pointLimit != null ||
+            quota.free.greenPointLimit != null);
+    final showRed = quota.paid.enabled && !quota.paid.unlimited;
+    if (!showGreen && !showRed) return const SizedBox.shrink();
     final mobile = isMobile(context);
     final t = context.t;
-    final shortLabel = showPaid
-        ? context.l.gatewayQuotaPaidShort
-        : context.l.gatewayQuotaFreeShort;
-    final fullLabel = showPaid
-        ? context.l.gatewayQuotaPaidLabel
-        : context.l.gatewayQuotaFreeLabel;
-    final remaining = _remainingText(context, bucket);
-    final limit = _limitText(context, bucket);
-    final tooltip =
-        '$fullLabel: $remaining / $limit\n${context.l.gatewayQuotaRefresh}';
+    final green = _remainingText(context, quota.free);
+    final red = _remainingText(context, quota.paid);
+    final tooltip = [
+      if (showGreen)
+        '${context.l.gatewayQuotaFreeLabel}: $green / ${_limitText(context, quota.free)}',
+      if (showRed)
+        '${context.l.gatewayQuotaPaidLabel}: $red / ${_limitText(context, quota.paid)}',
+      context.l.gatewayQuotaRefresh,
+    ].join('\n');
 
     return Padding(
       padding: const EdgeInsets.only(right: 4),
@@ -59,13 +65,30 @@ class BackendQuotaBadge extends StatelessWidget {
                   color: t.headerText,
                 ),
                 const SizedBox(width: 4),
-                Text(
-                  '$shortLabel $remaining',
-                  style: TextStyle(
-                    color: t.headerText,
-                    fontSize: t.fontSize(mobile ? 10 : 8),
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
+                RichText(
+                  text: TextSpan(
+                    style: TextStyle(
+                      fontSize: t.fontSize(mobile ? 10 : 8),
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                    children: [
+                      if (showGreen)
+                        TextSpan(
+                          text: green,
+                          style: TextStyle(color: t.accentSuccess),
+                        ),
+                      if (showGreen && showRed)
+                        TextSpan(
+                          text: '/',
+                          style: TextStyle(color: t.secondaryText),
+                        ),
+                      if (showRed)
+                        TextSpan(
+                          text: red,
+                          style: TextStyle(color: t.accentDanger),
+                        ),
+                    ],
                   ),
                 ),
               ],
@@ -83,6 +106,6 @@ class BackendQuotaBadge extends StatelessWidget {
 
   String _limitText(BuildContext context, BackendQuotaBucket bucket) {
     if (bucket.unlimited) return context.l.gatewayQuotaUnlimited;
-    return '${bucket.pointLimit ?? bucket.dailyLimit ?? 0}';
+    return '${bucket.pointLimit ?? bucket.greenPointLimit ?? bucket.redPoints ?? 0}';
   }
 }

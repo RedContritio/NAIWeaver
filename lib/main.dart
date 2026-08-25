@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'core/utils/app_snackbar.dart';
 import 'core/widgets/confirm_dialog.dart';
+import 'core/widgets/browser_native_text_area.dart';
 import 'core/gateway/backend_gateway.dart';
 import 'core/gateway/backend_permissions.dart';
 import 'core/services/nai_cost_estimator.dart';
@@ -33,12 +34,13 @@ import 'core/utils/responsive.dart';
 import 'core/utils/wheel_scroll.dart';
 import 'core/widgets/help_dialog.dart';
 import 'core/widgets/pin_lock_gate.dart';
-import 'core/widgets/quick_action_overlay.dart';
 import 'core/theme/theme_notifier.dart';
 import 'core/theme/theme_extensions.dart';
 import 'core/theme/vision_tokens.dart';
 import 'features/generation/providers/generation_notifier.dart';
-import 'features/generation/widgets/image_viewer.dart';
+import 'features/generation/widgets/generation_page_layout.dart';
+import 'features/generation/widgets/generation_results_workspace.dart';
+import 'features/generation/widgets/generation_seed_control.dart';
 import 'features/generation/widgets/settings_panel.dart';
 import 'features/tools/tools_hub_screen.dart';
 import 'features/tools/providers/wildcard_notifier.dart';
@@ -53,10 +55,7 @@ import 'features/tools/canvas/providers/canvas_notifier.dart';
 import 'features/tools/img2img/providers/img2img_notifier.dart';
 import 'features/tools/cascade/widgets/cascade_playback_view.dart';
 import 'features/director_ref/providers/director_ref_notifier.dart';
-import 'features/director_ref/widgets/director_ref_shelf.dart';
 import 'features/vibe_transfer/providers/vibe_transfer_notifier.dart';
-import 'features/generation/widgets/vibe_transfer_shelf.dart';
-import 'features/generation/widgets/sidebar_ref_vibe_rail.dart';
 import 'features/tools/slideshow/providers/slideshow_notifier.dart';
 import 'features/tools/director_tools/providers/director_tools_notifier.dart';
 import 'features/tools/enhance/providers/enhance_notifier.dart';
@@ -268,7 +267,7 @@ void main() {
               VibeTransferNotifier,
               DirectorToolsNotifier,
               EnhanceNotifier,
-              TextGenNotifier,
+              BackendAuthNotifier,
               GenerationNotifier
             >(
               create: (context) => GenerationNotifier(
@@ -295,7 +294,7 @@ void main() {
                     vibeTransfer,
                     directorTools,
                     enhance,
-                    textGen,
+                    backendAuth,
                     previous,
                   ) {
                     previous?.updateGalleryNotifier(gallery);
@@ -303,7 +302,10 @@ void main() {
                     previous?.updateVibeTransferNotifier(vibeTransfer);
                     previous?.updateDirectorToolsNotifier(directorTools);
                     previous?.updateEnhanceNotifier(enhance);
-                    previous?.updateTextGenNotifier(textGen);
+                    previous?.updateTextGenNotifier(
+                      context.read<TextGenNotifier>(),
+                    );
+                    previous?.updateBackendUserId(backendAuth.user?.id);
                     return previous!;
                   },
             ),
@@ -406,6 +408,7 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
   bool _isTouchingSuggestions = false;
   int _tagSuggestionIndex = -1;
   final FocusNode _globalFocusNode = FocusNode(skipTraversal: true);
+  final FocusNode _promptFocusNode = FocusNode();
 
   @override
   void initState() {
@@ -477,7 +480,16 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
 
     // Show generation error
     if (state.errorMessage != null) {
-      _showError(context, state.errorMessage!);
+      _showError(
+        context,
+        state.errorSuggestRandomSeed
+            ? context.l.generationNoParametersVaried
+            : state.errorMessage!,
+        tone: state.errorTone,
+        onRandomizeSeed: state.errorSuggestRandomSeed
+            ? () => notifier.updateSettings(randomizeSeed: true)
+            : null,
+      );
       notifier.clearError();
     }
 
@@ -507,8 +519,19 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
     }
   }
 
-  void _showError(BuildContext context, String message) {
+  void _showError(
+    BuildContext context,
+    String message, {
+    GenerationErrorTone tone = GenerationErrorTone.general,
+    VoidCallback? onRandomizeSeed,
+  }) {
     final t = context.tRead;
+    final pointColor = switch (tone) {
+      GenerationErrorTone.greenPoints => t.accentSuccess,
+      GenerationErrorTone.redPoints => t.accentDanger,
+      GenerationErrorTone.general => null,
+    };
+    final pointMessageParts = message.split('点数');
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -525,18 +548,36 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
             Icon(Icons.error_outline, color: t.accentDanger, size: 16),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                message,
-                style: TextStyle(
-                  color: t.accentDanger,
-                  fontSize: t.fontSize(10),
-                  letterSpacing: 1,
-                  fontWeight: FontWeight.bold,
+              child: RichText(
+                text: TextSpan(
+                  style: TextStyle(
+                    color: t.accentDanger,
+                    fontSize: t.fontSize(10),
+                    letterSpacing: 1,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  children: pointColor == null || pointMessageParts.length != 2
+                      ? [TextSpan(text: message)]
+                      : [
+                          TextSpan(text: pointMessageParts.first),
+                          TextSpan(
+                            text: '点数',
+                            style: TextStyle(color: pointColor),
+                          ),
+                          TextSpan(text: pointMessageParts.last),
+                        ],
                 ),
               ),
             ),
           ],
         ),
+        action: onRandomizeSeed == null
+            ? null
+            : SnackBarAction(
+                label: context.l.generationRandomizeSeed.toUpperCase(),
+                textColor: Colors.orange,
+                onPressed: onRandomizeSeed,
+              ),
       ),
     );
   }
@@ -683,6 +724,7 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
   @override
   void dispose() {
     _globalFocusNode.dispose();
+    _promptFocusNode.dispose();
     context.read<GenerationNotifier>().removeListener(_generationListener);
     _pulseController.dispose();
     super.dispose();
@@ -695,6 +737,11 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
       if (!mounted) return;
       unawaited(context.read<BackendAuthNotifier>().refreshSession());
     });
+  }
+
+  void _selectResultImage(GenerationNotifier notifier, String id) {
+    _promptFocusNode.unfocus();
+    notifier.selectGeneratedImage(id);
   }
 
   void _scheduleFreeImageClamp(GenerationState state) {
@@ -819,7 +866,7 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
           }
         },
         child: Scaffold(
-          resizeToAvoidBottomInset: false,
+          resizeToAvoidBottomInset: true,
           backgroundColor: t.background,
           appBar: AppBar(
             title: Image.asset(
@@ -1060,87 +1107,66 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
     bool mobile,
     VisionTokens t,
   ) {
-    return Stack(
-      children: [
-        Positioned.fill(
-          bottom: mobile ? 140 : 115,
-          child: ImagePreviewViewer(
-            generatedImage: state.generatedImage,
-            isLoading: state.isLoading,
-            isDragging: state.isDragging,
-            pulseAnimation: _pulseAnimation,
-          ),
-        ),
-
-        const Positioned.fill(child: QuickActionOverlay()),
-
-        if (isCascadeMode)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: mobile
-                ? (MediaQuery.of(context).viewInsets.bottom > 0
-                      ? MediaQuery.of(context).viewInsets.bottom
-                      : (48.0 + MediaQuery.of(context).viewPadding.bottom))
-                : (MediaQuery.of(context).viewInsets.bottom > 0
-                      ? MediaQuery.of(context).viewInsets.bottom
-                      : 40.0 + MediaQuery.of(context).viewPadding.bottom),
-            child: const CascadePlaybackView(),
-          ),
-
-        if (!isCascadeMode)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: mobile
-                ? (MediaQuery.of(context).viewInsets.bottom > 0
-                      ? MediaQuery.of(context).viewInsets.bottom
-                      : (48.0 + MediaQuery.of(context).viewPadding.bottom))
-                : (MediaQuery.of(context).viewInsets.bottom > 0
-                      ? MediaQuery.of(context).viewInsets.bottom
-                      : 40.0 + MediaQuery.of(context).viewPadding.bottom),
-            child: _buildPromptArea(context, notifier, state, mobile, t),
-          ),
-
-        AdvancedSettingsPanel(
-          onManageStyles: () {
-            String? activeStyle;
-            for (final name in notifier.state.activeStyleNames) {
-              final style = notifier.state.styles
-                  .where((s) => s.name == name)
-                  .firstOrNull;
-              if (style != null && !style.isDefault) {
-                activeStyle = name;
-                break;
-              }
+    final settingsBarHeight = AdvancedSettingsPanel.collapsedExtent(context);
+    return GenerationPageLayout(
+      overlayReservedHeight: settingsBarHeight,
+      results: _buildDefaultResultsArea(context, notifier, state, mobile),
+      footer: isCascadeMode
+          ? const CascadePlaybackView()
+          : _buildPromptArea(context, notifier, state, mobile, t),
+      overlay: AdvancedSettingsPanel(
+        onManageStyles: () {
+          String? activeStyle;
+          for (final name in notifier.state.activeStyleNames) {
+            final style = notifier.state.styles
+                .where((s) => s.name == name)
+                .firstOrNull;
+            if (style != null && !style.isDefault) {
+              activeStyle = name;
+              break;
             }
-            activeStyle ??= notifier.state.activeStyleNames.isNotEmpty
-                ? notifier.state.activeStyleNames.first
-                : null;
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ToolsHubScreen(
-                  initialToolId: 'styles',
-                  initialStyleName: activeStyle,
-                ),
+          }
+          activeStyle ??= notifier.state.activeStyleNames.isNotEmpty
+              ? notifier.state.activeStyleNames.first
+              : null;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ToolsHubScreen(
+                initialToolId: 'styles',
+                initialStyleName: activeStyle,
               ),
-            );
-          },
-          onEditStyle: (styleName) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ToolsHubScreen(
-                  initialToolId: 'styles',
-                  initialStyleName: styleName,
-                ),
+            ),
+          );
+        },
+        onEditStyle: (styleName) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ToolsHubScreen(
+                initialToolId: 'styles',
+                initialStyleName: styleName,
               ),
-            );
-          },
-          onSavePreset: () => _showSavePresetDialog(context, notifier),
-        ),
-      ],
+            ),
+          );
+        },
+        onSavePreset: () => _showSavePresetDialog(context, notifier),
+      ),
+    );
+  }
+
+  Widget _buildDefaultResultsArea(
+    BuildContext context,
+    GenerationNotifier notifier,
+    GenerationState state,
+    bool mobile,
+  ) {
+    return GenerationResultsWorkspace(
+      notifier: notifier,
+      state: state,
+      mobile: mobile,
+      pulseAnimation: _pulseAnimation,
+      onSelectImage: (id) => _selectResultImage(notifier, id),
     );
   }
 
@@ -1155,7 +1181,6 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
     bool promptOnLeft,
   ) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final paidImageFeaturesAllowed = canUsePaidImageFeatures(context);
     final widthMode = context.watch<ThemeNotifier>().sidebarWidthMode;
     final double sidebarWidth;
     if (widthMode == 'compact') {
@@ -1219,20 +1244,14 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
                   ),
                 ),
                 if (promptOnLeft && !isCascadeMode)
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                    decoration: BoxDecoration(
-                      color: t.surfaceHigh,
-                      border: Border(top: BorderSide(color: t.borderMedium)),
-                    ),
-                    child: _buildPromptArea(
-                      context,
-                      notifier,
-                      state,
-                      mobile,
-                      t,
-                      useSidebarStyle: true,
-                    ),
+                  _buildPromptArea(
+                    context,
+                    notifier,
+                    state,
+                    mobile,
+                    t,
+                    useSidebarStyle: true,
+                    showQuickSeed: false,
                   ),
               ],
             ),
@@ -1241,64 +1260,31 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
 
         // Right content area
         Expanded(
-          child: Stack(
-            children: [
-              Positioned.fill(
-                bottom: (!promptOnLeft && !isCascadeMode) ? 115 : 0,
-                child: ImagePreviewViewer(
-                  generatedImage: state.generatedImage,
-                  isLoading: state.isLoading,
-                  isDragging: state.isDragging,
-                  pulseAnimation: _pulseAnimation,
-                ),
-              ),
-
-              const Positioned.fill(child: QuickActionOverlay()),
-
-              // REF/VIBE rail on left edge of image area (next to sidebar)
-              if ((state.showDirectorRefShelf && paidImageFeaturesAllowed) ||
-                  (state.showVibeTransferShelf &&
-                      paidImageFeaturesAllowed &&
-                      hasBackendPermission(
-                        context,
-                        BackendPermission.imageEncodeVibe,
-                      )))
-                Positioned(
-                  left: 8,
-                  top: 8,
-                  child: SidebarRefVibeRail(
-                    showRef:
-                        state.showDirectorRefShelf && paidImageFeaturesAllowed,
-                    showVibe:
-                        state.showVibeTransferShelf &&
-                        paidImageFeaturesAllowed &&
-                        hasBackendPermission(
-                          context,
-                          BackendPermission.imageEncodeVibe,
-                        ),
+          child: GenerationPageLayout(
+            results: GenerationResultsWorkspace(
+              notifier: notifier,
+              state: state,
+              mobile: mobile,
+              pulseAnimation: _pulseAnimation,
+              onSelectImage: (id) => _selectResultImage(notifier, id),
+            ),
+            footer: isCascadeMode
+                ? const CascadePlaybackView()
+                : promptOnLeft
+                ? const SizedBox.shrink()
+                : SafeArea(
+                    top: false,
+                    left: false,
+                    right: false,
+                    child: _buildPromptArea(
+                      context,
+                      notifier,
+                      state,
+                      mobile,
+                      t,
+                      showQuickSeed: false,
+                    ),
                   ),
-                ),
-
-              if (isCascadeMode)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: MediaQuery.of(context).viewInsets.bottom > 0
-                      ? MediaQuery.of(context).viewInsets.bottom
-                      : 40.0 + MediaQuery.of(context).viewPadding.bottom,
-                  child: const CascadePlaybackView(),
-                ),
-
-              if (!promptOnLeft && !isCascadeMode)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: MediaQuery.of(context).viewInsets.bottom > 0
-                      ? MediaQuery.of(context).viewInsets.bottom
-                      : 40.0 + MediaQuery.of(context).viewPadding.bottom,
-                  child: _buildPromptArea(context, notifier, state, mobile, t),
-                ),
-            ],
           ),
         ),
       ],
@@ -1313,6 +1299,7 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
     bool mobile,
     VisionTokens t, {
     bool useSidebarStyle = false,
+    bool showQuickSeed = true,
   }) {
     final imageGenerationAllowed = canGenerateImage(context);
     final imageBatchLimit = backendImageBatchLimit(context);
@@ -1330,6 +1317,20 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
         .vibes
         .where((v) => v.enabled)
         .length;
+    final usesRedPoints =
+        state.smea ||
+        state.smeaDyn ||
+        activeDirectorRefCount > 0 ||
+        activeVibeCount > 0 ||
+        !isOpusFreeBaseImage(
+          width: state.width.toInt(),
+          height: state.height.toInt(),
+          steps: state.steps.toInt(),
+          hasImageInput: false,
+        );
+    final greenPointDiscount =
+        context.watch<BackendAuthNotifier>().quota?.free.greenPointDiscount ??
+        0;
     final imageCostEstimate = estimateNaiImageCost(
       width: state.width.toInt(),
       height: state.height.toInt(),
@@ -1341,11 +1342,19 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
           ? activeDirectorRefCount
           : 0,
       vibeReferenceCount: vibeFeatureAllowed ? activeVibeCount : 0,
+      isOpus: false,
     );
+    final promptLines = useSidebarStyle
+        ? 5
+        : (mobile ? t.promptMaxLines + 2 : t.promptMaxLines + 1);
+    final showCostEstimate = useBackendGateway && imageGenerationAllowed;
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: EdgeInsets.fromLTRB(16, useSidebarStyle ? 8 : 0, 16, 12),
       decoration: useSidebarStyle
-          ? null
+          ? BoxDecoration(
+              color: t.surfaceHigh,
+              border: Border(top: BorderSide(color: t.borderMedium)),
+            )
           : BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
@@ -1361,15 +1370,6 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (state.showDirectorRefShelf &&
-              paidImageFeaturesAllowed &&
-              !useSidebarStyle)
-            const DirectorRefShelf(),
-          if (state.showVibeTransferShelf &&
-              paidImageFeaturesAllowed &&
-              !useSidebarStyle &&
-              vibeFeatureAllowed)
-            const VibeTransferShelf(),
           Selector<GenerationNotifier, String>(
             selector: (_, n) => n.state.characterEditorMode,
             builder: (context, mode, _) {
@@ -1397,213 +1397,296 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
               ),
             ),
           ),
-          if (context.read<PreferencesService>().showSeedControl)
-            _buildSeedRow(context, notifier, state, t),
-          if (useBackendGateway && imageGenerationAllowed)
+          if (showQuickSeed &&
+              context.read<PreferencesService>().showSeedControl)
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: _buildGenerationCostBadge(
-                  context,
-                  imageCostEstimate,
-                  mobile,
-                  t,
-                ),
+              child: GenerationSeedControl(
+                controller: notifier.seedController,
+                randomize: state.randomizeSeed,
+                onRandomizeChanged: (randomize) =>
+                    notifier.updateSettings(randomizeSeed: randomize),
+                variant: GenerationSeedControlVariant.compact,
               ),
             ),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: Focus(
-                  onFocusChange: (hasFocus) {
-                    if (!hasFocus) {
+          GenerationComposerRow(
+            promptLines: promptLines,
+            promptFontSize: t.promptFontSize - 1,
+            actionWidth: mobile ? 72 : 68,
+            promptInput: Focus(
+              onFocusChange: (hasFocus) {
+                if (!hasFocus) {
+                  Future.delayed(const Duration(milliseconds: 200), () {
+                    if (!_isTouchingSuggestions) {
+                      notifier.clearTagSuggestions();
+                      setState(() => _tagSuggestionIndex = -1);
+                    }
+                  });
+                }
+              },
+              onKeyEvent: (node, event) {
+                if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+                  return KeyEventResult.ignored;
+                }
+                final currentState = notifier.state;
+
+                // Ctrl+Enter → generate
+                if (event.logicalKey == LogicalKeyboardKey.enter &&
+                    HardwareKeyboard.instance.isControlPressed) {
+                  if (imageGenerationAllowed && !currentState.isLoading) {
+                    _startGeneration(notifier, imageBatchLimit);
+                  }
+                  return KeyEventResult.handled;
+                }
+
+                // Alt+Left/Right → cycle style. (Was Ctrl+Shift+Arrow, but
+                // that collided with the OS word-by-word text-selection
+                // shortcut inside the prompt field — Alt+Arrow leaves native
+                // selection free.)
+                if (HardwareKeyboard.instance.isAltPressed &&
+                    !HardwareKeyboard.instance.isControlPressed &&
+                    (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+                        event.logicalKey == LogicalKeyboardKey.arrowRight)) {
+                  _cycleStyle(
+                    notifier,
+                    event.logicalKey == LogicalKeyboardKey.arrowRight,
+                  );
+                  return KeyEventResult.handled;
+                }
+
+                // Ctrl+Up/Down → adjust tag weight
+                if (HardwareKeyboard.instance.isControlPressed &&
+                    (event.logicalKey == LogicalKeyboardKey.arrowUp ||
+                        event.logicalKey == LogicalKeyboardKey.arrowDown)) {
+                  final up = event.logicalKey == LogicalKeyboardKey.arrowUp;
+                  _adjustTagWeight(notifier.promptController, up ? 0.1 : -0.1);
+                  return KeyEventResult.handled;
+                }
+
+                final suggestions = currentState.tagSuggestions;
+                if (suggestions.isEmpty) return KeyEventResult.ignored;
+
+                if (event.logicalKey == LogicalKeyboardKey.tab) {
+                  if (HardwareKeyboard.instance.isShiftPressed) {
+                    setState(() {
+                      _tagSuggestionIndex = (_tagSuggestionIndex - 1).clamp(
+                        -1,
+                        suggestions.length - 1,
+                      );
+                    });
+                  } else {
+                    setState(() {
+                      _tagSuggestionIndex =
+                          (_tagSuggestionIndex + 1) % suggestions.length;
+                    });
+                  }
+                  return KeyEventResult.handled;
+                }
+                if (event.logicalKey == LogicalKeyboardKey.enter &&
+                    _tagSuggestionIndex >= 0 &&
+                    _tagSuggestionIndex < suggestions.length) {
+                  _applyMainTagSuggestion(
+                    notifier,
+                    suggestions[_tagSuggestionIndex],
+                  );
+                  setState(() => _tagSuggestionIndex = -1);
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              },
+              child: BrowserNativeTextArea(
+                controller: notifier.promptController,
+                focusNode: _promptFocusNode,
+                hintText: context.l.mainEnterPrompt.toUpperCase(),
+                style: TextStyle(
+                  fontSize: t.promptFontSize - 1,
+                  letterSpacing: 0.5,
+                ),
+                backgroundColor: t.background.withValues(alpha: 0.8),
+                borderColor: t.borderMedium,
+                selectionColor: t.accent.withValues(alpha: 0.72),
+                selectionTextColor:
+                    ThemeData.estimateBrightnessForColor(t.accent) ==
+                        Brightness.dark
+                    ? Colors.white
+                    : Colors.black,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                onChanged: (val) {
+                  notifier.handleTagSuggestions(
+                    val,
+                    notifier.promptController.selection,
+                  );
+                  setState(() => _tagSuggestionIndex = -1);
+                },
+                onBlur: () {
+                  Future.delayed(const Duration(milliseconds: 200), () {
+                    if (mounted && !_isTouchingSuggestions) {
+                      notifier.clearTagSuggestions();
+                      setState(() => _tagSuggestionIndex = -1);
+                    }
+                  });
+                },
+                onKeyDown: (key, control, alt, shift) {
+                  final currentState = notifier.state;
+                  if (key == 'Enter' && control) {
+                    if (imageGenerationAllowed && !currentState.isLoading) {
+                      _startGeneration(notifier, imageBatchLimit);
+                    }
+                    return true;
+                  }
+                  if (alt &&
+                      !control &&
+                      (key == 'ArrowLeft' || key == 'ArrowRight')) {
+                    _cycleStyle(notifier, key == 'ArrowRight');
+                    return true;
+                  }
+                  if (control && (key == 'ArrowUp' || key == 'ArrowDown')) {
+                    _adjustTagWeight(
+                      notifier.promptController,
+                      key == 'ArrowUp' ? 0.1 : -0.1,
+                    );
+                    return true;
+                  }
+                  final suggestions = currentState.tagSuggestions;
+                  if (suggestions.isEmpty) return false;
+                  if (key == 'Tab') {
+                    setState(() {
+                      if (shift) {
+                        _tagSuggestionIndex = (_tagSuggestionIndex - 1).clamp(
+                          -1,
+                          suggestions.length - 1,
+                        );
+                      } else {
+                        _tagSuggestionIndex =
+                            (_tagSuggestionIndex + 1) % suggestions.length;
+                      }
+                    });
+                    return true;
+                  }
+                  if (key == 'Enter' &&
+                      _tagSuggestionIndex >= 0 &&
+                      _tagSuggestionIndex < suggestions.length) {
+                    _applyMainTagSuggestion(
+                      notifier,
+                      suggestions[_tagSuggestionIndex],
+                    );
+                    setState(() => _tagSuggestionIndex = -1);
+                    return true;
+                  }
+                  return false;
+                },
+                fallback: ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(context).copyWith(
+                    dragDevices: {
+                      PointerDeviceKind.touch,
+                      PointerDeviceKind.stylus,
+                    },
+                  ),
+                  child: TextField(
+                    controller: notifier.promptController,
+                    focusNode: _promptFocusNode,
+                    expands: true,
+                    minLines: null,
+                    maxLines: null,
+                    onChanged: (val) {
+                      notifier.handleTagSuggestions(
+                        val,
+                        notifier.promptController.selection,
+                      );
+                      setState(() => _tagSuggestionIndex = -1);
+                    },
+                    onTapOutside: (_) {
                       Future.delayed(const Duration(milliseconds: 200), () {
                         if (!_isTouchingSuggestions) {
                           notifier.clearTagSuggestions();
-                          setState(() => _tagSuggestionIndex = -1);
                         }
                       });
-                    }
-                  },
-                  onKeyEvent: (node, event) {
-                    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
-                      return KeyEventResult.ignored;
-                    }
-                    final currentState = notifier.state;
-
-                    // Ctrl+Enter → generate
-                    if (event.logicalKey == LogicalKeyboardKey.enter &&
-                        HardwareKeyboard.instance.isControlPressed) {
-                      if (imageGenerationAllowed && !currentState.isLoading) {
-                        _startGeneration(notifier, imageBatchLimit);
-                      }
-                      return KeyEventResult.handled;
-                    }
-
-                    // Alt+Left/Right → cycle style. (Was Ctrl+Shift+Arrow, but
-                    // that collided with the OS word-by-word text-selection
-                    // shortcut inside the prompt field — Alt+Arrow leaves native
-                    // selection free.)
-                    if (HardwareKeyboard.instance.isAltPressed &&
-                        !HardwareKeyboard.instance.isControlPressed &&
-                        (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
-                            event.logicalKey ==
-                                LogicalKeyboardKey.arrowRight)) {
-                      _cycleStyle(
-                        notifier,
-                        event.logicalKey == LogicalKeyboardKey.arrowRight,
-                      );
-                      return KeyEventResult.handled;
-                    }
-
-                    // Ctrl+Up/Down → adjust tag weight
-                    if (HardwareKeyboard.instance.isControlPressed &&
-                        (event.logicalKey == LogicalKeyboardKey.arrowUp ||
-                            event.logicalKey == LogicalKeyboardKey.arrowDown)) {
-                      final up = event.logicalKey == LogicalKeyboardKey.arrowUp;
-                      _adjustTagWeight(
-                        notifier.promptController,
-                        up ? 0.1 : -0.1,
-                      );
-                      return KeyEventResult.handled;
-                    }
-
-                    final suggestions = currentState.tagSuggestions;
-                    if (suggestions.isEmpty) return KeyEventResult.ignored;
-
-                    if (event.logicalKey == LogicalKeyboardKey.tab) {
-                      if (HardwareKeyboard.instance.isShiftPressed) {
-                        setState(() {
-                          _tagSuggestionIndex = (_tagSuggestionIndex - 1).clamp(
-                            -1,
-                            suggestions.length - 1,
-                          );
-                        });
-                      } else {
-                        setState(() {
-                          _tagSuggestionIndex =
-                              (_tagSuggestionIndex + 1) % suggestions.length;
-                        });
-                      }
-                      return KeyEventResult.handled;
-                    }
-                    if (event.logicalKey == LogicalKeyboardKey.enter &&
-                        _tagSuggestionIndex >= 0 &&
-                        _tagSuggestionIndex < suggestions.length) {
-                      _applyMainTagSuggestion(
-                        notifier,
-                        suggestions[_tagSuggestionIndex],
-                      );
-                      setState(() => _tagSuggestionIndex = -1);
-                      return KeyEventResult.handled;
-                    }
-                    return KeyEventResult.ignored;
-                  },
-                  child: ScrollConfiguration(
-                    behavior: ScrollConfiguration.of(context).copyWith(
-                      dragDevices: {
-                        PointerDeviceKind.touch,
-                        PointerDeviceKind.stylus,
-                      },
-                    ),
-                    child: TextField(
-                      controller: notifier.promptController,
-                      maxLines: useSidebarStyle
-                          ? 5
-                          : (mobile
-                                ? t.promptMaxLines + 2
-                                : t.promptMaxLines + 1),
-                      onChanged: (val) {
-                        notifier.handleTagSuggestions(
-                          val,
-                          notifier.promptController.selection,
+                    },
+                    onSubmitted: (_) {
+                      if (state.tagSuggestions.isNotEmpty) {
+                        _applyMainTagSuggestion(
+                          notifier,
+                          state.tagSuggestions.first,
                         );
-                        setState(() => _tagSuggestionIndex = -1);
-                      },
-                      onTapOutside: (_) {
-                        Future.delayed(const Duration(milliseconds: 200), () {
-                          if (!_isTouchingSuggestions) {
-                            notifier.clearTagSuggestions();
-                          }
-                        });
-                      },
-                      onSubmitted: (_) {
-                        if (state.tagSuggestions.isNotEmpty) {
-                          _applyMainTagSuggestion(
-                            notifier,
-                            state.tagSuggestions.first,
-                          );
-                        } else {
-                          if (imageGenerationAllowed) {
-                            _startGeneration(notifier, imageBatchLimit);
-                          }
-                        }
-                      },
-                      style: TextStyle(
-                        fontSize: t.promptFontSize - 1,
-                        letterSpacing: 0.5,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: context.l.mainEnterPrompt.toUpperCase(),
-                        hintStyle: TextStyle(
-                          fontSize: t.fontSize(mobile ? 12 : 9),
-                          letterSpacing: 2,
-                          color: t.hintText,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        fillColor: t.background.withValues(alpha: 0.8),
-                        filled: true,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
-                          borderSide: BorderSide(color: t.borderMedium),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
-                          borderSide: BorderSide(color: t.borderMedium),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
-              SizedBox(
-                height: mobile ? 64 : 58,
-                width: mobile ? 64 : 58,
-                child: ElevatedButton(
-                  onPressed: state.isLoading || !imageGenerationAllowed
-                      ? null
-                      : () {
-                          FocusScope.of(context).unfocus();
+                      } else {
+                        if (imageGenerationAllowed) {
                           _startGeneration(notifier, imageBatchLimit);
-                        },
-                  style: ElevatedButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    backgroundColor: t.accent,
-                    foregroundColor: t.background,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4),
+                        }
+                      }
+                    },
+                    style: TextStyle(
+                      fontSize: t.promptFontSize - 1,
+                      letterSpacing: 0.5,
                     ),
-                    elevation: 0,
+                    decoration: InputDecoration(
+                      hintText: context.l.mainEnterPrompt.toUpperCase(),
+                      hintStyle: TextStyle(
+                        fontSize: t.fontSize(mobile ? 12 : 9),
+                        letterSpacing: 2,
+                        color: t.hintText,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      fillColor: t.background.withValues(alpha: 0.8),
+                      filled: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(4),
+                        borderSide: BorderSide(color: t.borderMedium),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(4),
+                        borderSide: BorderSide(color: t.borderMedium),
+                      ),
+                    ),
                   ),
-                  child: state.isLoading
-                      ? SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: t.background,
-                          ),
-                        )
-                      : const Icon(Icons.arrow_forward_ios, size: 16),
                 ),
               ),
-            ],
+            ),
+            action: PromptGenerationAction(
+              estimateHeight: mobile ? 26 : 23,
+              estimate: showCostEstimate
+                  ? _buildGenerationCostBadge(
+                      context,
+                      imageCostEstimate,
+                      mobile,
+                      t,
+                      usesRedPoints,
+                      greenPointDiscount,
+                    )
+                  : null,
+              generateButton: ElevatedButton(
+                onPressed: state.isLoading || !imageGenerationAllowed
+                    ? null
+                    : () {
+                        FocusScope.of(context).unfocus();
+                        _startGeneration(notifier, imageBatchLimit);
+                      },
+                style: ElevatedButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  backgroundColor: t.accent,
+                  foregroundColor: t.background,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  elevation: 0,
+                ),
+                child: state.isLoading
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: t.background,
+                        ),
+                      )
+                    : const Icon(Icons.arrow_forward_ios, size: 16),
+              ),
+            ),
           ),
         ],
       ),
@@ -1615,11 +1698,15 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
     NaiImageCostEstimate estimate,
     bool mobile,
     VisionTokens t,
+    bool usesRedPoints,
+    int greenPointDiscount,
   ) {
     final l = context.l;
-    final costColor = estimate.isZeroCost ? t.accentSuccess : t.accent;
-    final label =
-        '${l.mainEstimatedCostLabel} ${estimate.totalAnlas} ${l.mainAnlas}';
+    final costColor = usesRedPoints ? t.accentDanger : t.accentSuccess;
+    final displayedCost = usesRedPoints
+        ? estimate.totalAnlas
+        : (estimate.totalAnlas * (100 - greenPointDiscount) / 100).ceil();
+    final label = '${l.mainEstimatedCostLabel} $displayedCost';
     final details = <String>[
       l.mainEstimatedCostTooltip,
       '${l.mainEstimatedCostBase}: ${estimate.baseAnlas} ${l.mainAnlas}',
@@ -1634,10 +1721,8 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
     return Tooltip(
       message: details.join('\n'),
       child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: mobile ? 9 : 8,
-          vertical: mobile ? 4 : 3,
-        ),
+        width: double.infinity,
+        padding: EdgeInsets.symmetric(horizontal: 4, vertical: mobile ? 3 : 2),
         decoration: BoxDecoration(
           color: costColor.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
@@ -1646,101 +1731,26 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
             width: 0.5,
           ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.toll, size: mobile ? 14 : 12, color: costColor),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: TextStyle(
-                color: t.textSecondary,
-                fontSize: t.fontSize(mobile ? 11 : 9),
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSeedRow(
-    BuildContext context,
-    GenerationNotifier notifier,
-    GenerationState state,
-    VisionTokens t,
-  ) {
-    final isRandom = state.randomizeSeed;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          Icon(
-            Icons.casino,
-            size: 12,
-            color: isRandom ? t.accent : t.textDisabled,
-          ),
-          const SizedBox(width: 6),
-          if (isRandom)
-            Text(
-              'RANDOM',
-              style: TextStyle(
-                fontSize: t.fontSize(8),
-                letterSpacing: 1,
-                color: t.accent,
-                fontWeight: FontWeight.bold,
-              ),
-            )
-          else
-            Expanded(
-              child: SizedBox(
-                height: 24,
-                child: TextField(
-                  controller: notifier.seedController,
-                  style: TextStyle(
-                    fontSize: t.fontSize(9),
-                    color: t.textSecondary,
-                    letterSpacing: 1,
-                  ),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(4),
-                      borderSide: BorderSide(color: t.borderSubtle),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(4),
-                      borderSide: BorderSide(color: t.borderSubtle),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(4),
-                      borderSide: BorderSide(color: t.accent),
-                    ),
-                  ),
-                  keyboardType: TextInputType.number,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.toll, size: mobile ? 13 : 11, color: costColor),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                maxLines: 1,
+                style: TextStyle(
+                  color: t.textSecondary,
+                  fontSize: t.fontSize(mobile ? 10 : 8),
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0,
                 ),
               ),
-            ),
-          if (!isRandom) const SizedBox(width: 6),
-          InkWell(
-            onTap: () => notifier.updateSettings(randomizeSeed: !isRandom),
-            borderRadius: BorderRadius.circular(4),
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: Icon(
-                isRandom ? Icons.lock_open : Icons.shuffle,
-                size: 14,
-                color: t.textDisabled,
-              ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

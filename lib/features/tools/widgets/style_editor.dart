@@ -10,6 +10,7 @@ import '../../../core/services/styles.dart';
 import '../../generation/providers/generation_notifier.dart';
 import '../../characters/providers/character_library_notifier.dart';
 import '../providers/style_notifier.dart';
+import 'manager_shell.dart';
 
 class StyleEditor extends StatelessWidget {
   final String? initialStyleName;
@@ -60,59 +61,42 @@ class _StyleEditorContentState extends State<_StyleEditorContent> {
     final mobile = isMobile(context);
     final t = context.t;
 
-    if (mobile) {
-      return Column(
-        children: [
-          _buildHeader(context, notifier, t),
-          Divider(height: 1, color: t.textMinimal),
-          Expanded(
-            child: _showingEditor && notifier.state.selectedStyle != null
-                ? Column(
-                    children: [
-                      _buildMobileEditorBar(notifier, t),
-                      Expanded(child: _buildEditor(context, notifier, t)),
-                    ],
-                  )
-                : _buildStyleList(context, notifier, t, fullWidth: true),
-          ),
-        ],
-      );
-    }
-
-    return Column(
-      children: [
-        _buildHeader(context, notifier, t),
-        Divider(height: 1, color: t.textMinimal),
-        Expanded(
-          child: Row(
-            children: [
-              _buildStyleList(context, notifier, t),
-              VerticalDivider(width: 1, color: t.textMinimal),
-              Expanded(
-                child: _buildEditor(context, notifier, t),
-              ),
-            ],
-          ),
-        ),
-      ],
+    final showDetail = _showingEditor && notifier.state.selectedStyle != null;
+    return ManagerMasterDetailShell(
+      mobile: mobile,
+      showDetail: showDetail,
+      masterHeader: _buildHeader(context, notifier, t),
+      detailHeader: _buildMobileEditorBar(notifier, t),
+      master: _buildStyleList(context, notifier, t, fullWidth: mobile),
+      detail: _buildEditor(context, notifier, t),
+      dividerColor: t.textMinimal,
+      showMasterHeaderOnMobile: false,
     );
   }
 
   Widget _buildMobileEditorBar(StyleNotifier notifier, VisionTokens t) {
     final name = notifier.state.selectedStyle?.name.toUpperCase() ?? '';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      color: t.surfaceMid,
-      child: Row(
-        children: [
+    return ManagerDetailHeader(
+      title: name,
+      backgroundColor: t.surfaceMid,
+      iconColor: t.textDisabled,
+      textStyle: TextStyle(color: t.textSecondary, fontSize: t.fontSize(11), letterSpacing: 1, fontWeight: FontWeight.bold),
+      onBack: () => setState(() => _showingEditor = false),
+      actions: [
+        if (notifier.state.isModified)
           IconButton(
-            icon: Icon(Icons.arrow_back, size: 18, color: t.textDisabled),
-            onPressed: () => setState(() => _showingEditor = false),
+            key: const ValueKey<String>('style-mobile-save'),
+            icon: Icon(Icons.save_outlined, size: 20, color: t.textPrimary),
+            tooltip: context.l.commonSave,
+            onPressed: () {
+              if (notifier.hasNameConflict()) {
+                _showOverwriteConfirm(context, notifier, t);
+              } else {
+                notifier.saveStyle();
+              }
+            },
           ),
-          const SizedBox(width: 8),
-          Text(name, style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(11), letterSpacing: 1, fontWeight: FontWeight.bold)),
-        ],
-      ),
+      ],
     );
   }
 

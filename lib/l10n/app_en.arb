@@ -15,6 +15,10 @@
   "commonSaveChanges": "SAVE CHANGES",
 
   "mainGallery": "Gallery",
+  "mainResultsGrid": "Grid",
+  "mainResultsViewer": "Viewer",
+  "mainResultGenerating": "Generating",
+  "mainResultPending": "Pending",
   "mainServerHistory": "History",
   "mainTools": "Tools",
   "mainSave": "Save",
@@ -73,10 +77,10 @@
   "settingsSaveToAlbumDesc": "Auto-add new generations to this album",
   "settingsEditButton": "Edit Button",
   "settingsEditButtonDesc": "Show the edit/inpainting button on the image viewer",
-  "settingsDirectorRefShelf": "Director Reference Shelf",
-  "settingsDirectorRefShelfDesc": "Show the reference image shelf on the main screen",
-  "settingsVibeTransferShelf": "Vibe Transfer Shelf",
-  "settingsVibeTransferShelfDesc": "Show the vibe transfer shelf on the main screen",
+  "settingsDirectorRefShelf": "Director References",
+  "settingsDirectorRefShelfDesc": "Show director reference controls in advanced options",
+  "settingsVibeTransferShelf": "Vibe Transfer",
+  "settingsVibeTransferShelfDesc": "Show vibe transfer controls in advanced options",
   "settingsCharEditorMode": "Character Editor Mode",
   "settingsCharEditorModeDesc": "Use the expanded character editor in the settings panel instead of the compact shelf",
   "settingsThemeBuilder": "Theme Builder",
@@ -1214,6 +1218,8 @@
 
   "duplicateImageWarning": "Image identical to last generation — try a different seed or check your vibes/references",
   "duplicateImageRandomize": "Randomize",
+  "generationNoParametersVaried": "No parameters varied. Check the seed.",
+  "generationRandomizeSeed": "Random seed",
 
   "settingsCredits": "Credits",
   "settingsSpecialThanks": "Special Thanks",
@@ -1268,5 +1274,13 @@
   "serverHistoryAllUsers": "All Users",
   "serverHistoryRefresh": "Refresh",
   "serverHistoryEmpty": "No server history yet",
-  "serverHistoryDeleteConfirm": "Hide this item from your history."
+  "serverHistoryImportParameters": "Import Parameters",
+  "serverHistoryImportSuccess": "Parameters imported",
+  "serverHistoryDownload": "Download",
+  "serverHistoryDeleteConfirm": "Hide this item from your history.",
+  "serverHistoryBatchImportParameters": "Import Batch Parameters",
+  "serverHistoryBatchImportSuccess": "Batch parameters imported",
+  "serverHistoryBatchDownload": "Download Batch",
+  "serverHistoryBatchDelete": "Delete Batch",
+  "serverHistoryBatchDeleteConfirm": "Hide every image in this batch from your history?"
 }

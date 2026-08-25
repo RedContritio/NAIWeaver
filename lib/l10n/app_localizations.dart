@@ -178,6 +178,30 @@ abstract class AppLocalizations {
   /// **'Gallery'**
   String get mainGallery;
 
+  /// No description provided for @mainResultsGrid.
+  ///
+  /// In en, this message translates to:
+  /// **'Grid'**
+  String get mainResultsGrid;
+
+  /// No description provided for @mainResultsViewer.
+  ///
+  /// In en, this message translates to:
+  /// **'Viewer'**
+  String get mainResultsViewer;
+
+  /// No description provided for @mainResultGenerating.
+  ///
+  /// In en, this message translates to:
+  /// **'Generating'**
+  String get mainResultGenerating;
+
+  /// No description provided for @mainResultPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get mainResultPending;
+
   /// No description provided for @mainServerHistory.
   ///
   /// In en, this message translates to:
@@ -517,25 +541,25 @@ abstract class AppLocalizations {
   /// No description provided for @settingsDirectorRefShelf.
   ///
   /// In en, this message translates to:
-  /// **'Director Reference Shelf'**
+  /// **'Director References'**
   String get settingsDirectorRefShelf;
 
   /// No description provided for @settingsDirectorRefShelfDesc.
   ///
   /// In en, this message translates to:
-  /// **'Show the reference image shelf on the main screen'**
+  /// **'Show director reference controls in advanced options'**
   String get settingsDirectorRefShelfDesc;
 
   /// No description provided for @settingsVibeTransferShelf.
   ///
   /// In en, this message translates to:
-  /// **'Vibe Transfer Shelf'**
+  /// **'Vibe Transfer'**
   String get settingsVibeTransferShelf;
 
   /// No description provided for @settingsVibeTransferShelfDesc.
   ///
   /// In en, this message translates to:
-  /// **'Show the vibe transfer shelf on the main screen'**
+  /// **'Show vibe transfer controls in advanced options'**
   String get settingsVibeTransferShelfDesc;
 
   /// No description provided for @settingsCharEditorMode.
@@ -6482,6 +6506,18 @@ abstract class AppLocalizations {
   /// **'Randomize'**
   String get duplicateImageRandomize;
 
+  /// No description provided for @generationNoParametersVaried.
+  ///
+  /// In en, this message translates to:
+  /// **'No parameters varied. Check the seed.'**
+  String get generationNoParametersVaried;
+
+  /// No description provided for @generationRandomizeSeed.
+  ///
+  /// In en, this message translates to:
+  /// **'Random seed'**
+  String get generationRandomizeSeed;
+
   /// No description provided for @settingsCredits.
   ///
   /// In en, this message translates to:
@@ -6788,11 +6824,59 @@ abstract class AppLocalizations {
   /// **'No server history yet'**
   String get serverHistoryEmpty;
 
+  /// No description provided for @serverHistoryImportParameters.
+  ///
+  /// In en, this message translates to:
+  /// **'Import Parameters'**
+  String get serverHistoryImportParameters;
+
+  /// No description provided for @serverHistoryImportSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Parameters imported'**
+  String get serverHistoryImportSuccess;
+
+  /// No description provided for @serverHistoryDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get serverHistoryDownload;
+
   /// No description provided for @serverHistoryDeleteConfirm.
   ///
   /// In en, this message translates to:
   /// **'Hide this item from your history.'**
   String get serverHistoryDeleteConfirm;
+
+  /// No description provided for @serverHistoryBatchImportParameters.
+  ///
+  /// In en, this message translates to:
+  /// **'Import Batch Parameters'**
+  String get serverHistoryBatchImportParameters;
+
+  /// No description provided for @serverHistoryBatchImportSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Batch parameters imported'**
+  String get serverHistoryBatchImportSuccess;
+
+  /// No description provided for @serverHistoryBatchDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Download Batch'**
+  String get serverHistoryBatchDownload;
+
+  /// No description provided for @serverHistoryBatchDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Batch'**
+  String get serverHistoryBatchDelete;
+
+  /// No description provided for @serverHistoryBatchDeleteConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide every image in this batch from your history?'**
+  String get serverHistoryBatchDeleteConfirm;
 }
 
 class _AppLocalizationsDelegate

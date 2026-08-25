@@ -39,76 +39,89 @@ class _PackManagerState extends State<PackManager> {
     final l = context.l;
     final mobile = isMobile(context);
 
-    return Padding(
+    return ListView(
+      key: const ValueKey('pack-manager-scroll-view'),
       padding: EdgeInsets.all(mobile ? 16 : 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l.packTitle,
-            style: TextStyle(
-              color: t.textSecondary,
-              fontSize: t.fontSize(mobile ? 14 : 11),
-              fontWeight: FontWeight.w900,
-              letterSpacing: 2,
-            ),
+      children: [
+        Text(
+          l.packTitle,
+          style: TextStyle(
+            color: t.textSecondary,
+            fontSize: t.fontSize(mobile ? 14 : 11),
+            fontWeight: FontWeight.w900,
+            letterSpacing: 2,
           ),
-          const SizedBox(height: 4),
-          Text(
-            l.packDesc,
-            style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(mobile ? 12 : 9)),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          l.packDesc,
+          style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(mobile ? 12 : 9)),
+        ),
+        const SizedBox(height: 24),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final exportCard = _PackActionCard(
+              icon: Icons.file_upload_outlined,
+              label: l.packExportLabel,
+              description: l.packExportDesc,
+              color: t.accent,
+              onTap: () => _showExportDialog(context),
+            );
+            final importCard = _PackActionCard(
+              icon: Icons.file_download_outlined,
+              label: l.packImportLabel,
+              description: l.packImportDesc,
+              color: t.accentSuccess,
+              onTap: () => _importPack(context),
+            );
+
+            if (constraints.maxWidth < 480) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  exportCard,
+                  const SizedBox(height: 12),
+                  importCard,
+                ],
+              );
+            }
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: exportCard),
+                const SizedBox(width: 12),
+                Expanded(child: importCard),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 32),
+        Divider(color: t.borderSubtle),
+        const SizedBox(height: 16),
+        Text(
+          l.packGalleryExport,
+          style: TextStyle(
+            color: t.textSecondary,
+            fontSize: t.fontSize(mobile ? 14 : 11),
+            fontWeight: FontWeight.w900,
+            letterSpacing: 2,
           ),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(
-                child: _PackActionCard(
-                  icon: Icons.file_upload_outlined,
-                  label: l.packExportLabel,
-                  description: l.packExportDesc,
-                  color: t.accent,
-                  onTap: () => _showExportDialog(context),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _PackActionCard(
-                  icon: Icons.file_download_outlined,
-                  label: l.packImportLabel,
-                  description: l.packImportDesc,
-                  color: t.accentSuccess,
-                  onTap: () => _importPack(context),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 32),
-          Divider(color: t.borderSubtle),
-          const SizedBox(height: 16),
-          Text(
-            l.packGalleryExport,
-            style: TextStyle(
-              color: t.textSecondary,
-              fontSize: t.fontSize(mobile ? 14 : 11),
-              fontWeight: FontWeight.w900,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            l.packGalleryExportDesc,
-            style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(mobile ? 12 : 9)),
-          ),
-          const SizedBox(height: 16),
-          _PackActionCard(
-            icon: Icons.photo_library_outlined,
-            label: l.packExportGalleryZip,
-            description: l.packExportGalleryZipDesc,
-            color: t.accentEdit,
-            onTap: () => _showGalleryExportDialog(context),
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          l.packGalleryExportDesc,
+          style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(mobile ? 12 : 9)),
+        ),
+        const SizedBox(height: 16),
+        _PackActionCard(
+          icon: Icons.photo_library_outlined,
+          label: l.packExportGalleryZip,
+          description: l.packExportGalleryZipDesc,
+          color: t.accentEdit,
+          onTap: () => _showGalleryExportDialog(context),
+        ),
+      ],
     );
   }
 

@@ -204,29 +204,38 @@ class BackendQuota {
 
 class BackendQuotaBucket {
   final String kind;
-  final int? dailyLimit;
+  final int? greenPointLimit;
+  final int? greenPointDiscount;
+  final int? redPoints;
   final int? pointLimit;
   final int used;
   final int? remaining;
   final bool unlimited;
+  final bool enabled;
 
   const BackendQuotaBucket({
     required this.kind,
-    required this.dailyLimit,
+    required this.greenPointLimit,
+    required this.greenPointDiscount,
+    required this.redPoints,
     required this.pointLimit,
     required this.used,
     required this.remaining,
     required this.unlimited,
+    required this.enabled,
   });
 
   factory BackendQuotaBucket.fromJson(Map<String, dynamic> json) {
     return BackendQuotaBucket(
-      kind: json['kind'] as String? ?? 'daily',
-      dailyLimit: (json['daily_limit'] as num?)?.toInt(),
+      kind: json['kind'] as String? ?? 'points',
+      greenPointLimit: (json['green_point_limit'] as num?)?.toInt(),
+      greenPointDiscount: (json['green_point_discount'] as num?)?.toInt(),
+      redPoints: (json['red_points'] as num?)?.toInt(),
       pointLimit: (json['point_limit'] as num?)?.toInt(),
       used: (json['used'] as num?)?.toInt() ?? 0,
       remaining: (json['remaining'] as num?)?.toInt(),
       unlimited: json['unlimited'] as bool? ?? false,
+      enabled: json['enabled'] as bool? ?? false,
     );
   }
 

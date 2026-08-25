@@ -48,6 +48,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mainGallery => 'Gallery';
 
   @override
+  String get mainResultsGrid => 'Grid';
+
+  @override
+  String get mainResultsViewer => 'Viewer';
+
+  @override
+  String get mainResultGenerating => 'Generating';
+
+  @override
+  String get mainResultPending => 'Pending';
+
+  @override
   String get mainServerHistory => 'History';
 
   @override
@@ -226,18 +238,18 @@ class AppLocalizationsEn extends AppLocalizations {
       'Show the edit/inpainting button on the image viewer';
 
   @override
-  String get settingsDirectorRefShelf => 'Director Reference Shelf';
+  String get settingsDirectorRefShelf => 'Director References';
 
   @override
   String get settingsDirectorRefShelfDesc =>
-      'Show the reference image shelf on the main screen';
+      'Show director reference controls in advanced options';
 
   @override
-  String get settingsVibeTransferShelf => 'Vibe Transfer Shelf';
+  String get settingsVibeTransferShelf => 'Vibe Transfer';
 
   @override
   String get settingsVibeTransferShelfDesc =>
-      'Show the vibe transfer shelf on the main screen';
+      'Show vibe transfer controls in advanced options';
 
   @override
   String get settingsCharEditorMode => 'Character Editor Mode';
@@ -3478,6 +3490,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get duplicateImageRandomize => 'Randomize';
 
   @override
+  String get generationNoParametersVaried =>
+      'No parameters varied. Check the seed.';
+
+  @override
+  String get generationRandomizeSeed => 'Random seed';
+
+  @override
   String get settingsCredits => 'Credits';
 
   @override
@@ -3637,5 +3656,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get serverHistoryEmpty => 'No server history yet';
 
   @override
+  String get serverHistoryImportParameters => 'Import Parameters';
+
+  @override
+  String get serverHistoryImportSuccess => 'Parameters imported';
+
+  @override
+  String get serverHistoryDownload => 'Download';
+
+  @override
   String get serverHistoryDeleteConfirm => 'Hide this item from your history.';
+
+  @override
+  String get serverHistoryBatchImportParameters => 'Import Batch Parameters';
+
+  @override
+  String get serverHistoryBatchImportSuccess => 'Batch parameters imported';
+
+  @override
+  String get serverHistoryBatchDownload => 'Download Batch';
+
+  @override
+  String get serverHistoryBatchDelete => 'Delete Batch';
+
+  @override
+  String get serverHistoryBatchDeleteConfirm =>
+      'Hide every image in this batch from your history?';
 }

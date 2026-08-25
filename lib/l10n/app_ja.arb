@@ -15,6 +15,10 @@
   "commonSaveChanges": "変更を保存",
 
   "mainGallery": "ギャラリー",
+  "mainResultsGrid": "グリッド",
+  "mainResultsViewer": "ビューア",
+  "mainResultGenerating": "生成中",
+  "mainResultPending": "待機中",
   "mainServerHistory": "履歴",
   "mainTools": "ツール",
   "mainSave": "保存",
@@ -72,10 +76,10 @@
   "settingsSaveToAlbumDesc": "新しい生成画像を自動的にこのアルバムに追加します",
   "settingsEditButton": "編集ボタン",
   "settingsEditButtonDesc": "画像ビューアに編集/インペインティングボタンを表示します",
-  "settingsDirectorRefShelf": "ディレクターリファレンスシェルフ",
-  "settingsDirectorRefShelfDesc": "メイン画面にリファレンス画像シェルフを表示します",
-  "settingsVibeTransferShelf": "バイブトランスファーシェルフ",
-  "settingsVibeTransferShelfDesc": "メイン画面にバイブトランスファーシェルフを表示します",
+  "settingsDirectorRefShelf": "ディレクターリファレンス",
+  "settingsDirectorRefShelfDesc": "詳細設定にディレクターリファレンスを表示します",
+  "settingsVibeTransferShelf": "バイブトランスファー",
+  "settingsVibeTransferShelfDesc": "詳細設定にバイブトランスファーを表示します",
   "settingsCharEditorMode": "キャラクターエディターモード",
   "settingsCharEditorModeDesc": "コンパクトシェルフの代わりに設定パネル内に展開キャラクターエディターを使用",
   "settingsThemeBuilder": "テーマビルダー",
@@ -1137,6 +1141,8 @@
 
   "duplicateImageWarning": "前回と同一の画像が生成されました — シードを変更するか、バイブ/リファレンスを確認してください",
   "duplicateImageRandomize": "ランダム化",
+  "generationNoParametersVaried": "パラメータに変更がありません。シードを確認してください。",
+  "generationRandomizeSeed": "シードをランダム化",
 
   "settingsCredits": "クレジット",
   "settingsSpecialThanks": "スペシャルサンクス",
@@ -1191,5 +1197,13 @@
   "serverHistoryAllUsers": "すべてのユーザー",
   "serverHistoryRefresh": "更新",
   "serverHistoryEmpty": "サーバー履歴はまだありません",
-  "serverHistoryDeleteConfirm": "この項目を自分の履歴から非表示にします。"
+  "serverHistoryImportParameters": "パラメータをインポート",
+  "serverHistoryImportSuccess": "パラメータをインポートしました",
+  "serverHistoryDownload": "ダウンロード",
+  "serverHistoryDeleteConfirm": "この項目を自分の履歴から非表示にします。",
+  "serverHistoryBatchImportParameters": "バッチ設定をインポート",
+  "serverHistoryBatchImportSuccess": "バッチ設定をインポートしました",
+  "serverHistoryBatchDownload": "バッチをダウンロード",
+  "serverHistoryBatchDelete": "バッチを削除",
+  "serverHistoryBatchDeleteConfirm": "このバッチのすべての画像を履歴から非表示にしますか？"
 }

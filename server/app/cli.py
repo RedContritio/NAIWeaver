@@ -5,9 +5,9 @@ from datetime import datetime, timedelta, timezone
 import secrets
 
 from .main import (
-    DEFAULT_ADMIN_POINT_LIMIT,
-    DEFAULT_FREE_DAILY_LIMIT,
-    DEFAULT_PAID_POINT_LIMIT,
+    DEFAULT_ADMIN_RED_POINTS,
+    DEFAULT_GREEN_POINT_LIMIT,
+    DEFAULT_RED_POINTS,
     PUBLIC_BASE_URL,
     db_connect,
     hash_password,
@@ -44,40 +44,37 @@ def role_defaults(role: str) -> dict[str, object]:
     if role == "admin":
         return {
             "is_admin": 1,
-            "can_generate_free": 1,
+            "green_point_discount": 100,
             "can_generate_paid": 1,
             "can_text_generate": 1,
             "can_image_upscale": 1,
             "can_image_augment": 1,
             "can_image_encode_vibe": 1,
-            "daily_limit": None,
-            "paid_daily_limit": None,
-            "paid_point_limit": DEFAULT_ADMIN_POINT_LIMIT,
+            "green_point_limit": DEFAULT_GREEN_POINT_LIMIT,
+            "red_points": DEFAULT_ADMIN_RED_POINTS,
         }
     if role == "paid":
         return {
             "is_admin": 0,
-            "can_generate_free": 1,
+            "green_point_discount": 0,
             "can_generate_paid": 1,
             "can_text_generate": 1,
             "can_image_upscale": 1,
             "can_image_augment": 1,
             "can_image_encode_vibe": 1,
-            "daily_limit": None,
-            "paid_daily_limit": None,
-            "paid_point_limit": DEFAULT_PAID_POINT_LIMIT,
+            "green_point_limit": DEFAULT_GREEN_POINT_LIMIT,
+            "red_points": DEFAULT_RED_POINTS,
         }
     return {
         "is_admin": 0,
-        "can_generate_free": 1,
+        "green_point_discount": 0,
         "can_generate_paid": 0,
         "can_text_generate": 1,
         "can_image_upscale": 0,
         "can_image_augment": 0,
         "can_image_encode_vibe": 0,
-        "daily_limit": DEFAULT_FREE_DAILY_LIMIT,
-        "paid_daily_limit": 0,
-        "paid_point_limit": 0,
+        "green_point_limit": DEFAULT_GREEN_POINT_LIMIT,
+        "red_points": 0,
     }
 
 
@@ -95,24 +92,23 @@ def cmd_create_user(args: argparse.Namespace) -> None:
             db.execute(
                 """
                 UPDATE users
-                SET is_admin = ?, disabled = 0, can_generate_free = ?,
+                SET is_admin = ?, disabled = 0, green_point_discount = ?,
                     can_generate_paid = ?, can_text_generate = ?,
                     can_image_upscale = ?, can_image_augment = ?,
-                    can_image_encode_vibe = ?, daily_limit = ?,
-                    paid_daily_limit = ?, paid_point_limit = ?
+                    can_image_encode_vibe = ?, green_point_limit = ?,
+                    red_points = ?
                 WHERE username = ?
                 """,
                 (
                     defaults["is_admin"],
-                    defaults["can_generate_free"],
+                    defaults["green_point_discount"],
                     defaults["can_generate_paid"],
                     defaults["can_text_generate"],
                     defaults["can_image_upscale"],
                     defaults["can_image_augment"],
                     defaults["can_image_encode_vibe"],
-                    defaults["daily_limit"],
-                    defaults["paid_daily_limit"],
-                    defaults["paid_point_limit"],
+                    defaults["green_point_limit"],
+                    defaults["red_points"],
                     args.username,
                 ),
             )
@@ -122,32 +118,93 @@ def cmd_create_user(args: argparse.Namespace) -> None:
                 """
                 INSERT INTO users(
                   username, password_hash, is_admin, disabled,
-                  can_generate_free, can_generate_paid, can_text_generate,
+                  green_point_discount, can_generate_paid, can_text_generate,
                   can_image_upscale, can_image_augment, can_image_encode_vibe,
-                  daily_limit, paid_daily_limit, paid_point_limit,
-                  paid_point_used, created_at
+                  green_point_limit, red_points,
+                  green_point_used, red_points_used, created_at
                 )
-                VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+                VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?)
                 """,
                 (
                     args.username,
                     password_hash,
                     defaults["is_admin"],
-                    defaults["can_generate_free"],
+                    defaults["green_point_discount"],
                     defaults["can_generate_paid"],
                     defaults["can_text_generate"],
                     defaults["can_image_upscale"],
                     defaults["can_image_augment"],
                     defaults["can_image_encode_vibe"],
-                    defaults["daily_limit"],
-                    defaults["paid_daily_limit"],
-                    defaults["paid_point_limit"],
+                    defaults["green_point_limit"],
+                    defaults["red_points"],
                     now_iso(),
                 ),
             )
             action = "created"
         db.commit()
     print(f"{action}: {args.username} ({args.role})")
+
+
+def user_row_or_exit(db, username: str):
+    user = db.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+    if not user:
+        raise SystemExit(f"User not found: {username}")
+    return user
+
+
+def cmd_user_state(args: argparse.Namespace) -> None:
+    init_db()
+    disabled = int(args.state == "disable")
+    with db_connect() as db:
+        user_row_or_exit(db, args.username)
+        db.execute("UPDATE users SET disabled = ? WHERE username = ?", (disabled, args.username))
+        db.commit()
+    print(f"{args.state}d: {args.username}")
+
+
+def cmd_green_discount(args: argparse.Namespace) -> None:
+    init_db()
+    discount = max(0, min(100, int(args.percent)))
+    with db_connect() as db:
+        user_row_or_exit(db, args.username)
+        db.execute(
+            "UPDATE users SET green_point_discount = ? WHERE username = ?",
+            (discount, args.username),
+        )
+        db.commit()
+    print(f"green point discount for {args.username}: {discount}%")
+
+
+def cmd_points_show(args: argparse.Namespace) -> None:
+    init_db()
+    with db_connect() as db:
+        user = user_row_or_exit(db, args.username)
+        green_limit = int(user["green_point_limit"])
+        green_used = int(user["green_point_used"])
+        green_discount = int(user["green_point_discount"])
+        red_limit = int(user["red_points"] or 0)
+        red_used = int(user["red_points_used"])
+    print(f"user: {args.username}")
+    if green_discount < 100:
+        print(f"green: {max(0, green_limit - green_used)} remaining / {green_limit} total")
+        print(f"green discount: {green_discount}%")
+    print(f"red: {max(0, red_limit - red_used)} remaining / {red_limit} total")
+
+
+def cmd_points_grant(args: argparse.Namespace) -> None:
+    red = max(0, int(args.red))
+    if red == 0:
+        raise SystemExit("Specify a positive --red amount")
+    init_db()
+    with db_connect() as db:
+        user = user_row_or_exit(db, args.username)
+        red_limit = int(user["red_points"] or 0)
+        db.execute(
+            "UPDATE users SET red_points = ? WHERE id = ?",
+            (red_limit + red, user["id"]),
+        )
+        db.commit()
+    print(f"granted to {args.username}: red +{red}")
 
 
 def cmd_bind(args: argparse.Namespace) -> None:
@@ -205,6 +262,26 @@ def build_parser() -> argparse.ArgumentParser:
     create.add_argument("--role", choices=["free", "paid", "admin"], default="free")
     create.add_argument("--update", action="store_true")
     create.set_defaults(func=cmd_create_user)
+
+    for state in ("enable", "disable"):
+        state_parser = user_sub.add_parser(state)
+        state_parser.add_argument("username")
+        state_parser.set_defaults(func=cmd_user_state, state=state)
+
+    green_discount = user_sub.add_parser("green-discount")
+    green_discount.add_argument("username")
+    green_discount.add_argument("--percent", type=int, required=True)
+    green_discount.set_defaults(func=cmd_green_discount)
+
+    points = user_sub.add_parser("points")
+    points_sub = points.add_subparsers(dest="points_command", required=True)
+    points_show = points_sub.add_parser("show")
+    points_show.add_argument("username")
+    points_show.set_defaults(func=cmd_points_show)
+    points_grant = points_sub.add_parser("grant")
+    points_grant.add_argument("username")
+    points_grant.add_argument("--red", type=int, default=0)
+    points_grant.set_defaults(func=cmd_points_grant)
 
     webauthn = sub.add_parser("webauthn")
     webauthn_sub = webauthn.add_subparsers(dest="webauthn_command", required=True)

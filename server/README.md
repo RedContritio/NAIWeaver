@@ -51,6 +51,70 @@ cd server
 .venv/bin/python -m app.cli webauthn bind admin --ttl 30m --base-url https://nai.recoco.xyz
 ```
 
+### User and point administration
+
+Run all administrative commands from `server/`. They operate on the production
+database selected by the production environment file when the LaunchAgent is
+running.
+
+```bash
+cd /Users/redcontritio/Projects/NAIWeaver/server
+```
+
+Create a user, or apply one of the predefined roles to an existing user:
+
+```bash
+# Roles: free, paid, admin
+.venv/bin/python -m app.cli user create alice --role free
+.venv/bin/python -m app.cli user create alice --role paid --update
+```
+
+`--update` changes the role permissions and its default total point limits. It
+does not erase points that have already been consumed. Use it deliberately.
+
+Enable or disable a user:
+
+```bash
+.venv/bin/python -m app.cli user disable alice
+.venv/bin/python -m app.cli user enable alice
+```
+
+Set a green-point discount for ordinary free images. At `100%`, the green
+charge is zero, so generation is unlimited. Admin users are created with a
+`100%` green discount:
+
+```bash
+.venv/bin/python -m app.cli user green-discount alice --percent 100
+.venv/bin/python -m app.cli user green-discount alice --percent 25
+```
+
+Issue or inspect points:
+
+```bash
+# Show permanent remaining and total balances.
+.venv/bin/python -m app.cli user points show alice
+
+# Add permanent red points. This raises the total allocation; it never resets
+# a balance or schedules recurring grants.
+.venv/bin/python -m app.cli user points grant alice --red 1000
+```
+
+Green represents ordinary free generation. `green_point_discount` is an
+integer percentage from `0` to `100`; green costs are charged after that
+discount, and `100` means no green points are consumed. `green_point_limit`
+and all red-point fields are permanent: they do not reset by day, month, or
+time period.
+
+For WebAuthn management:
+
+```bash
+# Print a one-time enrollment URL.
+.venv/bin/python -m app.cli webauthn bind alice --ttl 30m --base-url https://nai.recoco.xyz
+
+# Disable all registered passkeys for a user.
+.venv/bin/python -m app.cli webauthn reset alice
+```
+
 The browser stores no NovelAI token. The real token and production env file
 should stay outside the repository:
 
@@ -96,5 +160,6 @@ mode, NovelAI endpoints are mapped to backend routes:
 - text host: `/api/nai/text/...`
 
 The backend strips any browser `Authorization` value and injects the local
-NovelAI token. Image generation is queued globally, limited to one active task
-per user, and forced to `n_samples = 1`.
+NovelAI token. Image generation is queued globally, forced to `n_samples = 1`,
+and each user may hold up to 20 unfinished image tasks by default. Configure
+that capacity with `NAIWEAVER_MAX_QUEUED_IMAGE_TASKS_PER_USER`.

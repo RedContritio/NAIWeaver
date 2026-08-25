@@ -17,8 +17,11 @@ class BackendQueueBadge extends StatefulWidget {
 class _BackendQueueBadgeState extends State<BackendQueueBadge> {
   final Dio _dio = Dio();
   Timer? _timer;
+  int? _estimatedWaitSeconds;
   int _queued = 0;
   int _active = 0;
+  bool _userQueued = false;
+  bool _userActive = false;
 
   @override
   void initState() {
@@ -39,8 +42,12 @@ class _BackendQueueBadgeState extends State<BackendQueueBadge> {
       final data = response.data;
       if (data is! Map<String, dynamic> || !mounted) return;
       setState(() {
+        _estimatedWaitSeconds = (data['estimated_wait_seconds'] as num?)
+            ?.toInt();
         _queued = (data['queued'] as num?)?.toInt() ?? 0;
         _active = (data['active'] as num?)?.toInt() ?? 0;
+        _userQueued = data['user_queued'] as bool? ?? false;
+        _userActive = data['user_active'] as bool? ?? false;
       });
     } catch (_) {
       // Queue status is informational; generation errors are surfaced elsewhere.
@@ -50,10 +57,18 @@ class _BackendQueueBadgeState extends State<BackendQueueBadge> {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final total = _queued + _active;
-    final detail = total == 0
-        ? context.l.gatewayQueueIdle
-        : '${context.l.gatewayQueueQueued} $_queued · ${context.l.gatewayQueueActive} $_active';
+    final seconds = _estimatedWaitSeconds;
+    final detail = _userActive || seconds == 0
+        ? context.l.gatewayQueueActive
+        : seconds != null
+        ? '≈ ${_formatDuration(seconds)}'
+        : _userQueued
+        ? context.l.gatewayQueueQueued
+        : _active > 0
+        ? context.l.gatewayQueueActive
+        : _queued > 0
+        ? context.l.gatewayQueueQueued
+        : context.l.gatewayQueueIdle;
     return Tooltip(
       message: '${context.l.gatewayQueueStatus}: $detail',
       child: Container(
@@ -67,10 +82,10 @@ class _BackendQueueBadgeState extends State<BackendQueueBadge> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.queue, size: 12, color: t.headerText),
+            Icon(Icons.schedule, size: 12, color: t.headerText),
             const SizedBox(width: 4),
             Text(
-              '$total',
+              detail,
               style: TextStyle(
                 color: t.headerText,
                 fontSize: t.fontSize(8),
@@ -82,5 +97,18 @@ class _BackendQueueBadgeState extends State<BackendQueueBadge> {
         ),
       ),
     );
+  }
+
+  String _formatDuration(int seconds) {
+    if (seconds < 60) {
+      return '${seconds}s';
+    }
+    final minutes = seconds ~/ 60;
+    final remainder = seconds % 60;
+    if (minutes < 60) {
+      return remainder == 0 ? '${minutes}m' : '${minutes}m ${remainder}s';
+    }
+    final hours = minutes ~/ 60;
+    return '${hours}h ${minutes % 60}m';
   }
 }

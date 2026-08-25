@@ -81,5 +81,18 @@ void main() {
       expect(estimate.totalAnlas, estimate.baseAnlas);
       expect(estimate.opusBaseDiscountApplied, isFalse);
     });
+
+    test('charges custom sizes even when their pixel count is below 1 MP', () {
+      final estimate = estimateNaiImageCost(
+        width: 512,
+        height: 512,
+        steps: 28,
+        smea: false,
+        smeaDyn: false,
+      );
+
+      expect(estimate.baseAnlas, greaterThan(0));
+      expect(estimate.opusBaseDiscountApplied, isFalse);
+    });
   });
 }
