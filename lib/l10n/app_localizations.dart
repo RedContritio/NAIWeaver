@@ -280,6 +280,24 @@ abstract class AppLocalizations {
   /// **'Advanced Settings'**
   String get mainAdvancedSettings;
 
+  /// No description provided for @generationSheetPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Prompt'**
+  String get generationSheetPrompt;
+
+  /// No description provided for @generationSheetInputs.
+  ///
+  /// In en, this message translates to:
+  /// **'Inputs'**
+  String get generationSheetInputs;
+
+  /// No description provided for @generationSheetParameters.
+  ///
+  /// In en, this message translates to:
+  /// **'Parameters'**
+  String get generationSheetParameters;
+
   /// No description provided for @mainExitConfirmation.
   ///
   /// In en, this message translates to:
@@ -1449,6 +1467,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Settings'**
   String get toolsSettings;
+
+  /// No description provided for @toolsFeedback.
+  ///
+  /// In en, this message translates to:
+  /// **'Feedback'**
+  String get toolsFeedback;
+
+  /// No description provided for @feedbackTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostic Feedback'**
+  String get feedbackTitle;
+
+  /// No description provided for @feedbackIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'A background diagnostic session continuously retains recent focus, keyboard, viewport, interaction, performance, network, and panel lifecycle events, then attaches them when you submit.'**
+  String get feedbackIntro;
+
+  /// No description provided for @feedbackPrivacy.
+  ///
+  /// In en, this message translates to:
+  /// **'The diagnostic log does not include prompt or negative-prompt contents, seeds, images, authentication data, or generation request bodies. It remains in this page\'s memory and is uploaded only when you press Submit.'**
+  String get feedbackPrivacy;
+
+  /// No description provided for @feedbackDebugStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Background diagnostics active · {count} events · {minutes} min covered · {dropped} dropped'**
+  String feedbackDebugStatus(int count, int minutes, int dropped);
+
+  /// No description provided for @feedbackDescriptionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'What happened? (optional)'**
+  String get feedbackDescriptionLabel;
+
+  /// No description provided for @feedbackDescriptionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'For example: I tapped Negative Prompt and the keyboard closed immediately.'**
+  String get feedbackDescriptionHint;
+
+  /// No description provided for @feedbackSubmit.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit Diagnostic Report'**
+  String get feedbackSubmit;
+
+  /// No description provided for @feedbackSubmitting.
+  ///
+  /// In en, this message translates to:
+  /// **'Submitting…'**
+  String get feedbackSubmitting;
+
+  /// No description provided for @feedbackSubmitted.
+  ///
+  /// In en, this message translates to:
+  /// **'Report submitted'**
+  String get feedbackSubmitted;
+
+  /// No description provided for @feedbackTicketLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Ticket'**
+  String get feedbackTicketLabel;
+
+  /// No description provided for @feedbackCopyTicket.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy ticket ID'**
+  String get feedbackCopyTicket;
+
+  /// No description provided for @feedbackTicketCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Ticket ID copied'**
+  String get feedbackTicketCopied;
+
+  /// No description provided for @feedbackSubmitFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Submission failed'**
+  String get feedbackSubmitFailed;
+
+  /// No description provided for @feedbackUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostic reports are available in the authenticated Web app.'**
+  String get feedbackUnavailable;
 
   /// No description provided for @helpTitle.
   ///

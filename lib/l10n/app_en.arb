@@ -33,6 +33,9 @@
   "mainSavePreset": "Save Preset",
   "mainPresetName": "Preset Name",
   "mainAdvancedSettings": "Advanced Settings",
+  "generationSheetPrompt": "Prompt",
+  "generationSheetInputs": "Inputs",
+  "generationSheetParameters": "Parameters",
   "mainExitConfirmation": "Are you sure you want to exit?",
 
   "settingsApiSettings": "API Settings",
@@ -253,6 +256,29 @@
   "toolsPacks": "Packs",
   "toolsTheme": "Theme",
   "toolsSettings": "Settings",
+  "toolsFeedback": "Feedback",
+
+  "feedbackTitle": "Diagnostic Feedback",
+  "feedbackIntro": "A background diagnostic session continuously retains recent focus, keyboard, viewport, interaction, performance, network, and panel lifecycle events, then attaches them when you submit.",
+  "feedbackPrivacy": "The diagnostic log does not include prompt or negative-prompt contents, seeds, images, authentication data, or generation request bodies. It remains in this page's memory and is uploaded only when you press Submit.",
+  "feedbackDebugStatus": "Background diagnostics active · {count} events · {minutes} min covered · {dropped} dropped",
+  "@feedbackDebugStatus": {
+    "placeholders": {
+      "count": {"type": "int"},
+      "minutes": {"type": "int"},
+      "dropped": {"type": "int"}
+    }
+  },
+  "feedbackDescriptionLabel": "What happened? (optional)",
+  "feedbackDescriptionHint": "For example: I tapped Negative Prompt and the keyboard closed immediately.",
+  "feedbackSubmit": "Submit Diagnostic Report",
+  "feedbackSubmitting": "Submitting…",
+  "feedbackSubmitted": "Report submitted",
+  "feedbackTicketLabel": "Ticket",
+  "feedbackCopyTicket": "Copy ticket ID",
+  "feedbackTicketCopied": "Ticket ID copied",
+  "feedbackSubmitFailed": "Submission failed",
+  "feedbackUnavailable": "Diagnostic reports are available in the authenticated Web app.",
 
   "helpTitle": "NAIWeaver",
   "helpShortcuts": "Shortcuts",

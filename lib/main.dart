@@ -9,6 +9,8 @@ import 'core/widgets/browser_native_text_area.dart';
 import 'core/gateway/backend_gateway.dart';
 import 'core/gateway/backend_permissions.dart';
 import 'core/services/nai_cost_estimator.dart';
+import 'core/services/client_diagnostics.dart';
+import 'core/services/client_diagnostics_runtime.dart';
 import 'features/auth/backend_auth_notifier.dart';
 import 'features/auth/widgets/backend_auth_gate.dart';
 import 'features/auth/widgets/backend_quota_badge.dart';
@@ -104,6 +106,7 @@ void main() {
       // Rescales Android mouse-wheel deltas so one notch ≈ one text line
       // instead of 3-4 (issue #14).
       NaiWidgetsBinding.ensureInitialized();
+      ClientDiagnosticsRuntime.instance.start();
       if (kIsWeb) {
         await BrowserContextMenu.enableContextMenu();
       }
@@ -195,6 +198,10 @@ void main() {
       }
 
       FlutterError.onError = (details) {
+        ClientDiagnostics.instance.record('flutter_error', {
+          'exception_type': details.exception.runtimeType.toString(),
+          'library': details.library,
+        });
         FlutterError.presentError(details);
         debugPrint('FlutterError: ${details.exceptionAsString()}');
       };
@@ -375,6 +382,7 @@ void main() {
                     GlobalCupertinoLocalizations.delegate,
                   ],
                   supportedLocales: AppLocalizations.supportedLocales,
+                  navigatorObservers: [DiagnosticsNavigatorObserver.instance],
                   home: PinLockGate(
                     prefs: preferencesService,
                     child: const BackendAuthGate(child: SimpleGeneratorApp()),
@@ -387,6 +395,9 @@ void main() {
       );
     },
     (error, stack) {
+      ClientDiagnostics.instance.record('uncaught_zone_error', {
+        'error_type': error.runtimeType.toString(),
+      });
       debugPrint('Uncaught error: $error');
       debugPrint('$stack');
     },
@@ -405,6 +416,12 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
   late VoidCallback _generationListener;
+  late VoidCallback _promptDiagnosticsListener;
+  late VoidCallback _negativePromptDiagnosticsListener;
+  bool _diagnosticControllerListenersAttached = false;
+  String? _lastGenerationDiagnosticSignature;
+  String? _lastPromptDiagnosticSignature;
+  String? _lastNegativePromptDiagnosticSignature;
   bool _isTouchingSuggestions = false;
   int _tagSuggestionIndex = -1;
   final FocusNode _globalFocusNode = FocusNode(skipTraversal: true);
@@ -425,6 +442,24 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
       final notifier = context.read<GenerationNotifier>();
       _generationListener = () => _onGenerationStateChanged(notifier);
       notifier.addListener(_generationListener);
+      _promptDiagnosticsListener = () => _recordPromptEditingState(
+        event: 'positive_prompt_editing_state_changed',
+        controller: notifier.promptController,
+        negative: false,
+      );
+      _negativePromptDiagnosticsListener = () => _recordPromptEditingState(
+        event: 'negative_prompt_editing_state_changed',
+        controller: notifier.negativePromptController,
+        negative: true,
+      );
+      notifier.promptController.addListener(_promptDiagnosticsListener);
+      notifier.negativePromptController.addListener(
+        _negativePromptDiagnosticsListener,
+      );
+      _diagnosticControllerListenersAttached = true;
+      _onGenerationStateChanged(notifier);
+      _promptDiagnosticsListener();
+      _negativePromptDiagnosticsListener();
       _maybeCheckForUpdate();
     });
   }
@@ -464,6 +499,7 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
   void _onGenerationStateChanged(GenerationNotifier notifier) {
     if (!mounted) return;
     final state = notifier.state;
+    _recordGenerationState(notifier);
 
     // Control pulse animation
     if (state.isLoading) {
@@ -507,6 +543,120 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
       );
       notifier.clearDuplicateWarning();
     }
+  }
+
+  void _recordPromptEditingState({
+    required String event,
+    required TextEditingController controller,
+    required bool negative,
+  }) {
+    final value = controller.value;
+    final signature = [
+      value.text.length,
+      value.selection.baseOffset,
+      value.selection.extentOffset,
+      value.composing.start,
+      value.composing.end,
+    ].join(':');
+    if (negative) {
+      if (_lastNegativePromptDiagnosticSignature == signature) return;
+      _lastNegativePromptDiagnosticSignature = signature;
+    } else {
+      if (_lastPromptDiagnosticSignature == signature) return;
+      _lastPromptDiagnosticSignature = signature;
+    }
+    ClientDiagnostics.instance.record(event, {
+      'character_count': value.text.length,
+      'selection_base_offset': value.selection.baseOffset,
+      'selection_extent_offset': value.selection.extentOffset,
+      'selection_valid': value.selection.isValid,
+      'selection_collapsed': value.selection.isCollapsed,
+      'composing_start': value.composing.start,
+      'composing_end': value.composing.end,
+      'composing_valid': value.composing.isValid,
+    });
+  }
+
+  void _recordGenerationState(GenerationNotifier notifier) {
+    final state = notifier.state;
+    final tasks = state.generatedImages;
+    final complete = tasks.where((item) => item.isComplete).length;
+    final queued = tasks
+        .where((item) => item.progress == GenerationTaskProgress.queued)
+        .length;
+    final generating = tasks
+        .where((item) => item.progress == GenerationTaskProgress.generating)
+        .length;
+    final failed = tasks
+        .where((item) => item.progress == GenerationTaskProgress.failed)
+        .length;
+    final rejected = tasks
+        .where((item) => item.progress == GenerationTaskProgress.rejected)
+        .length;
+    final cancelled = tasks
+        .where((item) => item.progress == GenerationTaskProgress.cancelled)
+        .length;
+    final selectedIndex = tasks.indexWhere(
+      (item) => item.id == state.selectedGeneratedImageId,
+    );
+    final signature = [
+      state.isLoading,
+      state.batchCount,
+      tasks.length,
+      complete,
+      queued,
+      generating,
+      failed,
+      rejected,
+      cancelled,
+      selectedIndex,
+      state.width,
+      state.height,
+      state.steps,
+      state.scale,
+      state.sampler,
+      state.smea,
+      state.smeaDyn,
+      state.decrisper,
+      state.activeStyleNames.length,
+      state.characters.length,
+      state.interactions.length,
+      state.errorMessage != null,
+      state.duplicateImageDetected,
+    ].join(':');
+    if (_lastGenerationDiagnosticSignature == signature) return;
+    _lastGenerationDiagnosticSignature = signature;
+    ClientDiagnostics.instance.record('generation_state_changed', {
+      'is_loading': state.isLoading,
+      'configured_batch_count': state.batchCount,
+      'task_count': tasks.length,
+      'completed_task_count': complete,
+      'queued_task_count': queued,
+      'generating_task_count': generating,
+      'failed_task_count': failed,
+      'rejected_task_count': rejected,
+      'cancelled_task_count': cancelled,
+      'selected_task_index': selectedIndex,
+      'auto_follow_latest': state.autoFollowLatestImage,
+      'width': state.width,
+      'height': state.height,
+      'steps': state.steps,
+      'scale': state.scale,
+      'sampler': state.sampler,
+      'smea': state.smea,
+      'smea_dyn': state.smeaDyn,
+      'decrisper': state.decrisper,
+      'random_mode': state.randomizeSeed,
+      'active_style_count': state.activeStyleNames.length,
+      'character_count': state.characters.length,
+      'interaction_count': state.interactions.length,
+      'positive_length': notifier.promptController.text.length,
+      'negative_length': notifier.negativePromptController.text.length,
+      'has_error': state.errorMessage != null,
+      'error_tone': state.errorTone.name,
+      'duplicate_detected': state.duplicateImageDetected,
+      'use_curated': state.useCurated,
+    });
   }
 
   /// Applies a main-prompt tag suggestion and surfaces the one outcome that
@@ -725,7 +875,14 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
   void dispose() {
     _globalFocusNode.dispose();
     _promptFocusNode.dispose();
-    context.read<GenerationNotifier>().removeListener(_generationListener);
+    final notifier = context.read<GenerationNotifier>();
+    notifier.removeListener(_generationListener);
+    if (_diagnosticControllerListenersAttached) {
+      notifier.promptController.removeListener(_promptDiagnosticsListener);
+      notifier.negativePromptController.removeListener(
+        _negativePromptDiagnosticsListener,
+      );
+    }
     _pulseController.dispose();
     super.dispose();
   }

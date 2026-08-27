@@ -101,6 +101,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mainAdvancedSettings => '詳細設定';
 
   @override
+  String get generationSheetPrompt => 'プロンプト';
+
+  @override
+  String get generationSheetInputs => '画像入力';
+
+  @override
+  String get generationSheetParameters => 'パラメータ';
+
+  @override
   String get mainExitConfirmation => 'アプリを終了しますか？';
 
   @override
@@ -729,6 +738,55 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get toolsSettings => '設定';
+
+  @override
+  String get toolsFeedback => 'フィードバック';
+
+  @override
+  String get feedbackTitle => '診断フィードバック';
+
+  @override
+  String get feedbackIntro =>
+      'バックグラウンド診断セッションは、直近のフォーカス、キーボード、表示領域、操作、性能、ネットワーク、パネルのライフサイクルイベントを継続的に保持し、送信時に添付します。';
+
+  @override
+  String get feedbackPrivacy =>
+      '診断ログにはプロンプト本文、ネガティブプロンプト本文、Seed、画像、認証情報、生成リクエスト本文は含まれません。現在のページのメモリだけに保持され、送信ボタンを押した場合にのみアップロードされます。';
+
+  @override
+  String feedbackDebugStatus(int count, int minutes, int dropped) {
+    return 'バックグラウンド診断中 · $count件 · $minutes分を保持 · $dropped件破棄';
+  }
+
+  @override
+  String get feedbackDescriptionLabel => '何が起きましたか？（任意）';
+
+  @override
+  String get feedbackDescriptionHint => '例：ネガティブプロンプトをタップするとキーボードがすぐ閉じた。';
+
+  @override
+  String get feedbackSubmit => '診断レポートを送信';
+
+  @override
+  String get feedbackSubmitting => '送信中…';
+
+  @override
+  String get feedbackSubmitted => 'レポートを送信しました';
+
+  @override
+  String get feedbackTicketLabel => 'チケット';
+
+  @override
+  String get feedbackCopyTicket => 'チケットIDをコピー';
+
+  @override
+  String get feedbackTicketCopied => 'チケットIDをコピーしました';
+
+  @override
+  String get feedbackSubmitFailed => '送信に失敗しました';
+
+  @override
+  String get feedbackUnavailable => '診断レポートは認証済み Web アプリでのみ利用できます。';
 
   @override
   String get helpTitle => 'NAIWeaver';

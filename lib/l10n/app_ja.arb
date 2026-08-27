@@ -32,6 +32,9 @@
   "mainSavePreset": "プリセットを保存",
   "mainPresetName": "プリセット名",
   "mainAdvancedSettings": "詳細設定",
+  "generationSheetPrompt": "プロンプト",
+  "generationSheetInputs": "画像入力",
+  "generationSheetParameters": "パラメータ",
   "mainExitConfirmation": "アプリを終了しますか？",
 
   "settingsApiSettings": "API設定",
@@ -232,6 +235,29 @@
   "toolsPacks": "パック",
   "toolsTheme": "テーマ",
   "toolsSettings": "設定",
+  "toolsFeedback": "フィードバック",
+
+  "feedbackTitle": "診断フィードバック",
+  "feedbackIntro": "バックグラウンド診断セッションは、直近のフォーカス、キーボード、表示領域、操作、性能、ネットワーク、パネルのライフサイクルイベントを継続的に保持し、送信時に添付します。",
+  "feedbackPrivacy": "診断ログにはプロンプト本文、ネガティブプロンプト本文、Seed、画像、認証情報、生成リクエスト本文は含まれません。現在のページのメモリだけに保持され、送信ボタンを押した場合にのみアップロードされます。",
+  "feedbackDebugStatus": "バックグラウンド診断中 · {count}件 · {minutes}分を保持 · {dropped}件破棄",
+  "@feedbackDebugStatus": {
+    "placeholders": {
+      "count": {"type": "int"},
+      "minutes": {"type": "int"},
+      "dropped": {"type": "int"}
+    }
+  },
+  "feedbackDescriptionLabel": "何が起きましたか？（任意）",
+  "feedbackDescriptionHint": "例：ネガティブプロンプトをタップするとキーボードがすぐ閉じた。",
+  "feedbackSubmit": "診断レポートを送信",
+  "feedbackSubmitting": "送信中…",
+  "feedbackSubmitted": "レポートを送信しました",
+  "feedbackTicketLabel": "チケット",
+  "feedbackCopyTicket": "チケットIDをコピー",
+  "feedbackTicketCopied": "チケットIDをコピーしました",
+  "feedbackSubmitFailed": "送信に失敗しました",
+  "feedbackUnavailable": "診断レポートは認証済み Web アプリでのみ利用できます。",
 
   "helpTitle": "NAIWeaver",
   "helpShortcuts": "ショートカット",

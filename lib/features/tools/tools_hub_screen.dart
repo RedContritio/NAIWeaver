@@ -20,6 +20,7 @@ import 'img2img/widgets/img2img_editor.dart';
 import 'director_tools/widgets/director_tools_editor.dart';
 import 'enhance/widgets/enhance_editor.dart';
 import 'widgets/references_manager.dart';
+import 'widgets/feedback_panel.dart';
 import 'ml/widgets/ml_models_manager.dart';
 import '../text_gen/widgets/text_gen_panel.dart';
 import '../characters/widgets/characters_page.dart';
@@ -149,6 +150,11 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
         id: 'settings',
         name: l.toolsSettings.toUpperCase(),
         icon: Icons.settings,
+      ),
+      ToolItem(
+        id: 'feedback',
+        name: l.toolsFeedback.toUpperCase(),
+        icon: Icons.bug_report_outlined,
       ),
     ];
     return tools
@@ -433,6 +439,8 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
         return const ThemeBuilder();
       case 'settings':
         return const AppSettings();
+      case 'feedback':
+        return const FeedbackPanel();
       default:
         return const SizedBox.shrink();
     }

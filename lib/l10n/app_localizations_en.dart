@@ -101,6 +101,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mainAdvancedSettings => 'Advanced Settings';
 
   @override
+  String get generationSheetPrompt => 'Prompt';
+
+  @override
+  String get generationSheetInputs => 'Inputs';
+
+  @override
+  String get generationSheetParameters => 'Parameters';
+
+  @override
   String get mainExitConfirmation => 'Are you sure you want to exit?';
 
   @override
@@ -741,6 +750,57 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get toolsSettings => 'Settings';
+
+  @override
+  String get toolsFeedback => 'Feedback';
+
+  @override
+  String get feedbackTitle => 'Diagnostic Feedback';
+
+  @override
+  String get feedbackIntro =>
+      'A background diagnostic session continuously retains recent focus, keyboard, viewport, interaction, performance, network, and panel lifecycle events, then attaches them when you submit.';
+
+  @override
+  String get feedbackPrivacy =>
+      'The diagnostic log does not include prompt or negative-prompt contents, seeds, images, authentication data, or generation request bodies. It remains in this page\'s memory and is uploaded only when you press Submit.';
+
+  @override
+  String feedbackDebugStatus(int count, int minutes, int dropped) {
+    return 'Background diagnostics active · $count events · $minutes min covered · $dropped dropped';
+  }
+
+  @override
+  String get feedbackDescriptionLabel => 'What happened? (optional)';
+
+  @override
+  String get feedbackDescriptionHint =>
+      'For example: I tapped Negative Prompt and the keyboard closed immediately.';
+
+  @override
+  String get feedbackSubmit => 'Submit Diagnostic Report';
+
+  @override
+  String get feedbackSubmitting => 'Submitting…';
+
+  @override
+  String get feedbackSubmitted => 'Report submitted';
+
+  @override
+  String get feedbackTicketLabel => 'Ticket';
+
+  @override
+  String get feedbackCopyTicket => 'Copy ticket ID';
+
+  @override
+  String get feedbackTicketCopied => 'Ticket ID copied';
+
+  @override
+  String get feedbackSubmitFailed => 'Submission failed';
+
+  @override
+  String get feedbackUnavailable =>
+      'Diagnostic reports are available in the authenticated Web app.';
 
   @override
   String get helpTitle => 'NAIWeaver';

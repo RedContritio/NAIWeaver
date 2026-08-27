@@ -33,6 +33,9 @@
   "mainSavePreset": "保存预设",
   "mainPresetName": "预设名称",
   "mainAdvancedSettings": "高级设置",
+  "generationSheetPrompt": "提示词",
+  "generationSheetInputs": "图片输入",
+  "generationSheetParameters": "参数",
   "mainExitConfirmation": "确定要退出吗？",
 
   "settingsApiSettings": "API 设置",
@@ -253,6 +256,29 @@
   "toolsPacks": "资源包",
   "toolsTheme": "主题",
   "toolsSettings": "设置",
+  "toolsFeedback": "反馈",
+
+  "feedbackTitle": "诊断反馈",
+  "feedbackIntro": "后台诊断会话会持续保留最近的焦点、输入法、可视区域、交互、性能、网络和面板生命周期事件，并在提交时一次性附在工单中。",
+  "feedbackPrivacy": "诊断日志不包含正向或负向提示词正文、Seed、图片、认证信息或生成请求正文。日志只保存在当前页面内存中，只有点击提交后才会上传。",
+  "feedbackDebugStatus": "后台诊断运行中 · {count} 条事件 · 覆盖 {minutes} 分钟 · 丢弃 {dropped} 条",
+  "@feedbackDebugStatus": {
+    "placeholders": {
+      "count": {"type": "int"},
+      "minutes": {"type": "int"},
+      "dropped": {"type": "int"}
+    }
+  },
+  "feedbackDescriptionLabel": "发生了什么？（选填）",
+  "feedbackDescriptionHint": "例如：点击负面提示词后，输入法立刻关闭。",
+  "feedbackSubmit": "提交诊断反馈",
+  "feedbackSubmitting": "正在提交…",
+  "feedbackSubmitted": "反馈已提交",
+  "feedbackTicketLabel": "工单编号",
+  "feedbackCopyTicket": "复制工单编号",
+  "feedbackTicketCopied": "工单编号已复制",
+  "feedbackSubmitFailed": "提交失败",
+  "feedbackUnavailable": "诊断反馈仅在经过认证的 Web 应用中可用。",
 
   "helpTitle": "NAIWeaver",
   "helpShortcuts": "快捷键",

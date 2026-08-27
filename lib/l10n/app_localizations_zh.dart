@@ -101,6 +101,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mainAdvancedSettings => '高级设置';
 
   @override
+  String get generationSheetPrompt => '提示词';
+
+  @override
+  String get generationSheetInputs => '图片输入';
+
+  @override
+  String get generationSheetParameters => '参数';
+
+  @override
   String get mainExitConfirmation => '确定要退出吗？';
 
   @override
@@ -726,6 +735,55 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get toolsSettings => '设置';
+
+  @override
+  String get toolsFeedback => '反馈';
+
+  @override
+  String get feedbackTitle => '诊断反馈';
+
+  @override
+  String get feedbackIntro =>
+      '后台诊断会话会持续保留最近的焦点、输入法、可视区域、交互、性能、网络和面板生命周期事件，并在提交时一次性附在工单中。';
+
+  @override
+  String get feedbackPrivacy =>
+      '诊断日志不包含正向或负向提示词正文、Seed、图片、认证信息或生成请求正文。日志只保存在当前页面内存中，只有点击提交后才会上传。';
+
+  @override
+  String feedbackDebugStatus(int count, int minutes, int dropped) {
+    return '后台诊断运行中 · $count 条事件 · 覆盖 $minutes 分钟 · 丢弃 $dropped 条';
+  }
+
+  @override
+  String get feedbackDescriptionLabel => '发生了什么？（选填）';
+
+  @override
+  String get feedbackDescriptionHint => '例如：点击负面提示词后，输入法立刻关闭。';
+
+  @override
+  String get feedbackSubmit => '提交诊断反馈';
+
+  @override
+  String get feedbackSubmitting => '正在提交…';
+
+  @override
+  String get feedbackSubmitted => '反馈已提交';
+
+  @override
+  String get feedbackTicketLabel => '工单编号';
+
+  @override
+  String get feedbackCopyTicket => '复制工单编号';
+
+  @override
+  String get feedbackTicketCopied => '工单编号已复制';
+
+  @override
+  String get feedbackSubmitFailed => '提交失败';
+
+  @override
+  String get feedbackUnavailable => '诊断反馈仅在经过认证的 Web 应用中可用。';
 
   @override
   String get helpTitle => 'NAIWeaver';

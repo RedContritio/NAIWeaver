@@ -4,6 +4,8 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
+import '../services/client_diagnostics.dart';
+
 const bool supportsBrowserNativeTextArea = true;
 
 /// A real browser textarea for touch-friendly selection, copy and paste.
@@ -52,19 +54,31 @@ class BrowserNativeTextArea extends StatefulWidget {
   State<BrowserNativeTextArea> createState() => _BrowserNativeTextAreaState();
 }
 
-class _BrowserNativeTextAreaState extends State<BrowserNativeTextArea> {
+class _BrowserNativeTextAreaState extends State<BrowserNativeTextArea>
+    with AutomaticKeepAliveClientMixin<BrowserNativeTextArea> {
   static int _nextViewId = 0;
 
   late final String _viewType;
   web.HTMLTextAreaElement? _element;
   bool _syncingFromBrowser = false;
+  bool _domHasFocus = false;
+  int _lastScrollLogMs = 0;
+
+  // A focused platform view must not be recycled by a surrounding sliver when
+  // the mobile keyboard shrinks the visual viewport. Removing the textarea
+  // from the DOM also removes browser focus and immediately dismisses the
+  // keyboard.
+  @override
+  bool get wantKeepAlive =>
+      _domHasFocus || (widget.focusNode?.hasFocus ?? false);
 
   @override
   void initState() {
     super.initState();
     _viewType = 'naiweaver-native-textarea-${_nextViewId++}';
+    _record('native_textarea_init');
     widget.controller.addListener(_syncFromController);
-    widget.focusNode?.addListener(_syncDomFocus);
+    widget.focusNode?.addListener(_handleFocusChanged);
     ui_web.platformViewRegistry.registerViewFactory(_viewType, _createElement);
   }
 
@@ -77,8 +91,9 @@ class _BrowserNativeTextAreaState extends State<BrowserNativeTextArea> {
       _syncFromController();
     }
     if (oldWidget.focusNode != widget.focusNode) {
-      oldWidget.focusNode?.removeListener(_syncDomFocus);
-      widget.focusNode?.addListener(_syncDomFocus);
+      oldWidget.focusNode?.removeListener(_handleFocusChanged);
+      widget.focusNode?.addListener(_handleFocusChanged);
+      updateKeepAlive();
       _syncDomFocus();
     }
     final textarea = _element;
@@ -87,13 +102,15 @@ class _BrowserNativeTextAreaState extends State<BrowserNativeTextArea> {
 
   @override
   void dispose() {
+    _record('native_textarea_dispose');
     widget.controller.removeListener(_syncFromController);
-    widget.focusNode?.removeListener(_syncDomFocus);
+    widget.focusNode?.removeListener(_handleFocusChanged);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     Widget child = HtmlElementView(viewType: _viewType);
     if (widget.focusNode != null) {
       child = Focus(focusNode: widget.focusNode, child: child);
@@ -116,15 +133,22 @@ class _BrowserNativeTextAreaState extends State<BrowserNativeTextArea> {
       ..boxSizing = 'border-box'
       ..resize = 'none'
       ..outline = 'none'
+      ..boxShadow = 'none'
       ..overflowY = 'auto';
+    textarea.style.setProperty('-webkit-appearance', 'none');
+    textarea.style.setProperty('appearance', 'none');
+    textarea.style.setProperty('color-scheme', 'dark');
+    textarea.style.setProperty('opacity', '1');
     textarea.style.setProperty('-webkit-user-select', 'text');
     textarea.style.setProperty('user-select', 'text');
     textarea.style.setProperty('-webkit-touch-callout', 'default');
     _applyStyle(textarea);
+    _record('native_textarea_dom_created');
 
     textarea.addEventListener(
       'input',
-      ((web.Event _) {
+      ((web.Event rawEvent) {
+        final event = rawEvent as web.InputEvent;
         _syncingFromBrowser = true;
         final text = textarea.value;
         final start = textarea.selectionStart;
@@ -135,12 +159,24 @@ class _BrowserNativeTextAreaState extends State<BrowserNativeTextArea> {
         );
         _syncingFromBrowser = false;
         widget.onChanged?.call(text);
+        _record(
+          'native_textarea_input',
+          textarea: textarea,
+          extra: {
+            'character_count': text.length,
+            'selection_start': start,
+            'selection_end': end,
+            'dom_input_type': event.inputType,
+            'is_composing': event.isComposing,
+          },
+        );
       }).toJS,
     );
     textarea.addEventListener(
       'click',
       ((web.Event _) {
         _syncSelection(textarea);
+        _record('native_textarea_click', textarea: textarea);
         widget.onTap?.call();
       }).toJS,
     );
@@ -148,18 +184,70 @@ class _BrowserNativeTextAreaState extends State<BrowserNativeTextArea> {
       'select',
       ((web.Event _) {
         _syncSelection(textarea);
+        _record(
+          'native_textarea_selection_changed',
+          textarea: textarea,
+          extra: {
+            'selection_start': textarea.selectionStart,
+            'selection_end': textarea.selectionEnd,
+          },
+        );
+      }).toJS,
+    );
+    textarea.addEventListener(
+      'compositionstart',
+      ((web.Event _) {
+        _record('native_textarea_composition_started', textarea: textarea);
+      }).toJS,
+    );
+    textarea.addEventListener(
+      'compositionend',
+      ((web.Event _) {
+        _record(
+          'native_textarea_composition_finished',
+          textarea: textarea,
+          extra: {
+            'character_count': textarea.value.length,
+            'selection_start': textarea.selectionStart,
+            'selection_end': textarea.selectionEnd,
+          },
+        );
+      }).toJS,
+    );
+    textarea.addEventListener(
+      'scroll',
+      ((web.Event _) {
+        final now = DateTime.now().millisecondsSinceEpoch;
+        if (now - _lastScrollLogMs < 100) return;
+        _lastScrollLogMs = now;
+        _record(
+          'native_textarea_scrolled',
+          textarea: textarea,
+          extra: {
+            'scroll_top': textarea.scrollTop,
+            'scroll_height': textarea.scrollHeight,
+            'client_height': textarea.clientHeight,
+          },
+        );
       }).toJS,
     );
     textarea.addEventListener(
       'focus',
       ((web.Event _) {
+        if (!mounted) return;
+        _domHasFocus = true;
+        _record('native_textarea_dom_focus', textarea: textarea);
+        updateKeepAlive();
         widget.focusNode?.requestFocus();
-        widget.onTap?.call();
       }).toJS,
     );
     textarea.addEventListener(
       'blur',
       ((web.Event _) {
+        if (!mounted) return;
+        _domHasFocus = false;
+        _record('native_textarea_dom_blur', textarea: textarea);
+        updateKeepAlive();
         widget.focusNode?.unfocus();
         widget.onBlur?.call();
       }).toJS,
@@ -186,6 +274,12 @@ class _BrowserNativeTextAreaState extends State<BrowserNativeTextArea> {
     return textarea;
   }
 
+  void _handleFocusChanged() {
+    _record('native_textarea_focus_node_changed');
+    updateKeepAlive();
+    _syncDomFocus();
+  }
+
   void _syncFromController() {
     if (_syncingFromBrowser) return;
     final textarea = _element;
@@ -200,10 +294,39 @@ class _BrowserNativeTextAreaState extends State<BrowserNativeTextArea> {
     if (textarea == null || focusNode == null) return;
     final active = web.document.activeElement == textarea;
     if (focusNode.hasFocus && !active) {
+      _record('native_textarea_focus_dom_requested', textarea: textarea);
       textarea.focus();
     } else if (!focusNode.hasFocus && active) {
+      _record('native_textarea_blur_dom_requested', textarea: textarea);
       textarea.blur();
     }
+  }
+
+  void _record(
+    String event, {
+    web.HTMLTextAreaElement? textarea,
+    Map<String, Object?> extra = const {},
+  }) {
+    final visualViewport = web.window.visualViewport;
+    final computedStyle = textarea == null
+        ? null
+        : web.window.getComputedStyle(textarea);
+    ClientDiagnostics.instance.record(event, {
+      'view_type': _viewType,
+      'mounted': mounted,
+      'dom_has_focus': _domHasFocus,
+      'focus_node_has_focus': widget.focusNode?.hasFocus,
+      'is_active_element':
+          textarea != null && web.document.activeElement == textarea,
+      'window_inner_height': web.window.innerHeight,
+      'visual_viewport_height': visualViewport?.height,
+      'visual_viewport_offset_top': visualViewport?.offsetTop,
+      'computed_background_color': computedStyle?.backgroundColor,
+      'computed_font_size': computedStyle?.fontSize,
+      'textarea_client_width': textarea?.clientWidth,
+      'textarea_client_height': textarea?.clientHeight,
+      ...extra,
+    });
   }
 
   void _syncSelection(web.HTMLTextAreaElement textarea) {
@@ -238,6 +361,7 @@ class _BrowserNativeTextAreaState extends State<BrowserNativeTextArea> {
       ..letterSpacing = '${style.letterSpacing ?? 0}px'
       ..lineHeight = '${style.height ?? 1.2}'
       ..color = _cssColor(style.color ?? Colors.black)
+      ..caretColor = _cssColor(style.color ?? Colors.black)
       ..backgroundColor = _cssColor(
         widget.backgroundColor ?? Colors.transparent,
       )

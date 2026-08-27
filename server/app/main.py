@@ -313,6 +313,21 @@ CREATE TABLE IF NOT EXISTS request_audit_logs (
 CREATE INDEX IF NOT EXISTS idx_request_audit_logs_user_id ON request_audit_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_request_audit_logs_created_at ON request_audit_logs(created_at);
 
+CREATE TABLE IF NOT EXISTS client_feedback_reports (
+  id TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  description TEXT NOT NULL DEFAULT '',
+  client_context_json TEXT NOT NULL,
+  diagnostics_json TEXT NOT NULL,
+  event_count INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_client_feedback_reports_user_created
+ON client_feedback_reports(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_client_feedback_reports_created
+ON client_feedback_reports(created_at DESC);
+
 CREATE TABLE IF NOT EXISTS webauthn_credentials (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -407,6 +422,87 @@ class LoginRequest(BaseModel):
 
     username: str = Field(min_length=1, max_length=80)
     password: str = Field(min_length=1, max_length=256)
+
+
+class ClientDiagnosticEventRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    timestamp: str = Field(min_length=1, max_length=64)
+    sequence: int | None = Field(default=None, ge=0)
+    elapsed_ms: int | None = Field(default=None, ge=0)
+    event: str = Field(min_length=1, max_length=96)
+    details: dict[str, bool | int | float | str | None] = Field(
+        default_factory=dict, max_length=48
+    )
+
+
+class ClientFeedbackContextRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    app_version: str = Field(default="", max_length=64)
+    build_number: str = Field(default="", max_length=64)
+    platform: str = Field(default="", max_length=128)
+    web: bool = True
+    user_agent: str = Field(default="", max_length=768)
+    language: str = Field(default="", max_length=64)
+    viewport_width: float | None = Field(default=None, ge=0, le=100000)
+    viewport_height: float | None = Field(default=None, ge=0, le=100000)
+    view_padding_top: float | None = Field(default=None, ge=0, le=100000)
+    view_padding_right: float | None = Field(default=None, ge=0, le=100000)
+    view_padding_bottom: float | None = Field(default=None, ge=0, le=100000)
+    view_padding_left: float | None = Field(default=None, ge=0, le=100000)
+    view_insets_top: float | None = Field(default=None, ge=0, le=100000)
+    view_insets_right: float | None = Field(default=None, ge=0, le=100000)
+    view_insets_bottom: float | None = Field(default=None, ge=0, le=100000)
+    view_insets_left: float | None = Field(default=None, ge=0, le=100000)
+    padding_top: float | None = Field(default=None, ge=0, le=100000)
+    padding_right: float | None = Field(default=None, ge=0, le=100000)
+    padding_bottom: float | None = Field(default=None, ge=0, le=100000)
+    padding_left: float | None = Field(default=None, ge=0, le=100000)
+    orientation: str = Field(default="", max_length=32)
+    window_width: float | None = Field(default=None, ge=0, le=100000)
+    window_height: float | None = Field(default=None, ge=0, le=100000)
+    device_pixel_ratio: float | None = Field(default=None, ge=0, le=100)
+    screen_width: float | None = Field(default=None, ge=0, le=100000)
+    screen_height: float | None = Field(default=None, ge=0, le=100000)
+    screen_available_width: float | None = Field(default=None, ge=0, le=100000)
+    screen_available_height: float | None = Field(default=None, ge=0, le=100000)
+    color_depth: int | None = Field(default=None, ge=0, le=128)
+    screen_orientation_type: str = Field(default="", max_length=64)
+    screen_orientation_angle: int | None = Field(default=None, ge=-360, le=360)
+    visual_viewport_width: float | None = Field(default=None, ge=0, le=100000)
+    visual_viewport_height: float | None = Field(default=None, ge=0, le=100000)
+    visual_viewport_offset_left: float | None = Field(default=None, ge=-100000, le=100000)
+    visual_viewport_offset_top: float | None = Field(default=None, ge=-100000, le=100000)
+    visual_viewport_scale: float | None = Field(default=None, ge=0, le=1000)
+    document_client_width: float | None = Field(default=None, ge=0, le=1000000)
+    document_client_height: float | None = Field(default=None, ge=0, le=1000000)
+    document_scroll_width: float | None = Field(default=None, ge=0, le=1000000)
+    document_scroll_height: float | None = Field(default=None, ge=0, le=1000000)
+    page_scroll_x: float | None = Field(default=None, ge=-1000000, le=1000000)
+    page_scroll_y: float | None = Field(default=None, ge=-1000000, le=1000000)
+    max_touch_points: int | None = Field(default=None, ge=0, le=1000)
+    hardware_concurrency: int | None = Field(default=None, ge=0, le=10000)
+    online: bool | None = None
+    cookie_enabled: bool | None = None
+    document_visibility: str = Field(default="", max_length=64)
+    document_has_focus: bool | None = None
+    timezone_name: str = Field(default="", max_length=128)
+    timezone_offset_minutes: int | None = Field(default=None, ge=-1440, le=1440)
+    diagnostic_session_id: str = Field(default="", max_length=128)
+    diagnostic_session_started_at: str = Field(default="", max_length=64)
+    diagnostic_session_duration_ms: int | None = Field(default=None, ge=0)
+    diagnostic_event_capacity: int | None = Field(default=None, ge=0, le=10000)
+    diagnostic_event_count: int | None = Field(default=None, ge=0, le=10000)
+    diagnostic_dropped_event_count: int | None = Field(default=None, ge=0)
+
+
+class ClientFeedbackCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    description: str = Field(default="", max_length=2000)
+    client_context: ClientFeedbackContextRequest
+    diagnostics: list[ClientDiagnosticEventRequest] = Field(max_length=1200)
 
 
 class UserUpdateRequest(BaseModel):
@@ -837,6 +933,27 @@ def migrate_db(db: sqlite3.Connection) -> None:
     )
     db.execute(
         "CREATE INDEX IF NOT EXISTS idx_request_audit_logs_created_at ON request_audit_logs(created_at)"
+    )
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS client_feedback_reports (
+          id TEXT PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          description TEXT NOT NULL DEFAULT '',
+          client_context_json TEXT NOT NULL,
+          diagnostics_json TEXT NOT NULL,
+          event_count INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL
+        )
+        """
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_client_feedback_reports_user_created "
+        "ON client_feedback_reports(user_id, created_at DESC)"
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_client_feedback_reports_created "
+        "ON client_feedback_reports(created_at DESC)"
     )
     db.execute(
         """
@@ -1532,6 +1649,60 @@ def quota(user: sqlite3.Row = Depends(require_user), db: sqlite3.Connection = De
     return quota_for_user(db, user)
 
 
+@app.post("/api/feedback", status_code=status.HTTP_201_CREATED)
+def create_client_feedback(
+    payload: ClientFeedbackCreateRequest,
+    user: sqlite3.Row = Depends(require_user),
+    db: sqlite3.Connection = Depends(get_db),
+):
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+    recent_count = db.execute(
+        "SELECT COUNT(*) FROM client_feedback_reports "
+        "WHERE user_id = ? AND created_at >= ?",
+        (user["id"], cutoff),
+    ).fetchone()[0]
+    if recent_count >= 10:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "Too many feedback reports; please try again later",
+        )
+
+    context_json = json.dumps(
+        payload.client_context.model_dump(mode="json"),
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    diagnostics_json = json.dumps(
+        [event.model_dump(mode="json") for event in payload.diagnostics],
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    if len(context_json.encode("utf-8")) + len(diagnostics_json.encode("utf-8")) > 1_000_000:
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "Diagnostic report too large")
+
+    report_id = f"fb_{secrets.token_urlsafe(12)}"
+    created_at = now_iso()
+    db.execute(
+        """
+        INSERT INTO client_feedback_reports(
+          id, user_id, description, client_context_json, diagnostics_json,
+          event_count, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            report_id,
+            user["id"],
+            payload.description.strip(),
+            context_json,
+            diagnostics_json,
+            len(payload.diagnostics),
+            created_at,
+        ),
+    )
+    db.commit()
+    return {"id": report_id, "created_at": created_at}
+
+
 def recent_image_generation_seconds(db: sqlite3.Connection) -> float:
     """Use recent successful jobs to give the queue a deliberately simple ETA."""
     row = db.execute(
@@ -1611,6 +1782,63 @@ def admin_users(
 ):
     rows = db.execute("SELECT * FROM users ORDER BY id").fetchall()
     return {"items": [user_admin_dict(row) for row in rows]}
+
+
+@app.get("/api/admin/feedback")
+def admin_feedback_reports(
+    limit: int = 100,
+    user_id: int | None = None,
+    _: sqlite3.Row = Depends(require_admin),
+    db: sqlite3.Connection = Depends(get_db),
+):
+    where: list[str] = []
+    params: list[Any] = []
+    if user_id is not None:
+        where.append("f.user_id = ?")
+        params.append(user_id)
+    where_sql = f"WHERE {' AND '.join(where)}" if where else ""
+    params.append(max(1, min(limit, 500)))
+    rows = db.execute(
+        f"""
+        SELECT f.id, f.user_id, u.username, f.description,
+               f.client_context_json, f.event_count, f.created_at
+        FROM client_feedback_reports f
+        JOIN users u ON u.id = f.user_id
+        {where_sql}
+        ORDER BY f.created_at DESC
+        LIMIT ?
+        """,
+        params,
+    ).fetchall()
+    items = []
+    for row in rows:
+        item = dict(row)
+        item["client_context"] = json.loads(item.pop("client_context_json"))
+        items.append(item)
+    return {"items": items}
+
+
+@app.get("/api/admin/feedback/{feedback_id}")
+def admin_feedback_report(
+    feedback_id: str,
+    _: sqlite3.Row = Depends(require_admin),
+    db: sqlite3.Connection = Depends(get_db),
+):
+    row = db.execute(
+        """
+        SELECT f.*, u.username
+        FROM client_feedback_reports f
+        JOIN users u ON u.id = f.user_id
+        WHERE f.id = ?
+        """,
+        (feedback_id,),
+    ).fetchone()
+    if not row:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Feedback report not found")
+    item = dict(row)
+    item["client_context"] = json.loads(item.pop("client_context_json"))
+    item["diagnostics"] = json.loads(item.pop("diagnostics_json"))
+    return item
 
 
 @app.get("/api/admin/audit")
