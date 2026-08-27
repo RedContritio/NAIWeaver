@@ -17,6 +17,7 @@ import '../../core/widgets/confirm_dialog.dart';
 import '../auth/backend_auth_notifier.dart';
 import '../generation/providers/generation_notifier.dart';
 import '../generation/services/metadata_import_service.dart';
+import '../generation/widgets/generation_results_workspace.dart';
 import '../generation/widgets/result_set_viewer.dart';
 
 class ServerHistoryScreen extends StatefulWidget {
@@ -157,15 +158,16 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
     _lastPreloadStart = start;
     _lastPreloadEnd = end;
     for (var i = start; i < end; i += 1) {
-      final item = entries[i].cover;
-      if (!item.hasImage) continue;
-      unawaited(
-        precacheImage(
-          NetworkImage(item.thumbnailUrl),
-          context,
-          onError: (_, _) {},
-        ),
-      );
+      for (final item
+          in entries[i].items.where((item) => item.hasImage).take(4)) {
+        unawaited(
+          precacheImage(
+            NetworkImage(item.thumbnailUrl),
+            context,
+            onError: (_, _) {},
+          ),
+        );
+      }
     }
   }
 
@@ -277,30 +279,17 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final width = constraints.maxWidth;
-                final columns = width >= 1500
-                    ? 5
-                    : width >= 1100
-                    ? 4
-                    : width >= 760
-                    ? 3
-                    : 2;
-                _gridColumns = columns;
-                final tileWidth = (width - 24 - (columns - 1) * 12) / columns;
-                _gridMainExtent = tileWidth / 0.72 + 12;
+                _gridColumns = ResultSetGridSpec.columnCount(width);
+                _gridMainExtent = ResultSetGridSpec.rowExtent(width);
                 final entries = _historyEntries;
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   _preloadVisibleThumbnails();
                 });
                 return GridView.builder(
                   controller: _scrollController,
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(ResultSetGridSpec.padding),
                   physics: const AlwaysScrollableScrollPhysics(),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: columns,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 0.72,
-                  ),
+                  gridDelegate: ResultSetGridSpec.delegate,
                   itemCount: entries.length,
                   itemBuilder: (context, index) {
                     final entry = entries[index];
@@ -740,7 +729,7 @@ class _HistoryEntry {
   }
 }
 
-class _HistoryEntryCard extends StatelessWidget {
+class _HistoryEntryCard extends StatefulWidget {
   const _HistoryEntryCard({
     required this.entry,
     required this.onOpen,
@@ -756,119 +745,185 @@ class _HistoryEntryCard extends StatelessWidget {
   final VoidCallback onDelete;
 
   @override
+  State<_HistoryEntryCard> createState() => _HistoryEntryCardState();
+}
+
+class _HistoryEntryCardState extends State<_HistoryEntryCard> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
     final t = context.t;
+    final mobile = isMobile(context);
     final auth = context.watch<BackendAuthNotifier>();
     final admin = auth.user?.isAdmin == true;
+    final entry = widget.entry;
     final lead = entry.lead;
     final cover = entry.cover;
-    return Material(
+
+    Widget card = Material(
       key: ValueKey<String>('history-entry-${entry.key}'),
       color: t.surfaceMid,
       borderRadius: BorderRadius.circular(6),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: onOpen,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        onTap: widget.onOpen,
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            Expanded(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  ColoredBox(
-                    color: Colors.black,
-                    child: cover.hasImage
-                        ? Image.network(
-                            cover.thumbnailUrl,
-                            fit: BoxFit.contain,
-                            gaplessPlayback: true,
-                            filterQuality: FilterQuality.medium,
-                            errorBuilder: (_, _, _) =>
-                                _PlaceholderIcon(status: cover.status),
-                          )
-                        : _PlaceholderIcon(status: cover.status),
-                  ),
-                  Positioned(
-                    top: 5,
-                    right: 5,
-                    child: entry.isBatch
-                        ? _HistoryBatchMenu(
-                            hasImage: entry.items.any((item) => item.hasImage),
-                            onImport: onImport,
-                            onDownload: onDownload,
-                            onDelete: onDelete,
-                          )
-                        : _HistoryCardMenu(
-                            item: lead,
-                            onImport: onImport,
-                            onDownload: onDownload,
-                            onDelete: onDelete,
+            _HistoryEntryThumbnail(entry: entry),
+            if (_hovered && !mobile)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: ColoredBox(
+                    color: t.background.withValues(alpha: 0.75),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (lead.prompt.isNotEmpty)
+                            Text(
+                              lead.prompt,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: t.textSecondary,
+                                fontSize: t.fontSize(9),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          const SizedBox(height: 4),
+                          Text(
+                            admin && lead.username.isNotEmpty
+                                ? '${lead.username} · ${cover.downloadFileName}'
+                                : cover.downloadFileName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: t.textDisabled,
+                              fontSize: t.fontSize(8),
+                            ),
                           ),
-                  ),
-                  if (entry.isBatch)
-                    Positioned(
-                      left: 7,
-                      bottom: 7,
-                      child: _HistoryBatchBadge(count: entry.items.length),
-                    ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (admin && lead.username.isNotEmpty) ...[
-                    Text(
-                      lead.username,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: t.accent,
-                        fontSize: t.fontSize(9),
-                        fontWeight: FontWeight.bold,
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 4),
-                  ],
-                  Text(
-                    lead.prompt.isEmpty ? lead.status : lead.prompt,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: t.textPrimary,
-                      fontSize: t.fontSize(11),
-                      fontWeight: FontWeight.w600,
-                    ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    entry.isBatch
-                        ? '${lead.width}x${lead.height}  ${lead.steps} steps  ${entry.items.length} images'
-                        : '${lead.width}x${lead.height}  ${lead.steps} steps  seed ${lead.seed}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: t.textTertiary,
-                      fontSize: t.fontSize(9),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    lead.createdAt,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: t.textMinimal,
-                      fontSize: t.fontSize(8),
-                    ),
-                  ),
-                ],
+                ),
+              ),
+            if (entry.isBatch)
+              Positioned(
+                left: 7,
+                bottom: 7,
+                child: _HistoryBatchBadge(count: entry.items.length),
+              ),
+            Positioned(
+              top: 5,
+              right: 5,
+              child: _HistoryMoreButtonFrame(
+                child: entry.isBatch
+                    ? _HistoryBatchMenu(
+                        hasImage: entry.items.any((item) => item.hasImage),
+                        onImport: widget.onImport,
+                        onDownload: widget.onDownload,
+                        onDelete: widget.onDelete,
+                      )
+                    : _HistoryCardMenu(
+                        item: lead,
+                        onImport: widget.onImport,
+                        onDownload: widget.onDownload,
+                        onDelete: widget.onDelete,
+                      ),
               ),
             ),
           ],
+        ),
+      ),
+    );
+    if (!mobile) {
+      card = MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: card,
+      );
+    }
+    return card;
+  }
+}
+
+class _HistoryEntryThumbnail extends StatelessWidget {
+  const _HistoryEntryThumbnail({required this.entry});
+
+  final _HistoryEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = entry.items.where((item) => item.hasImage).take(4).toList();
+    if (items.isEmpty) return _PlaceholderIcon(status: entry.lead.status);
+    if (!entry.isBatch || items.length == 1) return _image(items.first);
+    if (items.length == 2) {
+      return Row(
+        children: [
+          Expanded(child: _image(items[0])),
+          const SizedBox(width: 1),
+          Expanded(child: _image(items[1])),
+        ],
+      );
+    }
+    if (items.length == 3) {
+      return Row(
+        children: [
+          Expanded(child: _image(items[0])),
+          const SizedBox(width: 1),
+          Expanded(
+            child: Column(
+              children: [
+                Expanded(child: _image(items[1])),
+                const SizedBox(height: 1),
+                Expanded(child: _image(items[2])),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+    return Column(
+      children: [
+        Expanded(
+          child: Row(
+            children: [
+              Expanded(child: _image(items[0])),
+              const SizedBox(width: 1),
+              Expanded(child: _image(items[1])),
+            ],
+          ),
+        ),
+        const SizedBox(height: 1),
+        Expanded(
+          child: Row(
+            children: [
+              Expanded(child: _image(items[2])),
+              const SizedBox(width: 1),
+              Expanded(child: _image(items[3])),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _image(ServerHistoryItem item) {
+    return ColoredBox(
+      key: ValueKey<String>('history-collage-${entry.key}-${item.id}'),
+      color: Colors.black,
+      child: SizedBox.expand(
+        child: Image.network(
+          item.thumbnailUrl,
+          fit: BoxFit.contain,
+          gaplessPlayback: true,
+          filterQuality: FilterQuality.medium,
+          errorBuilder: (_, _, _) => _PlaceholderIcon(status: item.status),
         ),
       ),
     );
@@ -941,6 +996,7 @@ class _HistoryResultSetDialogState extends State<_HistoryResultSetDialog> {
 
   @override
   Widget build(BuildContext context) {
+    if (_items.isEmpty) return const SizedBox.shrink();
     final mobile = isMobile(context);
     final viewItems = <ResultSetViewItem>[
       for (var index = 0; index < _items.length; index += 1)
@@ -958,39 +1014,63 @@ class _HistoryResultSetDialogState extends State<_HistoryResultSetDialog> {
           width: _items[index].width,
           height: _items[index].height,
           seed: _items[index].seed,
+          infoTitle: _items[index].prompt,
+          infoSubtitle: _items[index].downloadFileName,
           isGenerating:
               _items[index].status == 'queued' ||
               _items[index].status == 'running',
           errorMessage: _items[index].errorMessage,
         ),
     ];
+    final selectedItem = _items.singleWhere(
+      (candidate) => candidate.id == _selectedId,
+    );
     return Material(
       color: Colors.black,
       child: SafeArea(
-        child: ResultSetViewer(
+        child: ResultSetWorkspace(
           items: viewItems,
           selectedId: _selectedId,
           onSelect: (id) => setState(() => _selectedId = id),
           mobile: mobile,
           pulseAnimation: const AlwaysStoppedAnimation<double>(0),
-          topLeading: _HistoryViewerLeading(
-            position: _items.indexWhere((item) => item.id == _selectedId) + 1,
-            count: _items.length,
+          headerLeading: _HistoryViewerLeading(
             onClose: () => Navigator.of(context).pop(),
           ),
-          selectedActionBuilder: (context, selected) {
-            final item = _items.singleWhere(
-              (candidate) => candidate.id == selected.id,
+          headerTrailingBuilder: (context, mode) {
+            if (mode == ResultSetWorkspaceMode.grid && widget.entry.isBatch) {
+              return _HistoryMoreButtonFrame(
+                child: _HistoryBatchMenu(
+                  key: const ValueKey<String>('history-batch-actions'),
+                  hasImage: _items.any((item) => item.hasImage),
+                  onImport: widget.onImportBatch,
+                  onDownload: widget.onDownloadBatch,
+                  onDelete: widget.onDeleteBatch,
+                ),
+              );
+            }
+            return _HistoryMoreButtonFrame(
+              child: _HistoryCardMenu(
+                key: const ValueKey<String>('history-item-actions'),
+                item: selectedItem,
+                onImport: () => widget.onImportItem(selectedItem),
+                onDownload: () => widget.onDownloadItem(selectedItem),
+                onDelete: () => _delete(selectedItem),
+              ),
             );
-            return _HistoryViewerActions(
-              hasBatchImage: _items.any((item) => item.hasImage),
-              item: item,
-              onImportBatch: widget.onImportBatch,
-              onDownloadBatch: widget.onDownloadBatch,
-              onDeleteBatch: widget.onDeleteBatch,
-              onImportItem: () => widget.onImportItem(item),
-              onDownloadItem: () => widget.onDownloadItem(item),
-              onDeleteItem: () => _delete(item),
+          },
+          gridItemTrailingBuilder: (context, viewItem) {
+            final item = _items.singleWhere(
+              (candidate) => candidate.id == viewItem.id,
+            );
+            return _HistoryMoreButtonFrame(
+              child: _HistoryCardMenu(
+                key: ValueKey<String>('history-grid-item-actions-${item.id}'),
+                item: item,
+                onImport: () => widget.onImportItem(item),
+                onDownload: () => widget.onDownloadItem(item),
+                onDelete: () => _delete(item),
+              ),
             );
           },
         ),
@@ -1010,114 +1090,57 @@ class _HistoryResultSetDialogState extends State<_HistoryResultSetDialog> {
   }
 }
 
-class _HistoryViewerActions extends StatelessWidget {
-  const _HistoryViewerActions({
-    required this.hasBatchImage,
-    required this.item,
-    required this.onImportBatch,
-    required this.onDownloadBatch,
-    required this.onDeleteBatch,
-    required this.onImportItem,
-    required this.onDownloadItem,
-    required this.onDeleteItem,
-  });
-
-  final bool hasBatchImage;
-  final ServerHistoryItem item;
-  final VoidCallback onImportBatch;
-  final VoidCallback onDownloadBatch;
-  final VoidCallback onDeleteBatch;
-  final VoidCallback onImportItem;
-  final VoidCallback onDownloadItem;
-  final VoidCallback onDeleteItem;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    return DecoratedBox(
-      key: const ValueKey<String>('history-viewer-actions'),
-      decoration: BoxDecoration(
-        color: t.surfaceHigh.withValues(alpha: 0.92),
-        border: Border.all(color: t.borderSubtle),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _HistoryBatchMenu(
-            hasImage: hasBatchImage,
-            icon: Icons.layers_outlined,
-            onImport: onImportBatch,
-            onDownload: onDownloadBatch,
-            onDelete: onDeleteBatch,
-          ),
-          Container(width: 1, height: 18, color: t.borderSubtle),
-          _HistoryCardMenu(
-            item: item,
-            icon: Icons.image_outlined,
-            onImport: onImportItem,
-            onDownload: onDownloadItem,
-            onDelete: onDeleteItem,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _HistoryViewerLeading extends StatelessWidget {
-  const _HistoryViewerLeading({
-    required this.position,
-    required this.count,
-    required this.onClose,
-  });
+  const _HistoryViewerLeading({required this.onClose});
 
-  final int position;
-  final int count;
   final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
+    return _HistoryIconButton(
+      icon: Icons.close,
+      tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+      onPressed: onClose,
+    );
+  }
+}
+
+class _HistoryMoreButtonFrame extends StatelessWidget {
+  const _HistoryMoreButtonFrame({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
     final t = context.t;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _HistoryIconButton(
-          icon: Icons.close,
-          tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-          onPressed: onClose,
+    return SizedBox(
+      width: 32,
+      height: 32,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: t.background.withValues(alpha: 0.78),
+          border: Border.all(color: t.borderSubtle),
+          borderRadius: BorderRadius.circular(5),
         ),
-        if (count > 1)
-          Padding(
-            padding: const EdgeInsets.only(left: 10),
-            child: Text(
-              '$position / $count',
-              style: TextStyle(
-                color: t.headerText,
-                fontSize: t.fontSize(10),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-      ],
+        child: child,
+      ),
     );
   }
 }
 
 class _HistoryCardMenu extends StatelessWidget {
   const _HistoryCardMenu({
+    super.key,
     required this.item,
     required this.onImport,
     required this.onDownload,
     required this.onDelete,
-    this.icon = Icons.more_horiz,
   });
 
   final ServerHistoryItem item;
   final VoidCallback onImport;
   final VoidCallback onDownload;
   final VoidCallback onDelete;
-  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -1128,7 +1151,7 @@ class _HistoryCardMenu extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(minWidth: 148),
-      icon: Icon(icon, size: 14, color: t.headerText),
+      icon: Icon(Icons.more_horiz, size: 14, color: t.headerText),
       iconSize: 14,
       splashRadius: 14,
       onSelected: (value) {
@@ -1172,18 +1195,17 @@ class _HistoryCardMenu extends StatelessWidget {
 
 class _HistoryBatchMenu extends StatelessWidget {
   const _HistoryBatchMenu({
+    super.key,
     required this.hasImage,
     required this.onImport,
     required this.onDownload,
     required this.onDelete,
-    this.icon = Icons.more_horiz,
   });
 
   final bool hasImage;
   final VoidCallback onImport;
   final VoidCallback onDownload;
   final VoidCallback onDelete;
-  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -1194,7 +1216,7 @@ class _HistoryBatchMenu extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(minWidth: 176),
-      icon: Icon(icon, size: 16, color: t.headerText),
+      icon: Icon(Icons.more_horiz, size: 16, color: t.headerText),
       iconSize: 16,
       splashRadius: 16,
       onSelected: (value) {

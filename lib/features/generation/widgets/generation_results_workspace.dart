@@ -1,12 +1,42 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/quick_action_overlay.dart';
 import '../providers/generation_notifier.dart';
 import 'result_set_viewer.dart';
 
-enum _ResultsMode { grid, viewer }
+enum ResultSetWorkspaceMode { grid, viewer }
+
+class ResultSetGridSpec {
+  static const padding = 12.0;
+  static const spacing = 10.0;
+  static const maxCardExtent = 240.0;
+  static const cardAspectRatio = 1.0;
+
+  static const delegate = SliverGridDelegateWithMaxCrossAxisExtent(
+    maxCrossAxisExtent: maxCardExtent,
+    crossAxisSpacing: spacing,
+    mainAxisSpacing: spacing,
+    childAspectRatio: cardAspectRatio,
+  );
+
+  static int columnCount(double viewportWidth) {
+    final contentWidth = math.max(0.0, viewportWidth - padding * 2);
+    return math.max(1, (contentWidth / (maxCardExtent + spacing)).ceil());
+  }
+
+  static double rowExtent(double viewportWidth) {
+    final contentWidth = math.max(0.0, viewportWidth - padding * 2);
+    final columns = columnCount(viewportWidth);
+    final cardWidth =
+        (contentWidth - spacing * math.max(0, columns - 1)) / columns;
+    return cardWidth / cardAspectRatio + spacing;
+  }
+}
 
 ResultSetViewItem _viewItemFor(GeneratedImageItem item) {
   final bytes = item.bytes;
@@ -53,61 +83,149 @@ class GenerationResultsWorkspace extends StatefulWidget {
 
 class _GenerationResultsWorkspaceState
     extends State<GenerationResultsWorkspace> {
-  _ResultsMode _mode = _ResultsMode.grid;
-
-  @override
-  void didUpdateWidget(GenerationResultsWorkspace oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final oldCount = oldWidget.state.generatedImages.length;
-    final newCount = widget.state.generatedImages.length;
-    final oldSetId = oldWidget.state.generatedImages.firstOrNull?.id;
-    final newSetId = widget.state.generatedImages.firstOrNull?.id;
-    if (newCount > 1 && (oldCount <= 1 || oldSetId != newSetId)) {
-      _mode = _ResultsMode.grid;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final images = widget.state.generatedImages;
     final onSelect =
         widget.onSelectImage ?? widget.notifier.selectGeneratedImage;
-    final hasResultSet = images.length > 1;
-    final showGrid = hasResultSet && _mode == _ResultsMode.grid;
+    final viewItems = images.map(_viewItemFor).toList();
+    if (viewItems.isEmpty && widget.state.generatedImage != null) {
+      viewItems.add(
+        ResultSetViewItem(
+          id: widget.state.selectedGeneratedImageId ?? 'single-result',
+          position: 1,
+          count: 1,
+          previewImage: MemoryImage(widget.state.generatedImage!),
+          thumbnailImage: MemoryImage(widget.state.generatedImage!),
+          imageBytes: widget.state.generatedImage!,
+          isLoading: widget.state.isLoading,
+        ),
+      );
+    }
+    return ResultSetWorkspace(
+      items: viewItems,
+      selectedId: widget.state.selectedGeneratedImageId,
+      onSelect: onSelect,
+      mobile: widget.mobile,
+      pulseAnimation: widget.pulseAnimation,
+      isDragging: widget.state.isDragging,
+      previewOverlay:
+          widget.showQuickActions && widget.state.generatedImage != null
+          ? const QuickActionOverlay()
+          : null,
+    );
+  }
+}
+
+/// Shared batch presentation used by both the generation page and history.
+///
+/// It owns the grid/viewer mode, selection affordance and mode toolbar so a
+/// batch behaves identically regardless of where it was opened.
+class ResultSetWorkspace extends StatefulWidget {
+  const ResultSetWorkspace({
+    super.key,
+    required this.items,
+    required this.selectedId,
+    required this.onSelect,
+    required this.mobile,
+    required this.pulseAnimation,
+    this.isDragging = false,
+    this.previewOverlay,
+    this.headerLeading,
+    this.headerTrailingBuilder,
+    this.gridItemTrailingBuilder,
+    this.initialMode = ResultSetWorkspaceMode.grid,
+  });
+
+  final List<ResultSetViewItem> items;
+  final String? selectedId;
+  final ValueChanged<String> onSelect;
+  final bool mobile;
+  final Animation<double> pulseAnimation;
+  final bool isDragging;
+  final Widget? previewOverlay;
+  final Widget? headerLeading;
+  final Widget Function(BuildContext, ResultSetWorkspaceMode)?
+  headerTrailingBuilder;
+  final Widget Function(BuildContext, ResultSetViewItem)?
+  gridItemTrailingBuilder;
+  final ResultSetWorkspaceMode initialMode;
+
+  @override
+  State<ResultSetWorkspace> createState() => _ResultSetWorkspaceState();
+}
+
+class _ResultSetWorkspaceState extends State<ResultSetWorkspace> {
+  late ResultSetWorkspaceMode _mode = widget.initialMode;
+
+  @override
+  void didUpdateWidget(ResultSetWorkspace oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldSetId = oldWidget.items.firstOrNull?.id;
+    final newSetId = widget.items.firstOrNull?.id;
+    if (widget.items.length > 1 &&
+        (oldWidget.items.length <= 1 || oldSetId != newSetId)) {
+      _mode = widget.initialMode;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasResultSet = widget.items.length > 1;
+    final showGrid = hasResultSet && _mode == ResultSetWorkspaceMode.grid;
+    final displayedMode = showGrid
+        ? ResultSetWorkspaceMode.grid
+        : ResultSetWorkspaceMode.viewer;
+    final headerTrailing = widget.headerTrailingBuilder?.call(
+      context,
+      displayedMode,
+    );
+    final showHeader =
+        hasResultSet || widget.headerLeading != null || headerTrailing != null;
 
     return Column(
       children: [
-        if (hasResultSet)
+        if (showHeader)
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: _ResultsToolbar(
-                mode: _mode,
-                images: images,
-                selectedId: widget.state.selectedGeneratedImageId,
-                onModeChanged: (mode) => setState(() => _mode = mode),
-              ),
+            child: Row(
+              children: [
+                if (widget.headerLeading != null) ...[
+                  widget.headerLeading!,
+                  const SizedBox(width: 8),
+                ],
+                if (hasResultSet)
+                  _ResultsToolbar(
+                    mode: _mode,
+                    items: widget.items,
+                    selectedId: widget.selectedId,
+                    onModeChanged: (mode) => setState(() => _mode = mode),
+                  ),
+                const Spacer(),
+                if (headerTrailing != null) headerTrailing,
+              ],
             ),
           ),
         Expanded(
           child: showGrid
               ? _ResultsGrid(
-                  images: images,
-                  selectedId: widget.state.selectedGeneratedImageId,
-                  onSelect: onSelect,
+                  items: widget.items,
+                  selectedId: widget.selectedId,
+                  onSelect: widget.onSelect,
+                  trailingBuilder: widget.gridItemTrailingBuilder,
                   onOpen: (id) {
-                    onSelect(id);
-                    setState(() => _mode = _ResultsMode.viewer);
+                    widget.onSelect(id);
+                    setState(() => _mode = ResultSetWorkspaceMode.viewer);
                   },
                 )
-              : _ResultsViewer(
-                  images: images,
-                  state: widget.state,
-                  onSelect: onSelect,
+              : ResultSetViewer(
+                  items: widget.items,
+                  selectedId: widget.selectedId,
+                  onSelect: widget.onSelect,
                   mobile: widget.mobile,
                   pulseAnimation: widget.pulseAnimation,
-                  showQuickActions: widget.showQuickActions,
+                  isDragging: widget.isDragging,
+                  previewOverlay: widget.previewOverlay,
                 ),
         ),
       ],
@@ -116,14 +234,14 @@ class _GenerationResultsWorkspaceState
 }
 
 class _ResultsToolbar extends StatelessWidget {
-  final _ResultsMode mode;
-  final List<GeneratedImageItem> images;
+  final ResultSetWorkspaceMode mode;
+  final List<ResultSetViewItem> items;
   final String? selectedId;
-  final ValueChanged<_ResultsMode> onModeChanged;
+  final ValueChanged<ResultSetWorkspaceMode> onModeChanged;
 
   const _ResultsToolbar({
     required this.mode,
-    required this.images,
+    required this.items,
     required this.selectedId,
     required this.onModeChanged,
   });
@@ -132,11 +250,11 @@ class _ResultsToolbar extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.t;
     final l = context.l;
-    final selectedIndex = images.indexWhere((item) => item.id == selectedId);
-    final completeCount = images.where((item) => item.isComplete).length;
+    final selectedIndex = items.indexWhere((item) => item.id == selectedId);
+    final completeCount = items.where((item) => item.hasImage).length;
     final countLabel = selectedIndex >= 0
-        ? '${selectedIndex + 1}/${images.length}'
-        : '$completeCount/${images.length}';
+        ? '${selectedIndex + 1}/${items.length}'
+        : '$completeCount/${items.length}';
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -155,16 +273,16 @@ class _ResultsToolbar extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           _ModeButton(
-            selected: mode == _ResultsMode.grid,
+            selected: mode == ResultSetWorkspaceMode.grid,
             icon: Icons.grid_view_rounded,
             tooltip: l.mainResultsGrid,
-            onTap: () => onModeChanged(_ResultsMode.grid),
+            onTap: () => onModeChanged(ResultSetWorkspaceMode.grid),
           ),
           _ModeButton(
-            selected: mode == _ResultsMode.viewer,
+            selected: mode == ResultSetWorkspaceMode.viewer,
             icon: Icons.image_outlined,
             tooltip: l.mainResultsViewer,
-            onTap: () => onModeChanged(_ResultsMode.viewer),
+            onTap: () => onModeChanged(ResultSetWorkspaceMode.viewer),
           ),
           Container(width: 1, height: 18, color: t.borderMedium),
           Padding(
@@ -222,43 +340,36 @@ class _ModeButton extends StatelessWidget {
 }
 
 class _ResultsGrid extends StatelessWidget {
-  final List<GeneratedImageItem> images;
+  final List<ResultSetViewItem> items;
   final String? selectedId;
   final ValueChanged<String> onSelect;
   final ValueChanged<String> onOpen;
+  final Widget Function(BuildContext, ResultSetViewItem)? trailingBuilder;
 
   const _ResultsGrid({
-    required this.images,
+    required this.items,
     required this.selectedId,
     required this.onSelect,
     required this.onOpen,
+    this.trailingBuilder,
   });
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final cellMin = constraints.maxWidth < 700 ? 132.0 : 188.0;
-        final count = (constraints.maxWidth / cellMin)
-            .floor()
-            .clamp(1, 6)
-            .toInt();
         return GridView.builder(
-          padding: const EdgeInsets.all(12),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: count,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 0.78,
-          ),
-          itemCount: images.length,
+          padding: const EdgeInsets.all(ResultSetGridSpec.padding),
+          gridDelegate: ResultSetGridSpec.delegate,
+          itemCount: items.length,
           itemBuilder: (context, index) {
-            final item = images[index];
-            return ResultSetThumbnail(
-              item: _viewItemFor(item),
+            final item = items[index];
+            return _ResultSetGridTile(
+              item: item,
               selected: item.id == selectedId,
-              onTap: () => onSelect(item.id),
-              onDoubleTap: item.isComplete ? () => onOpen(item.id) : null,
+              onSelect: () => onSelect(item.id),
+              onOpen: item.hasImage ? () => onOpen(item.id) : null,
+              trailing: trailingBuilder?.call(context, item),
             );
           },
         );
@@ -267,49 +378,95 @@ class _ResultsGrid extends StatelessWidget {
   }
 }
 
-class _ResultsViewer extends StatelessWidget {
-  final List<GeneratedImageItem> images;
-  final GenerationState state;
-  final ValueChanged<String> onSelect;
-  final bool mobile;
-  final Animation<double> pulseAnimation;
-  final bool showQuickActions;
-
-  const _ResultsViewer({
-    required this.images,
-    required this.state,
+class _ResultSetGridTile extends StatefulWidget {
+  const _ResultSetGridTile({
+    required this.item,
+    required this.selected,
     required this.onSelect,
-    required this.mobile,
-    required this.pulseAnimation,
-    required this.showQuickActions,
+    required this.onOpen,
+    required this.trailing,
   });
+
+  final ResultSetViewItem item;
+  final bool selected;
+  final VoidCallback onSelect;
+  final VoidCallback? onOpen;
+  final Widget? trailing;
+
+  @override
+  State<_ResultSetGridTile> createState() => _ResultSetGridTileState();
+}
+
+class _ResultSetGridTileState extends State<_ResultSetGridTile> {
+  bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
-    final viewItems = images.map(_viewItemFor).toList();
-    if (viewItems.isEmpty && state.generatedImage != null) {
-      viewItems.add(
-        ResultSetViewItem(
-          id: state.selectedGeneratedImageId ?? 'single-result',
-          position: 1,
-          count: 1,
-          previewImage: MemoryImage(state.generatedImage!),
-          thumbnailImage: MemoryImage(state.generatedImage!),
-          imageBytes: state.generatedImage!,
-          isLoading: state.isLoading,
+    final t = context.t;
+    final title = widget.item.infoTitle?.trim() ?? '';
+    final subtitle = widget.item.infoSubtitle?.trim() ?? '';
+    final showInfo = _hovered && (title.isNotEmpty || subtitle.isNotEmpty);
+    Widget tile = Stack(
+      children: [
+        Positioned.fill(
+          child: ResultSetThumbnail(
+            item: widget.item,
+            selected: widget.selected,
+            onTap: widget.onOpen ?? widget.onSelect,
+            showFooter: false,
+          ),
         ),
+        if (showInfo)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: ColoredBox(
+                color: t.background.withValues(alpha: 0.75),
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (title.isNotEmpty)
+                        Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: t.textSecondary,
+                            fontSize: t.fontSize(9),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      if (title.isNotEmpty && subtitle.isNotEmpty)
+                        const SizedBox(height: 4),
+                      if (subtitle.isNotEmpty)
+                        Text(
+                          subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: t.textDisabled,
+                            fontSize: t.fontSize(8),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        if (widget.trailing != null)
+          Positioned(top: 5, right: 5, child: widget.trailing!),
+      ],
+    );
+    if (!isMobile(context)) {
+      tile = MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: tile,
       );
     }
-    return ResultSetViewer(
-      items: viewItems,
-      selectedId: state.selectedGeneratedImageId,
-      onSelect: onSelect,
-      mobile: mobile,
-      pulseAnimation: pulseAnimation,
-      isDragging: state.isDragging,
-      previewOverlay: showQuickActions && state.generatedImage != null
-          ? const QuickActionOverlay()
-          : null,
-    );
+    return tile;
   }
 }

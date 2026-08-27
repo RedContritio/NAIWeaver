@@ -187,7 +187,7 @@ void main() {
     },
   );
 
-  testWidgets('viewer thumbnail tap switches the displayed batch image', (
+  testWidgets('grid single tap opens the selected batch image', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
@@ -266,10 +266,6 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.image_outlined));
-    await tester.pump(const Duration(milliseconds: 200));
-    expect(find.byType(ImagePreviewViewer), findsOneWidget);
-
     promptFocus.requestFocus();
     await tester.pump();
     expect(promptFocus.hasFocus, isTrue);
@@ -277,6 +273,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('result-set-thumbnail-second')));
     await tester.pump(const Duration(milliseconds: 200));
 
+    expect(find.byType(ImagePreviewViewer), findsOneWidget);
     expect(notifier.state.selectedGeneratedImageId, 'second');
     expect(promptFocus.hasFocus, isFalse);
     final photoView = tester.widget<PhotoView>(find.byType(PhotoView));

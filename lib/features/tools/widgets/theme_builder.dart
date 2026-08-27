@@ -16,6 +16,7 @@ Map<String, String> _sectionDisplayNames(AppLocalizations l) => {
   'steps_scale': l.themeSectionStepsScale,
   'sampler_post': l.themeSectionSamplerPost,
   'characters': l.themeSectionCharacters,
+  'reference_images': l.generationSheetInputs,
   'styles': l.themeSectionStyles,
   'negative_prompt': l.themeSectionNegPrompt,
   'presets': l.themeSectionPresets,

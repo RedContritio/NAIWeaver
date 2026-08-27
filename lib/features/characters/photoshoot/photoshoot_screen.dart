@@ -7,6 +7,7 @@ import '../../../core/theme/theme_extensions.dart';
 import '../../../core/theme/vision_tokens.dart';
 import '../../../core/utils/app_snackbar.dart';
 import '../../../core/utils/tag_suggestion_helper.dart';
+import '../../../core/widgets/browser_native_selectable_text.dart';
 import '../../gallery/providers/gallery_notifier.dart';
 import '../../gallery/ui/image_detail_view.dart';
 import '../../generation/providers/generation_notifier.dart';
@@ -75,12 +76,15 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_workingOutfit == null) {
-      final closet = context.read<CharacterLibraryNotifier>().closetFor(widget.characterId);
+      final closet = context.read<CharacterLibraryNotifier>().closetFor(
+        widget.characterId,
+      );
       // Resolve the requested outfit; if its id is stale/missing, fall back to
       // the first outfit so the Dress tab, the DRESS badge, and SAVE all agree
       // on the same outfit (otherwise the panel shows closet.first while save
       // silently no-ops and the badge reads 0).
-      final resolved = closet.where((o) => o.id == _selectedOutfitId).firstOrNull ??
+      final resolved =
+          closet.where((o) => o.id == _selectedOutfitId).firstOrNull ??
           (closet.isNotEmpty ? closet.first : null);
       if (resolved != null) {
         _workingOutfit = resolved;
@@ -99,8 +103,12 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
 
   Future<void> _loadPresets() async {
     try {
-      final posesJson = await rootBundle.loadString('assets/photoshoot/poses.json');
-      final envsJson = await rootBundle.loadString('assets/photoshoot/environments.json');
+      final posesJson = await rootBundle.loadString(
+        'assets/photoshoot/poses.json',
+      );
+      final envsJson = await rootBundle.loadString(
+        'assets/photoshoot/environments.json',
+      );
       final poses = (jsonDecode(posesJson) as List)
           .cast<Map<String, dynamic>>()
           .map(_PresetEntry.fromJson)
@@ -160,10 +168,18 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
       }
     }
 
-    final poseTags = _collectPresetTags(_poses, _selectedPoseIds, _customPoseCtrl.text);
+    final poseTags = _collectPresetTags(
+      _poses,
+      _selectedPoseIds,
+      _customPoseCtrl.text,
+    );
     if (poseTags.isNotEmpty) parts.add(poseTags);
 
-    final envTags = _collectPresetTags(_environments, _selectedEnvIds, _customEnvCtrl.text);
+    final envTags = _collectPresetTags(
+      _environments,
+      _selectedEnvIds,
+      _customEnvCtrl.text,
+    );
     if (envTags.isNotEmpty) parts.add(envTags);
 
     if (dishevelled) parts.add('nsfw');
@@ -176,7 +192,8 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
     final lib = context.read<CharacterLibraryNotifier>();
     final character = lib.characterById(widget.characterId);
     final closet = lib.closetFor(widget.characterId);
-    final outfit = _workingOutfit ??
+    final outfit =
+        _workingOutfit ??
         closet.where((o) => o.id == _selectedOutfitId).firstOrNull ??
         (closet.isNotEmpty ? closet.first : null);
     return (character, outfit);
@@ -188,9 +205,10 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
   String _assembledNegativePrompt() {
     final (character, outfit) = _currentCharacterAndOutfit();
     if (character == null) return '';
-    return context
-        .read<CharacterLibraryNotifier>()
-        .negativeExpansionFor(character, outfit);
+    return context.read<CharacterLibraryNotifier>().negativeExpansionFor(
+      character,
+      outfit,
+    );
   }
 
   String _styleTagsFor(String? id, SavedCharacter character) {
@@ -204,7 +222,10 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
   }
 
   String _collectPresetTags(
-      List<_PresetEntry> presets, Set<String> selected, String custom) {
+    List<_PresetEntry> presets,
+    Set<String> selected,
+    String custom,
+  ) {
     final picks = <String>[];
     for (final p in presets) {
       if (selected.contains(p.id)) picks.add(p.tags);
@@ -275,19 +296,25 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
     // to whatever the main editor already has — matches the autocomplete
     // insert path so SEND doesn't drop the per-character negatives.
     TagSuggestionHelper.appendNegatives(
-        gen.negativePromptController, _assembledNegativePrompt());
+      gen.negativePromptController,
+      _assembledNegativePrompt(),
+    );
     Navigator.of(context).pop();
-    messenger.showSnackBar(SnackBar(
-      content: Text('SENT TO MAIN PROMPT',
-          style: TextStyle(color: t.accentSuccess, fontSize: t.fontSize(11))),
-      backgroundColor: const Color(0xFF0A1A0A),
-      behavior: SnackBarBehavior.floating,
-      duration: const Duration(seconds: 3),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(4),
-        side: BorderSide(color: t.accentSuccess.withValues(alpha: 0.3)),
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          'SENT TO MAIN PROMPT',
+          style: TextStyle(color: t.accentSuccess, fontSize: t.fontSize(11)),
+        ),
+        backgroundColor: const Color(0xFF0A1A0A),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(4),
+          side: BorderSide(color: t.accentSuccess.withValues(alpha: 0.3)),
+        ),
       ),
-    ));
+    );
   }
 
   void _openFullViewer(int index) {
@@ -308,7 +335,8 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
       );
     }
     final closet = lib.closetFor(widget.characterId);
-    final outfit = _workingOutfit ??
+    final outfit =
+        _workingOutfit ??
         closet.where((o) => o.id == _selectedOutfitId).firstOrNull ??
         (closet.isNotEmpty ? closet.first : null);
     final assembled = _assembledPrompt(character, outfit);
@@ -324,7 +352,9 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
     final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
     final keyboardOpen = keyboardInset > 0;
     // Anchor offset for the drawer's bottom, inside SafeArea coordinates.
-    final drawerBottom = keyboardOpen ? (keyboardInset - bottomInset).clamp(0.0, mediaH) : 0.0;
+    final drawerBottom = keyboardOpen
+        ? (keyboardInset - bottomInset).clamp(0.0, mediaH)
+        : 0.0;
     const handleH = 30.0;
     const actionBarH = 60.0;
     final collapsedH = handleH + actionBarH;
@@ -351,25 +381,31 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('PHOTOSHOOT',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    color: t.textSecondary,
-                    fontSize: t.fontSize(13),
-                    letterSpacing: 2,
-                    fontWeight: FontWeight.bold)),
-            Text(character.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    color: t.textTertiary, fontSize: t.fontSize(10))),
+            Text(
+              'PHOTOSHOOT',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: t.textSecondary,
+                fontSize: t.fontSize(13),
+                letterSpacing: 2,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              character.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(10)),
+            ),
           ],
         ),
         actions: [
           // Outfit switcher lives in the bar so it never costs a scroll.
           TextButton.icon(
-            onPressed: closet.isEmpty ? null : () => _pickOutfit(closet, outfit),
+            onPressed: closet.isEmpty
+                ? null
+                : () => _pickOutfit(closet, outfit),
             icon: Icon(Icons.checkroom, size: 15, color: t.accent),
             label: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 120),
@@ -377,8 +413,9 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
                 outfit?.name ?? '(no outfit)',
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                    color: outfit == null ? t.textMinimal : t.textPrimary,
-                    fontSize: t.fontSize(11)),
+                  color: outfit == null ? t.textMinimal : t.textPrimary,
+                  fontSize: t.fontSize(11),
+                ),
               ),
             ),
           ),
@@ -392,10 +429,7 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
             // -- Image preview fills everything above the collapsed drawer. ----
             // collapsedH no longer includes bottomInset (SafeArea owns it), so
             // the preview's bottom edge sits flush with the collapsed drawer top.
-            Positioned.fill(
-              bottom: collapsedH,
-              child: _previewPane(t),
-            ),
+            Positioned.fill(bottom: collapsedH, child: _previewPane(t)),
 
             // -- Pull-up controls drawer. -------------------------------------
             AnimatedPositioned(
@@ -407,10 +441,16 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
               // otherwise anchor flush to the SafeArea bottom.
               bottom: drawerBottom,
               height: drawerExpanded ? expandedH : collapsedH,
-              child: _drawer(t, character, closet, outfit, assembled,
-                  expanded: drawerExpanded,
-                  handleH: handleH,
-                  actionBarH: actionBarH),
+              child: _drawer(
+                t,
+                character,
+                closet,
+                outfit,
+                assembled,
+                expanded: drawerExpanded,
+                handleH: handleH,
+                actionBarH: actionBarH,
+              ),
             ),
           ],
         ),
@@ -442,34 +482,42 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
                   color: t.surfaceMid.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
-                      color: loading ? t.accent : t.borderSubtle,
-                      width: loading ? 2 : 1),
+                    color: loading ? t.accent : t.borderSubtle,
+                    width: loading ? 2 : 1,
+                  ),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
                     if (bytes != null)
-                      Image.memory(bytes,
-                          fit: BoxFit.contain,
-                          // Hold the prior frame during a new decode so the
-                          // preview doesn't flash to blank between generations.
-                          gaplessPlayback: true,
-                          filterQuality: FilterQuality.medium)
+                      Image.memory(
+                        bytes,
+                        fit: BoxFit.contain,
+                        // Hold the prior frame during a new decode so the
+                        // preview doesn't flash to blank between generations.
+                        gaplessPlayback: true,
+                        filterQuality: FilterQuality.medium,
+                      )
                     else
                       Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.camera_outlined,
-                                size: 44,
-                                color: t.textPrimary.withValues(alpha: 0.12)),
+                            Icon(
+                              Icons.camera_outlined,
+                              size: 44,
+                              color: t.textPrimary.withValues(alpha: 0.12),
+                            ),
                             const SizedBox(height: 8),
-                            Text('YOUR SHOT APPEARS HERE',
-                                style: TextStyle(
-                                    color: t.textMinimal,
-                                    fontSize: t.fontSize(9),
-                                    letterSpacing: 1.5)),
+                            Text(
+                              'YOUR SHOT APPEARS HERE',
+                              style: TextStyle(
+                                color: t.textMinimal,
+                                fontSize: t.fontSize(9),
+                                letterSpacing: 1.5,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -478,7 +526,9 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
                         color: t.background.withValues(alpha: 0.35),
                         child: Center(
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: t.accent),
+                            strokeWidth: 2,
+                            color: t.accent,
+                          ),
                         ),
                       ),
                     if (bytes != null && !loading)
@@ -487,7 +537,9 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
                         bottom: 8,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 3),
+                            horizontal: 6,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: t.background.withValues(alpha: 0.55),
                             borderRadius: BorderRadius.circular(3),
@@ -495,14 +547,20 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.fullscreen,
-                                  size: 12, color: t.textSecondary),
+                              Icon(
+                                Icons.fullscreen,
+                                size: 12,
+                                color: t.textSecondary,
+                              ),
                               const SizedBox(width: 3),
-                              Text('TAP TO VIEW',
-                                  style: TextStyle(
-                                      color: t.textSecondary,
-                                      fontSize: t.fontSize(8),
-                                      letterSpacing: 1)),
+                              Text(
+                                'TAP TO VIEW',
+                                style: TextStyle(
+                                  color: t.textSecondary,
+                                  fontSize: t.fontSize(8),
+                                  letterSpacing: 1,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -536,8 +594,11 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
                           width: 56,
                           height: 56,
                           color: t.surfaceMid,
-                          child: Icon(Icons.broken_image,
-                              size: 16, color: t.textMinimal),
+                          child: Icon(
+                            Icons.broken_image,
+                            size: 16,
+                            color: t.textMinimal,
+                          ),
                         ),
                       ),
                     ),
@@ -553,11 +614,16 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
 
   // -- Drawer ----------------------------------------------------------------
 
-  Widget _drawer(VisionTokens t, SavedCharacter character,
-      List<ClosetOutfit> closet, ClosetOutfit? outfit, String assembled,
-      {required bool expanded,
-      required double handleH,
-      required double actionBarH}) {
+  Widget _drawer(
+    VisionTokens t,
+    SavedCharacter character,
+    List<ClosetOutfit> closet,
+    ClosetOutfit? outfit,
+    String assembled, {
+    required bool expanded,
+    required double handleH,
+    required double actionBarH,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: t.surfaceHigh,
@@ -565,9 +631,10 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
         border: Border.all(color: t.borderStrong),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 16,
-              offset: const Offset(0, -4)),
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
+          ),
         ],
       ),
       child: Column(
@@ -628,34 +695,39 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
 
   Widget _tabBar(VisionTokens t) {
     Widget label(String text, int count) => Tab(
-          height: 38,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(text,
-                  style: TextStyle(
-                      fontSize: t.fontSize(10),
-                      letterSpacing: 1.5,
-                      fontWeight: FontWeight.bold)),
-              if (count > 0) ...[
-                const SizedBox(width: 5),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: t.accent.withValues(alpha: 0.22),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text('$count',
-                      style: TextStyle(
-                          fontSize: t.fontSize(8),
-                          color: t.accent,
-                          fontWeight: FontWeight.bold)),
-                ),
-              ],
-            ],
+      height: 38,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: t.fontSize(10),
+              letterSpacing: 1.5,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-        );
+          if (count > 0) ...[
+            const SizedBox(width: 5),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: t.accent.withValues(alpha: 0.22),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '$count',
+                style: TextStyle(
+                  fontSize: t.fontSize(8),
+                  color: t.accent,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
 
     final dressCount = (_workingOutfit != null) ? 1 : 0;
     return TabBar(
@@ -678,7 +750,9 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
   Widget _dressTab(VisionTokens t, ClosetOutfit? outfit) {
     if (outfit == null) {
       return _emptyHint(
-          t, 'No outfit to dress — add one from the character editor.');
+        t,
+        'No outfit to dress — add one from the character editor.',
+      );
     }
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 16),
@@ -699,11 +773,14 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
           child: TextButton.icon(
             onPressed: _saveStateToOutfit,
             icon: Icon(Icons.save_outlined, size: 14, color: t.accent),
-            label: Text('SAVE STATE TO OUTFIT',
-                style: TextStyle(
-                    color: t.accent,
-                    fontSize: t.fontSize(9),
-                    letterSpacing: 1)),
+            label: Text(
+              'SAVE STATE TO OUTFIT',
+              style: TextStyle(
+                color: t.accent,
+                fontSize: t.fontSize(9),
+                letterSpacing: 1,
+              ),
+            ),
           ),
         ),
       ],
@@ -749,16 +826,20 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
       children: [
         Row(
           children: [
-            Text('ASSEMBLED PROMPT',
-                style: TextStyle(
-                    color: t.textTertiary,
-                    fontSize: t.fontSize(9),
-                    letterSpacing: 1.5,
-                    fontWeight: FontWeight.bold)),
+            Text(
+              'ASSEMBLED PROMPT',
+              style: TextStyle(
+                color: t.textTertiary,
+                fontSize: t.fontSize(9),
+                letterSpacing: 1.5,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const Spacer(),
-            Text('${assembled.isEmpty ? 0 : assembled.split(',').length} tags',
-                style: TextStyle(
-                    color: t.textMinimal, fontSize: t.fontSize(9))),
+            Text(
+              '${assembled.isEmpty ? 0 : assembled.split(',').length} tags',
+              style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9)),
+            ),
           ],
         ),
         const SizedBox(height: 8),
@@ -770,17 +851,23 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
             borderRadius: BorderRadius.circular(4),
             border: Border.all(color: t.borderSubtle),
           ),
-          child: SelectableText(
-            assembled.isEmpty ? '(empty)' : assembled,
+          child: BrowserNativeSelectableText(
+            text: assembled.isEmpty ? '(empty)' : assembled,
             style: TextStyle(
-                color: t.textPrimary, fontSize: t.fontSize(12), height: 1.4),
+              color: t.textPrimary,
+              fontSize: t.fontSize(12),
+              height: 1.4,
+            ),
           ),
         ),
         const SizedBox(height: 10),
         Text(
           'Built from: style → body → outfit → pose → environment. Adjust in the Dress and Scene tabs.',
           style: TextStyle(
-              color: t.textMinimal, fontSize: t.fontSize(9), height: 1.4),
+            color: t.textMinimal,
+            fontSize: t.fontSize(9),
+            height: 1.4,
+          ),
         ),
       ],
     );
@@ -788,7 +875,11 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
 
   // -- Action bar (always visible) -------------------------------------------
 
-  Widget _actionBar(VisionTokens t, String assembled, {required double height}) {
+  Widget _actionBar(
+    VisionTokens t,
+    String assembled, {
+    required double height,
+  }) {
     final canGen = assembled.isNotEmpty;
     final gen = context.watch<GenerationNotifier>();
     final loading = gen.state.isLoading;
@@ -803,18 +894,23 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
           Expanded(
             flex: 2,
             child: ElevatedButton.icon(
-              onPressed: (canGen && !loading) ? () => _generate(assembled) : null,
+              onPressed: (canGen && !loading)
+                  ? () => _generate(assembled)
+                  : null,
               icon: loading
                   ? SizedBox(
                       width: 14,
                       height: 14,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: t.accent),
+                        strokeWidth: 2,
+                        color: t.accent,
+                      ),
                     )
                   : const Icon(Icons.auto_awesome, size: 16),
-              label: Text(loading ? 'GENERATING…' : 'GENERATE',
-                  style:
-                      TextStyle(fontSize: t.fontSize(11), letterSpacing: 1)),
+              label: Text(
+                loading ? 'GENERATING…' : 'GENERATE',
+                style: TextStyle(fontSize: t.fontSize(11), letterSpacing: 1),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: t.accent,
                 foregroundColor: t.surfaceHigh,
@@ -828,11 +924,14 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
             child: OutlinedButton.icon(
               onPressed: canGen ? () => _sendToMainPrompt(assembled) : null,
               icon: Icon(Icons.exit_to_app, size: 14, color: t.accent),
-              label: Text('SEND',
-                  style: TextStyle(
-                      color: t.accent,
-                      fontSize: t.fontSize(10),
-                      letterSpacing: 1)),
+              label: Text(
+                'SEND',
+                style: TextStyle(
+                  color: t.accent,
+                  fontSize: t.fontSize(10),
+                  letterSpacing: 1,
+                ),
+              ),
               style: OutlinedButton.styleFrom(
                 side: BorderSide(color: t.accent),
                 minimumSize: const Size.fromHeight(44),
@@ -846,7 +945,10 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
 
   // -- Pieces ----------------------------------------------------------------
 
-  Future<void> _pickOutfit(List<ClosetOutfit> closet, ClosetOutfit? current) async {
+  Future<void> _pickOutfit(
+    List<ClosetOutfit> closet,
+    ClosetOutfit? current,
+  ) async {
     final t = context.tRead;
     final chosen = await showModalBottomSheet<ClosetOutfit>(
       context: context,
@@ -862,31 +964,40 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-                child: Text('OUTFIT',
-                    style: TextStyle(
-                        color: t.textTertiary,
-                        fontSize: t.fontSize(9),
-                        letterSpacing: 1.5,
-                        fontWeight: FontWeight.bold)),
+                child: Text(
+                  'OUTFIT',
+                  style: TextStyle(
+                    color: t.textTertiary,
+                    fontSize: t.fontSize(9),
+                    letterSpacing: 1.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
               for (final o in closet)
                 InkWell(
                   onTap: () => Navigator.of(ctx).pop(o),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
                     decoration: BoxDecoration(
                       border: Border(top: BorderSide(color: t.borderSubtle)),
                     ),
                     child: Row(
                       children: [
                         Expanded(
-                          child: Text(o.name,
-                              style: TextStyle(
-                                  color: t.textPrimary,
-                                  fontSize: t.fontSize(13),
-                                  fontWeight: o.id == current?.id
-                                      ? FontWeight.bold
-                                      : FontWeight.normal)),
+                          child: Text(
+                            o.name,
+                            style: TextStyle(
+                              color: t.textPrimary,
+                              fontSize: t.fontSize(13),
+                              fontWeight: o.id == current?.id
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                          ),
                         ),
                         if (o.id == current?.id)
                           Icon(Icons.check, size: 18, color: t.accent),
@@ -909,31 +1020,42 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
     final bundles = <_StyleBundle>[
       if (hasCharacterArtist)
         _StyleBundle(
-            id: 'character',
-            label: 'Character default',
-            tags: character.artistTag.trim()),
+          id: 'character',
+          label: 'Character default',
+          tags: character.artistTag.trim(),
+        ),
       ..._kStyleBundles,
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('STYLE',
-            style: TextStyle(
-                color: t.textTertiary,
-                fontSize: t.fontSize(8),
-                letterSpacing: 1.5,
-                fontWeight: FontWeight.bold)),
+        Text(
+          'STYLE',
+          style: TextStyle(
+            color: t.textTertiary,
+            fontSize: t.fontSize(8),
+            letterSpacing: 1.5,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         const SizedBox(height: 6),
         Wrap(
           spacing: 6,
           runSpacing: 6,
           children: [
-            _chip(t, 'none', selected: _selectedStyle == null,
-                onTap: () => setState(() => _selectedStyle = null)),
+            _chip(
+              t,
+              'none',
+              selected: _selectedStyle == null,
+              onTap: () => setState(() => _selectedStyle = null),
+            ),
             for (final b in bundles)
-              _chip(t, b.label,
-                  selected: _selectedStyle == b.id,
-                  onTap: () => setState(() => _selectedStyle = b.id)),
+              _chip(
+                t,
+                b.label,
+                selected: _selectedStyle == b.id,
+                onTap: () => setState(() => _selectedStyle = b.id),
+              ),
           ],
         ),
       ],
@@ -953,53 +1075,69 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
       children: [
         Row(
           children: [
-            Text(title,
-                style: TextStyle(
-                    color: t.textTertiary,
-                    fontSize: t.fontSize(8),
-                    letterSpacing: 1.5,
-                    fontWeight: FontWeight.bold)),
+            Text(
+              title,
+              style: TextStyle(
+                color: t.textTertiary,
+                fontSize: t.fontSize(8),
+                letterSpacing: 1.5,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const SizedBox(width: 8),
             if (selected.isNotEmpty)
-              Text('${selected.length} selected',
-                  style: TextStyle(
-                      color: t.accent, fontSize: t.fontSize(8))),
+              Text(
+                '${selected.length} selected',
+                style: TextStyle(color: t.accent, fontSize: t.fontSize(8)),
+              ),
             const Spacer(),
             if (!_presetsLoaded)
               SizedBox(
-                  width: 10,
-                  height: 10,
-                  child: CircularProgressIndicator(strokeWidth: 1.5, color: t.accent))
+                width: 10,
+                height: 10,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.5,
+                  color: t.accent,
+                ),
+              )
             else if (selected.isNotEmpty)
               InkWell(
                 onTap: () => setState(selected.clear),
-                child: Text('CLEAR',
-                    style: TextStyle(
-                        color: t.textMinimal,
-                        fontSize: t.fontSize(8),
-                        letterSpacing: 1)),
+                child: Text(
+                  'CLEAR',
+                  style: TextStyle(
+                    color: t.textMinimal,
+                    fontSize: t.fontSize(8),
+                    letterSpacing: 1,
+                  ),
+                ),
               ),
           ],
         ),
         const SizedBox(height: 6),
         if (presets.isEmpty && _presetsLoaded)
-          Text('No presets available',
-              style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9)))
+          Text(
+            'No presets available',
+            style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9)),
+          )
         else
           Wrap(
             spacing: 6,
             runSpacing: 6,
             children: [
               for (final p in presets)
-                _chip(t, p.label,
-                    selected: selected.contains(p.id),
-                    onTap: () => setState(() {
-                          if (selected.contains(p.id)) {
-                            selected.remove(p.id);
-                          } else {
-                            selected.add(p.id);
-                          }
-                        })),
+                _chip(
+                  t,
+                  p.label,
+                  selected: selected.contains(p.id),
+                  onTap: () => setState(() {
+                    if (selected.contains(p.id)) {
+                      selected.remove(p.id);
+                    } else {
+                      selected.add(p.id);
+                    }
+                  }),
+                ),
             ],
           ),
         const SizedBox(height: 8),
@@ -1008,15 +1146,23 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
           style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(12)),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(11)),
+            hintStyle: TextStyle(
+              color: t.textMinimal,
+              fontSize: t.fontSize(11),
+            ),
             isDense: true,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 10,
+            ),
             enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: t.borderSubtle),
-                borderRadius: BorderRadius.circular(4)),
+              borderSide: BorderSide(color: t.borderSubtle),
+              borderRadius: BorderRadius.circular(4),
+            ),
             focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: t.accent),
-                borderRadius: BorderRadius.circular(4)),
+              borderSide: BorderSide(color: t.accent),
+              borderRadius: BorderRadius.circular(4),
+            ),
           ),
           onChanged: (_) => setState(() {}),
         ),
@@ -1024,8 +1170,12 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
     );
   }
 
-  Widget _chip(VisionTokens t, String label,
-      {required bool selected, required VoidCallback onTap}) {
+  Widget _chip(
+    VisionTokens t,
+    String label, {
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -1036,14 +1186,18 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
           color: selected ? t.accent.withValues(alpha: 0.25) : t.surfaceMid,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-              color: selected ? t.accent : t.borderSubtle,
-              width: selected ? 1.5 : 1),
+            color: selected ? t.accent : t.borderSubtle,
+            width: selected ? 1.5 : 1,
+          ),
         ),
-        child: Text(label,
-            style: TextStyle(
-                color: selected ? t.accent : t.textSecondary,
-                fontSize: t.fontSize(10),
-                fontWeight: selected ? FontWeight.bold : FontWeight.normal)),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? t.accent : t.textSecondary,
+            fontSize: t.fontSize(10),
+            fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
       ),
     );
   }
@@ -1052,9 +1206,11 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: Text(text,
-            textAlign: TextAlign.center,
-            style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(11))),
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(11)),
+        ),
       ),
     );
   }
@@ -1065,7 +1221,11 @@ class _PresetEntry {
   final String label;
   final String tags;
 
-  const _PresetEntry({required this.id, required this.label, required this.tags});
+  const _PresetEntry({
+    required this.id,
+    required this.label,
+    required this.tags,
+  });
 
   factory _PresetEntry.fromJson(Map<String, dynamic> json) {
     return _PresetEntry(
@@ -1080,16 +1240,32 @@ class _StyleBundle {
   final String id;
   final String label;
   final String tags;
-  const _StyleBundle({required this.id, required this.label, required this.tags});
+  const _StyleBundle({
+    required this.id,
+    required this.label,
+    required this.tags,
+  });
 }
 
 /// A small set of curated artist-tag bundles. Intentionally short; users pick
 /// or override per-character via the artistTag field.
 const List<_StyleBundle> _kStyleBundles = [
   _StyleBundle(id: 'anime', label: 'Anime', tags: 'anime coloring'),
-  _StyleBundle(id: 'painterly', label: 'Painterly', tags: 'painterly, soft brush'),
-  _StyleBundle(id: 'photoreal', label: 'Photoreal', tags: 'realistic, photorealistic'),
+  _StyleBundle(
+    id: 'painterly',
+    label: 'Painterly',
+    tags: 'painterly, soft brush',
+  ),
+  _StyleBundle(
+    id: 'photoreal',
+    label: 'Photoreal',
+    tags: 'realistic, photorealistic',
+  ),
   _StyleBundle(id: 'sketch', label: 'Sketch', tags: 'sketch, pencil drawing'),
-  _StyleBundle(id: 'watercolor', label: 'Watercolour', tags: 'watercolor (medium), traditional media'),
+  _StyleBundle(
+    id: 'watercolor',
+    label: 'Watercolour',
+    tags: 'watercolor (medium), traditional media',
+  ),
   _StyleBundle(id: 'ink', label: 'Ink', tags: 'ink (medium), monochrome'),
 ];

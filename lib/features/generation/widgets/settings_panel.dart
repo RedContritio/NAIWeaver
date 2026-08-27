@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../../core/gateway/backend_gateway.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/gateway/backend_permissions.dart';
+import '../../../core/services/client_diagnostics.dart';
 import '../../../core/services/preferences_service.dart';
 import '../../../core/services/tag_service.dart';
 import '../../../core/utils/responsive.dart';
@@ -273,11 +274,16 @@ class AdvancedSettingsPanel extends StatelessWidget {
 /// Inner content of the expanded settings panel.
 /// Uses context.watch so it rebuilds on state changes,
 /// but only exists in the tree when the panel is expanded.
+enum GenerationSettingsGroup { all, prompt, inputs, parameters }
+
 class ExpandedSettingsContent extends StatefulWidget {
   final VoidCallback onManageStyles;
   final void Function(String styleName)? onEditStyle;
   final VoidCallback onSavePreset;
   final bool inSidebar;
+  final bool forceCompact;
+  final bool ownsScrollView;
+  final GenerationSettingsGroup group;
 
   const ExpandedSettingsContent({
     super.key,
@@ -285,6 +291,9 @@ class ExpandedSettingsContent extends StatefulWidget {
     this.onEditStyle,
     required this.onSavePreset,
     this.inSidebar = false,
+    this.forceCompact = false,
+    this.ownsScrollView = true,
+    this.group = GenerationSettingsGroup.all,
   });
 
   @override
@@ -293,7 +302,6 @@ class ExpandedSettingsContent extends StatefulWidget {
 }
 
 class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
-  final _negativePromptKey = GlobalKey();
   final _negativePromptFocus = FocusNode();
   bool _stylesExpanded = false;
   List<DanbooruTag> _negativeSuggestions = [];
@@ -310,12 +318,12 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
   }
 
   void _onNegativeFocusChanged() {
-    if (_negativePromptFocus.hasFocus) {
-      Future.delayed(
-        const Duration(milliseconds: 400),
-        _scrollToNegativePrompt,
-      );
-    } else if (_negativeSuggestions.isNotEmpty) {
+    ClientDiagnostics.instance.record('negative_prompt_focus_changed', {
+      'has_focus': _negativePromptFocus.hasFocus,
+      'suggestion_count': _negativeSuggestions.length,
+      'view_insets_bottom': MediaQuery.maybeOf(context)?.viewInsets.bottom,
+    });
+    if (!_negativePromptFocus.hasFocus && _negativeSuggestions.isNotEmpty) {
       setState(() => _negativeSuggestions = []);
     }
   }
@@ -335,18 +343,6 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
       );
       setState(() => _negativeSuggestions = result.suggestions);
     });
-  }
-
-  void _scrollToNegativePrompt() {
-    if (!mounted || !_negativePromptFocus.hasFocus) return;
-    final ctx = _negativePromptKey.currentContext;
-    if (ctx == null) return;
-    Scrollable.ensureVisible(
-      ctx,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-      alignment: 0.2,
-    );
   }
 
   @override
@@ -395,11 +391,11 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
   Widget build(BuildContext context) {
     final notifier = context.watch<GenerationNotifier>();
     final state = notifier.state;
-    final mobile = isMobile(context);
+    final mobile = isMobile(context) || widget.forceCompact;
     final t = context.t;
     final sectionOrder = context.watch<ThemeNotifier>().sectionOrder;
 
-    final compact = widget.inSidebar;
+    final compact = widget.inSidebar || widget.forceCompact;
     final hPad = compact ? 16.0 : 24.0;
     final sectionGap = compact ? 16.0 : 24.0;
     final showLocalGalleryControls = !(useBackendGateway && kIsWeb);
@@ -425,8 +421,28 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
         'save_to_album': () => _buildSaveToAlbum(context, t, mobile),
     };
 
+    final allowedSectionIds = switch (widget.group) {
+      GenerationSettingsGroup.all => null,
+      GenerationSettingsGroup.prompt => const {
+        'characters',
+        'styles',
+        'negative_prompt',
+      },
+      GenerationSettingsGroup.inputs => const {'reference_images'},
+      GenerationSettingsGroup.parameters => const {
+        'dimensions_seed',
+        'steps_scale',
+        'sampler_post',
+        'presets',
+        'save_to_album',
+      },
+    };
+
     final sections = <Widget>[];
     for (final id in sectionOrder) {
+      if (allowedSectionIds != null && !allowedSectionIds.contains(id)) {
+        continue;
+      }
       final builder = builders[id];
       if (builder != null) {
         if (sections.isNotEmpty) sections.add(SizedBox(height: sectionGap));
@@ -444,17 +460,21 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
     }
     sections.add(const SizedBox(height: 20));
 
-    return ListView(
-      padding: EdgeInsets.fromLTRB(
-        hPad,
-        8,
-        hPad,
-        40 +
-            MediaQuery.of(context).padding.bottom +
-            MediaQuery.of(context).viewInsets.bottom,
-      ),
-      children: sections,
+    final padding = EdgeInsets.fromLTRB(
+      hPad,
+      8,
+      hPad,
+      40 +
+          MediaQuery.of(context).padding.bottom +
+          MediaQuery.of(context).viewInsets.bottom,
     );
+    if (!widget.ownsScrollView) {
+      return Padding(
+        padding: padding,
+        child: Column(mainAxisSize: MainAxisSize.min, children: sections),
+      );
+    }
+    return ListView(padding: padding, children: sections);
   }
 
   Widget _buildReferenceImages(
@@ -468,40 +488,75 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
         hasBackendPermission(context, BackendPermission.imageEncodeVibe);
     if (!showRef && !showVibe) return const SizedBox.shrink();
 
-    final labelStyle = TextStyle(
-      fontWeight: FontWeight.w900,
-      fontSize: t.fontSize(mobile ? 11 : 9),
-      letterSpacing: 1.5,
-      color: t.secondaryText,
-    );
-    return DecoratedBox(
+    return Column(
       key: const ValueKey<String>('advanced-reference-images'),
+      children: [
+        if (showRef)
+          _buildReferenceInputRow(
+            key: const ValueKey<String>('advanced-precise-reference-row'),
+            label: context.l.refPreciseReferences,
+            icon: Icons.person_search_outlined,
+            color: t.accentRefCharacter,
+            shelf: const DirectorRefShelf(),
+            mobile: mobile,
+            t: t,
+          ),
+        if (showRef && showVibe) const SizedBox(height: 8),
+        if (showVibe)
+          _buildReferenceInputRow(
+            key: const ValueKey<String>('advanced-vibe-transfer-row'),
+            label: context.l.refVibeTransfer,
+            icon: Icons.auto_awesome_outlined,
+            color: t.accentVibeTransfer,
+            shelf: const VibeTransferShelf(),
+            mobile: mobile,
+            t: t,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildReferenceInputRow({
+    required Key key,
+    required String label,
+    required IconData icon,
+    required Color color,
+    required Widget shelf,
+    required bool mobile,
+    required VisionTokens t,
+  }) {
+    return Container(
+      key: key,
+      constraints: BoxConstraints(minHeight: mobile ? 64 : 56),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: t.borderSubtle.withValues(alpha: 0.32),
+        color: t.borderSubtle.withValues(alpha: 0.2),
         border: Border.all(color: t.borderSubtle),
         borderRadius: BorderRadius.circular(6),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (showRef) ...[
-              Text(
-                context.l.refPreciseReferences.toUpperCase(),
-                style: labelStyle,
+      child: Row(
+        children: [
+          Icon(icon, size: mobile ? 18 : 15, color: color),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: mobile ? 92 : 118,
+            child: Text(
+              label.toUpperCase(),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: t.fontSize(mobile ? 10 : 8),
+                letterSpacing: 0.8,
+                color: t.secondaryText,
               ),
-              const SizedBox(height: 6),
-              const DirectorRefShelf(),
-            ],
-            if (showRef && showVibe) const SizedBox(height: 10),
-            if (showVibe) ...[
-              Text(context.l.refVibeTransfer.toUpperCase(), style: labelStyle),
-              const SizedBox(height: 6),
-              const VibeTransferShelf(),
-            ],
-          ],
-        ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Align(alignment: Alignment.centerLeft, child: shelf),
+          ),
+        ],
       ),
     );
   }
@@ -1179,19 +1234,23 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
 
   Widget _buildNegativePrompt(GenerationNotifier notifier, VisionTokens t) {
     final mobile = isMobile(context);
+    // iOS Safari zooms focused form controls whose font size is below 16px.
+    // Keep the native Web control at a mobile-safe size; the Flutter fallback
+    // below retains the regular theme scale.
+    final nativeFontSize = mobile && t.fontSize(11) < 16
+        ? 16.0
+        : t.fontSize(11);
+    final nativeBackground = Color.alphaBlend(t.borderSubtle, t.surfaceHigh);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          key: _negativePromptKey,
-          child: Text(
-            context.l.panelNegativePrompt.toUpperCase(),
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: t.fontSize(mobile ? 12 : 9),
-              letterSpacing: 2,
-              color: t.secondaryText,
-            ),
+        Text(
+          context.l.panelNegativePrompt.toUpperCase(),
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: t.fontSize(mobile ? 12 : 9),
+            letterSpacing: 2,
+            color: t.secondaryText,
           ),
         ),
         const SizedBox(height: 12),
@@ -1204,20 +1263,22 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
             }
           },
           style: TextStyle(
-            fontSize: t.fontSize(11),
+            fontSize: nativeFontSize,
             color: t.textSecondary,
             height: 1.4,
           ),
-          backgroundColor: t.borderSubtle,
+          // Platform views are DOM layers. Use the pre-composited opaque fill
+          // so translucency is never resolved against the browser's white
+          // page background while the textarea is focused.
+          backgroundColor: nativeBackground,
           selectionColor: t.accent.withValues(alpha: 0.72),
           selectionTextColor:
               ThemeData.estimateBrightnessForColor(t.accent) == Brightness.dark
               ? Colors.white
               : Colors.black,
           padding: const EdgeInsets.all(16),
-          height: t.fontSize(11) * 1.4 * 3 + 32,
+          height: nativeFontSize * 1.4 * 3 + 32,
           onChanged: (_) => _onNegativePromptChanged(),
-          onTap: _scrollToNegativePrompt,
           fallback: ScrollConfiguration(
             behavior: ScrollConfiguration.of(context).copyWith(
               dragDevices: {PointerDeviceKind.touch, PointerDeviceKind.stylus},
@@ -1226,7 +1287,6 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
               focusNode: _negativePromptFocus,
               controller: notifier.negativePromptController,
               maxLines: 3,
-              onTap: _scrollToNegativePrompt,
               onChanged: (_) => _onNegativePromptChanged(),
               style: TextStyle(
                 fontSize: t.fontSize(11),

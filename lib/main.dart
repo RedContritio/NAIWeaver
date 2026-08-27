@@ -41,6 +41,7 @@ import 'core/theme/theme_extensions.dart';
 import 'core/theme/vision_tokens.dart';
 import 'features/generation/providers/generation_notifier.dart';
 import 'features/generation/widgets/generation_page_layout.dart';
+import 'features/generation/widgets/generation_mobile_sheet.dart';
 import 'features/generation/widgets/generation_results_workspace.dart';
 import 'features/generation/widgets/generation_seed_control.dart';
 import 'features/generation/widgets/settings_panel.dart';
@@ -426,6 +427,8 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
   int _tagSuggestionIndex = -1;
   final FocusNode _globalFocusNode = FocusNode(skipTraversal: true);
   final FocusNode _promptFocusNode = FocusNode();
+  final GlobalKey<GenerationMobileSheetState> _mobileGenerationSheetKey =
+      GlobalKey<GenerationMobileSheetState>();
 
   @override
   void initState() {
@@ -888,6 +891,8 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
   }
 
   void _startGeneration(GenerationNotifier notifier, int imageBatchLimit) {
+    final mobileSheet = _mobileGenerationSheetKey.currentState;
+    if (mobileSheet != null) unawaited(mobileSheet.collapse());
     final future = notifier.generate(batchLimit: imageBatchLimit);
     if (!useBackendGateway) return;
     future.whenComplete(() {
@@ -956,6 +961,7 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
     final isCascadeMode = cascadeNotifier.state.activeCascade != null;
 
     final mobile = isMobile(context);
+    final compactGenerationLayout = MediaQuery.sizeOf(context).width <= 900;
     final t = context.t;
     final themeNotifier = context.watch<ThemeNotifier>();
     final useSidebar = isWidescreenLayout(
@@ -1006,6 +1012,11 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
         canPop: false,
         onPopInvokedWithResult: (didPop, result) async {
           if (didPop) return;
+          final mobileSheet = _mobileGenerationSheetKey.currentState;
+          if (mobileSheet?.isExpanded ?? false) {
+            await mobileSheet!.collapse();
+            return;
+          }
           // First: collapse settings panel if expanded
           if (notifier.state.isSettingsExpanded) {
             notifier.toggleSettings();
@@ -1217,6 +1228,15 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
                     t,
                     promptOnLeft,
                   )
+                : compactGenerationLayout
+                ? _buildMobileBody(
+                    context,
+                    notifier,
+                    state,
+                    isCascadeMode,
+                    mobile,
+                    t,
+                  )
                 : _buildDefaultBody(
                     context,
                     notifier,
@@ -1253,6 +1273,152 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
             child: scaffold,
           )
         : scaffold;
+  }
+
+  Widget _buildMobileBody(
+    BuildContext context,
+    GenerationNotifier notifier,
+    GenerationState state,
+    bool isCascadeMode,
+    bool mobile,
+    VisionTokens t,
+  ) {
+    if (isCascadeMode) {
+      return GenerationPageLayout(
+        results: _buildDefaultResultsArea(context, notifier, state, mobile),
+        footer: const CascadePlaybackView(),
+      );
+    }
+
+    final activeDirectorRefCount = context
+        .watch<DirectorRefNotifier>()
+        .references
+        .where((reference) => reference.enabled)
+        .length;
+    final activeVibeCount = context
+        .watch<VibeTransferNotifier>()
+        .vibes
+        .where((vibe) => vibe.enabled)
+        .length;
+    final reservedHeight =
+        GenerationMobileSheet.peekContentHeight +
+        MediaQuery.viewPaddingOf(context).bottom;
+
+    void manageStyles() {
+      String? activeStyle;
+      for (final name in notifier.state.activeStyleNames) {
+        final style = notifier.state.styles
+            .where((candidate) => candidate.name == name)
+            .firstOrNull;
+        if (style != null && !style.isDefault) {
+          activeStyle = name;
+          break;
+        }
+      }
+      activeStyle ??= notifier.state.activeStyleNames.firstOrNull;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ToolsHubScreen(
+            initialToolId: 'styles',
+            initialStyleName: activeStyle,
+          ),
+        ),
+      );
+    }
+
+    void editStyle(String styleName) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ToolsHubScreen(
+            initialToolId: 'styles',
+            initialStyleName: styleName,
+          ),
+        ),
+      );
+    }
+
+    return GenerationPageLayout(
+      overlayReservedHeight: reservedHeight,
+      results: _buildDefaultResultsArea(context, notifier, state, mobile),
+      footer: const SizedBox.shrink(),
+      overlay: Positioned.fill(
+        child: GenerationMobileSheet(
+          key: _mobileGenerationSheetKey,
+          promptLabel: context.l.generationSheetPrompt.toUpperCase(),
+          inputsLabel: context.l.generationSheetInputs.toUpperCase(),
+          parametersLabel: context.l.generationSheetParameters.toUpperCase(),
+          inputCount: activeDirectorRefCount + activeVibeCount,
+          compactPrompt: ValueListenableBuilder<TextEditingValue>(
+            valueListenable: notifier.promptController,
+            builder: (context, value, _) {
+              final prompt = value.text.trim();
+              return Row(
+                children: [
+                  Icon(Icons.edit_outlined, size: 16, color: t.textDisabled),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      prompt.isEmpty
+                          ? context.l.mainEnterPrompt.toUpperCase()
+                          : prompt.replaceAll('\n', ' '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: prompt.isEmpty ? t.hintText : t.textSecondary,
+                        fontSize: t.fontSize(11),
+                        letterSpacing: prompt.isEmpty ? 1.2 : 0,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+          compactActions: _buildCompactGenerationAction(
+            context,
+            notifier,
+            state,
+            t,
+          ),
+          prompt: GenerationMobilePromptPage(
+            prompt: _buildPromptArea(
+              context,
+              notifier,
+              state,
+              true,
+              t,
+              showQuickSeed: false,
+              embedded: true,
+            ),
+            settings: ExpandedSettingsContent(
+              group: GenerationSettingsGroup.prompt,
+              forceCompact: true,
+              ownsScrollView: false,
+              onManageStyles: manageStyles,
+              onEditStyle: editStyle,
+              onSavePreset: () => _showSavePresetDialog(context, notifier),
+            ),
+          ),
+          inputs: ExpandedSettingsContent(
+            group: GenerationSettingsGroup.inputs,
+            forceCompact: true,
+            onManageStyles: manageStyles,
+            onEditStyle: editStyle,
+            onSavePreset: () => _showSavePresetDialog(context, notifier),
+          ),
+          parameters: ExpandedSettingsContent(
+            group: GenerationSettingsGroup.parameters,
+            forceCompact: true,
+            onManageStyles: manageStyles,
+            onEditStyle: editStyle,
+            onSavePreset: () => _showSavePresetDialog(context, notifier),
+          ),
+        ),
+      ),
+    );
   }
 
   // — Default body (classic bottom-sheet layout) —
@@ -1457,6 +1623,7 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
     VisionTokens t, {
     bool useSidebarStyle = false,
     bool showQuickSeed = true,
+    bool embedded = false,
   }) {
     final imageGenerationAllowed = canGenerateImage(context);
     final imageBatchLimit = backendImageBatchLimit(context);
@@ -1501,13 +1668,19 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
       vibeReferenceCount: vibeFeatureAllowed ? activeVibeCount : 0,
       isOpus: false,
     );
-    final promptLines = useSidebarStyle
+    final promptLines = embedded
+        ? 4
+        : useSidebarStyle
         ? 5
         : (mobile ? t.promptMaxLines + 2 : t.promptMaxLines + 1);
     final showCostEstimate = useBackendGateway && imageGenerationAllowed;
     return Container(
-      padding: EdgeInsets.fromLTRB(16, useSidebarStyle ? 8 : 0, 16, 12),
-      decoration: useSidebarStyle
+      padding: embedded
+          ? const EdgeInsets.fromLTRB(12, 6, 12, 8)
+          : EdgeInsets.fromLTRB(16, useSidebarStyle ? 8 : 0, 16, 12),
+      decoration: embedded
+          ? null
+          : useSidebarStyle
           ? BoxDecoration(
               color: t.surfaceHigh,
               border: Border(top: BorderSide(color: t.borderMedium)),
@@ -1527,13 +1700,14 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Selector<GenerationNotifier, String>(
-            selector: (_, n) => n.state.characterEditorMode,
-            builder: (context, mode, _) {
-              if (mode == 'compact') return const CharacterShelf();
-              return const SizedBox.shrink();
-            },
-          ),
+          if (!embedded)
+            Selector<GenerationNotifier, String>(
+              selector: (_, n) => n.state.characterEditorMode,
+              builder: (context, mode, _) {
+                if (mode == 'compact') return const CharacterShelf();
+                return const SizedBox.shrink();
+              },
+            ),
           Listener(
             behavior: HitTestBehavior.translucent,
             onPointerDown: (_) => _isTouchingSuggestions = true,
@@ -1572,7 +1746,12 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
             actionWidth: mobile ? 72 : 68,
             promptInput: Focus(
               onFocusChange: (hasFocus) {
-                if (!hasFocus) {
+                if (hasFocus) {
+                  final mobileSheet = _mobileGenerationSheetKey.currentState;
+                  if (mobileSheet != null) {
+                    unawaited(mobileSheet.openTab(GenerationMobileTab.prompt));
+                  }
+                } else {
                   Future.delayed(const Duration(milliseconds: 200), () {
                     if (!_isTouchingSuggestions) {
                       notifier.clearTagSuggestions();
@@ -1847,6 +2026,109 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCompactGenerationAction(
+    BuildContext context,
+    GenerationNotifier notifier,
+    GenerationState state,
+    VisionTokens t,
+  ) {
+    final imageGenerationAllowed = canGenerateImage(context);
+    final imageBatchLimit = backendImageBatchLimit(context);
+    final paidImageFeaturesAllowed = canUsePaidImageFeatures(context);
+    final vibeFeatureAllowed =
+        paidImageFeaturesAllowed &&
+        hasBackendPermission(context, BackendPermission.imageEncodeVibe);
+    final activeDirectorRefCount = context
+        .watch<DirectorRefNotifier>()
+        .references
+        .where((reference) => reference.enabled)
+        .length;
+    final activeVibeCount = context
+        .watch<VibeTransferNotifier>()
+        .vibes
+        .where((vibe) => vibe.enabled)
+        .length;
+    final usesRedPoints =
+        state.smea ||
+        state.smeaDyn ||
+        activeDirectorRefCount > 0 ||
+        activeVibeCount > 0 ||
+        !isOpusFreeBaseImage(
+          width: state.width.toInt(),
+          height: state.height.toInt(),
+          steps: state.steps.toInt(),
+          hasImageInput: false,
+        );
+    final estimate = estimateNaiImageCost(
+      width: state.width.toInt(),
+      height: state.height.toInt(),
+      steps: state.steps.toInt(),
+      smea: state.smea,
+      smeaDyn: state.smeaDyn,
+      serialImages: math.max(1, math.min(state.batchCount, imageBatchLimit)),
+      directorReferenceCount: paidImageFeaturesAllowed
+          ? activeDirectorRefCount
+          : 0,
+      vibeReferenceCount: vibeFeatureAllowed ? activeVibeCount : 0,
+      isOpus: false,
+    );
+    final greenPointDiscount =
+        context.watch<BackendAuthNotifier>().quota?.free.greenPointDiscount ??
+        0;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (useBackendGateway && imageGenerationAllowed) ...[
+          SizedBox(
+            width: 92,
+            height: 28,
+            child: _buildGenerationCostBadge(
+              context,
+              estimate,
+              true,
+              t,
+              usesRedPoints,
+              greenPointDiscount,
+            ),
+          ),
+          const SizedBox(width: 6),
+        ],
+        SizedBox(
+          width: 42,
+          height: 38,
+          child: ElevatedButton(
+            onPressed: state.isLoading || !imageGenerationAllowed
+                ? null
+                : () {
+                    FocusScope.of(context).unfocus();
+                    _startGeneration(notifier, imageBatchLimit);
+                  },
+            style: ElevatedButton.styleFrom(
+              padding: EdgeInsets.zero,
+              backgroundColor: t.accent,
+              foregroundColor: t.background,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(5),
+              ),
+              elevation: 0,
+            ),
+            child: state.isLoading
+                ? SizedBox(
+                    width: 17,
+                    height: 17,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: t.background,
+                    ),
+                  )
+                : const Icon(Icons.arrow_forward_ios, size: 14),
+          ),
+        ),
+      ],
     );
   }
 

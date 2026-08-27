@@ -8,6 +8,7 @@ import '../../../core/theme/theme_extensions.dart';
 import '../../../core/theme/vision_tokens.dart';
 import '../../../core/utils/app_snackbar.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/widgets/browser_native_selectable_text.dart';
 import '../../../core/widgets/vision_slider.dart';
 import '../providers/text_gen_notifier.dart';
 
@@ -131,12 +132,14 @@ class _TextGenPanelState extends State<TextGenPanel> {
                   backgroundColor: t.accentDanger,
                   foregroundColor: t.background,
                   textStyle: TextStyle(
-                      fontSize: t.fontSize(10),
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1),
+                    fontSize: t.fontSize(10),
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4)),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                   elevation: 0,
                 ),
               ),
@@ -152,12 +155,14 @@ class _TextGenPanelState extends State<TextGenPanel> {
                   backgroundColor: t.accent,
                   foregroundColor: t.background,
                   textStyle: TextStyle(
-                      fontSize: t.fontSize(10),
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1),
+                    fontSize: t.fontSize(10),
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4)),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                   elevation: 0,
                 ),
               ),
@@ -169,7 +174,10 @@ class _TextGenPanelState extends State<TextGenPanel> {
 
   // — Left column: input + model + parameters —
   Widget _buildInputColumn(
-      BuildContext context, TextGenNotifier n, VisionTokens t) {
+    BuildContext context,
+    TextGenNotifier n,
+    VisionTokens t,
+  ) {
     final l = context.l;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -197,16 +205,20 @@ class _TextGenPanelState extends State<TextGenPanel> {
             Expanded(
               flex: 2,
               child: DropdownButtonFormField<String>(
-                initialValue: _modelIsKnown ? _modelController.text : '__custom__',
+                initialValue: _modelIsKnown
+                    ? _modelController.text
+                    : '__custom__',
                 isDense: true,
-                style: TextStyle(fontSize: t.fontSize(10), color: t.textPrimary),
+                style: TextStyle(
+                  fontSize: t.fontSize(10),
+                  color: t.textPrimary,
+                ),
                 dropdownColor: t.surfaceHigh,
                 decoration: _fieldDecoration(t, ''),
                 items: [
-                  ...kKnownTextModels.map((m) => DropdownMenuItem(
-                        value: m,
-                        child: Text(m),
-                      )),
+                  ...kKnownTextModels.map(
+                    (m) => DropdownMenuItem(value: m, child: Text(m)),
+                  ),
                   DropdownMenuItem(
                     value: '__custom__',
                     child: Text(l.textGenModelCustom),
@@ -231,8 +243,10 @@ class _TextGenPanelState extends State<TextGenPanel> {
                 child: TextField(
                   controller: _modelController,
                   onChanged: n.setModel,
-                  style:
-                      TextStyle(fontSize: t.fontSize(10), color: t.textPrimary),
+                  style: TextStyle(
+                    fontSize: t.fontSize(10),
+                    color: t.textPrimary,
+                  ),
                   decoration: _fieldDecoration(t, kDefaultTextModel),
                 ),
               ),
@@ -246,7 +260,10 @@ class _TextGenPanelState extends State<TextGenPanel> {
   }
 
   Widget _buildParametersSection(
-      BuildContext context, TextGenNotifier n, VisionTokens t) {
+    BuildContext context,
+    TextGenNotifier n,
+    VisionTokens t,
+  ) {
     final l = context.l;
     return Theme(
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -274,8 +291,10 @@ class _TextGenPanelState extends State<TextGenPanel> {
                 child: DropdownButtonFormField<String>(
                   initialValue: n.activePresetName,
                   isDense: true,
-                  style:
-                      TextStyle(fontSize: t.fontSize(10), color: t.textPrimary),
+                  style: TextStyle(
+                    fontSize: t.fontSize(10),
+                    color: t.textPrimary,
+                  ),
                   dropdownColor: t.surfaceHigh,
                   decoration: _fieldDecoration(t, ''),
                   items: TextGenParams.presetNames
@@ -346,8 +365,10 @@ class _TextGenPanelState extends State<TextGenPanel> {
                 child: DropdownButtonFormField<String>(
                   initialValue: n.params.phraseRepPen,
                   isDense: true,
-                  style:
-                      TextStyle(fontSize: t.fontSize(10), color: t.textPrimary),
+                  style: TextStyle(
+                    fontSize: t.fontSize(10),
+                    color: t.textPrimary,
+                  ),
                   dropdownColor: t.surfaceHigh,
                   decoration: _fieldDecoration(t, ''),
                   items: kPhraseRepPenOptions
@@ -380,7 +401,10 @@ class _TextGenPanelState extends State<TextGenPanel> {
               activeThumbColor: t.accent,
               title: Text(
                 l.textGenEnableThinking,
-                style: TextStyle(fontSize: t.fontSize(10), color: t.textPrimary),
+                style: TextStyle(
+                  fontSize: t.fontSize(10),
+                  color: t.textPrimary,
+                ),
               ),
               subtitle: Text(
                 l.textGenEnableThinkingNote,
@@ -412,7 +436,10 @@ class _TextGenPanelState extends State<TextGenPanel> {
 
   // — Right column: streaming output + actions —
   Widget _buildOutputColumn(
-      BuildContext context, TextGenNotifier n, VisionTokens t) {
+    BuildContext context,
+    TextGenNotifier n,
+    VisionTokens t,
+  ) {
     final l = context.l;
     return Container(
       color: t.background,
@@ -429,7 +456,9 @@ class _TextGenPanelState extends State<TextGenPanel> {
                   width: 10,
                   height: 10,
                   child: CircularProgressIndicator(
-                      strokeWidth: 2, color: t.accent),
+                    strokeWidth: 2,
+                    color: t.accent,
+                  ),
                 ),
               ],
               const Spacer(),
@@ -445,8 +474,11 @@ class _TextGenPanelState extends State<TextGenPanel> {
               ),
               IconButton(
                 tooltip: l.textGenContinue,
-                icon: Icon(Icons.subdirectory_arrow_left,
-                    size: 16, color: t.textDisabled),
+                icon: Icon(
+                  Icons.subdirectory_arrow_left,
+                  size: 16,
+                  color: t.textDisabled,
+                ),
                 onPressed: (n.hasOutput && !n.isGenerating)
                     ? () {
                         n.appendOutputToInput();
@@ -477,8 +509,8 @@ class _TextGenPanelState extends State<TextGenPanel> {
                 border: Border.all(color: t.borderSubtle),
               ),
               child: SingleChildScrollView(
-                child: SelectableText(
-                  n.hasOutput
+                child: BrowserNativeSelectableText(
+                  text: n.hasOutput
                       ? n.output
                       : (n.isGenerating ? '…' : l.textGenOutputEmpty),
                   style: TextStyle(
@@ -498,12 +530,16 @@ class _TextGenPanelState extends State<TextGenPanel> {
               decoration: BoxDecoration(
                 color: t.accentDanger.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: t.accentDanger.withValues(alpha: 0.4)),
+                border: Border.all(
+                  color: t.accentDanger.withValues(alpha: 0.4),
+                ),
               ),
               child: Text(
                 n.lastError!,
-                style:
-                    TextStyle(color: t.accentDanger, fontSize: t.fontSize(10)),
+                style: TextStyle(
+                  color: t.accentDanger,
+                  fontSize: t.fontSize(10),
+                ),
               ),
             ),
           ],
@@ -513,7 +549,10 @@ class _TextGenPanelState extends State<TextGenPanel> {
   }
 
   Widget _buildReasoningSection(
-      BuildContext context, TextGenNotifier n, VisionTokens t) {
+    BuildContext context,
+    TextGenNotifier n,
+    VisionTokens t,
+  ) {
     final l = context.l;
     final reasoning = n.reasoning;
     return Container(
@@ -534,8 +573,11 @@ class _TextGenPanelState extends State<TextGenPanel> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
                 children: [
-                  Icon(Icons.psychology_outlined,
-                      size: 14, color: t.textMinimal),
+                  Icon(
+                    Icons.psychology_outlined,
+                    size: 14,
+                    color: t.textMinimal,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     l.textGenReasoning.toUpperCase(),
@@ -548,9 +590,7 @@ class _TextGenPanelState extends State<TextGenPanel> {
                   ),
                   const Spacer(),
                   Icon(
-                    _reasoningExpanded
-                        ? Icons.expand_less
-                        : Icons.expand_more,
+                    _reasoningExpanded ? Icons.expand_less : Icons.expand_more,
                     size: 16,
                     color: t.textMinimal,
                   ),
@@ -564,8 +604,8 @@ class _TextGenPanelState extends State<TextGenPanel> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                 child: SingleChildScrollView(
-                  child: SelectableText(
-                    reasoning,
+                  child: BrowserNativeSelectableText(
+                    text: reasoning,
                     style: TextStyle(
                       color: t.textTertiary,
                       fontSize: t.fontSize(10),
@@ -582,7 +622,10 @@ class _TextGenPanelState extends State<TextGenPanel> {
   }
 
   Widget _buildHistory(
-      BuildContext context, TextGenNotifier n, VisionTokens t) {
+    BuildContext context,
+    TextGenNotifier n,
+    VisionTokens t,
+  ) {
     final l = context.l;
     if (n.history.isEmpty) return const SizedBox.shrink();
     return Column(
@@ -592,8 +635,9 @@ class _TextGenPanelState extends State<TextGenPanel> {
         const SizedBox(height: 8),
         ...n.history.take(10).map((e) {
           final preview = e.output.replaceAll('\n', ' ');
-          final shown =
-              preview.length > 80 ? '${preview.substring(0, 80)}…' : preview;
+          final shown = preview.length > 80
+              ? '${preview.substring(0, 80)}…'
+              : preview;
           return InkWell(
             onTap: () {
               n.restoreFromHistory(e);
@@ -616,15 +660,18 @@ class _TextGenPanelState extends State<TextGenPanel> {
                   Text(
                     '${e.model} · ${e.timestamp.hour.toString().padLeft(2, '0')}:${e.timestamp.minute.toString().padLeft(2, '0')}',
                     style: TextStyle(
-                        color: t.textMinimal,
-                        fontSize: t.fontSize(8),
-                        letterSpacing: 1),
+                      color: t.textMinimal,
+                      fontSize: t.fontSize(8),
+                      letterSpacing: 1,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     shown,
                     style: TextStyle(
-                        color: t.textTertiary, fontSize: t.fontSize(10)),
+                      color: t.textTertiary,
+                      fontSize: t.fontSize(10),
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -652,21 +699,20 @@ class _TextGenPanelState extends State<TextGenPanel> {
   }
 
   Widget _label(VisionTokens t, String text) => Text(
-        text.toUpperCase(),
-        style: TextStyle(
-          color: t.secondaryText,
-          fontSize: t.fontSize(responsiveFont(context, 9, 11)),
-          fontWeight: FontWeight.bold,
-          letterSpacing: 2,
-        ),
-      );
+    text.toUpperCase(),
+    style: TextStyle(
+      color: t.secondaryText,
+      fontSize: t.fontSize(responsiveFont(context, 9, 11)),
+      fontWeight: FontWeight.bold,
+      letterSpacing: 2,
+    ),
+  );
 
   InputDecoration _fieldDecoration(VisionTokens t, String hint) =>
       InputDecoration(
         hintText: hint.isEmpty ? null : hint,
         hintStyle: TextStyle(color: t.hintText, fontSize: t.fontSize(9)),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         filled: true,
         fillColor: t.borderSubtle,
         border: OutlineInputBorder(
@@ -722,8 +768,10 @@ class _SliderRow extends StatelessWidget {
                 letterSpacing: 2,
               ),
             ),
-            Text(display,
-                style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(10))),
+            Text(
+              display,
+              style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(10)),
+            ),
           ],
         ),
         VisionSlider.subtle(
@@ -774,8 +822,10 @@ class _IntSliderRow extends StatelessWidget {
                 letterSpacing: 2,
               ),
             ),
-            Text('$value',
-                style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(10))),
+            Text(
+              '$value',
+              style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(10)),
+            ),
           ],
         ),
         VisionSlider.subtle(

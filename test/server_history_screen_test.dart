@@ -11,6 +11,7 @@ import 'package:naiweaver/core/theme/theme_notifier.dart';
 import 'package:naiweaver/features/auth/backend_auth_notifier.dart';
 import 'package:naiweaver/features/generation/providers/generation_notifier.dart';
 import 'package:naiweaver/features/generation/services/metadata_import_service.dart';
+import 'package:naiweaver/features/generation/widgets/generation_results_workspace.dart';
 import 'package:naiweaver/features/generation/widgets/result_set_viewer.dart';
 import 'package:naiweaver/features/history/server_history_screen.dart';
 import 'package:naiweaver/l10n/app_localizations.dart';
@@ -120,8 +121,30 @@ void main() {
       );
       final page = ServerHistoryPage(
         items: [
-          _item(id: 'batch-1', batchId: 'batch-a', batchIndex: 0),
-          _item(id: 'batch-2', batchId: 'batch-a', batchIndex: 1),
+          _item(
+            id: 'batch-1',
+            batchId: 'batch-a',
+            batchIndex: 0,
+            hasImage: true,
+          ),
+          _item(
+            id: 'batch-2',
+            batchId: 'batch-a',
+            batchIndex: 1,
+            hasImage: true,
+          ),
+          _item(
+            id: 'batch-3',
+            batchId: 'batch-a',
+            batchIndex: 2,
+            hasImage: true,
+          ),
+          _item(
+            id: 'batch-4',
+            batchId: 'batch-a',
+            batchIndex: 3,
+            hasImage: true,
+          ),
           _item(id: 'single'),
         ],
         total: 2,
@@ -158,14 +181,32 @@ void main() {
         findsOne,
       );
       expect(find.byKey(const ValueKey('history-entry-item:single')), findsOne);
-      expect(find.text('shared prompt'), findsNWidgets(2));
+      expect(find.text('shared prompt'), findsNothing);
+      final batchCard = find.byKey(
+        const ValueKey('history-entry-batch:batch-a'),
+      );
+      final outerCardSize = tester.getSize(batchCard);
+      expect(outerCardSize.width, outerCardSize.height);
+      for (var index = 1; index <= 4; index += 1) {
+        expect(
+          find.byKey(
+            ValueKey<String>('history-collage-batch:batch-a-batch-$index'),
+          ),
+          findsOneWidget,
+        );
+      }
+      expect(
+        find.descendant(of: batchCard, matching: find.byIcon(Icons.more_horiz)),
+        findsOneWidget,
+      );
 
       await tester.tap(
         find.byKey(const ValueKey('history-entry-batch:batch-a')),
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(ResultSetViewer), findsOneWidget);
+      expect(find.byType(ResultSetWorkspace), findsOneWidget);
+      expect(find.byType(ResultSetViewer), findsNothing);
       expect(
         find.byKey(const ValueKey('result-set-thumbnail-batch-1')),
         findsOneWidget,
@@ -174,24 +215,56 @@ void main() {
         find.byKey(const ValueKey('result-set-thumbnail-batch-2')),
         findsOneWidget,
       );
-      final viewerActions = find.byKey(
-        const ValueKey<String>('history-viewer-actions'),
+      final innerCardSize = tester.getSize(
+        find.byKey(const ValueKey('result-set-thumbnail-batch-1')),
       );
-      expect(viewerActions, findsOneWidget);
-      expect(
-        find.descendant(
-          of: viewerActions,
-          matching: find.byIcon(Icons.layers_outlined),
-        ),
-        findsOneWidget,
+      expect(innerCardSize.width, outerCardSize.width);
+      expect(innerCardSize.height, outerCardSize.height);
+      final batchActions = find.byKey(
+        const ValueKey<String>('history-batch-actions'),
       );
-      expect(
-        find.descendant(
-          of: viewerActions,
-          matching: find.byIcon(Icons.image_outlined),
-        ),
-        findsOneWidget,
+      final firstItemActions = find.byKey(
+        const ValueKey<String>('history-grid-item-actions-batch-1'),
       );
+      expect(batchActions, findsOneWidget);
+      expect(firstItemActions, findsOneWidget);
+      for (var index = 1; index <= 4; index += 1) {
+        expect(
+          find.byKey(
+            ValueKey<String>('history-grid-item-actions-batch-$index'),
+          ),
+          findsOneWidget,
+        );
+      }
+
+      await tester.tap(firstItemActions);
+      await tester.pumpAndSettle();
+      expect(find.text('Import Parameters'), findsOneWidget);
+      expect(find.text('Import Batch Parameters'), findsNothing);
+      await tester.tapAt(const Offset(8, 300));
+      await tester.pumpAndSettle();
+
+      await tester.tap(batchActions);
+      await tester.pumpAndSettle();
+      expect(find.text('Import Batch Parameters'), findsOneWidget);
+      expect(find.text('Import Parameters'), findsNothing);
+      await tester.tapAt(const Offset(8, 300));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Viewer'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ResultSetViewer), findsOneWidget);
+      expect(batchActions, findsNothing);
+      expect(firstItemActions, findsNothing);
+
+      final itemActions = find.byKey(
+        const ValueKey<String>('history-item-actions'),
+      );
+      expect(itemActions, findsOneWidget);
+      await tester.tap(itemActions);
+      await tester.pumpAndSettle();
+      expect(find.text('Import Parameters'), findsOneWidget);
+      expect(find.text('Import Batch Parameters'), findsNothing);
     },
   );
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/theme_extensions.dart';
 import '../../../../core/theme/vision_tokens.dart';
+import '../../../../core/widgets/browser_native_selectable_text.dart';
 import '../../models/closet_outfit.dart';
 import '../outfit_classifier.dart';
 import '../outfit_delta.dart';
@@ -68,10 +69,9 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
 
   Map<String, dynamic> _deepCopy(Map<String, dynamic> src) {
     Map<String, dynamic> copyMap(Map m) => {
-          for (final e in m.entries)
-            e.key as String:
-                e.value is Map ? copyMap(e.value as Map) : e.value,
-        };
+      for (final e in m.entries)
+        e.key as String: e.value is Map ? copyMap(e.value as Map) : e.value,
+    };
     return copyMap(src);
   }
 
@@ -142,7 +142,8 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
     if (bra is! Map) return false;
     if ((bra['state'] ?? 'intact') != 'intact') return false;
     final base = (bra['base_tags'] as String?) ?? '';
-    return base.isNotEmpty && !rendered.tags.contains(base.split(',').first.trim());
+    return base.isNotEmpty &&
+        !rendered.tags.contains(base.split(',').first.trim());
   }
 
   bool _pantiesConcealed() {
@@ -151,7 +152,8 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
     if (p is! Map) return false;
     if ((p['state'] ?? 'intact') != 'intact') return false;
     final base = (p['base_tags'] as String?) ?? '';
-    return base.isNotEmpty && !rendered.tags.contains(base.split(',').first.trim());
+    return base.isNotEmpty &&
+        !rendered.tags.contains(base.split(',').first.trim());
   }
 
   @override
@@ -192,7 +194,9 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
                 decoration: BoxDecoration(
                   color: t.accentDanger.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(3),
-                  border: Border.all(color: t.accentDanger.withValues(alpha: 0.5)),
+                  border: Border.all(
+                    color: t.accentDanger.withValues(alpha: 0.5),
+                  ),
                 ),
                 child: Text(
                   'DISHEVELLED',
@@ -216,19 +220,29 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
               itemBuilder: (_) => [
                 PopupMenuItem(
                   value: 'reset',
-                  child: Row(children: [
-                    Icon(Icons.refresh, size: 14, color: t.textTertiary),
-                    const SizedBox(width: 8),
-                    Text('Reset to intact', style: TextStyle(fontSize: t.fontSize(11))),
-                  ]),
+                  child: Row(
+                    children: [
+                      Icon(Icons.refresh, size: 14, color: t.textTertiary),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Reset to intact',
+                        style: TextStyle(fontSize: t.fontSize(11)),
+                      ),
+                    ],
+                  ),
                 ),
                 PopupMenuItem(
                   value: 'reparse',
-                  child: Row(children: [
-                    Icon(Icons.find_replace, size: 14, color: t.textTertiary),
-                    const SizedBox(width: 8),
-                    Text('Re-parse from tags', style: TextStyle(fontSize: t.fontSize(11))),
-                  ]),
+                  child: Row(
+                    children: [
+                      Icon(Icons.find_replace, size: 14, color: t.textTertiary),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Re-parse from tags',
+                        style: TextStyle(fontSize: t.fontSize(11)),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -240,7 +254,8 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
           if (slot == 'dress') return _dressCard(t, it);
           if (slot == 'accessory') return _accessoryCards(t, it);
           final concealed =
-              (slot == 'bra' && braHidden) || (slot == 'panties' && pantiesHidden);
+              (slot == 'bra' && braHidden) ||
+              (slot == 'panties' && pantiesHidden);
           return _garmentCard(t, slot, it, concealed: concealed);
         }),
         const SizedBox(height: 10),
@@ -255,22 +270,32 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('→ RENDERED TAGS',
-                  style: TextStyle(
-                      color: t.textTertiary,
-                      fontSize: t.fontSize(8),
-                      letterSpacing: 1.5)),
+              Text(
+                '→ RENDERED TAGS',
+                style: TextStyle(
+                  color: t.textTertiary,
+                  fontSize: t.fontSize(8),
+                  letterSpacing: 1.5,
+                ),
+              ),
               const SizedBox(height: 4),
-              SelectableText(
-                rendered.tags.isEmpty ? '(empty)' : rendered.tags,
-                style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11)),
+              BrowserNativeSelectableText(
+                text: rendered.tags.isEmpty ? '(empty)' : rendered.tags,
+                style: TextStyle(
+                  color: t.textPrimary,
+                  fontSize: t.fontSize(11),
+                ),
               ),
               if (rendered.isDishevelled)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
-                  child: Text('+ nsfw',
-                      style: TextStyle(
-                          color: t.accentDanger, fontSize: t.fontSize(10))),
+                  child: Text(
+                    '+ nsfw',
+                    style: TextStyle(
+                      color: t.accentDanger,
+                      fontSize: t.fontSize(10),
+                    ),
+                  ),
                 ),
             ],
           ),
@@ -282,8 +307,10 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
             onPressed: () =>
                 widget.onApplyToPrompt(rendered.tags, rendered.isDishevelled),
             icon: const Icon(Icons.add, size: 14),
-            label: Text(widget.persistent ? 'APPLY TO PROMPT' : 'USE THESE TAGS',
-                style: TextStyle(fontSize: t.fontSize(10), letterSpacing: 1)),
+            label: Text(
+              widget.persistent ? 'APPLY TO PROMPT' : 'USE THESE TAGS',
+              style: TextStyle(fontSize: t.fontSize(10), letterSpacing: 1),
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: t.accent.withValues(alpha: 0.2),
               foregroundColor: t.accent,
@@ -298,12 +325,18 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
 
   // -- Garment card variants ------------------------------------------------
 
-  Widget _garmentCard(VisionTokens t, String slot, Map<String, dynamic> it,
-      {bool concealed = false}) {
+  Widget _garmentCard(
+    VisionTokens t,
+    String slot,
+    Map<String, dynamic> it, {
+    bool concealed = false,
+  }) {
     final garment = (it['garment'] as String?) ?? slot;
     final state = (it['state'] as String?) ?? 'intact';
     final valid = (kValidStates[slot] ?? const {'intact', 'removed'}).toList()
-      ..sort((a, b) => kOutfitStates.indexOf(a).compareTo(kOutfitStates.indexOf(b)));
+      ..sort(
+        (a, b) => kOutfitStates.indexOf(a).compareTo(kOutfitStates.indexOf(b)),
+      );
     return _cardShell(
       t,
       slotLabel: slot,
@@ -315,8 +348,12 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
         validStates: valid,
         onTap: concealed
             ? null
-            : () => _pickState(slot: slot, current: state, valid: valid,
-                onChosen: (v) => _setSlotState(slot, v)),
+            : () => _pickState(
+                slot: slot,
+                current: state,
+                valid: valid,
+                onChosen: (v) => _setSlotState(slot, v),
+              ),
       ),
     );
   }
@@ -326,9 +363,13 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
     final topState = (it['top_state'] as String?) ?? 'intact';
     final botState = (it['bottom_state'] as String?) ?? 'intact';
     final topValid = kValidDressTopStates.toList()
-      ..sort((a, b) => kOutfitStates.indexOf(a).compareTo(kOutfitStates.indexOf(b)));
+      ..sort(
+        (a, b) => kOutfitStates.indexOf(a).compareTo(kOutfitStates.indexOf(b)),
+      );
     final botValid = kValidDressBottomStates.toList()
-      ..sort((a, b) => kOutfitStates.indexOf(a).compareTo(kOutfitStates.indexOf(b)));
+      ..sort(
+        (a, b) => kOutfitStates.indexOf(a).compareTo(kOutfitStates.indexOf(b)),
+      );
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 3),
       padding: const EdgeInsets.all(8),
@@ -340,15 +381,20 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('dress',
-              style: TextStyle(
-                  color: t.textTertiary,
-                  fontSize: t.fontSize(8),
-                  letterSpacing: 1.5)),
+          Text(
+            'dress',
+            style: TextStyle(
+              color: t.textTertiary,
+              fontSize: t.fontSize(8),
+              letterSpacing: 1.5,
+            ),
+          ),
           const SizedBox(height: 2),
-          Text(garment,
-              style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(12)),
-              overflow: TextOverflow.ellipsis),
+          Text(
+            garment,
+            style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(12)),
+            overflow: TextOverflow.ellipsis,
+          ),
           const SizedBox(height: 6),
           Wrap(
             spacing: 8,
@@ -398,14 +444,16 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
             garmentLabel: entry.key,
             trailing: _statePill(
               t,
-              state: (entry.value is Map
+              state:
+                  (entry.value is Map
                       ? (entry.value['state'] as String?)
                       : null) ??
                   'intact',
               validStates: const ['intact', 'removed'],
               onTap: () => _pickState(
                 slot: 'accessory',
-                current: (entry.value is Map
+                current:
+                    (entry.value is Map
                         ? (entry.value['state'] as String?)
                         : null) ??
                     'intact',
@@ -420,11 +468,13 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
 
   // -- Visual primitives ----------------------------------------------------
 
-  Widget _cardShell(VisionTokens t,
-      {required String slotLabel,
-      required String garmentLabel,
-      required Widget trailing,
-      bool concealed = false}) {
+  Widget _cardShell(
+    VisionTokens t, {
+    required String slotLabel,
+    required String garmentLabel,
+    required Widget trailing,
+    bool concealed = false,
+  }) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 3),
       padding: const EdgeInsets.all(8),
@@ -440,19 +490,21 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(slotLabel,
-                    style: TextStyle(
-                        color: t.textTertiary,
-                        fontSize: t.fontSize(8),
-                        letterSpacing: 1.5)),
+                Text(
+                  slotLabel,
+                  style: TextStyle(
+                    color: t.textTertiary,
+                    fontSize: t.fontSize(8),
+                    letterSpacing: 1.5,
+                  ),
+                ),
                 const SizedBox(height: 2),
                 Text(
                   garmentLabel,
                   style: TextStyle(
                     color: concealed ? t.textMinimal : t.textPrimary,
                     fontSize: t.fontSize(12),
-                    fontStyle:
-                        concealed ? FontStyle.italic : FontStyle.normal,
+                    fontStyle: concealed ? FontStyle.italic : FontStyle.normal,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -466,10 +518,12 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
     );
   }
 
-  Widget _statePill(VisionTokens t,
-      {required String state,
-      required List<String> validStates,
-      VoidCallback? onTap}) {
+  Widget _statePill(
+    VisionTokens t, {
+    required String state,
+    required List<String> validStates,
+    VoidCallback? onTap,
+  }) {
     final tone = kStateTone[state] ?? 'neutral';
     final color = _toneColor(t, tone);
     final label = kStateLabels[state] ?? state;
@@ -487,14 +541,21 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(label,
-                style: TextStyle(
-                    color: color,
-                    fontSize: t.fontSize(10),
-                    fontWeight: FontWeight.w600)),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: t.fontSize(10),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             if (onTap != null) ...[
               const SizedBox(width: 4),
-              Icon(Icons.expand_more, size: 14, color: color.withValues(alpha: 0.7)),
+              Icon(
+                Icons.expand_more,
+                size: 14,
+                color: color.withValues(alpha: 0.7),
+              ),
             ],
           ],
         ),
@@ -502,10 +563,12 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
     );
   }
 
-  Widget _labelledPill(VisionTokens t,
-      {required String prefix,
-      required String state,
-      required VoidCallback onTap}) {
+  Widget _labelledPill(
+    VisionTokens t, {
+    required String prefix,
+    required String state,
+    required VoidCallback onTap,
+  }) {
     final tone = kStateTone[state] ?? 'neutral';
     final color = _toneColor(t, tone);
     final label = kStateLabels[state] ?? state;
@@ -523,20 +586,30 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(prefix,
-                style: TextStyle(
-                    color: color.withValues(alpha: 0.8),
-                    fontSize: t.fontSize(9),
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5)),
+            Text(
+              prefix,
+              style: TextStyle(
+                color: color.withValues(alpha: 0.8),
+                fontSize: t.fontSize(9),
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
+            ),
             const SizedBox(width: 6),
-            Text(label,
-                style: TextStyle(
-                    color: color,
-                    fontSize: t.fontSize(10),
-                    fontWeight: FontWeight.w600)),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: t.fontSize(10),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             const SizedBox(width: 4),
-            Icon(Icons.expand_more, size: 14, color: color.withValues(alpha: 0.7)),
+            Icon(
+              Icons.expand_more,
+              size: 14,
+              color: color.withValues(alpha: 0.7),
+            ),
           ],
         ),
       ),
@@ -579,22 +652,26 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-                child: Text(slot.toUpperCase(),
-                    style: TextStyle(
-                        color: t.textTertiary,
-                        fontSize: t.fontSize(9),
-                        letterSpacing: 1.5,
-                        fontWeight: FontWeight.bold)),
+                child: Text(
+                  slot.toUpperCase(),
+                  style: TextStyle(
+                    color: t.textTertiary,
+                    fontSize: t.fontSize(9),
+                    letterSpacing: 1.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
               for (final s in valid)
                 InkWell(
                   onTap: () => Navigator.of(ctx).pop(s),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
                     decoration: BoxDecoration(
-                      border: Border(
-                        top: BorderSide(color: t.borderSubtle),
-                      ),
+                      border: Border(top: BorderSide(color: t.borderSubtle)),
                     ),
                     child: Row(
                       children: [
@@ -608,13 +685,16 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: Text(kStateLabels[s] ?? s,
-                              style: TextStyle(
-                                  color: t.textPrimary,
-                                  fontSize: t.fontSize(13),
-                                  fontWeight: s == current
-                                      ? FontWeight.bold
-                                      : FontWeight.normal)),
+                          child: Text(
+                            kStateLabels[s] ?? s,
+                            style: TextStyle(
+                              color: t.textPrimary,
+                              fontSize: t.fontSize(13),
+                              fontWeight: s == current
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                          ),
                         ),
                         if (s == current)
                           Icon(Icons.check, size: 18, color: t.accent),

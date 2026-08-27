@@ -19,6 +19,8 @@ class ResultSetViewItem {
     this.width,
     this.height,
     this.seed,
+    this.infoTitle,
+    this.infoSubtitle,
     this.isLoading = false,
     this.isGenerating = false,
     this.errorMessage,
@@ -34,6 +36,8 @@ class ResultSetViewItem {
   final int? width;
   final int? height;
   final int? seed;
+  final String? infoTitle;
+  final String? infoSubtitle;
   final bool isLoading;
   final bool isGenerating;
   final String? errorMessage;
@@ -263,13 +267,13 @@ class ResultSetThumbnail extends StatelessWidget {
     required this.item,
     required this.selected,
     required this.onTap,
-    this.onDoubleTap,
+    this.showFooter = true,
   });
 
   final ResultSetViewItem item;
   final bool selected;
   final VoidCallback onTap;
-  final VoidCallback? onDoubleTap;
+  final bool showFooter;
 
   @override
   Widget build(BuildContext context) {
@@ -280,7 +284,6 @@ class ResultSetThumbnail extends StatelessWidget {
       borderRadius: BorderRadius.circular(6),
       child: InkWell(
         onTap: onTap,
-        onDoubleTap: onDoubleTap,
         borderRadius: BorderRadius.circular(6),
         child: DecoratedBox(
           decoration: BoxDecoration(
@@ -300,25 +303,26 @@ class ResultSetThumbnail extends StatelessWidget {
                     child: SizedBox.expand(child: _thumbnailBody(context)),
                   ),
                 ),
-                Container(
-                  height: 26,
-                  padding: const EdgeInsets.symmetric(horizontal: 7),
-                  alignment: Alignment.centerLeft,
-                  color: t.surfaceHigh.withValues(alpha: 0.92),
-                  child: Text(
-                    item.seed == null
-                        ? '${item.position}/${item.count}'
-                        : '${item.position}/${item.count}  seed ${item.seed}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: t.textTertiary,
-                      fontSize: t.fontSize(9),
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0,
+                if (showFooter)
+                  Container(
+                    height: 26,
+                    padding: const EdgeInsets.symmetric(horizontal: 7),
+                    alignment: Alignment.centerLeft,
+                    color: t.surfaceHigh.withValues(alpha: 0.92),
+                    child: Text(
+                      item.seed == null
+                          ? '${item.position}/${item.count}'
+                          : '${item.position}/${item.count}  seed ${item.seed}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: t.textTertiary,
+                        fontSize: t.fontSize(9),
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0,
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ),

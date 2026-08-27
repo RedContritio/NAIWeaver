@@ -7,6 +7,7 @@ import '../../../core/utils/app_snackbar.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/color_picker_dialog.dart';
 import '../../../core/widgets/confirm_dialog.dart';
+import '../../../core/widgets/browser_native_selectable_text.dart';
 import '../../generation/providers/generation_notifier.dart';
 import '../../text_gen/providers/text_gen_notifier.dart';
 import '../gen/providers/character_gen_notifier.dart';
@@ -775,8 +776,8 @@ class _CharacterEditorState extends State<_CharacterEditor> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      SelectableText(
-                        combined.isEmpty ? '(empty)' : combined,
+                      BrowserNativeSelectableText(
+                        text: combined.isEmpty ? '(empty)' : combined,
                         style: TextStyle(
                           color: t.textPrimary,
                           fontSize: t.fontSize(11),
