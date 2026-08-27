@@ -75,6 +75,59 @@ class GenerationFingerprintTests(unittest.TestCase):
         )
 
 
+class GenerationModelNormalizationTests(unittest.TestCase):
+    user = {
+        "can_generate_paid": 1,
+        "is_admin": 0,
+        "green_point_limit": 0,
+        "green_point_used": 0,
+        "green_point_discount": 0,
+    }
+
+    def request(self, *, model: str, action: str = "generate") -> bytes:
+        return json.dumps(
+            {
+                "input": "1girl",
+                "model": model,
+                "action": action,
+                "parameters": {
+                    "params_version": 3,
+                    "width": 832,
+                    "height": 1216,
+                    "steps": 23,
+                    "scale": 7.0,
+                    "sampler": "k_euler_ancestral",
+                    "seed": 123,
+                },
+            }
+        ).encode()
+
+    def test_old_full_client_is_normalized_to_v5(self) -> None:
+        _, parsed, _ = main.sanitize_novelai_generate_body(
+            self.request(model="nai-diffusion-4-5-full"), self.user
+        )
+
+        self.assertEqual(parsed["model"], main.NAI_V5_FULL_MODEL)
+        self.assertEqual(parsed["parameters"]["params_version"], 4)
+        self.assertEqual(parsed["parameters"]["n_samples"], 1)
+
+    def test_curated_generation_and_inpainting_match_official_routing(self) -> None:
+        _, generated, _ = main.sanitize_novelai_generate_body(
+            self.request(model="nai-diffusion-4-5-curated"), self.user
+        )
+        _, inpainted, _ = main.sanitize_novelai_generate_body(
+            self.request(
+                model="nai-diffusion-5-curated-inpainting", action="infill"
+            ),
+            self.user,
+        )
+
+        self.assertEqual(generated["model"], main.NAI_V5_CURATED_MODEL)
+        self.assertEqual(
+            inpainted["model"], main.NAI_V4_5_CURATED_INPAINTING_MODEL
+        )
+
+
 class AtomicGenerationBatchTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.db = sqlite3.connect(":memory:", isolation_level=None)

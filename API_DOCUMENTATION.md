@@ -1,4 +1,4 @@
-# NovelAI API V4.5 Documentation
+# NovelAI API V5 Documentation
 
 ## Endpoint
 `POST https://image.novelai.net/ai/generate-image`
@@ -14,7 +14,7 @@
 ```json
 {
   "input": "<prompt with styles applied>",
-  "model": "nai-diffusion-4-5-full",
+  "model": "nai-diffusion-5-full",
   "action": "generate | img2img",
   "parameters": { ... }
 }
@@ -45,9 +45,9 @@
 | `sm_dyn` | bool | `false` | Dynamic SMEA |
 | `dynamic_thresholding` | bool | `false` | Decrisper |
 
-### V4.5 Prompt Structure
+### V5 Prompt Structure
 
-The V4.5 API uses structured prompt objects instead of plain strings for multi-character support:
+The V5 API retains the `v4_prompt` and `v4_negative_prompt` structured fields for multi-character support:
 
 ```json
 {
@@ -104,9 +104,9 @@ NAIWeaver supports multi-participant interactions where multiple characters can 
 | `extra_noise_seed` | int | Seed for extra noise (usually same as main seed) |
 | `add_original_image` | bool | Whether to blend with original |
 
-Set `action: "img2img"` in the request body. For inpainting, set `action: "infill"` and use the model `nai-diffusion-4-5-full-inpainting`.
+Set `action: "img2img"` in the request body. For inpainting, set `action: "infill"` and use the model `nai-diffusion-5-full-inpainting`. NovelAI currently routes Curated inpainting through `nai-diffusion-4-5-curated-inpainting`.
 
-**Reference Inpainting:** Director Reference and Vibe Transfer parameters are supported during `infill` actions, allowing character/style references to guide what the AI infills into masked regions. The same reference parameters used for `generate` are passed alongside `image`, `mask`, and other inpainting parameters.
+**Current V5 limitation:** NovelAI has not yet enabled Precise Reference or Vibe Transfer for V5. V5 Full supports native inpainting; Curated inpainting currently uses the V4.5 Curated compatibility model.
 
 ### Director Reference (Precise Reference) Parameters
 
@@ -165,10 +165,10 @@ Content-Type: application/x-zip-compressed
 ```json
 {
   "input": "best quality, amazing quality, 1girl, solo, portrait",
-  "model": "nai-diffusion-4-5-full",
+  "model": "nai-diffusion-5-full",
   "action": "generate",
   "parameters": {
-    "params_version": 3,
+    "params_version": 4,
     "width": 832,
     "height": 1216,
     "scale": 6.0,
@@ -203,10 +203,10 @@ Content-Type: application/x-zip-compressed
 ```json
 {
   "input": "2girls, outdoor, park",
-  "model": "nai-diffusion-4-5-full",
+  "model": "nai-diffusion-5-full",
   "action": "generate",
   "parameters": {
-    "params_version": 3,
+    "params_version": 4,
     "width": 1216,
     "height": 832,
     "scale": 6.0,
@@ -272,7 +272,7 @@ Content-Type: application/x-zip-compressed
 ```json
 {
   "input": "1girl, detailed background",
-  "model": "nai-diffusion-4-5-full",
+  "model": "nai-diffusion-5-full",
   "action": "img2img",
   "parameters": {
     "...": "...core params...",

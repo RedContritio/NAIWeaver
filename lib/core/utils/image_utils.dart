@@ -8,6 +8,14 @@ import 'package:image/image.dart' as img;
 Uint8List injectMetadata(Map<String, dynamic> data) {
   final bytes = data['bytes'] as Uint8List;
   final metadata = data['metadata'] as Map<String, dynamic>;
+  final model = metadata['model'] as String? ?? '';
+
+  final source = switch (model) {
+    'nai-diffusion-5-full' => 'NovelAI Diffusion V5 657484A5',
+    'nai-diffusion-5-full-inpainting' => 'NovelAI Diffusion V5 0ADF9AB7',
+    'nai-diffusion-5-curated' => 'NovelAI Diffusion V5 DB276663',
+    _ => 'NovelAI Diffusion V5',
+  };
 
   final image = _decodePngSafe(bytes);
   if (image == null) return bytes;
@@ -17,7 +25,7 @@ Uint8List injectMetadata(Map<String, dynamic> data) {
     'Title': 'NovelAI generated image',
     'Description': metadata['prompt'] ?? '',
     'Software': 'NovelAI',
-    'Source': 'NovelAI Diffusion V4.5 4BDE2A90',
+    'Source': source,
     // NovelAI stores full generation parameters in the Comment field as JSON
     'Comment': jsonEncode(metadata),
   };

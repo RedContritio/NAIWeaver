@@ -84,8 +84,19 @@ class GenerationRequestException implements Exception {
   });
 }
 
-/// Service to interact with NovelAI Image Generation API (V4.5)
+/// Service to interact with the NovelAI Image Generation API (V5).
 class NovelAIService {
+  static const String v5CuratedModel = 'nai-diffusion-5-curated';
+  static const String v5FullModel = 'nai-diffusion-5-full';
+  static const String v5FullInpaintingModel = 'nai-diffusion-5-full-inpainting';
+
+  // NovelAI V5 does not yet provide Curated inpainting or Vibe Transfer.
+  // These are the same compatibility models currently used by novelai.net.
+  static const String v4_5CuratedInpaintingModel =
+      'nai-diffusion-4-5-curated-inpainting';
+  static const String v4_5CuratedModel = 'nai-diffusion-4-5-curated';
+  static const String v4_5FullModel = 'nai-diffusion-4-5-full';
+
   final Dio _dio = Dio();
   final String _apiKey;
 
@@ -251,9 +262,9 @@ class NovelAIService {
     final url = _imageUrl('/ai/encode-vibe');
     final body = {
       "image": imageBase64,
-      "model": useCurated
-          ? "nai-diffusion-4-5-curated"
-          : "nai-diffusion-4-5-full",
+      // Vibe Transfer is not available for V5 yet, so encoding remains on
+      // the matching V4.5 model until NovelAI exposes V5 support.
+      "model": useCurated ? v4_5CuratedModel : v4_5FullModel,
       "information_extracted": informationExtracted,
     };
 
@@ -389,7 +400,7 @@ class NovelAIService {
     }
 
     final parameters = <String, dynamic>{
-      "params_version": 3,
+      "params_version": 4,
       "width": width,
       "height": height,
       "scale": scale,
@@ -463,12 +474,8 @@ class NovelAIService {
     final body = <String, dynamic>{
       "input": inputPrompt,
       "model": action == 'infill'
-          ? (useCurated
-                ? "nai-diffusion-4-5-curated-inpainting"
-                : "nai-diffusion-4-5-full-inpainting")
-          : (useCurated
-                ? "nai-diffusion-4-5-curated"
-                : "nai-diffusion-4-5-full"),
+          ? (useCurated ? v4_5CuratedInpaintingModel : v5FullInpaintingModel)
+          : (useCurated ? v5CuratedModel : v5FullModel),
       "action": action,
       "parameters": parameters,
     };
@@ -535,7 +542,7 @@ class NovelAIService {
     }
   }
 
-  /// Generates an image using the NAI Diffusion V4.5 model.
+  /// Generates an image using the NAI Diffusion V5 model.
   ///
   /// For img2img: set [action] to `"img2img"`, provide [sourceImageBase64],
   /// and optionally [maskBase64] for inpainting.

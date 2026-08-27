@@ -134,6 +134,10 @@ TARGET_BASES = {
     "api": "https://api.novelai.net",
     "text": "https://text.novelai.net",
 }
+NAI_V5_CURATED_MODEL = "nai-diffusion-5-curated"
+NAI_V5_FULL_MODEL = "nai-diffusion-5-full"
+NAI_V5_FULL_INPAINTING_MODEL = "nai-diffusion-5-full-inpainting"
+NAI_V4_5_CURATED_INPAINTING_MODEL = "nai-diffusion-4-5-curated-inpainting"
 HOP_BY_HOP_HEADERS = {
     "connection",
     "keep-alive",
@@ -2341,6 +2345,22 @@ def sanitize_novelai_generate_body(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Steps exceed server limit")
     if sampler not in ALLOWED_SAMPLERS:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Sampler is not allowed")
+
+    # Keep every gateway client on the same current models as novelai.net,
+    # including older cached web builds that still submit a V4.5 model ID.
+    # NovelAI currently routes Curated inpainting through V4.5 while Full has
+    # a native V5 inpainting model.
+    requested_model = str(data.get("model", ""))
+    use_curated = "curated" in requested_model.lower()
+    if data.get("action") == "infill":
+        data["model"] = (
+            NAI_V4_5_CURATED_INPAINTING_MODEL
+            if use_curated
+            else NAI_V5_FULL_INPAINTING_MODEL
+        )
+    else:
+        data["model"] = NAI_V5_CURATED_MODEL if use_curated else NAI_V5_FULL_MODEL
+    params["params_version"] = 4
     params["n_samples"] = 1
     data["parameters"] = params
 
