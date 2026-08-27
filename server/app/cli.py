@@ -81,6 +81,8 @@ def role_defaults(role: str) -> dict[str, object]:
 def cmd_create_user(args: argparse.Namespace) -> None:
     init_db()
     defaults = role_defaults(args.role)
+    if args.green_points is not None:
+        defaults["green_point_limit"] = args.green_points
     with db_connect() as db:
         existing = db.execute(
             "SELECT id FROM users WHERE username = ?", (args.username,)
@@ -260,6 +262,11 @@ def build_parser() -> argparse.ArgumentParser:
     create = user_sub.add_parser("create")
     create.add_argument("username")
     create.add_argument("--role", choices=["free", "paid", "admin"], default="free")
+    create.add_argument(
+        "--green-points",
+        type=lambda value: max(0, int(value)),
+        help="override the role's permanent green-point total",
+    )
     create.add_argument("--update", action="store_true")
     create.set_defaults(func=cmd_create_user)
 

@@ -67,10 +67,18 @@ Create a user, or apply one of the predefined roles to an existing user:
 # Roles: free, paid, admin
 .venv/bin/python -m app.cli user create alice --role free
 .venv/bin/python -m app.cli user create alice --role paid --update
+.venv/bin/python -m app.cli user create agent_test --role free --green-points 10000
 ```
 
 `--update` changes the role permissions and its default total point limits. It
 does not erase points that have already been consumed. Use it deliberately.
+`--green-points` overrides the selected role's permanent green-point total.
+
+`agent_test` is the canonical account for live browser, smoke, and end-to-end
+tests against the deployed service. Keep credentials and WebAuthn enrollment
+links outside the repository. Isolated unit tests must continue using their
+local fixture users so role, migration, and multi-user behavior remain
+deterministic and never mutate production data.
 
 Enable or disable a user:
 
