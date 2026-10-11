@@ -122,7 +122,7 @@ class ErrorFormatTests(HttpContractTestCase):
             page = await self.client.get("/history")
         self.assertError(api, 404, "not_found")
         self.assertEqual(page.status_code, 302)
-        self.assertEqual(page.headers["location"], "/auth/login")
+        self.assertEqual(page.headers["location"], "/auth/login?return_to=%2Fhistory")
 
     async def test_missing_session_is_not_authenticated(self) -> None:
         self.client.cookies.clear()

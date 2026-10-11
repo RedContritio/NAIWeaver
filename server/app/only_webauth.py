@@ -97,7 +97,7 @@ class OnlyWebAuth:
     max_browser_flows = 16
 
     def __init__(self, public_url: str, session_ttl: int,
-                 connect: Callable[[], sqlite3.Connection] | None = None):
+                 connect: Callable[[], sqlite3.Connection]):
         self.issuer = os.getenv("NAIWEAVER_AUTH_ISSUER", "").rstrip("/")
         self.enabled = bool(self.issuer)
         self.client_id = os.getenv("NAIWEAVER_AUTH_CLIENT_ID", "naiweaver")
@@ -123,9 +123,9 @@ class OnlyWebAuth:
         self.key_lock = asyncio.Lock()
         # Pending logins by state, oldest first; they only live for FLOW_TTL.
         self.flows = OrderedDict()
-        # Sessions are kept in SQLite so they survive a restart. The factory is
-        # called once; without one they live in a private in-memory database.
-        self.connect = connect or (lambda: sqlite3.connect(":memory:"))
+        # Sessions are kept in SQLite so they survive a restart; the factory is
+        # called once, on first use.
+        self.connect = connect
         self._db = None
         self.refresh_locks = weakref.WeakValueDictionary()
 
@@ -242,7 +242,7 @@ class OnlyWebAuth:
         target = quote(request.url.path) + (f"?{request.url.query}" if request.url.query else "")
         return "/auth/login?" + urlencode({"return_to": target})
 
-    async def login(self, request: Request | None = None):
+    async def login(self, request: Request):
         # The request supplies return_to and this browser's pending flow cookies.
         if not self.enabled:
             raise auth_error(503, "auth_unavailable", "only WebAuth is not configured")
@@ -254,7 +254,7 @@ class OnlyWebAuth:
         state, nonce, verifier = (secrets.token_urlsafe(32) for _ in range(3))
         self.flows[state] = {
             "nonce": nonce, "verifier": verifier, "expires": time.monotonic() + FLOW_TTL,
-            "return_to": safe_return_to(request.query_params.get("return_to")) if request else "/",
+            "return_to": safe_return_to(request.query_params.get("return_to")),
         }
         while len(self.flows) > self.max_flows:
             self.flows.popitem(last=False)
@@ -267,7 +267,7 @@ class OnlyWebAuth:
         response = redirect(metadata["authorization_endpoint"] + "?" + query)
         response.set_cookie(self.flow_cookie_name(state), state, secure=True, httponly=True,
                             samesite="lax", max_age=FLOW_TTL)
-        for name in self.surplus_flow_cookies(request) if request else ():
+        for name in self.surplus_flow_cookies(request):
             response.delete_cookie(name, secure=True, httponly=True, samesite="lax")
         return response
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import copy
 import hashlib
-from contextlib import asynccontextmanager, contextmanager
+from contextlib import asynccontextmanager, closing, contextmanager
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from io import BytesIO
@@ -15,7 +15,7 @@ import re
 import secrets
 import sqlite3
 import time
-from typing import Any, Iterator
+from typing import Any, Iterator, Literal
 from zipfile import ZipFile
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
@@ -24,6 +24,13 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Stre
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
 from .only_webauth import OnlyWebAuth
+from .roles import (
+    DEFAULT_ADMIN_RED_POINTS,
+    DEFAULT_GREEN_POINT_LIMIT,
+    DEFAULT_RED_POINTS,
+    POINT_TOTAL_FIELDS,
+    role_defaults,
+)
 
 from .billing import (
     ALLOWED_SAMPLERS,
@@ -95,7 +102,7 @@ FAKE_NOVELAI = os.environ.get("NAIWEAVER_FAKE_NOVELAI", "0") == "1"
 PUBLIC_BASE_URL = os.environ.get(
     "NAIWEAVER_PUBLIC_BASE_URL", "http://127.0.0.1:8000"
 ).rstrip("/")
-only_auth = OnlyWebAuth(PUBLIC_BASE_URL, SESSION_TTL_SECONDS)
+only_auth = OnlyWebAuth(PUBLIC_BASE_URL, SESSION_TTL_SECONDS, lambda: db_connect())
 MAX_REQUEST_BODY_BYTES = int(os.environ.get("NAIWEAVER_MAX_REQUEST_BODY_BYTES", "25000000"))
 CORS_ORIGINS = [
     origin.strip()
@@ -103,12 +110,7 @@ CORS_ORIGINS = [
     if origin.strip()
 ]
 
-DEFAULT_GREEN_POINT_LIMIT = int(os.environ.get("NAIWEAVER_GREEN_POINT_LIMIT", "4000"))
 STANDARD_GREEN_IMAGE_POINTS = 20
-DEFAULT_RED_POINTS = int(os.environ.get("NAIWEAVER_RED_POINTS", "3000"))
-DEFAULT_ADMIN_RED_POINTS = int(
-    os.environ.get("NAIWEAVER_ADMIN_RED_POINTS", "5000")
-)
 TEXT_GLOBAL_CONCURRENCY = int(os.environ.get("NAIWEAVER_TEXT_CONCURRENCY", "3"))
 MAX_QUEUED_IMAGE_TASKS_PER_USER = int(
     os.environ.get("NAIWEAVER_MAX_QUEUED_IMAGE_TASKS_PER_USER", "20")
@@ -539,17 +541,19 @@ class UserCreateRequest(BaseModel):
 
     username: str = Field(min_length=1, max_length=80)
     password: str | None = Field(default=None, min_length=1, max_length=256)
-    is_admin: bool = False
+    # The role supplies every default; fields left out take its values.
+    role: Literal["free", "paid", "admin"] = "free"
+    is_admin: bool | None = None
     disabled: bool = False
-    green_point_discount: int = Field(default=0, ge=0, le=100)
-    can_generate_paid: bool = False
-    can_text_generate: bool = True
-    can_image_upscale: bool = True
-    can_image_augment: bool = True
-    can_image_encode_vibe: bool = True
-    green_point_limit: int = Field(default=DEFAULT_GREEN_POINT_LIMIT, ge=0)
+    green_point_discount: int | None = Field(default=None, ge=0, le=100)
+    can_generate_paid: bool | None = None
+    can_text_generate: bool | None = None
+    can_image_upscale: bool | None = None
+    can_image_augment: bool | None = None
+    can_image_encode_vibe: bool | None = None
+    green_point_limit: int | None = Field(default=None, ge=0)
     green_point_used: int = Field(default=0, ge=0)
-    red_points: int = Field(default=DEFAULT_RED_POINTS, ge=0)
+    red_points: int | None = Field(default=None, ge=0)
     red_points_used: int = Field(default=0, ge=0)
 
 
@@ -622,7 +626,7 @@ def init_db() -> None:
     IMAGE_DIR.mkdir(parents=True, exist_ok=True)
     THUMBNAIL_DIR.mkdir(parents=True, exist_ok=True)
     AUDIT_DIR.mkdir(parents=True, exist_ok=True)
-    with db_connect() as db:
+    with closing(db_connect()) as db:
         db.executescript(SCHEMA)
         migrate_db(db)
         db.commit()
@@ -950,61 +954,41 @@ def bootstrap_users() -> None:
     admin_password_env = os.environ.get("NAIWEAVER_ADMIN_PASSWORD")
     admin_password = admin_password_env or "local-test-admin"
     samples = [
-        ("admin", admin_password, 1, 1, 100, DEFAULT_GREEN_POINT_LIMIT, DEFAULT_ADMIN_RED_POINTS),
-        ("free_user", "free-test-pass", 0, 0, 0, DEFAULT_GREEN_POINT_LIMIT, 0),
-        (
-            "paid_user",
-            "paid-test-pass",
-            0,
-            1,
-            0,
-            DEFAULT_GREEN_POINT_LIMIT,
-            DEFAULT_RED_POINTS,
-        ),
+        ("admin", admin_password, "admin"),
+        ("free_user", "free-test-pass", "free"),
+        ("paid_user", "paid-test-pass", "paid"),
     ]
-    with db_connect() as db:
-        for (
-            username,
-            password,
-            is_admin,
-            can_paid,
-            green_discount,
-            green_limit,
-            paid_points,
-        ) in samples:
+    with closing(db_connect()) as db:
+        for username, password, role in samples:
             existing = db.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
             if existing:
                 if username == "admin" and admin_password_env:
+                    # Point totals are balances; only permissions are re-applied.
+                    changes = {
+                        "password_hash": hash_password(admin_password),
+                        "disabled": 0,
+                        **{
+                            name: value
+                            for name, value in role_defaults("admin").items()
+                            if name not in POINT_TOTAL_FIELDS
+                        },
+                    }
+                    assignments = ", ".join(f"{name} = ?" for name in changes)
                     db.execute(
-                        """
-                        UPDATE users
-                        SET password_hash = ?, is_admin = 1, disabled = 0,
-                            green_point_discount = 100, can_generate_paid = 1,
-                            red_points = ?
-                        WHERE username = 'admin'
-                        """,
-                        (hash_password(admin_password), DEFAULT_ADMIN_RED_POINTS),
+                        f"UPDATE users SET {assignments} WHERE id = ?",
+                        (*changes.values(), existing["id"]),
                     )
                 continue
+            columns = {
+                "username": username,
+                "password_hash": hash_password(password),
+                **role_defaults(role),
+                "created_at": now_iso(),
+            }
             db.execute(
-                """
-                INSERT INTO users(
-                  username, password_hash, is_admin, green_point_discount,
-                  can_generate_paid, green_point_limit,
-                  red_points, red_points_used, created_at
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)
-                """,
-                (
-                    username,
-                    hash_password(password),
-                    is_admin,
-                    green_discount,
-                    can_paid,
-                    green_limit,
-                    paid_points,
-                    now_iso(),
-                ),
+                f"INSERT INTO users({', '.join(columns)}) "
+                f"VALUES ({', '.join('?' for _ in columns)})",
+                tuple(columns.values()),
             )
         db.commit()
 
@@ -1050,7 +1034,7 @@ async def lifespan(_: FastAPI):
                 pass
         if http_client is not None:
             await http_client.aclose()
-        await only_auth.http.aclose()
+        await only_auth.aclose()
 
 
 app = FastAPI(title="NAIWeaver Web Gateway", version="0.2.0", lifespan=lifespan)
@@ -1290,25 +1274,15 @@ def me(user: sqlite3.Row = Depends(require_user), db: sqlite3.Connection = Depen
 
 
 @app.get("/auth/login")
-async def only_webauth_login():
-    try:
-        return await only_auth.login()
-    except HTTPException:
-        raise
-    except Exception:
-        raise HTTPException(503, "认证服务暂时不可用，请稍后重试。")
+async def only_webauth_login(request: Request):
+    return await only_auth.login(request)
 
 
 @app.get("/auth/callback")
 async def only_webauth_callback(request: Request, db: sqlite3.Connection = Depends(get_db)):
     if not only_auth.enabled:
         raise HTTPException(404, "Not found")
-    try:
-        return await only_auth.callback(request, db)
-    except HTTPException:
-        raise
-    except Exception:
-        raise HTTPException(403, "认证未完成，请从 NAIWeaver 重新发起登录。")
+    return await only_auth.callback(request, db)
 
 
 def usage_for(db: sqlite3.Connection, user_id: int, mode: str) -> int:
@@ -1636,34 +1610,28 @@ def admin_create_user(
     _: sqlite3.Row = Depends(require_admin),
     db: sqlite3.Connection = Depends(get_db),
 ):
+    values = role_defaults(payload.role)
+    values.update(
+        (name, value)
+        for name in values
+        if (value := getattr(payload, name)) is not None
+    )
+    if values["is_admin"]:
+        values["green_point_discount"] = 100
+    columns = {
+        "username": payload.username,
+        "password_hash": hash_password(payload.password or secrets.token_urlsafe(32)),
+        **{name: int(value) for name, value in values.items()},
+        "disabled": int(payload.disabled),
+        "green_point_used": payload.green_point_used,
+        "red_points_used": payload.red_points_used,
+        "created_at": now_iso(),
+    }
     try:
         db.execute(
-            """
-            INSERT INTO users(
-              username, password_hash, is_admin, disabled, green_point_discount,
-              can_generate_paid, can_text_generate, can_image_upscale,
-              can_image_augment, can_image_encode_vibe, green_point_limit,
-              green_point_used, red_points, red_points_used, created_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                payload.username,
-                hash_password(payload.password or secrets.token_urlsafe(32)),
-                int(payload.is_admin),
-                int(payload.disabled),
-                100 if payload.is_admin else payload.green_point_discount,
-                int(payload.can_generate_paid),
-                int(payload.can_text_generate),
-                int(payload.can_image_upscale),
-                int(payload.can_image_augment),
-                int(payload.can_image_encode_vibe),
-                payload.green_point_limit,
-                payload.green_point_used,
-                payload.red_points,
-                payload.red_points_used,
-                now_iso(),
-            ),
+            f"INSERT INTO users({', '.join(columns)}) "
+            f"VALUES ({', '.join('?' for _ in columns)})",
+            tuple(columns.values()),
         )
         db.commit()
     except sqlite3.IntegrityError:
@@ -1701,7 +1669,12 @@ def admin_update_user(
         "red_points",
         "red_points_used",
     }
-    for field in sorted(payload.model_fields_set):
+    fields = set(payload.model_fields_set)
+    makes_admin = bool(payload.is_admin) and "is_admin" in fields
+    if makes_admin:
+        # Administrators are always unlimited, as when one is created.
+        fields.add("green_point_discount")
+    for field in sorted(fields):
         if field == "password":
             if payload.password:
                 assignments.append("password_hash = ?")
@@ -1711,7 +1684,11 @@ def admin_update_user(
             values.append(int(bool(getattr(payload, field))))
         elif field in int_fields:
             assignments.append(f"{field} = ?")
-            values.append(getattr(payload, field))
+            values.append(
+                100
+                if makes_admin and field == "green_point_discount"
+                else getattr(payload, field)
+            )
     if assignments:
         values.append(user_id)
         db.execute(f"UPDATE users SET {', '.join(assignments)} WHERE id = ?", values)
@@ -3802,7 +3779,11 @@ async def serve_web(path: str, request: Request):
         except HTTPException as exc:
             if exc.status_code != 401:
                 raise
-            return RedirectResponse("/auth/login", status_code=302, headers={"Cache-Control": "no-store"})
+            return RedirectResponse(
+                only_auth.login_location(request),
+                status_code=302,
+                headers={"Cache-Control": "no-store"},
+            )
         finally:
             db.close()
     web_root = WEB_BUILD_DIR.resolve()
