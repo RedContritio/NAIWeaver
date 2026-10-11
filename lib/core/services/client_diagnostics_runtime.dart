@@ -88,23 +88,7 @@ class ClientDiagnosticsRuntime with WidgetsBindingObserver {
 
   bool _onKeyEvent(KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
-    final key = event.logicalKey;
-    final category = switch (key) {
-      LogicalKeyboardKey.enter || LogicalKeyboardKey.numpadEnter => 'enter',
-      LogicalKeyboardKey.escape => 'escape',
-      LogicalKeyboardKey.tab => 'tab',
-      LogicalKeyboardKey.backspace || LogicalKeyboardKey.delete => 'editing',
-      LogicalKeyboardKey.arrowUp ||
-      LogicalKeyboardKey.arrowDown ||
-      LogicalKeyboardKey.arrowLeft ||
-      LogicalKeyboardKey.arrowRight ||
-      LogicalKeyboardKey.home ||
-      LogicalKeyboardKey.end ||
-      LogicalKeyboardKey.pageUp ||
-      LogicalKeyboardKey.pageDown => 'navigation',
-      _ when key.keyLabel.length == 1 => 'character',
-      _ => 'command',
-    };
+    final category = clientDiagnosticKeyCategory(event.logicalKey);
     // Text entry is captured as length/selection changes by the controllers.
     // Logging both browser and Flutter character key events would add no
     // diagnostic signal and would evict more valuable lifecycle history.
