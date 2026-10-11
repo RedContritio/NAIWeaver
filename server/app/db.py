@@ -5,57 +5,57 @@ from datetime import date, datetime, timezone
 import hashlib
 import json
 import os
+import re
 import sqlite3
 from typing import Any, Iterator
 
 from . import config
-from .roles import (
-    DEFAULT_GREEN_POINT_LIMIT,
-    DEFAULT_RED_POINTS,
-    POINT_TOTAL_FIELDS,
-    role_defaults,
-)
+from .roles import POINT_TOTAL_FIELDS, role_defaults
 from .security import hash_password
 
-SCHEMA = """
-PRAGMA foreign_keys = ON;
+# Bump together with SCHEMA and the `PRAGMA user_version` below. The service
+# starts only on exactly this version; an older database is upgraded once by
+# `python -m app.cli db upgrade` and is never migrated on startup.
+SCHEMA_VERSION = 1
 
-CREATE TABLE IF NOT EXISTS schema_migrations (
-  migration_key TEXT PRIMARY KEY,
-  applied_at TEXT NOT NULL
-);
+# Shared with the WebAuth session store, which also creates it on demand when
+# it runs on a connection of its own (tests).
+ONLY_WEBAUTH_SESSIONS_DDL = """
+CREATE TABLE IF NOT EXISTS only_webauth_sessions (
+  id TEXT PRIMARY KEY,
+  subject TEXT NOT NULL,
+  user_id INTEGER NOT NULL,
+  refresh_token TEXT NOT NULL,
+  access_expires REAL NOT NULL,
+  expires REAL NOT NULL
+)
+"""
 
--- Keep the source values for destructive quota-schema migrations. This is
--- intentionally separate from users so a later repair never has to guess
--- what a retired column contained.
-CREATE TABLE IF NOT EXISTS legacy_quota_snapshots (
-  user_id INTEGER PRIMARY KEY,
-  values_json TEXT NOT NULL,
-  captured_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS users (
+# The column order of retained tables follows the production database, so the
+# upgrade only has to rebuild the two tables that lose columns.
+SCHEMA = f"""
+CREATE TABLE users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   username TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   is_admin INTEGER NOT NULL DEFAULT 0,
   disabled INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
   can_generate_paid INTEGER NOT NULL DEFAULT 0,
   can_text_generate INTEGER NOT NULL DEFAULT 1,
   can_image_upscale INTEGER NOT NULL DEFAULT 1,
   can_image_augment INTEGER NOT NULL DEFAULT 1,
   can_image_encode_vibe INTEGER NOT NULL DEFAULT 1,
-  green_point_limit INTEGER NOT NULL DEFAULT 4000,
   green_point_used INTEGER NOT NULL DEFAULT 0,
-  green_points_reserved INTEGER NOT NULL DEFAULT 0,
+  green_point_limit INTEGER NOT NULL DEFAULT 4000,
   green_point_discount INTEGER NOT NULL DEFAULT 0,
   red_points INTEGER NOT NULL DEFAULT 3000,
   red_points_used INTEGER NOT NULL DEFAULT 0,
-  red_points_reserved INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL
+  green_points_reserved INTEGER NOT NULL DEFAULT 0,
+  red_points_reserved INTEGER NOT NULL DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS sessions (
+CREATE TABLE sessions (
   id TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   expires_at TEXT NOT NULL,
@@ -63,21 +63,14 @@ CREATE TABLE IF NOT EXISTS sessions (
   created_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS quota_usage (
-  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  quota_date TEXT NOT NULL,
-  mode TEXT NOT NULL,
-  used INTEGER NOT NULL DEFAULT 0,
-  PRIMARY KEY (user_id, quota_date, mode)
-);
+{ONLY_WEBAUTH_SESSIONS_DDL};
 
-CREATE TABLE IF NOT EXISTS generation_tasks (
+-- One row per image. reserved_points is the amount held while the item is
+-- queued or running, in the point kind of its mode; consumed_* is what it
+-- finally charged.
+CREATE TABLE generation_tasks (
   id TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  mode TEXT NOT NULL,
-  queue_class TEXT,
-  queue_weight INTEGER,
-  virtual_finish REAL,
   status TEXT NOT NULL,
   prompt TEXT NOT NULL,
   negative_prompt TEXT NOT NULL DEFAULT '',
@@ -87,86 +80,86 @@ CREATE TABLE IF NOT EXISTS generation_tasks (
   scale REAL NOT NULL,
   sampler TEXT NOT NULL,
   seed INTEGER NOT NULL,
-  cost INTEGER NOT NULL DEFAULT 1,
   image_path TEXT,
   error_message TEXT,
-  anlas_before INTEGER,
-  anlas_after INTEGER,
-  paid_points_charged INTEGER NOT NULL DEFAULT 0,
-  reserved_points INTEGER NOT NULL DEFAULT 0,
-  reserved_green_points INTEGER NOT NULL DEFAULT 0,
-  reserved_red_points INTEGER NOT NULL DEFAULT 0,
-  consumed_green_points INTEGER NOT NULL DEFAULT 0,
-  consumed_red_points INTEGER NOT NULL DEFAULT 0,
-  released_green_points INTEGER NOT NULL DEFAULT 0,
-  released_red_points INTEGER NOT NULL DEFAULT 0,
-  batch_id TEXT,
-  batch_index INTEGER,
-  request_fingerprint TEXT,
   request_json TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  completed_at TEXT,
+  mode TEXT NOT NULL DEFAULT 'free',
+  queue_class TEXT,
+  queue_weight INTEGER,
+  virtual_finish REAL,
   queued_at TEXT,
   started_at TEXT,
-  completed_at TEXT,
-  created_at TEXT NOT NULL
+  request_fingerprint TEXT,
+  reserved_points INTEGER NOT NULL DEFAULT 0,
+  batch_id TEXT,
+  batch_index INTEGER,
+  consumed_green_points INTEGER NOT NULL DEFAULT 0,
+  consumed_red_points INTEGER NOT NULL DEFAULT 0
 );
 
--- A task is one user submission. Existing generation_tasks rows are its
--- image-level items; their batch_id is migrated into this parent record.
-CREATE TABLE IF NOT EXISTS generation_submission_tasks (
+CREATE INDEX idx_generation_tasks_user_fingerprint
+ON generation_tasks(user_id, request_fingerprint);
+
+-- A submission groups the items (generation_tasks.batch_id) of one request.
+CREATE TABLE generation_submission_tasks (
   id TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  client_request_id TEXT,
-  request_hash TEXT,
   type TEXT NOT NULL CHECK(type IN ('single', 'batch')),
   status TEXT NOT NULL,
   item_count INTEGER NOT NULL DEFAULT 0,
-  reserved_points INTEGER NOT NULL DEFAULT 0,
-  consumed_points INTEGER NOT NULL DEFAULT 0,
-  released_points INTEGER NOT NULL DEFAULT 0,
-  reserved_green_points INTEGER NOT NULL DEFAULT 0,
-  reserved_red_points INTEGER NOT NULL DEFAULT 0,
-  consumed_green_points INTEGER NOT NULL DEFAULT 0,
-  consumed_red_points INTEGER NOT NULL DEFAULT 0,
-  released_green_points INTEGER NOT NULL DEFAULT 0,
-  released_red_points INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
-  completed_at TEXT
+  completed_at TEXT,
+  client_request_id TEXT,
+  request_hash TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_generation_submission_tasks_user_created
+CREATE INDEX idx_generation_submission_tasks_user_created
 ON generation_submission_tasks(user_id, created_at DESC);
 
-CREATE TABLE IF NOT EXISTS history_hidden (
+CREATE UNIQUE INDEX idx_generation_submission_tasks_idempotency
+ON generation_submission_tasks(user_id, client_request_id)
+WHERE client_request_id IS NOT NULL;
+
+-- Machine-readable failure reason of a generation item (contract section 1).
+CREATE TABLE generation_item_errors (
+  item_id TEXT PRIMARY KEY REFERENCES generation_tasks(id) ON DELETE CASCADE,
+  error_code TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE history_hidden (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   task_id TEXT NOT NULL REFERENCES generation_tasks(id) ON DELETE CASCADE,
   hidden_at TEXT NOT NULL,
   PRIMARY KEY (user_id, task_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_history_hidden_task_id ON history_hidden(task_id);
+CREATE INDEX idx_history_hidden_task_id ON history_hidden(task_id);
 
-CREATE TABLE IF NOT EXISTS request_audit_logs (
+CREATE TABLE request_audit_logs (
   id TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   service TEXT NOT NULL,
   path TEXT NOT NULL,
   method TEXT NOT NULL,
   status_code INTEGER,
-  request_content_type TEXT NOT NULL DEFAULT '',
   request_json TEXT NOT NULL DEFAULT '',
+  error_message TEXT,
+  created_at TEXT NOT NULL,
+  completed_at TEXT,
+  request_content_type TEXT NOT NULL DEFAULT '',
   request_body_path TEXT,
   request_body_bytes INTEGER NOT NULL DEFAULT 0,
   request_body_sha256 TEXT NOT NULL DEFAULT '',
-  request_body_expired_at TEXT,
-  error_message TEXT,
-  created_at TEXT NOT NULL,
-  completed_at TEXT
+  request_body_expired_at TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_request_audit_logs_user_id ON request_audit_logs(user_id);
-CREATE INDEX IF NOT EXISTS idx_request_audit_logs_created_at ON request_audit_logs(created_at);
+CREATE INDEX idx_request_audit_logs_user_id ON request_audit_logs(user_id);
+CREATE INDEX idx_request_audit_logs_created_at ON request_audit_logs(created_at);
 
-CREATE TABLE IF NOT EXISTS client_feedback_reports (
+CREATE TABLE client_feedback_reports (
   id TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   description TEXT NOT NULL DEFAULT '',
@@ -176,21 +169,14 @@ CREATE TABLE IF NOT EXISTS client_feedback_reports (
   created_at TEXT NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_client_feedback_reports_user_created
+CREATE INDEX idx_client_feedback_reports_user_created
 ON client_feedback_reports(user_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_client_feedback_reports_created
+CREATE INDEX idx_client_feedback_reports_created
 ON client_feedback_reports(created_at DESC);
 
--- Machine-readable failure reason of a generation item (contract §1 codes).
-CREATE TABLE IF NOT EXISTS generation_item_errors (
-  item_id TEXT PRIMARY KEY REFERENCES generation_tasks(id) ON DELETE CASCADE,
-  error_code TEXT NOT NULL,
-  created_at TEXT NOT NULL
-);
-
 -- Settlements that disagreed with the quote. A 'free_allowance_exhausted'
--- row also starts the free-allowance cooldown (contract §4).
-CREATE TABLE IF NOT EXISTS billing_anomalies (
+-- row also starts the free-allowance cooldown (contract section 4).
+CREATE TABLE billing_anomalies (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   kind TEXT NOT NULL,
   user_id INTEGER NOT NULL,
@@ -203,13 +189,13 @@ CREATE TABLE IF NOT EXISTS billing_anomalies (
   created_at TEXT NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_billing_anomalies_kind_created
+CREATE INDEX idx_billing_anomalies_kind_created
 ON billing_anomalies(kind, created_at);
 
 -- In-flight paid-tool reservations. Generation reservations live on their
--- items; this makes tool reservations durable too, so rebuilding the user
--- counters (migrate_db, run by every CLI command) keeps them.
-CREATE TABLE IF NOT EXISTS tool_reservations (
+-- items; this makes tool reservations durable too, so that
+-- recompute_reserved_points keeps them.
+CREATE TABLE tool_reservations (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   mode TEXT NOT NULL,
@@ -218,9 +204,12 @@ CREATE TABLE IF NOT EXISTS tool_reservations (
   created_at TEXT NOT NULL
 );
 
+PRAGMA user_version = {SCHEMA_VERSION};
 """
 
 
+class SchemaVersionError(RuntimeError):
+    """The database does not have the schema this code version needs."""
 
 
 def now_iso() -> str:
@@ -261,15 +250,50 @@ def db_session() -> Iterator[sqlite3.Connection]:
         conn.close()
 
 
+def current_schema_version(db: sqlite3.Connection) -> int:
+    return int(db.execute("PRAGMA user_version").fetchone()[0])
+
+
+def normalized_schema(db: sqlite3.Connection) -> dict[str, str]:
+    """sqlite_master reduced to a comparable form: name -> canonical SQL.
+
+    Whitespace, case and identifier quotes are dropped, because SQLite
+    rewrites the stored text after ALTER TABLE and RENAME.
+    """
+    rows = db.execute(
+        "SELECT name, sql FROM sqlite_master "
+        "WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%'"
+    ).fetchall()
+    return {
+        str(row[0]): re.sub(r"\s+", "", str(row[1]).replace('"', "")).lower()
+        for row in rows
+    }
+
+
 def init_db() -> None:
+    """Create a new database, or check that an existing one is current.
+
+    Never migrates: an older schema stops the service until the operator has
+    run the one-off upgrade.
+    """
     config.DATA_DIR.mkdir(parents=True, exist_ok=True)
     config.IMAGE_DIR.mkdir(parents=True, exist_ok=True)
     config.THUMBNAIL_DIR.mkdir(parents=True, exist_ok=True)
     config.AUDIT_DIR.mkdir(parents=True, exist_ok=True)
     with closing(db_connect()) as db:
-        db.executescript(SCHEMA)
-        migrate_db(db)
-        db.commit()
+        version = current_schema_version(db)
+        empty = db.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"
+        ).fetchone()[0] == 0
+        if version == 0 and empty:
+            db.executescript(SCHEMA)
+        elif version != SCHEMA_VERSION:
+            raise SchemaVersionError(
+                f"Database {config.DB_PATH} has schema version {version}; this "
+                f"gateway needs version {SCHEMA_VERSION}. It does not migrate on "
+                "startup. Stop the service, back the database up and run "
+                "`python -m app.cli db upgrade` first (see server/README.md)."
+            )
     config.DB_PATH.chmod(0o600)
 
 
@@ -308,307 +332,6 @@ def reclaim_tool_reservations(db: sqlite3.Connection) -> None:
     """
     db.execute("DELETE FROM tool_reservations")
     recompute_reserved_points(db)
-
-
-def migrate_db(db: sqlite3.Connection) -> None:
-    table_columns = {
-        row["name"] for row in db.execute("PRAGMA table_info(users)").fetchall()
-    }
-    user_columns = {
-        "can_text_generate": "INTEGER NOT NULL DEFAULT 1",
-        "can_image_upscale": "INTEGER NOT NULL DEFAULT 1",
-        "can_image_augment": "INTEGER NOT NULL DEFAULT 1",
-        "can_image_encode_vibe": "INTEGER NOT NULL DEFAULT 1",
-        "green_point_limit": f"INTEGER NOT NULL DEFAULT {DEFAULT_GREEN_POINT_LIMIT}",
-        "green_point_used": "INTEGER NOT NULL DEFAULT 0",
-        "green_points_reserved": "INTEGER NOT NULL DEFAULT 0",
-        "green_point_discount": "INTEGER NOT NULL DEFAULT 0",
-        "red_points": f"INTEGER NOT NULL DEFAULT {DEFAULT_RED_POINTS}",
-        "red_points_used": "INTEGER NOT NULL DEFAULT 0",
-        "red_points_reserved": "INTEGER NOT NULL DEFAULT 0",
-    }
-    for name, definition in user_columns.items():
-        if name not in table_columns:
-            db.execute(f"ALTER TABLE users ADD COLUMN {name} {definition}")
-    submission_columns = {
-        "client_request_id": "TEXT",
-        "request_hash": "TEXT",
-        "reserved_green_points": "INTEGER NOT NULL DEFAULT 0",
-        "reserved_red_points": "INTEGER NOT NULL DEFAULT 0",
-        "consumed_green_points": "INTEGER NOT NULL DEFAULT 0",
-        "consumed_red_points": "INTEGER NOT NULL DEFAULT 0",
-        "released_green_points": "INTEGER NOT NULL DEFAULT 0",
-        "released_red_points": "INTEGER NOT NULL DEFAULT 0",
-    }
-    existing_submission_columns = {
-        row["name"] for row in db.execute("PRAGMA table_info(generation_submission_tasks)").fetchall()
-    }
-    for name, definition in submission_columns.items():
-        if name not in existing_submission_columns:
-            db.execute(f"ALTER TABLE generation_submission_tasks ADD COLUMN {name} {definition}")
-    db.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS idx_generation_submission_tasks_idempotency "
-        "ON generation_submission_tasks(user_id, client_request_id) "
-        "WHERE client_request_id IS NOT NULL"
-    )
-    legacy_quota_columns = (
-        "daily_limit",
-        "paid_daily_limit",
-        "can_generate_free",
-        "paid_point_limit",
-        "paid_point_used",
-        "red_point_limit",
-        "red_point_used",
-    )
-    present_legacy_columns = [
-        name for name in legacy_quota_columns if name in table_columns
-    ]
-    if present_legacy_columns:
-        # Snapshot before ALTER TABLE DROP COLUMN. Do not include credentials or
-        # other unrelated user data in the recovery record.
-        select_columns = ", ".join(["id", *present_legacy_columns])
-        for row in db.execute(f"SELECT {select_columns} FROM users").fetchall():
-            values = {name: row[name] for name in present_legacy_columns}
-            db.execute(
-                "INSERT OR IGNORE INTO legacy_quota_snapshots"
-                "(user_id, values_json, captured_at) VALUES (?, ?, ?)",
-                (row["id"], json.dumps(values, sort_keys=True), now_iso()),
-            )
-
-    # Copy retired quota values once before physically removing their columns.
-    if "green_point_limit" not in table_columns and "daily_limit" in table_columns:
-        free_permission = (
-            "WHEN can_generate_free = 0 THEN 0 "
-            if "can_generate_free" in table_columns
-            else ""
-        )
-        db.execute(
-            "UPDATE users SET green_point_limit = CASE "
-            "WHEN is_admin = 1 THEN ? "
-            f"{free_permission}"
-            "WHEN daily_limit IS NULL OR daily_limit < 0 THEN ? "
-            "ELSE daily_limit * ? END",
-            (
-                DEFAULT_GREEN_POINT_LIMIT,
-                DEFAULT_GREEN_POINT_LIMIT,
-                config.STANDARD_GREEN_IMAGE_POINTS,
-            ),
-        )
-    if "green_point_used" not in table_columns:
-        db.execute(
-            """
-            UPDATE users
-            SET green_point_used = COALESCE((
-              SELECT SUM(used) * ? FROM quota_usage
-              WHERE quota_usage.user_id = users.id AND mode = 'free'
-                AND quota_date = ?
-            ), 0)
-            """,
-            (config.STANDARD_GREEN_IMAGE_POINTS, today_key()),
-        )
-    if "green_point_discount" not in table_columns:
-        # Only administrators are unlimited. Legacy free-generation access is
-        # represented by the migrated green-point limit, not a 100% discount.
-        db.execute(
-            "UPDATE users SET green_point_discount = CASE "
-            "WHEN is_admin = 1 THEN 100 ELSE 0 END"
-        )
-    if "red_points" not in table_columns:
-        if "red_point_limit" in table_columns:
-            db.execute("UPDATE users SET red_points = red_point_limit")
-        else:
-            db.execute("UPDATE users SET red_points = COALESCE(paid_point_limit, 0)")
-    if "red_points_used" not in table_columns:
-        if "red_point_used" in table_columns:
-            db.execute("UPDATE users SET red_points_used = red_point_used")
-        else:
-            db.execute("UPDATE users SET red_points_used = COALESCE(paid_point_used, 0)")
-    # This is a one-time physical schema migration, not a compatibility layer.
-    # All values are copied above before the retired quota columns are removed.
-    for legacy_column in legacy_quota_columns:
-        if legacy_column in table_columns:
-            db.execute(f"ALTER TABLE users DROP COLUMN {legacy_column}")
-    task_columns = {
-        row["name"] for row in db.execute("PRAGMA table_info(generation_tasks)").fetchall()
-    }
-    generation_task_columns = {
-        "queue_class": "TEXT",
-        "queue_weight": "INTEGER",
-        "virtual_finish": "REAL",
-        "anlas_before": "INTEGER",
-        "anlas_after": "INTEGER",
-        "paid_points_charged": "INTEGER NOT NULL DEFAULT 0",
-        "reserved_points": "INTEGER NOT NULL DEFAULT 0",
-        "reserved_green_points": "INTEGER NOT NULL DEFAULT 0",
-        "reserved_red_points": "INTEGER NOT NULL DEFAULT 0",
-        "consumed_green_points": "INTEGER NOT NULL DEFAULT 0",
-        "consumed_red_points": "INTEGER NOT NULL DEFAULT 0",
-        "released_green_points": "INTEGER NOT NULL DEFAULT 0",
-        "released_red_points": "INTEGER NOT NULL DEFAULT 0",
-        "batch_id": "TEXT",
-        "batch_index": "INTEGER",
-        "request_fingerprint": "TEXT",
-    }
-    for name, definition in generation_task_columns.items():
-        if name not in task_columns:
-            db.execute(f"ALTER TABLE generation_tasks ADD COLUMN {name} {definition}")
-    # Only backfill accounting columns when upgrading a schema that did not
-    # have them. Rewriting them on every boot can destroy legitimate manual
-    # adjustments and makes an interrupted migration impossible to audit.
-    accounting_columns = {
-        "reserved_green_points",
-        "reserved_red_points",
-        "consumed_green_points",
-        "consumed_red_points",
-        "released_green_points",
-        "released_red_points",
-    }
-    if not accounting_columns.issubset(task_columns):
-        db.execute(
-            """
-            UPDATE generation_tasks
-            SET reserved_green_points = CASE WHEN mode = 'free' THEN reserved_points ELSE 0 END,
-                reserved_red_points = CASE WHEN mode = 'paid' THEN reserved_points ELSE 0 END,
-                consumed_green_points = CASE WHEN mode = 'free' AND status = 'success' THEN reserved_points ELSE 0 END,
-                consumed_red_points = CASE WHEN mode = 'paid' AND status = 'success' THEN paid_points_charged ELSE 0 END,
-                released_green_points = CASE WHEN mode = 'free' AND status IN ('failed', 'rejected', 'cancelled') THEN reserved_points ELSE 0 END,
-                released_red_points = CASE WHEN mode = 'paid' AND status IN ('failed', 'rejected', 'cancelled') THEN reserved_points ELSE 0 END
-            """
-        )
-    fingerprint_rows = db.execute(
-        "SELECT id, request_json FROM generation_tasks WHERE request_fingerprint IS NULL"
-    ).fetchall()
-    for row in fingerprint_rows:
-        try:
-            parsed_request = json.loads(row["request_json"])
-            fingerprint = generation_request_fingerprint(parsed_request)
-        except (TypeError, ValueError, json.JSONDecodeError):
-            continue
-        db.execute(
-            "UPDATE generation_tasks SET request_fingerprint = ? WHERE id = ?",
-            (fingerprint, row["id"]),
-        )
-    db.execute(
-        "CREATE INDEX IF NOT EXISTS idx_generation_tasks_user_fingerprint "
-        "ON generation_tasks(user_id, request_fingerprint)"
-    )
-    # Backfill the outer task for every historical image item. Explicit batch
-    # IDs are authoritative. Rows from before explicit batch IDs are kept as
-    # separate submissions; timing proximity is not proof of one batch.
-    rows = db.execute(
-        "SELECT id, user_id, batch_id, created_at, status, reserved_points "
-        "FROM generation_tasks ORDER BY user_id, created_at, id"
-    ).fetchall()
-    for row in rows:
-        explicit = row["batch_id"]
-        if explicit:
-            parent_id = explicit
-        else:
-            parent_id = f"legacy-{row['id']}"
-        db.execute(
-            "INSERT OR IGNORE INTO generation_submission_tasks "
-            "(id, user_id, type, status, created_at) VALUES (?, ?, 'single', 'queued', ?)",
-            (parent_id, row["user_id"], row["created_at"]),
-        )
-        db.execute("UPDATE generation_tasks SET batch_id = ? WHERE id = ?", (parent_id, row["id"]))
-    db.execute(
-        """
-        UPDATE generation_submission_tasks
-        SET item_count = (SELECT COUNT(*) FROM generation_tasks i WHERE i.batch_id = generation_submission_tasks.id),
-            reserved_points = (SELECT COALESCE(SUM(reserved_points), 0) FROM generation_tasks i WHERE i.batch_id = generation_submission_tasks.id),
-            type = CASE WHEN (SELECT COUNT(*) FROM generation_tasks i WHERE i.batch_id = generation_submission_tasks.id) > 1 THEN 'batch' ELSE 'single' END
-        """
-    )
-    for row in db.execute("SELECT id FROM generation_submission_tasks").fetchall():
-        refresh_submission_task(db, row["id"])
-    # A submission without items cannot ever run. Removing stale active shells
-    # lets an idempotent client retry instead of replaying an empty task.
-    db.execute(
-        """
-        DELETE FROM generation_submission_tasks
-        WHERE status IN ('queued', 'running')
-          AND NOT EXISTS (
-            SELECT 1 FROM generation_tasks i
-            WHERE i.batch_id = generation_submission_tasks.id
-          )
-        """
-    )
-    recompute_reserved_points(db)
-    db.execute(
-        """
-        CREATE TABLE IF NOT EXISTS history_hidden (
-          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          task_id TEXT NOT NULL REFERENCES generation_tasks(id) ON DELETE CASCADE,
-          hidden_at TEXT NOT NULL,
-          PRIMARY KEY (user_id, task_id)
-        )
-        """
-    )
-    db.execute(
-        "CREATE INDEX IF NOT EXISTS idx_history_hidden_task_id ON history_hidden(task_id)"
-    )
-    db.execute(
-        """
-        CREATE TABLE IF NOT EXISTS request_audit_logs (
-          id TEXT PRIMARY KEY,
-          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          service TEXT NOT NULL,
-          path TEXT NOT NULL,
-          method TEXT NOT NULL,
-          status_code INTEGER,
-          request_content_type TEXT NOT NULL DEFAULT '',
-          request_json TEXT NOT NULL DEFAULT '',
-          request_body_path TEXT,
-          request_body_bytes INTEGER NOT NULL DEFAULT 0,
-          request_body_sha256 TEXT NOT NULL DEFAULT '',
-          request_body_expired_at TEXT,
-          error_message TEXT,
-          created_at TEXT NOT NULL,
-          completed_at TEXT
-        )
-        """
-    )
-    audit_columns = {
-        row["name"]
-        for row in db.execute("PRAGMA table_info(request_audit_logs)").fetchall()
-    }
-    audit_log_columns = {
-        "request_content_type": "TEXT NOT NULL DEFAULT ''",
-        "request_body_path": "TEXT",
-        "request_body_bytes": "INTEGER NOT NULL DEFAULT 0",
-        "request_body_sha256": "TEXT NOT NULL DEFAULT ''",
-        "request_body_expired_at": "TEXT",
-    }
-    for name, definition in audit_log_columns.items():
-        if name not in audit_columns:
-            db.execute(f"ALTER TABLE request_audit_logs ADD COLUMN {name} {definition}")
-    db.execute(
-        "CREATE INDEX IF NOT EXISTS idx_request_audit_logs_user_id ON request_audit_logs(user_id)"
-    )
-    db.execute(
-        "CREATE INDEX IF NOT EXISTS idx_request_audit_logs_created_at ON request_audit_logs(created_at)"
-    )
-    db.execute(
-        """
-        CREATE TABLE IF NOT EXISTS client_feedback_reports (
-          id TEXT PRIMARY KEY,
-          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          description TEXT NOT NULL DEFAULT '',
-          client_context_json TEXT NOT NULL,
-          diagnostics_json TEXT NOT NULL,
-          event_count INTEGER NOT NULL DEFAULT 0,
-          created_at TEXT NOT NULL
-        )
-        """
-    )
-    db.execute(
-        "CREATE INDEX IF NOT EXISTS idx_client_feedback_reports_user_created "
-        "ON client_feedback_reports(user_id, created_at DESC)"
-    )
-    db.execute(
-        "CREATE INDEX IF NOT EXISTS idx_client_feedback_reports_created "
-        "ON client_feedback_reports(created_at DESC)"
-    )
 
 
 def bootstrap_users() -> None:
@@ -657,11 +380,9 @@ def bootstrap_users() -> None:
 
 
 def refresh_submission_task(db: sqlite3.Connection, task_id: str) -> None:
-    """Derive durable outer-task status and point totals from its items."""
+    """Derive the durable status of a submission from its items."""
     items = db.execute(
-        "SELECT status, mode, reserved_points, paid_points_charged FROM generation_tasks "
-        "WHERE batch_id = ? ORDER BY batch_index, created_at, id",
-        (task_id,),
+        "SELECT status FROM generation_tasks WHERE batch_id = ?", (task_id,)
     ).fetchall()
     if not items:
         return
@@ -678,25 +399,14 @@ def refresh_submission_task(db: sqlite3.Connection, task_id: str) -> None:
         task_status = "cancelled"
     else:
         task_status = "failed"
-    reserved_green = sum(int(item["reserved_points"] or 0) for item in items if item["mode"] == "free")
-    reserved_red = sum(int(item["reserved_points"] or 0) for item in items if item["mode"] == "paid")
-    consumed_green = sum(int(item["reserved_points"] or 0) for item in items if item["mode"] == "free" and item["status"] == "success")
-    consumed_red = sum(int(item["paid_points_charged"] or 0) for item in items if item["mode"] == "paid" and item["status"] == "success")
-    released_green = sum(int(item["reserved_points"] or 0) for item in items if item["mode"] == "free" and item["status"] in {"failed", "rejected", "cancelled"})
-    released_red = sum(int(item["reserved_points"] or 0) for item in items if item["mode"] == "paid" and item["status"] in {"failed", "rejected", "cancelled"})
     db.execute(
         """
         UPDATE generation_submission_tasks
-        SET status = ?, item_count = ?, reserved_points = ?, consumed_points = ?,
-            released_points = ?, reserved_green_points = ?, reserved_red_points = ?,
-            consumed_green_points = ?, consumed_red_points = ?, released_green_points = ?,
-            released_red_points = ?,
+        SET status = ?, item_count = ?,
             completed_at = CASE WHEN ? THEN COALESCE(completed_at, ?) ELSE NULL END
         WHERE id = ?
         """,
-        (task_status, len(items), reserved_green + reserved_red, consumed_green + consumed_red,
-         released_green + released_red, reserved_green, reserved_red, consumed_green,
-         consumed_red, released_green, released_red, not active, now_iso(), task_id),
+        (task_status, len(items), not active, now_iso(), task_id),
     )
 
 

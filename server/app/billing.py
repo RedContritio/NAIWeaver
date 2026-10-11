@@ -559,7 +559,7 @@ def reserve_tool_points(
 ) -> int:
     """Reserve red points for a tool call and return the durable reservation id.
 
-    The row lets the counters be rebuilt (``migrate_db``) while the call is in
+    The row lets the counters be rebuilt (``recompute_reserved_points``) while the call is in
     flight. Call inside ``immediate_transaction``.
     """
     reserve_points(db, user_id, "red", amount)

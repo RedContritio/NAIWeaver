@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import argparse
 from contextlib import closing
+from pathlib import Path
 import secrets
 
-from .db import db_connect, init_db, now_iso
+from . import config, db_upgrade
+
+from .db import SchemaVersionError, db_connect, init_db, now_iso
 from .security import hash_password
 from .roles import POINT_TOTAL_FIELDS, ROLES, role_defaults
 
@@ -128,6 +131,18 @@ def cmd_points_grant(args: argparse.Namespace) -> None:
     print(f"granted to {args.username}: red +{red}")
 
 
+def cmd_db_upgrade(args: argparse.Namespace) -> None:
+    try:
+        db_upgrade.run(
+            Path(args.db) if args.db else config.DB_PATH,
+            apply=args.apply,
+            backup_verified=args.backup_verified,
+            backup_to=Path(args.backup_to) if args.backup_to else None,
+        )
+    except db_upgrade.UpgradeError as exc:
+        raise SystemExit(f"upgrade refused: {exc}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -173,13 +188,36 @@ def build_parser() -> argparse.ArgumentParser:
     points_grant.add_argument("--red", type=int, default=0)
     points_grant.set_defaults(func=cmd_points_grant)
 
+    database = sub.add_parser("db")
+    database_sub = database.add_subparsers(dest="db_command", required=True)
+    upgrade = database_sub.add_parser(
+        "upgrade",
+        help="one-off upgrade of a version-0 database; a dry run unless --apply is given",
+    )
+    upgrade.add_argument("--db", help="database file (default: the configured gateway database)")
+    upgrade.add_argument("--apply", action="store_true", help="really upgrade; needs a backup option")
+    upgrade.add_argument(
+        "--backup-verified",
+        action="store_true",
+        help="confirm that you made and checked a backup of the stopped service's database",
+    )
+    upgrade.add_argument(
+        "--backup-to",
+        metavar="PATH",
+        help="back the database up to PATH with the SQLite backup API and verify it first",
+    )
+    upgrade.set_defaults(func=cmd_db_upgrade)
+
     return parser
 
 
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
-    args.func(args)
+    try:
+        args.func(args)
+    except SchemaVersionError as exc:
+        raise SystemExit(str(exc))
 
 
 if __name__ == "__main__":

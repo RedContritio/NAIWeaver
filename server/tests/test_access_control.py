@@ -81,11 +81,11 @@ class HistoryFileAccessTests(AccessControlTestCase):
             """
             INSERT INTO generation_tasks(
               id, user_id, mode, status, prompt, negative_prompt, width, height, steps,
-              scale, sampler, seed, image_path, anlas_before, anlas_after,
+              scale, sampler, seed, image_path,
               reserved_points, consumed_green_points, batch_id, batch_index,
               request_fingerprint, request_json, created_at
             ) VALUES ('item-1', ?, 'free', 'success', 'p', 'n', 832, 1216, 28, 5,
-                      'k_euler', 1, ?, 100, 100, 14, 14, 'batch-1', 0, 'fp', '{}', ?)
+                      'k_euler', 1, ?, 14, 14, 'batch-1', 0, 'fp', '{}', ?)
             """,
             (self.owner["id"], str(image_path), "2026-01-01T00:00:00+00:00"),
         )
@@ -288,11 +288,11 @@ class StatusEndpointTests(AccessControlTestCase):
             """
             INSERT INTO generation_tasks(
               id, user_id, mode, status, prompt, negative_prompt, width, height, steps,
-              scale, sampler, seed, anlas_before, anlas_after, reserved_points,
+              scale, sampler, seed, reserved_points,
               consumed_green_points, batch_id, batch_index, request_fingerprint,
               request_json, created_at
             ) VALUES ('theirs-item', ?, 'free', 'running', 'p', 'n', 832, 1216, 28, 5,
-                      'k_euler', 1, 100, 100, 14, 0, 'theirs', 0, 'fp', '{}', ?)
+                      'k_euler', 1, 14, 0, 'theirs', 0, 'fp', '{}', ?)
             """,
             (self.other["id"], gwdb.now_iso()),
         )

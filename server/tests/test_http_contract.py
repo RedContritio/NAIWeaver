@@ -215,10 +215,10 @@ class HistoryDtoTests(HttpContractTestCase):
                 INSERT INTO generation_tasks(
                   id, user_id, mode, status, prompt, negative_prompt, width, height,
                   steps, scale, sampler, seed, image_path, error_message,
-                  anlas_before, anlas_after, reserved_points, consumed_green_points,
+                  reserved_points, consumed_green_points,
                   batch_id, batch_index, request_fingerprint, request_json, created_at
                 ) VALUES (?, ?, 'free', ?, 'p', 'n', 832, 1216, 28, 5, 'k_euler', ?, ?,
-                          ?, 100, 100, 14, ?, ?, ?, 'fingerprint', ?, ?)
+                          ?, 14, ?, ?, ?, 'fingerprint', ?, ?)
                 """,
                 (
                     item["id"],

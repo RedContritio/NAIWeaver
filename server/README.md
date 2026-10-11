@@ -156,6 +156,72 @@ should stay outside the repository:
 
 Deployment helpers are in `server/deploy/` and `server/scripts/`.
 
+### Database schema and the one-off upgrade
+
+`app/db.py` holds one final `SCHEMA` and `PRAGMA user_version` (currently `1`).
+The gateway never migrates on startup:
+
+- a new, empty database is created with the final schema;
+- `user_version` equal to the code's version starts normally;
+- anything else, including the production database from before this release
+  (`user_version` 0), makes the service and every `app.cli` command stop with an
+  error that points here.
+
+Upgrading the production database from `user_version` 0 is a one-off step done
+with `python -m app.cli db upgrade`. It only needs SQLite (no NovelAI, no
+identity provider). It first checks the column structure of every table and
+exits without touching anything if it differs from the expected version-0
+structure. The upgrade runs in a single transaction (foreign keys off while
+tables are rebuilt; `PRAGMA foreign_key_check` and a comparison with the final
+schema before commit), so a failure leaves the database as it was. It
+
+- adds `request_audit_logs.request_body_expired_at` and creates
+  `only_webauth_sessions`, `generation_item_errors`, `billing_anomalies` and
+  `tool_reservations`;
+- rebuilds `generation_tasks` and `generation_submission_tasks` without their
+  retired columns (`cost`, `anlas_before/after`, `paid_points_charged`, the
+  red/green `reserved_`/`released_` columns, and all point columns on
+  submissions), copying every row and keeping ids, idempotency keys and
+  indexes; `consumed_red_points` is filled from `paid_points_charged` where an
+  older paid row only had the latter;
+- drops `daily_quotas`, `quota_usage`, `admin_config`, `schema_migrations`,
+  `legacy_quota_snapshots` and the three `webauthn_*` tables (the dry run lists
+  how many rows each holds);
+- rebuilds `users.green_points_reserved` / `red_points_reserved` the way
+  `recompute_reserved_points` does at startup.
+
+Steps (run from `server/` with the production environment loaded; `--db PATH`
+selects another file than the configured one):
+
+1. Stop the service so nothing writes to the database:
+   `launchctl bootout gui/$(id -u)/com.redcontritio.naiweaver`
+2. Back up. Either let the tool do it in step 5 (`--backup-to`), or make and
+   check your own copy, for example `sqlite3 "$DB" ".backup '$DB.pre-v1'"`
+   and `sqlite3 "$DB.pre-v1" "PRAGMA integrity_check"`.
+3. Dry run (the default). The database file is opened read-only and the whole
+   upgrade is rehearsed on an in-memory copy:
+   `.venv/bin/python -m app.cli db upgrade`
+4. Check the output: rows copied per rebuilt table, the dropped columns and
+   tables with their row counts, which users' reserved counters change, and
+   the final "checks passed" line. A structure mismatch is an error here.
+5. Apply. Exactly one backup option is required:
+   `.venv/bin/python -m app.cli db upgrade --apply --backup-to ~/backups/gateway-v0.sqlite3`
+   writes a backup with the SQLite backup API, checks the copy
+   (`integrity_check`, row counts) and then upgrades; or
+   `.venv/bin/python -m app.cli db upgrade --apply --backup-verified` confirms
+   that you made and checked a backup in step 2.
+6. Start the new version:
+   `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.redcontritio.naiweaver.plist`
+   (or `kickstart`), check `stderr.log`, then smoke-test with `agent_test`.
+7. If the upgrade fails, it rolled back and nothing changed: fix the cause or
+   keep running the old release. If the new version misbehaves, stop it and put
+   the backup back: delete `$DB-wal` and `$DB-shm` (so no stale write-ahead
+   log is replayed over the restored file), then
+   `cp ~/backups/gateway-v0.sqlite3 "$DB"` and start the previous release.
+
+Once production is at version 1, `app/db_upgrade.py`, its CLI command and
+`tests/test_db_upgrade.py` can be deleted.
+
 ### macOS Production Service
 
 The production service is installed as a user LaunchAgent:

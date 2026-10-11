@@ -59,7 +59,6 @@ def temporary_database(testcase: unittest.TestCase) -> sqlite3.Connection:
     db = gwdb.db_connect()
     testcase.addCleanup(db.close)
     db.executescript(gwdb.SCHEMA)
-    gwdb.migrate_db(db)
     db.commit()
     return db
 

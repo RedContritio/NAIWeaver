@@ -14,7 +14,7 @@ from .billing import (
     green_point_discount_for,
     remaining_points,
 )
-from .db import now_iso, today_key
+from .db import now_iso
 from .security import create_jwt
 
 def session_response(
@@ -130,14 +130,6 @@ def image_rules_for_user(db: sqlite3.Connection, user: sqlite3.Row) -> dict[str,
         green_point_discount=green_point_discount_for(user),
         allowance_exhausted=free_allowance_exhausted_until(db) is not None,
     )
-
-
-def usage_for(db: sqlite3.Connection, user_id: int, mode: str) -> int:
-    row = db.execute(
-        "SELECT used FROM quota_usage WHERE user_id = ? AND quota_date = ? AND mode = ?",
-        (user_id, today_key(), mode),
-    ).fetchone()
-    return int(row["used"]) if row else 0
 
 
 def quota_bucket(user: sqlite3.Row, mode: str) -> dict[str, Any]:

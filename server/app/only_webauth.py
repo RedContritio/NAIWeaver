@@ -25,6 +25,8 @@ from fastapi import HTTPException, Request
 from fastapi.responses import RedirectResponse
 import httpx
 
+from .db import ONLY_WEBAUTH_SESSIONS_DDL
+
 
 def b64(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
@@ -41,18 +43,6 @@ PRUNE_INTERVAL = 60
 LOGIN_BURST = 30
 LOGIN_REFILL_SECONDS = 60
 MAX_RETURN_TO = 2048
-
-SESSION_TABLE = """
-CREATE TABLE IF NOT EXISTS only_webauth_sessions (
-  id TEXT PRIMARY KEY,
-  subject TEXT NOT NULL,
-  user_id INTEGER NOT NULL,
-  refresh_token TEXT NOT NULL,
-  access_expires REAL NOT NULL,
-  expires REAL NOT NULL
-)
-"""
-
 
 def auth_error(status_code: int, code: str, message: str) -> HTTPException:
     return HTTPException(status_code, {"code": code, "message": message})
@@ -159,7 +149,7 @@ class OnlyWebAuth:
         if self._db is None:
             db = self.connect()
             db.row_factory = sqlite3.Row
-            db.execute(SESSION_TABLE)
+            db.execute(ONLY_WEBAUTH_SESSIONS_DDL)
             db.commit()
             self._db = db
         return self._db
