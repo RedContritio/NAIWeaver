@@ -35,8 +35,8 @@ class CharacterEditorSheet extends StatefulWidget {
 
 class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
   late TextEditingController _nameController;
-  late TextEditingController _promptController;
-  late TextEditingController _ucController;
+  late SyntaxHighlightController _promptController;
+  late SyntaxHighlightController _ucController;
   late FocusNode _promptFocusNode;
   late FocusNode _ucFocusNode;
   late NaiCoordinate _coordinate;
@@ -171,16 +171,18 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
+    final highlight = SyntaxHighlightColors.fromTokens(t);
+    _promptController.colors = highlight;
+    _ucController.colors = highlight;
     final genNotifier = context.read<GenerationNotifier>();
     final autoPositioning = genNotifier.state.autoPositioning;
 
-    return Container(
-      color: t.surfaceMid,
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-        left: 24,
-        right: 24,
-        top: 16,
+    return Padding(
+      // showAppSheet supplies the background, keyboard inset and safe area.
+      padding: const EdgeInsets.only(
+        left: VisionMetrics.space24,
+        right: VisionMetrics.space24,
+        top: VisionMetrics.space16,
       ),
       child: SingleChildScrollView(
         child: Column(

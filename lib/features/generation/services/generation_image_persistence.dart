@@ -18,6 +18,7 @@ import '../../../core/utils/image_utils.dart';
 import '../../../core/utils/nai_filename.dart';
 import '../../../core/utils/unique_file_path.dart';
 import '../../../core/utils/web_download.dart';
+import '../../../core/widgets/ui/app_tone.dart';
 import '../../gallery/providers/gallery_notifier.dart';
 import '../../gallery/services/tool_result_saver.dart';
 
@@ -303,11 +304,7 @@ class GenerationImagePersistence {
         ]);
       } catch (e) {
         if (context.mounted) {
-          showAppSnackBar(
-            context,
-            'Share failed: $e',
-            color: const Color(0xFFF44336),
-          );
+          showAppSnackBar(context, 'Share failed: $e', tone: AppTone.error);
         }
       }
       return;
@@ -321,21 +318,13 @@ class GenerationImagePersistence {
       if (clipboard != null) {
         await clipboard.write([item]);
         if (context.mounted) {
-          showAppSnackBar(
-            context,
-            'COPIED TO CLIPBOARD',
-            color: const Color(0xFF4CAF50),
-          );
+          showAppSnackBar(context, 'COPIED TO CLIPBOARD');
         }
         return;
       }
     } catch (_) {}
     if (context.mounted) {
-      showAppSnackBar(
-        context,
-        'CLIPBOARD NOT AVAILABLE',
-        color: const Color(0xFFF44336),
-      );
+      showAppSnackBar(context, 'CLIPBOARD NOT AVAILABLE', tone: AppTone.error);
     }
   }
 
@@ -370,7 +359,7 @@ class GenerationImagePersistence {
             showAppSnackBar(
               context,
               'EXPORT FOLDER UNAVAILABLE — RE-PICK IT IN SETTINGS',
-              color: const Color(0xFFF44336),
+              tone: AppTone.error,
             );
           }
           return;
@@ -391,11 +380,7 @@ class GenerationImagePersistence {
           final label = SafExportService.isSafUri(customFolder)
               ? 'SD CARD'
               : p.basename(customFolder).toUpperCase();
-          showAppSnackBar(
-            context,
-            'SAVED TO $label',
-            color: const Color(0xFF4CAF50),
-          );
+          showAppSnackBar(context, 'SAVED TO $label');
         }
         return;
       }
@@ -403,11 +388,7 @@ class GenerationImagePersistence {
       if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
         await _exportBytesToMobileGallery(image, exportName);
         if (context.mounted) {
-          showAppSnackBar(
-            context,
-            context.l.gallerySavedToDevice,
-            color: const Color(0xFF4CAF50),
-          );
+          showAppSnackBar(context, context.l.gallerySavedToDevice);
         }
       } else {
         // Desktop: show save file dialog
@@ -422,17 +403,12 @@ class GenerationImagePersistence {
           showAppSnackBar(
             context,
             'SAVED TO ${p.basename(result).toUpperCase()}',
-            color: const Color(0xFF4CAF50),
           );
         }
       }
     } catch (e) {
       if (context.mounted) {
-        showAppSnackBar(
-          context,
-          'Export failed: $e',
-          color: const Color(0xFFF44336),
-        );
+        showAppSnackBar(context, 'Export failed: $e', tone: AppTone.error);
       }
     }
   }

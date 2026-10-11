@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../../core/theme/vision_metrics.dart';
+import '../../../core/widgets/ui/app_sheet.dart';
 import '../providers/generation_notifier.dart';
 import '../models/nai_character.dart';
 import 'character_chip.dart';
@@ -19,7 +20,7 @@ class CharacterShelf extends StatelessWidget {
     int index,
     NaiCharacter character,
   ) {
-    showSelfPaddedSheet(
+    showAppSheet(
       context: context,
       builder: (context) => CharacterEditorSheet(
         index: index,
@@ -52,7 +53,7 @@ class CharacterShelf extends StatelessWidget {
           orElse: () => null,
         );
 
-    showSelfPaddedSheet(
+    showAppSheet(
       context: context,
       builder: (context) => ActionInteractionSheet(
         sourceIndices: existing?.sourceCharacterIndices ?? [index1],

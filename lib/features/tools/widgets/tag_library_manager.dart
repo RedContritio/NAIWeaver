@@ -19,7 +19,7 @@ import '../../../core/utils/app_snackbar.dart';
 import '../../generation/providers/generation_notifier.dart';
 import '../../../core/services/tag_service.dart';
 import '../providers/tag_library_notifier.dart';
-import 'tag_category_color.dart';
+import '../../../core/utils/tag_category_color.dart';
 import 'tag_detail_sheet.dart';
 import '../../../core/theme/vision_metrics.dart';
 

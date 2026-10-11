@@ -23,6 +23,7 @@ import 'core/utils/app_snackbar.dart';
 import 'core/utils/responsive.dart';
 import 'core/widgets/confirm_dialog.dart';
 import 'core/widgets/help_dialog.dart';
+import 'core/widgets/syntax_highlight_controller.dart';
 import 'core/widgets/text_input_dialog.dart';
 import 'core/widgets/ui/app_tone.dart';
 import 'core/widgets/update_prompt.dart';
@@ -409,6 +410,9 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
       sidebarMode: themeNotifier.sidebarLayoutMode,
     );
     final t = context.t;
+    final highlight = SyntaxHighlightColors.fromTokens(t);
+    notifier.promptController.colors = highlight;
+    notifier.negativePromptController.colors = highlight;
     final imageGenerationAllowed = canGenerateImage(context);
     final imageBatchLimit = backendImageBatchLimit(context);
     final state = notifier.state;
@@ -482,12 +486,7 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
             onServerHistory: () => unawaited(_openServerHistory()),
             onTools: () => _push(const ToolsHubScreen()),
           ),
-          body: SafeArea(
-            bottom: false,
-            left: false,
-            right: false,
-            child: body,
-          ),
+          body: SafeArea(bottom: false, left: false, right: false, child: body),
         ),
       ),
     );

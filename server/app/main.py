@@ -57,7 +57,19 @@ async def lifespan(_: FastAPI):
         await only_auth.aclose()
 
 
-app = FastAPI(title="NAIWeaver Web Gateway", version="0.2.0", lifespan=lifespan)
+def api_docs_urls(production: bool) -> dict[str, str | None]:
+    """Interactive API docs and the schema are for development only."""
+    if production:
+        return {"docs_url": None, "redoc_url": None, "openapi_url": None}
+    return {"docs_url": "/docs", "redoc_url": "/redoc", "openapi_url": "/openapi.json"}
+
+
+app = FastAPI(
+    title="NAIWeaver Web Gateway",
+    version="0.2.0",
+    lifespan=lifespan,
+    **api_docs_urls(config.PRODUCTION),
+)
 
 if config.CORS_ORIGINS:
     app.add_middleware(

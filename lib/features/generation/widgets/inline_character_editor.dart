@@ -269,8 +269,8 @@ class _CharacterCard extends StatefulWidget {
 
 class _CharacterCardState extends State<_CharacterCard> {
   late TextEditingController _nameController;
-  late TextEditingController _promptController;
-  late TextEditingController _ucController;
+  late SyntaxHighlightController _promptController;
+  late SyntaxHighlightController _ucController;
 
   List<DanbooruTag> _promptSuggestions = [];
   List<DanbooruTag> _ucSuggestions = [];
@@ -525,6 +525,9 @@ class _CharacterCardState extends State<_CharacterCard> {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
+    final highlight = SyntaxHighlightColors.fromTokens(t);
+    _promptController.colors = highlight;
+    _ucController.colors = highlight;
     final l = context.l;
     final mobile = windowSizeClassOf(context).isTouchSized;
 
@@ -975,7 +978,7 @@ class _InteractionsSection extends StatelessWidget {
   }) {
     final notifier = context.read<GenerationNotifier>();
 
-    showSelfPaddedSheet(
+    showAppSheet(
       context: context,
       builder: (context) => ActionInteractionSheet(
         sourceIndices: sourceIndices,

@@ -11,6 +11,7 @@ void showAppSnackBar(
   Color? color,
   SnackBarAction? action,
   AppTone tone = AppTone.success,
+  Duration? duration,
 }) {
   final t = context.tRead;
   final c = color ?? tone.color(t);
@@ -26,9 +27,11 @@ void showAppSnackBar(
       ),
       behavior: SnackBarBehavior.floating,
       action: action,
-      duration: action != null
-          ? const Duration(seconds: 6)
-          : const Duration(seconds: 4),
+      duration:
+          duration ??
+          (action != null
+              ? const Duration(seconds: 6)
+              : const Duration(seconds: 4)),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(VisionMetrics.radius4),
         side: BorderSide(

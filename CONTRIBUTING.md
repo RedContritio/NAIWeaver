@@ -20,6 +20,21 @@ Thanks for your interest in contributing! Here's how to get started.
 - Tools Hub features go in `lib/features/tools/{tool_name}/` (e.g., `director_tools/`, `enhance/`, `ml/`)
 - Shared utilities go in `lib/core/` (services, utils, widgets)
 
+## UI conventions check
+
+`scripts/check_ui_conventions.sh` counts violations of the rules in
+[ARCHITECTURE.md](ARCHITECTURE.md) ("UI Conventions") per file under `lib/`
+(`Colors.*`, `Color(0x`, numeric `fontSize:`, `Theme.of(context).colorScheme`,
+direct `showModalBottomSheet(` / `SnackBar(`, `MediaQuery` width compared to a
+number) and compares them with `scripts/ui_conventions_baseline.txt`.
+
+- It exits 1 and names the file, category and increase when any count goes up
+  or a clean file gains a violation. Fix the code; do not raise the baseline.
+- When counts go down it says so; run `scripts/check_ui_conventions.sh --update`
+  and commit the new baseline so the improvement is locked in.
+- `.github/workflows/ci.yml` runs it with `flutter analyze` on every push to
+  `master` and every pull request.
+
 ## Tests
 
 Tests cover critical paths only: billing and quotes, the auth session

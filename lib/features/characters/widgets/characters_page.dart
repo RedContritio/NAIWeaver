@@ -8,7 +8,6 @@ import '../../../core/theme/vision_metrics.dart';
 import '../../../core/theme/vision_tokens.dart';
 import '../../../core/utils/app_snackbar.dart';
 import '../../../core/utils/responsive.dart';
-import '../../../core/utils/tag_suggestion_helper.dart';
 import '../../../core/widgets/color_picker_dialog.dart';
 import '../../../core/widgets/confirm_dialog.dart';
 import '../../../core/widgets/browser_native_selectable_text.dart';
@@ -34,6 +33,24 @@ import '../services/wardrobe_generator_service.dart';
 import 'outfit_editor_sheet.dart';
 import 'tag_text_field.dart';
 import 'wardrobe_generate_dialog.dart';
+
+/// Puts a character's [tags] (plus `nsfw` when [dishevelled]) and its
+/// [negativeTags] where `charInsertTarget` says, via the shared
+/// [GenerationNotifier.insertCharacterTags] entry point.
+ApplyTagResult applyCharacterToPrompt(
+  GenerationNotifier gen, {
+  required String name,
+  required String tags,
+  String? negativeTags,
+  bool dishevelled = false,
+}) {
+  final clean = tags.trim().replaceAll(RegExp(r',\s*$'), '');
+  return gen.insertCharacterTags(
+    dishevelled ? '$clean, nsfw' : clean,
+    negativeTags,
+    name: name,
+  );
+}
 
 /// The Characters tool page: a saved-character library (list + editor) with a
 /// per-character wardrobe and an outfit-state panel.
@@ -494,14 +511,8 @@ class _CharacterEditorState extends State<_CharacterEditor> {
   }
 
   /// The one place this page inserts a character/outfit into the generation
-  /// prompt (WEAR and the outfit-state panel both end up here).
-  ///
-  /// It inserts [tags] at the prompt cursor and routes the character's and
-  /// [outfit]'s negative tags to the negative prompt, the way the autocomplete
-  /// and photoshoot SEND paths do. Unlike the autocomplete path it does not
-  /// yet honour the `charInsertTarget` setting (add as a character card):
-  /// that needs a unified insert entry point on GenerationNotifier, which
-  /// should replace the body of this method.
+  /// prompt (WEAR and the outfit-state panel both end up here). The target
+  /// (main prompt or a new character card) follows `charInsertTarget`.
   void _insertIntoPrompt(
     SavedCharacter character,
     ClosetOutfit outfit,
@@ -509,29 +520,19 @@ class _CharacterEditorState extends State<_CharacterEditor> {
     bool dishevelled,
   ) {
     if (tags.trim().isEmpty) return;
-    final gen = context.read<GenerationNotifier>();
-    final ctrl = gen.promptController;
-    final text = ctrl.text;
-    final sel = ctrl.selection;
-    final pos = sel.isValid ? sel.baseOffset : text.length;
-    final before = text.substring(0, pos);
-    final after = text.substring(pos);
-    final needComma =
-        before.trim().isNotEmpty && !before.trimRight().endsWith(',');
-    final insert =
-        '${needComma ? ', ' : ''}$tags${dishevelled ? ', nsfw' : ''}, ';
-    final newBefore = before + insert;
-    ctrl.value = TextEditingValue(
-      text: newBefore + after,
-      selection: TextSelection.collapsed(offset: newBefore.length),
+    final result = applyCharacterToPrompt(
+      context.read<GenerationNotifier>(),
+      name: character.name,
+      tags: tags,
+      negativeTags: context
+          .read<CharacterLibraryNotifier>()
+          .negativeExpansionFor(character, outfit),
+      dishevelled: dishevelled,
     );
-    TagSuggestionHelper.appendNegatives(
-      gen.negativePromptController,
-      context.read<CharacterLibraryNotifier>().negativeExpansionFor(
-        character,
-        outfit,
-      ),
-    );
+    if (result == ApplyTagResult.characterLimitReached) {
+      showErrorSnackBar(context, context.l.charEditorCharacterLimitReached);
+      return;
+    }
     showAppSnackBar(context, context.l.charsAddedToPrompt);
   }
 

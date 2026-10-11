@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/vision_metrics.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../../core/widgets/enabled_toggle.dart';
@@ -23,7 +24,8 @@ class VibeTransferEditorSheet extends StatefulWidget {
   });
 
   @override
-  State<VibeTransferEditorSheet> createState() => _VibeTransferEditorSheetState();
+  State<VibeTransferEditorSheet> createState() =>
+      _VibeTransferEditorSheetState();
 }
 
 class _VibeTransferEditorSheetState extends State<VibeTransferEditorSheet> {
@@ -44,13 +46,12 @@ class _VibeTransferEditorSheetState extends State<VibeTransferEditorSheet> {
     final t = context.t;
     final l = context.l;
     final accent = t.accentVibeTransfer;
-    return Container(
-      color: t.surfaceMid,
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-        left: 24,
-        right: 24,
-        top: 16,
+    return Padding(
+      // showAppSheet supplies the background, keyboard inset and safe area.
+      padding: const EdgeInsets.only(
+        left: VisionMetrics.space24,
+        right: VisionMetrics.space24,
+        top: VisionMetrics.space16,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

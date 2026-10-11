@@ -46,11 +46,17 @@ class _ActionInteractionSheetState extends State<ActionInteractionSheet> {
   @override
   void initState() {
     super.initState();
-    _actionController = TextEditingController(text: widget.initialInteraction?.actionName ?? "");
+    _actionController = TextEditingController(
+      text: widget.initialInteraction?.actionName ?? "",
+    );
     _actionFocusNode = FocusNode();
     _type = widget.initialInteraction?.type ?? widget.initialType;
-    _sourceIndices = widget.initialInteraction?.sourceCharacterIndices.toList() ?? widget.sourceIndices.toList();
-    _targetIndices = widget.initialInteraction?.targetCharacterIndices.toList() ?? widget.targetIndices.toList();
+    _sourceIndices =
+        widget.initialInteraction?.sourceCharacterIndices.toList() ??
+        widget.sourceIndices.toList();
+    _targetIndices =
+        widget.initialInteraction?.targetCharacterIndices.toList() ??
+        widget.targetIndices.toList();
     _actionController.addListener(_updateActionSuggestions);
   }
 
@@ -64,18 +70,25 @@ class _ActionInteractionSheetState extends State<ActionInteractionSheet> {
     if (!mounted) return;
     final text = _actionController.text;
     if (text.isEmpty) {
-      if (_actionSuggestions.isNotEmpty) setState(() => _actionSuggestions = []);
+      if (_actionSuggestions.isNotEmpty) {
+        setState(() => _actionSuggestions = []);
+      }
       return;
     }
     String query = text;
     if (query.startsWith('/f ')) query = query.substring(3);
     if (query.length < 2) {
-      if (_actionSuggestions.isNotEmpty) setState(() => _actionSuggestions = []);
+      if (_actionSuggestions.isNotEmpty) {
+        setState(() => _actionSuggestions = []);
+      }
       return;
     }
-    final suggestions = _tagService?.getSuggestions(query)
-        .where((tag) => tag.typeName.toLowerCase() == 'general')
-        .toList() ?? [];
+    final suggestions =
+        _tagService
+            ?.getSuggestions(query)
+            .where((tag) => tag.typeName.toLowerCase() == 'general')
+            .toList() ??
+        [];
     setState(() => _actionSuggestions = suggestions);
   }
 
@@ -95,12 +108,14 @@ class _ActionInteractionSheetState extends State<ActionInteractionSheet> {
     if (_saved || _deleted) return;
     if (_actionController.text.trim().isEmpty) return;
     _saved = true;
-    widget.onSave(NaiInteraction(
-      sourceCharacterIndices: _sourceIndices,
-      targetCharacterIndices: _targetIndices,
-      actionName: _actionController.text.trim(),
-      type: _type,
-    ));
+    widget.onSave(
+      NaiInteraction(
+        sourceCharacterIndices: _sourceIndices,
+        targetCharacterIndices: _targetIndices,
+        actionName: _actionController.text.trim(),
+        type: _type,
+      ),
+    );
   }
 
   void _toggleDirection() {
@@ -134,7 +149,9 @@ class _ActionInteractionSheetState extends State<ActionInteractionSheet> {
   }
 
   String _charName(int index) {
-    if (index >= 0 && index < widget.characters.length && widget.characters[index].name.isNotEmpty) {
+    if (index >= 0 &&
+        index < widget.characters.length &&
+        widget.characters[index].name.isNotEmpty) {
       return widget.characters[index].name;
     }
     return 'C${index + 1}';
@@ -162,120 +179,152 @@ class _ActionInteractionSheetState extends State<ActionInteractionSheet> {
   Widget build(BuildContext context) {
     final t = context.t;
 
-    return Container(
-      color: t.surfaceMid,
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-        left: 24,
-        right: 24,
-        top: 16,
+    return Padding(
+      // showAppSheet supplies the background, keyboard inset and safe area.
+      padding: const EdgeInsets.only(
+        left: VisionMetrics.space24,
+        right: VisionMetrics.space24,
+        top: VisionMetrics.space16,
       ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'INTERACTION EDITOR',
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: t.fontSize(12),
-                  letterSpacing: 4,
-                  color: t.textPrimary,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'INTERACTION EDITOR',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: t.fontSize(12),
+                    letterSpacing: 4,
+                    color: t.textPrimary,
+                  ),
+                ),
+                if (widget.initialInteraction != null)
+                  IconButton(
+                    onPressed: () {
+                      _deleted = true;
+                      widget.onDelete();
+                      Navigator.pop(context);
+                    },
+                    icon: Icon(
+                      Icons.delete_outline,
+                      color: t.accentDanger,
+                      size: 18,
+                    ),
+                    constraints: const BoxConstraints(),
+                    padding: EdgeInsets.zero,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'ACTION',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: t.fontSize(9),
+                letterSpacing: 2,
+                color: t.textDisabled,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _actionController,
+              focusNode: _actionFocusNode,
+              autofocus: true,
+              style: TextStyle(
+                fontSize: t.fontSize(13),
+                color: t.textSecondary,
+                height: 1.4,
+              ),
+              decoration: InputDecoration(
+                hintText: 'ENTER ACTION (e.g., hugging)',
+                hintStyle: TextStyle(
+                  fontSize: t.fontSize(9),
+                  color: t.textMinimal,
+                  letterSpacing: 2,
+                ),
+                fillColor: t.surfaceHigh,
+                filled: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+                  borderSide: BorderSide(color: t.textMinimal),
+                ),
+                contentPadding: const EdgeInsets.all(16),
+              ),
+            ),
+            TagSuggestionOverlay(
+              suggestions: _actionSuggestions,
+              onTagSelected: _onActionTagSelected,
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'DIRECTION',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: t.fontSize(9),
+                letterSpacing: 2,
+                color: t.textDisabled,
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: _toggleDirection,
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: t.borderMedium),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+                ),
+                alignment: Alignment.centerLeft,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  _getDirectionLabel(),
+                  style: TextStyle(
+                    color: t.textPrimary,
+                    fontSize: t.fontSize(11),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-              if (widget.initialInteraction != null)
-                IconButton(
-                  onPressed: () {
-                    _deleted = true;
-                    widget.onDelete();
-                    Navigator.pop(context);
-                  },
-                  icon: Icon(Icons.delete_outline, color: t.accentDanger, size: 18),
-                  constraints: const BoxConstraints(),
-                  padding: EdgeInsets.zero,
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton(
+              onPressed: () {
+                _saveChanges();
+                Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: t.accent,
+                foregroundColor: t.background,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(VisionMetrics.radius4),
                 ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'ACTION',
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: t.fontSize(9),
-              letterSpacing: 2,
-              color: t.textDisabled,
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: _actionController,
-            focusNode: _actionFocusNode,
-            autofocus: true,
-            style: TextStyle(fontSize: t.fontSize(13), color: t.textSecondary, height: 1.4),
-            decoration: InputDecoration(
-              hintText: 'ENTER ACTION (e.g., hugging)',
-              hintStyle: TextStyle(fontSize: t.fontSize(9), color: t.textMinimal, letterSpacing: 2),
-              fillColor: t.surfaceHigh,
-              filled: true,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(VisionMetrics.radius4), borderSide: BorderSide.none),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(VisionMetrics.radius4), borderSide: BorderSide.none),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(VisionMetrics.radius4), borderSide: BorderSide(color: t.textMinimal)),
-              contentPadding: const EdgeInsets.all(16),
-            ),
-          ),
-          TagSuggestionOverlay(
-            suggestions: _actionSuggestions,
-            onTagSelected: _onActionTagSelected,
-          ),
-          const SizedBox(height: 20),
-          Text(
-            'DIRECTION',
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: t.fontSize(9),
-              letterSpacing: 2,
-              color: t.textDisabled,
-            ),
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton(
-            onPressed: _toggleDirection,
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: t.borderMedium),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(VisionMetrics.radius4)),
-              alignment: Alignment.centerLeft,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              ),
               child: Text(
-                _getDirectionLabel(),
-                style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11), fontWeight: FontWeight.bold),
+                'SAVE INTERACTION',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2,
+                  fontSize: t.fontSize(10),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 32),
-          ElevatedButton(
-            onPressed: () {
-              _saveChanges();
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: t.accent,
-              foregroundColor: t.background,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(VisionMetrics.radius4)),
-            ),
-            child: Text(
-              'SAVE INTERACTION',
-              style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 2, fontSize: t.fontSize(10)),
-            ),
-          ),
-        ],
+          ],
         ),
       ),
     );

@@ -708,7 +708,9 @@ class _TextGenPanelState extends State<TextGenPanel> {
     text.toUpperCase(),
     style: TextStyle(
       color: t.secondaryText,
-      fontSize: t.fontSize(responsiveFont(context, 9, 11)),
+      fontSize: t.fontSize(
+        windowSizeClassOf(context) == WindowSizeClass.compact ? 11 : 9,
+      ),
       fontWeight: FontWeight.bold,
       letterSpacing: 2,
     ),

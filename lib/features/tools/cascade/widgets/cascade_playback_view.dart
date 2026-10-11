@@ -535,7 +535,7 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
             itemCount: options.length,
             itemBuilder: (context, index) {
               final option = options.elementAt(index);
-              final color = TagSuggestionOverlay.tagColor(option);
+              final color = TagSuggestionOverlay.tagColor(context.t, option);
               return InkWell(
                 onTap: () => onSelected(option),
                 child: Container(
