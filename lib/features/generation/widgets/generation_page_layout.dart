@@ -1,7 +1,68 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/utils/resizable_lines.dart';
+import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/line_resize_handle.dart';
+
+/// Which arrangement the generation page uses.
+enum GenerationLayoutMode {
+  /// Touch-sized windows (< 840): a bottom sheet holds prompt, inputs and
+  /// parameters.
+  sheet,
+
+  /// Expanded windows (840-1199): prompt footer plus the bottom settings
+  /// panel.
+  regular,
+
+  /// Large windows (>= 1200) that allow it: settings in a left sidebar.
+  sidebar,
+}
+
+/// The one answer to "which layout is this window" for the generation page.
+/// Computed once per build from the Material 3 window size class, so no part
+/// of the page compares widths on its own.
+class GenerationLayoutSpec {
+  const GenerationLayoutSpec({required this.sizeClass, required this.mode});
+
+  /// [sidebarMode] is the user's `auto` / `always` / `never` setting: `never`
+  /// keeps the regular layout on wide windows, `auto` limits the sidebar to
+  /// desktop platforms.
+  factory GenerationLayoutSpec.of(
+    BuildContext context, {
+    required String sidebarMode,
+  }) => GenerationLayoutSpec.resolve(
+    windowSizeClassOf(context),
+    sidebarMode: sidebarMode,
+    desktop: isDesktopPlatform(),
+  );
+
+  factory GenerationLayoutSpec.resolve(
+    WindowSizeClass sizeClass, {
+    required String sidebarMode,
+    required bool desktop,
+  }) {
+    final sidebarAllowed =
+        sidebarMode == 'always' || (sidebarMode != 'never' && desktop);
+    final mode = sizeClass.isTouchSized
+        ? GenerationLayoutMode.sheet
+        : sizeClass.isSidebarCapable && sidebarAllowed
+        ? GenerationLayoutMode.sidebar
+        : GenerationLayoutMode.regular;
+    return GenerationLayoutSpec(sizeClass: sizeClass, mode: mode);
+  }
+
+  final WindowSizeClass sizeClass;
+  final GenerationLayoutMode mode;
+
+  /// Compact and medium windows: touch-sized controls.
+  bool get touch => sizeClass.isTouchSized;
+
+  /// Phone-width windows: the app bar folds secondary actions away.
+  bool get compact => sizeClass == WindowSizeClass.compact;
+
+  bool get isSheet => mode == GenerationLayoutMode.sheet;
+  bool get isSidebar => mode == GenerationLayoutMode.sidebar;
+}
 
 /// Owns the vertical geometry of the generation page.
 ///

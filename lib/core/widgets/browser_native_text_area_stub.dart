@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'browser_native_key_event.dart';
+
 const bool supportsBrowserNativeTextArea = false;
 
 class BrowserNativeTextArea extends StatelessWidget {
@@ -21,7 +23,7 @@ class BrowserNativeTextArea extends StatelessWidget {
     VoidCallback? onTap,
     FocusNode? focusNode,
     VoidCallback? onBlur,
-    bool Function(String key, bool control, bool alt, bool shift)? onKeyDown,
+    BrowserNativeKeyHandler? onKeyDown,
   });
 
   @override

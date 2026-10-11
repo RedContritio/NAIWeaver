@@ -34,6 +34,7 @@
   "mainExport": "导出",
   "mainEdit": "编辑",
   "mainEnterPrompt": "输入提示词",
+  "mainMoreActions": "更多操作",
   "mainHelp": "帮助",
   "mainAuthError": "认证错误：请检查 API 设置",
   "mainSettings": "设置",

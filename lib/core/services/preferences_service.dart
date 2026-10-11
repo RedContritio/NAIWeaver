@@ -512,6 +512,23 @@ class PreferencesService {
     );
   }
 
+  /// Visible prompt height of one generation layout ([slot] names it:
+  /// footer, panel, sheet, sidebar). Layouts differ in room and default, so
+  /// each remembers its own height; until a layout is first resized it falls
+  /// back to the value saved before heights were per layout, if any.
+  int? uiMainPromptLinesFor(String slot) {
+    final value = _prefs.getInt('$_keyUiMainPromptLines.$slot');
+    if (value == null) return uiMainPromptLines;
+    return value.clamp(kMainPromptMinLines, kMainPromptMaxLines);
+  }
+
+  Future<void> setUiMainPromptLinesFor(String slot, int value) async {
+    await _prefs.setInt(
+      '$_keyUiMainPromptLines.$slot',
+      value.clamp(kMainPromptMinLines, kMainPromptMaxLines),
+    );
+  }
+
   // — Reference defaults (last applied) —
 
   double get refLastStrength => _prefs.getDouble(_keyRefLastStrength) ?? 1.0;

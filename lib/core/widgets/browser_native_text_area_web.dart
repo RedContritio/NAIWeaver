@@ -8,6 +8,7 @@ import 'package:web/web.dart' as web;
 import '../services/client_diagnostics.dart';
 import '../services/client_diagnostics_platform.dart';
 import '../theme/theme_extensions.dart';
+import 'browser_native_key_event.dart';
 import 'browser_native_text_area_key_policy.dart';
 import 'web_style_bridge.dart';
 
@@ -33,8 +34,7 @@ class BrowserNativeTextArea extends StatefulWidget {
   final VoidCallback? onTap;
   final FocusNode? focusNode;
   final VoidCallback? onBlur;
-  final bool Function(String key, bool control, bool alt, bool shift)?
-  onKeyDown;
+  final BrowserNativeKeyHandler? onKeyDown;
 
   const BrowserNativeTextArea({
     super.key,
@@ -343,10 +343,14 @@ class _BrowserNativeTextAreaState extends State<BrowserNativeTextArea>
       final event = rawEvent as web.KeyboardEvent;
       _syncSelectionFromDom();
       final handled = widget.onKeyDown?.call(
-        event.key,
-        event.ctrlKey || event.metaKey,
-        event.altKey,
-        event.shiftKey,
+        BrowserNativeKeyEvent(
+          key: event.key,
+          control: event.ctrlKey,
+          meta: event.metaKey,
+          alt: event.altKey,
+          shift: event.shiftKey,
+          isComposing: event.isComposing,
+        ),
       );
       final policy = browserNativeTextAreaKeyPolicy(handled == true);
       if (policy.preventDefault) event.preventDefault();
