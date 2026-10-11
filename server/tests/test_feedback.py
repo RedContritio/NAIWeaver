@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import tests  # noqa: F401  # isolates the data directories before app imports
+
 import sqlite3
 import unittest
 

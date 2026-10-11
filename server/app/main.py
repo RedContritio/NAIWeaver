@@ -1,23 +1,22 @@
 from __future__ import annotations
 
 import asyncio
-import base64
+import copy
 import hashlib
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 import ipaddress
 from io import BytesIO
 import json
 import logging
-import math
 import os
 from pathlib import Path
 import re
 import secrets
 import sqlite3
 import time
-from typing import Any
+from typing import Any, Iterator
 from zipfile import ZipFile
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
@@ -27,7 +26,45 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field
 from .only_webauth import OnlyWebAuth
 
+from .billing import (
+    ALLOWED_SAMPLERS,
+    ANOMALY_FREE_ALLOWANCE_EXHAUSTED,
+    ANOMALY_MEASURED_ABOVE_QUOTE,
+    FREE_ALLOWANCE_COOLDOWN_SECONDS,
+    MAX_DIMENSION,
+    MAX_SEED,
+    MAX_STEPS_ADMIN,
+    MAX_STEPS_FREE,
+    MAX_STEPS_PAID,
+    TOOL_CAPS,
+    Quote,
+    build_image_rules,
+    classify_and_quote,
+    free_allowance_exhausted_until,
+    green_point_discount_for,
+    immediate_transaction,
+    is_strict_int,
+    point_kind_for_mode,
+    record_billing_anomaly,
+    release_points,
+    remaining_points,
+    reserve_points,
+    settle_amount,
+    settle_points,
+    tool_quote,
+)
+from .body_limit import BodySizeLimitMiddleware
+from .errors import (
+    api_error,
+    error_response,
+    install_error_handlers,
+    invalid_parameters,
+    permission_denied,
+    upstream_error,
+)
+from .idempotency import CachedResponse, ToolResponseCache
 from .security import TokenError, create_jwt, decode_jwt, hash_password, verify_password
+from .upstream_lane import FREE_PRIORITY, RED_PRIORITY, UpstreamLane
 
 
 logger = logging.getLogger("uvicorn.error.naiweaver")
@@ -77,12 +114,6 @@ DEFAULT_RED_POINTS = int(os.environ.get("NAIWEAVER_RED_POINTS", "3000"))
 DEFAULT_ADMIN_RED_POINTS = int(
     os.environ.get("NAIWEAVER_ADMIN_RED_POINTS", "5000")
 )
-MAX_STEPS_FREE = int(os.environ.get("NAIWEAVER_FREE_MAX_STEPS", "28"))
-MAX_STEPS_PAID = int(os.environ.get("NAIWEAVER_PAID_MAX_STEPS", "50"))
-MAX_STEPS_ADMIN = int(os.environ.get("NAIWEAVER_ADMIN_MAX_STEPS", "50"))
-MAX_DIMENSION = int(os.environ.get("NAIWEAVER_MAX_DIMENSION", "2048"))
-FREE_IMAGE_SIZES = frozenset({(832, 1216), (1216, 832), (1024, 1024)})
-# A standard 1MP / 28-step image costs 20 green points without Opus.
 TEXT_GLOBAL_CONCURRENCY = int(os.environ.get("NAIWEAVER_TEXT_CONCURRENCY", "3"))
 MAX_QUEUED_IMAGE_TASKS_PER_USER = int(
     os.environ.get("NAIWEAVER_MAX_QUEUED_IMAGE_TASKS_PER_USER", "20")
@@ -91,32 +122,6 @@ THUMBNAIL_MAX_SIZE = int(os.environ.get("NAIWEAVER_THUMBNAIL_MAX_SIZE", "512"))
 THUMBNAIL_WEBP_QUALITY = int(os.environ.get("NAIWEAVER_THUMBNAIL_WEBP_QUALITY", "76"))
 
 QUEUE_WEIGHTS = {"free": 100, "paid": 500, "admin": 1000}
-ALLOWED_SAMPLERS = {
-    "k_euler_ancestral",
-    "k_euler",
-    "k_dpmpp_2s_ancestral",
-    "k_dpmpp_2m",
-    "k_dpmpp_sde",
-}
-PAID_ONLY_IMAGE_PARAMETERS = frozenset(
-    {
-        "image",
-        "mask",
-        "strength",
-        "noise",
-        "extra_noise_seed",
-        "add_original_image",
-        "mask_blur",
-        "director_reference_images",
-        "director_reference_descriptions",
-        "director_reference_strength_values",
-        "director_reference_secondary_strength_values",
-        "director_reference_information_extracted",
-        "reference_image_multiple",
-        "reference_strength_multiple",
-        "reference_information_extracted_multiple",
-    }
-)
 AUDIT_MAX_STRING_CHARS = 20000
 GENERATION_ERROR_PREVIEW_MAX_CHARS = 4000
 GENERATION_LOG_SENSITIVE_KEYS = frozenset(
@@ -146,10 +151,6 @@ TARGET_BASES = {
     "api": "https://api.novelai.net",
     "text": "https://text.novelai.net",
 }
-NAI_V5_CURATED_MODEL = "nai-diffusion-5-curated"
-NAI_V5_FULL_MODEL = "nai-diffusion-5-full"
-NAI_V5_FULL_INPAINTING_MODEL = "nai-diffusion-5-full-inpainting"
-NAI_V4_5_CURATED_INPAINTING_MODEL = "nai-diffusion-4-5-curated-inpainting"
 HOP_BY_HOP_HEADERS = {
     "connection",
     "keep-alive",
@@ -162,16 +163,17 @@ HOP_BY_HOP_HEADERS = {
     "content-encoding",
     "content-length",
 }
-ALLOWED_IMAGE_PROXY_PATHS = {
-    "ai/generate-image",
-    "ai/upscale",
-    "ai/augment-image",
-    "ai/encode-vibe",
+# Paid image tools reachable through the proxy, keyed by NovelAI path. Image
+# generation is only accepted through /api/generation-tasks.
+PAID_TOOL_PATHS = {
+    "ai/upscale": "upscale",
+    "ai/augment-image": "augment",
+    "ai/encode-vibe": "encode_vibe",
 }
-PAID_DIRECT_IMAGE_PATHS = {
-    "ai/upscale",
-    "ai/augment-image",
-    "ai/encode-vibe",
+TOOL_PERMISSION_COLUMNS = {
+    "upscale": "can_image_upscale",
+    "augment": "can_image_augment",
+    "encode_vibe": "can_image_encode_vibe",
 }
 ALLOWED_TEXT_PROXY_PATHS = {
     "ai/generate",
@@ -344,6 +346,31 @@ ON client_feedback_reports(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_client_feedback_reports_created
 ON client_feedback_reports(created_at DESC);
 
+-- Machine-readable failure reason of a generation item (contract §1 codes).
+CREATE TABLE IF NOT EXISTS generation_item_errors (
+  item_id TEXT PRIMARY KEY REFERENCES generation_tasks(id) ON DELETE CASCADE,
+  error_code TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+-- Settlements that disagreed with the quote. A 'free_allowance_exhausted'
+-- row also starts the free-allowance cooldown (contract §4).
+CREATE TABLE IF NOT EXISTS billing_anomalies (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind TEXT NOT NULL,
+  user_id INTEGER NOT NULL,
+  task_id TEXT,
+  tool TEXT,
+  mode TEXT NOT NULL,
+  quoted INTEGER NOT NULL,
+  measured INTEGER,
+  note TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_billing_anomalies_kind_created
+ON billing_anomalies(kind, created_at);
+
 """
 
 
@@ -360,11 +387,13 @@ active_text_user_ids: set[int] = set()
 active_text_count = 0
 text_queue_virtual_time = 0.0
 text_queue_last_finish: dict[str, float] = {"free": 0.0, "paid": 0.0, "admin": 0.0}
+upstream_lane = UpstreamLane()
+tool_response_cache = ToolResponseCache()
 
 
 @dataclass(order=True)
 class ProxyJob:
-    sort_key: tuple[float, int, str] = field(init=False, repr=False)
+    sort_key: tuple[int, float, int, str] = field(init=False, repr=False)
     virtual_finish: float
     negative_weight: int
     created_at: str
@@ -373,11 +402,21 @@ class ProxyJob:
     service: str = field(compare=False)
     path: str = field(compare=False)
     body: bytes = field(compare=False)
-    cost: int = field(compare=False, default=1)
-    quota_mode: str | None = field(compare=False, default=None)
+    quota_mode: str = field(compare=False, default="free")
 
     def __post_init__(self) -> None:
-        self.sort_key = (self.virtual_finish, self.negative_weight, self.created_at)
+        # Red-point work runs before free work; free work keeps the weighted
+        # fair order among user classes.
+        self.sort_key = (
+            self.lane_priority,
+            self.virtual_finish,
+            self.negative_weight,
+            self.created_at,
+        )
+
+    @property
+    def lane_priority(self) -> int:
+        return RED_PRIORITY if self.quota_mode == "paid" else FREE_PRIORITY
 
 
 @dataclass(order=True)
@@ -553,7 +592,7 @@ def session_response(
         max_age=SESSION_TTL_SECONDS,
         path="/",
     )
-    return {"user": user_to_dict(user, db), "quota": quota_for_user(db, user)}
+    return {"user": user_to_dict(user), "quota": quota_for_user(user)}
 
 
 def db_connect() -> sqlite3.Connection:
@@ -566,6 +605,16 @@ def db_connect() -> sqlite3.Connection:
 
 
 def get_db():
+    conn = db_connect()
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+
+@contextmanager
+def db_session() -> Iterator[sqlite3.Connection]:
+    """A short-lived connection for background work; always closed."""
     conn = db_connect()
     try:
         yield conn
@@ -990,6 +1039,7 @@ def validate_runtime_config() -> None:
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     global http_client, queue_condition, queue_worker_task, text_queue_condition
+    global upstream_lane, tool_response_cache
     validate_runtime_config()
     init_db()
     bootstrap_users()
@@ -997,12 +1047,15 @@ async def lifespan(_: FastAPI):
     http_client = httpx.AsyncClient(timeout=timeout)
     queue_condition = asyncio.Condition()
     text_queue_condition = asyncio.Condition()
+    upstream_lane = UpstreamLane()
+    tool_response_cache = ToolResponseCache()
     await restore_generation_queue()
     queue_worker_task = asyncio.create_task(queue_worker())
     try:
         yield
     finally:
         if queue_worker_task is not None:
+            # The worker marks its running item 'interrupted' on cancellation.
             queue_worker_task.cancel()
             try:
                 await queue_worker_task
@@ -1040,14 +1093,7 @@ async def client_ip_allowlist(request: Request, call_next):
 
 
 @app.middleware("http")
-async def request_limits_and_origin(request: Request, call_next):
-    content_length = request.headers.get("content-length")
-    if content_length:
-        try:
-            if int(content_length) > MAX_REQUEST_BODY_BYTES:
-                return Response("Request body too large", status_code=413)
-        except ValueError:
-            return Response("Invalid Content-Length", status_code=400)
+async def same_origin_writes(request: Request, call_next):
     if PRODUCTION and request.url.path.startswith("/api/") and request.method not in {
         "GET",
         "HEAD",
@@ -1055,8 +1101,21 @@ async def request_limits_and_origin(request: Request, call_next):
     }:
         origin = request.headers.get("origin")
         if origin and origin != PUBLIC_BASE_URL:
-            return Response("Forbidden", status_code=403)
+            return error_response(
+                403,
+                {
+                    "code": "permission_denied",
+                    "message": "Cross-origin request rejected",
+                    "permission": "origin",
+                },
+            )
     return await call_next(request)
+
+
+# Added last so it is the outermost layer: it counts the bytes every inner
+# layer reads, including chunked uploads without Content-Length.
+app.add_middleware(BodySizeLimitMiddleware, max_bytes=MAX_REQUEST_BODY_BYTES)
+install_error_handlers(app)
 
 
 def novelai_token() -> str:
@@ -1068,34 +1127,53 @@ def novelai_token() -> str:
     return os.environ.get("NOVELAI_TOKEN", os.environ.get("NAI_TOKEN", "")).strip()
 
 
-def paid_image_budget_available(
-    user: sqlite3.Row, db: sqlite3.Connection | None = None
-) -> bool:
-    if not (user["can_generate_paid"] or user["is_admin"]):
+def image_generation_allowed(user: Any, mode: str) -> bool:
+    """The only rule for "may this user generate images in this mode".
+
+    It describes capability, not balance: reservations report missing points
+    as ``points_insufficient``. /api/me, quota, submission and the worker all
+    call this function.
+    """
+    if user is None or user["disabled"]:
         return False
-    if db is None:
+    if user["is_admin"]:
         return True
-    paid = quota_bucket(db, user, "paid")
-    return paid["remaining"] is None or paid["remaining"] > 0
+    if mode == "paid":
+        return bool(user["can_generate_paid"])
+    return (
+        int(user["green_point_discount"]) > 0
+        or int(user["green_point_limit"]) > int(user["green_point_used"])
+    )
 
 
-def user_to_dict(
-    user: sqlite3.Row, db: sqlite3.Connection | None = None
-) -> dict[str, Any]:
+def image_tool_allowed(user: Any, tool: str) -> bool:
+    if user is None or user["disabled"]:
+        return False
+    if user["is_admin"]:
+        return True
+    return bool(user[TOOL_PERMISSION_COLUMNS[tool]]) and image_generation_allowed(
+        user, "paid"
+    )
+
+
+def generation_permission_name(mode: str) -> str:
+    return "image.generate.paid" if mode == "paid" else "image.generate.free"
+
+
+def tool_permission_name(tool: str) -> str:
+    return f"image.{tool}"
+
+
+def user_to_dict(user: sqlite3.Row) -> dict[str, Any]:
     permissions = {"history.read"}
-    has_paid_budget = paid_image_budget_available(user, db)
-    if user["is_admin"] or user["green_point_discount"] > 0 or user["green_point_limit"] > user["green_point_used"]:
-        permissions.add("image.generate.free")
-    if has_paid_budget:
-        permissions.add("image.generate.paid")
+    for mode in ("free", "paid"):
+        if image_generation_allowed(user, mode):
+            permissions.add(generation_permission_name(mode))
     if user["can_text_generate"] or user["is_admin"]:
         permissions.add("text.generate")
-    if (user["can_image_upscale"] or user["is_admin"]) and has_paid_budget:
-        permissions.add("image.upscale")
-    if (user["can_image_augment"] or user["is_admin"]) and has_paid_budget:
-        permissions.add("image.augment")
-    if (user["can_image_encode_vibe"] or user["is_admin"]) and has_paid_budget:
-        permissions.add("image.encode_vibe")
+    for tool in TOOL_PERMISSION_COLUMNS:
+        if image_tool_allowed(user, tool):
+            permissions.add(tool_permission_name(tool))
     if any(
         permission.startswith(("image.", "text."))
         for permission in permissions
@@ -1129,48 +1207,52 @@ def user_admin_dict(user: sqlite3.Row) -> dict[str, Any]:
     }
 
 
+def not_authenticated(message: str) -> HTTPException:
+    return api_error(status.HTTP_401_UNAUTHORIZED, "not_authenticated", message)
+
+
 async def require_user(request: Request, db: sqlite3.Connection = Depends(get_db)) -> sqlite3.Row:
     if only_auth.enabled:
         local_id = await only_auth.user_id(request)
         user = db.execute("SELECT * FROM users WHERE id = ?", (local_id,)).fetchone()
         if not user or user["disabled"]:
-            raise HTTPException(401, "User disabled")
+            raise not_authenticated("User disabled")
         return user
     token = request.cookies.get("access_token")
     auth = request.headers.get("Authorization", "")
     if not token and auth.lower().startswith("bearer "):
         token = auth[7:].strip()
     if not token:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not authenticated")
+        raise not_authenticated("Not authenticated")
     try:
         payload = decode_jwt(token, SECRET_KEY)
     except TokenError:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid session")
+        raise not_authenticated("Invalid session")
     session_id = payload.get("jti")
     user_id = payload.get("sub")
     if not session_id or not user_id:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid session")
+        raise not_authenticated("Invalid session")
     try:
         user_id_int = int(user_id)
     except (TypeError, ValueError):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid session")
+        raise not_authenticated("Invalid session")
     session = db.execute(
         "SELECT * FROM sessions WHERE id = ? AND user_id = ? AND revoked_at IS NULL",
         (session_id, user_id_int),
     ).fetchone()
     if not session:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Session expired")
+        raise not_authenticated("Session expired")
     if datetime.fromisoformat(session["expires_at"]) < datetime.now(timezone.utc):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Session expired")
+        raise not_authenticated("Session expired")
     user = db.execute("SELECT * FROM users WHERE id = ?", (user_id_int,)).fetchone()
     if not user or user["disabled"]:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User disabled")
+        raise not_authenticated("User disabled")
     return user
 
 
 def require_admin(user: sqlite3.Row = Depends(require_user)) -> sqlite3.Row:
     if not user["is_admin"]:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Admin required")
+        raise permission_denied("admin", "Admin required")
     return user
 
 
@@ -1215,9 +1297,23 @@ async def logout(request: Request, response: Response, db: sqlite3.Connection = 
     return {"ok": True}
 
 
+def image_rules_for_user(db: sqlite3.Connection, user: sqlite3.Row) -> dict[str, Any]:
+    """``rules.image`` for this user (contract §2), the input of every quote."""
+    return build_image_rules(
+        is_admin=bool(user["is_admin"]),
+        can_generate_paid=bool(user["can_generate_paid"]),
+        green_point_discount=green_point_discount_for(user),
+        allowance_exhausted=free_allowance_exhausted_until(db) is not None,
+    )
+
+
 @app.get("/api/me")
 def me(user: sqlite3.Row = Depends(require_user), db: sqlite3.Connection = Depends(get_db)):
-    return {"user": user_to_dict(user, db), "quota": quota_for_user(db, user)}
+    return {
+        "user": user_to_dict(user),
+        "quota": quota_for_user(user),
+        "rules": {"image": image_rules_for_user(db, user)},
+    }
 
 
 @app.get("/auth/login")
@@ -1250,71 +1346,51 @@ def usage_for(db: sqlite3.Connection, user_id: int, mode: str) -> int:
     return int(row["used"]) if row else 0
 
 
-def quota_limit(user: sqlite3.Row, mode: str) -> int | None:
-    if mode == "free":
-        configured = user["green_point_limit"]
-        return DEFAULT_GREEN_POINT_LIMIT if configured is None else int(configured)
+def quota_bucket(user: sqlite3.Row, mode: str) -> dict[str, Any]:
+    enabled = image_generation_allowed(user, mode)
     if mode == "paid":
-        if user["red_points"] is None:
-            return DEFAULT_ADMIN_RED_POINTS if user["is_admin"] else DEFAULT_RED_POINTS
-        return int(user["red_points"])
-    return 0
-
-
-def quota_bucket(db: sqlite3.Connection, user: sqlite3.Row, mode: str) -> dict[str, Any]:
-    limit = quota_limit(user, mode)
-    discount = green_point_discount_for(user)
-    enabled = bool(
-        user["is_admin"]
-        or (mode == "free" and (
-            discount > 0
-            or user["green_point_limit"] > user["green_point_used"]
-        ))
-        or (mode == "paid" and user["can_generate_paid"])
-    )
-    if mode == "paid":
+        limit = int(user["red_points"])
         reserved = int(user["red_points_reserved"])
-        used = int(user["red_points_used"]) + reserved
         return {
             "date": None,
             "mode": mode,
             "kind": "points",
             "red_points": limit,
             "point_limit": limit,
-            "used": used,
+            "used": int(user["red_points_used"]) + reserved,
             "reserved": reserved,
-            "remaining": None if limit is None else limit - used,
-            "unlimited": limit is None,
+            "remaining": remaining_points(user, "red"),
+            "unlimited": False,
             "enabled": enabled,
         }
+    limit = int(user["green_point_limit"])
     reserved = int(user["green_points_reserved"])
-    used = int(user["green_point_used"]) + reserved
-    fully_discounted = discount >= 100
+    remaining = remaining_points(user, "green")
     return {
         "date": None,
         "mode": mode,
         "kind": "points",
         "green_point_limit": limit,
-        "green_point_discount": discount,
+        "green_point_discount": green_point_discount_for(user),
         "point_limit": limit,
-        "used": used,
+        "used": int(user["green_point_used"]) + reserved,
         "reserved": reserved,
-        "remaining": 0 if fully_discounted else max(0, limit - used),
-        "unlimited": fully_discounted,
+        "remaining": 0 if remaining is None else max(0, remaining),
+        "unlimited": remaining is None,
         "enabled": enabled,
     }
 
 
-def quota_for_user(db: sqlite3.Connection, user: sqlite3.Row) -> dict[str, Any]:
+def quota_for_user(user: sqlite3.Row) -> dict[str, Any]:
     return {
-        "free": quota_bucket(db, user, "free"),
-        "paid": quota_bucket(db, user, "paid"),
+        "free": quota_bucket(user, "free"),
+        "paid": quota_bucket(user, "paid"),
     }
 
 
 @app.get("/api/quota")
-def quota(user: sqlite3.Row = Depends(require_user), db: sqlite3.Connection = Depends(get_db)):
-    return quota_for_user(db, user)
+def quota(user: sqlite3.Row = Depends(require_user)):
+    return quota_for_user(user)
 
 
 @app.post("/api/feedback", status_code=status.HTTP_201_CREATED)
@@ -1330,9 +1406,11 @@ def create_client_feedback(
         (user["id"], cutoff),
     ).fetchone()[0]
     if recent_count >= 10:
-        raise HTTPException(
+        raise api_error(
             status.HTTP_429_TOO_MANY_REQUESTS,
+            "rate_limited",
             "Too many feedback reports; please try again later",
+            limit=10,
         )
 
     context_json = json.dumps(
@@ -1346,7 +1424,12 @@ def create_client_feedback(
         separators=(",", ":"),
     )
     if len(context_json.encode("utf-8")) + len(diagnostics_json.encode("utf-8")) > 1_000_000:
-        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "Diagnostic report too large")
+        raise api_error(
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            "request_too_large",
+            "Diagnostic report too large",
+            limit=1_000_000,
+        )
 
     report_id = f"fb_{secrets.token_urlsafe(12)}"
     created_at = now_iso()
@@ -1665,7 +1748,11 @@ def admin_update_user(
 
 
 @app.get("/api/admin/config")
-def admin_config(_: sqlite3.Row = Depends(require_admin)):
+def admin_config(
+    _: sqlite3.Row = Depends(require_admin),
+    db: sqlite3.Connection = Depends(get_db),
+):
+    exhausted_until = free_allowance_exhausted_until(db)
     return {
         "green_point_limit": DEFAULT_GREEN_POINT_LIMIT,
         "green_point_discount": 0,
@@ -1681,6 +1768,12 @@ def admin_config(_: sqlite3.Row = Depends(require_admin)):
         "allowed_client_cidrs": ALLOWED_CLIENT_CIDRS,
         "fake_novelai": FAKE_NOVELAI,
         "has_novelai_token": bool(novelai_token()),
+        "tool_caps": dict(TOOL_CAPS),
+        "free_allowance": {
+            "exhausted": exhausted_until is not None,
+            "exhausted_until": exhausted_until.isoformat() if exhausted_until else None,
+            "cooldown_seconds": FREE_ALLOWANCE_COOLDOWN_SECONDS,
+        },
     }
 
 
@@ -1690,27 +1783,6 @@ def mode_for_user(user: sqlite3.Row) -> str:
     if user["can_generate_paid"]:
         return "paid"
     return "free"
-
-
-def truthy_parameter(value: Any) -> bool:
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return value != 0
-    if isinstance(value, str):
-        return value.strip().lower() in {"1", "true", "yes", "on"}
-    return bool(value)
-
-
-def nonempty_parameter(params: dict[str, Any], key: str) -> bool:
-    if key not in params:
-        return False
-    value = params[key]
-    if value is None:
-        return False
-    if isinstance(value, (str, list, dict, tuple, set)):
-        return bool(value)
-    return bool(value)
 
 
 def audit_request_preview(body: bytes) -> str:
@@ -1808,310 +1880,38 @@ def complete_audit_log(
     db.commit()
 
 
-def is_free_opus_generation(
-    data: dict[str, Any],
-    params: dict[str, Any],
-    *,
-    width: int,
-    height: int,
-    steps: int,
-) -> bool:
-    if data.get("action") not in (None, "generate"):
-        return False
-    if (width, height) not in FREE_IMAGE_SIZES:
-        return False
-    if steps > MAX_STEPS_FREE:
-        return False
-    if truthy_parameter(params.get("sm")) or truthy_parameter(params.get("sm_dyn")):
-        return False
-    return not any(nonempty_parameter(params, key) for key in PAID_ONLY_IMAGE_PARAMETERS)
-
-
-def estimate_image_points(data: dict[str, Any], params: dict[str, Any]) -> int:
-    """Match the client-side non-Opus Anlas estimate for green-point billing."""
-    width = max(1, int(params.get("width", 1)))
-    height = max(1, int(params.get("height", 1)))
-    steps = max(1, int(params.get("steps", 1)))
-    multiplier = 1.4 if truthy_parameter(params.get("sm_dyn")) else (
-        1.2 if truthy_parameter(params.get("sm")) else 1.0
-    )
-    raw_base = (2.951823174884865e-6 * width * height) + (
-        5.753298233447344e-7 * width * height * steps
-    )
-    base = max(math.ceil(math.ceil(raw_base) * multiplier), 2)
-    director_count = len(params.get("director_reference_images", []) or [])
-    vibe_count = len(params.get("reference_image_multiple", []) or [])
-    return base + director_count * 5 + max(0, vibe_count - 4) * 2
-
-
-def check_quota(
-    db: sqlite3.Connection, user: sqlite3.Row, mode: str, required_points: int = 1
-) -> None:
-    if mode == "free":
-        required_points = discounted_green_points(user, required_points)
-        if required_points == 0:
-            return
-    bucket = quota_bucket(db, user, mode)
-    if (
-        bucket["remaining"] is not None
-        and bucket["remaining"] < max(1, required_points)
-    ):
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            detail={
-                "code": "points_insufficient",
-                "point_kind": "red" if mode == "paid" else "green",
-                "message": "Available points are insufficient",
-            },
-        )
-
-
-def reserve_generation_quota(
-    db: sqlite3.Connection, user_id: int, mode: str | None, points: int
-) -> int:
-    """Reserve this task's cost at submit time.
-
-    The full estimated cost must be available before the task is admitted.
-    Zero-cost work never needs a reservation.
-    """
-    if mode is None:
-        return 0
-    user = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
-    if not user:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
-    charge = discounted_green_points(user, points) if mode == "free" else max(0, points)
-    if charge == 0:
-        return 0
-    bucket = quota_bucket(db, user, mode)
-    remaining = bucket["remaining"]
-    if remaining is not None and remaining < charge:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            detail={
-                "code": "points_insufficient",
-                "point_kind": "red" if mode == "paid" else "green",
-                "message": "Available points are insufficient",
-            },
-        )
-    column = "red_points_reserved" if mode == "paid" else "green_points_reserved"
-    db.execute(f"UPDATE users SET {column} = {column} + ? WHERE id = ?", (charge, user_id))
-    return charge
-
-
-def settle_generation_reservation(
-    db: sqlite3.Connection,
-    user_id: int,
-    mode: str | None,
-    reserved_points: int,
-    *,
-    actual_points: int | None,
-) -> None:
-    if mode is None or reserved_points <= 0:
-        return
-    reserved_column = "red_points_reserved" if mode == "paid" else "green_points_reserved"
-    used_column = "red_points_used" if mode == "paid" else "green_point_used"
-    charged = reserved_points if actual_points is None else max(0, actual_points)
-    db.execute(
-        f"""
-        UPDATE users
-        SET {reserved_column} = MAX(0, {reserved_column} - ?),
-            {used_column} = {used_column} + ?
-        WHERE id = ?
-        """,
-        (reserved_points, charged, user_id),
-    )
-
-
-def release_generation_reservation(
-    db: sqlite3.Connection, user_id: int, mode: str | None, reserved_points: int
-) -> None:
-    if mode is None or reserved_points <= 0:
-        return
-    reserved_column = "red_points_reserved" if mode == "paid" else "green_points_reserved"
-    db.execute(
-        f"UPDATE users SET {reserved_column} = MAX(0, {reserved_column} - ?) WHERE id = ?",
-        (reserved_points, user_id),
-    )
-
-
-def increment_quota(
-    db: sqlite3.Connection, user_id: int, mode: str, points: int = 1
-) -> None:
-    if mode == "paid":
-        charge_paid_points(db, user_id, points)
-        return
-    row = db.execute(
-        "SELECT green_point_discount FROM users WHERE id = ?", (user_id,)
-    ).fetchone()
-    if row and int(row["green_point_discount"]) >= 100:
-        return
-    discount = int(row["green_point_discount"]) if row else 0
-    charged = max(0, math.ceil(max(1, points) * (100 - discount) / 100))
-    db.execute(
-        "UPDATE users SET green_point_used = green_point_used + ? WHERE id = ?",
-        (charged, user_id),
-    )
-
-
-def discounted_green_points(user: sqlite3.Row, points: int) -> int:
-    """Return the permanent green-point charge after the user's discount."""
-    if points <= 0:
-        return 0
-    discount = green_point_discount_for(user)
-    return max(0, math.ceil(points * (100 - discount) / 100))
-
-
-def green_point_discount_for(user: sqlite3.Row) -> int:
-    if user["is_admin"]:
-        return 100
-    return min(100, max(0, int(user["green_point_discount"])))
-
-
-def charge_paid_points(db: sqlite3.Connection, user_id: int, points: int) -> None:
-    if points <= 0:
-        return
-    db.execute(
-        "UPDATE users SET red_points_used = red_points_used + ? WHERE id = ?",
-        (points, user_id),
-    )
-
-
-def sanitize_novelai_generate_body(
-    body: bytes, user: sqlite3.Row
-) -> tuple[bytes, dict[str, Any], str | None]:
-    if not (user["can_generate_paid"] or user["is_admin"] or user["green_point_limit"] > user["green_point_used"] or user["green_point_discount"] > 0):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Image generation is not allowed")
-    try:
-        data = json.loads(body.decode("utf-8"))
-    except Exception:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid JSON")
-    if not isinstance(data, dict):
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid body")
-    if data.get("action") not in (None, "generate", "img2img", "infill"):
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unsupported image action")
-    params = data.get("parameters")
-    if not isinstance(params, dict):
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Missing parameters")
-
-    try:
-        width = int(params.get("width", 0))
-        height = int(params.get("height", 0))
-        steps = int(params.get("steps", 0))
-    except (TypeError, ValueError):
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid generation parameters")
-    sampler = str(params.get("sampler", ""))
-    if width < 64 or height < 64 or width > MAX_DIMENSION or height > MAX_DIMENSION:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Resolution is not allowed")
-    if width % 64 != 0 or height % 64 != 0:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Resolution must be a multiple of 64")
-    max_steps = MAX_STEPS_ADMIN if user["is_admin"] else (MAX_STEPS_PAID if user["can_generate_paid"] else MAX_STEPS_FREE)
-    if steps < 1 or steps > max_steps:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Steps exceed server limit")
-    if sampler not in ALLOWED_SAMPLERS:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Sampler is not allowed")
-
-    # Keep every gateway client on the same current models as novelai.net,
-    # including older cached web builds that still submit a V4.5 model ID.
-    # NovelAI currently routes Curated inpainting through V4.5 while Full has
-    # a native V5 inpainting model.
-    requested_model = str(data.get("model", ""))
-    use_curated = "curated" in requested_model.lower()
-    if data.get("action") == "infill":
-        data["model"] = (
-            NAI_V4_5_CURATED_INPAINTING_MODEL
-            if use_curated
-            else NAI_V5_FULL_INPAINTING_MODEL
-        )
-    else:
-        data["model"] = NAI_V5_CURATED_MODEL if use_curated else NAI_V5_FULL_MODEL
-    params["params_version"] = 4
-    params["n_samples"] = 1
-    data["parameters"] = params
-
-    is_free_request = is_free_opus_generation(
-        data, params, width=width, height=height, steps=steps
-    )
-    if is_free_request:
-        quota_mode = None if user["is_admin"] else "free"
-    else:
-        if not (user["can_generate_paid"] or user["is_admin"]):
-            raise HTTPException(
-                status.HTTP_403_FORBIDDEN,
-                "This image option requires paid image quota",
-            )
-        quota_mode = "paid"
-    return (
-        json.dumps(data, separators=(",", ":"), ensure_ascii=False).encode("utf-8"),
-        data,
-        quota_mode,
-    )
-
-
-def require_paid_image_feature(
-    db: sqlite3.Connection,
-    user: sqlite3.Row,
-    enabled: bool,
-    message: str,
-) -> None:
-    if not (enabled or user["is_admin"]) or not (
-        user["can_generate_paid"] or user["is_admin"]
-    ):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, message)
-    check_quota(db, user, "paid")
-
-
 def require_novelai_proxy_permission(
-    service: str, path: str, method: str, user: sqlite3.Row, db: sqlite3.Connection
+    service: str, path: str, method: str, user: sqlite3.Row
 ) -> None:
+    endpoint_denied = permission_denied(
+        "novelai.proxy", "NovelAI endpoint is not allowed"
+    )
     if service == "text":
-        if method != "POST":
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "NovelAI endpoint is not allowed")
-        if path not in ALLOWED_TEXT_PROXY_PATHS:
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "NovelAI endpoint is not allowed")
+        if method != "POST" or path not in ALLOWED_TEXT_PROXY_PATHS:
+            raise endpoint_denied
         if not (user["can_text_generate"] or user["is_admin"]):
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "Text generation is not allowed")
+            raise permission_denied("text.generate", "Text generation is not allowed")
         return
     if service == "image":
-        if method != "POST":
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "NovelAI endpoint is not allowed")
-        if path not in ALLOWED_IMAGE_PROXY_PATHS:
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "NovelAI endpoint is not allowed")
         if path == "ai/generate-image":
-            if not (user["can_generate_paid"] or user["green_point_limit"] > user["green_point_used"] or user["green_point_discount"] > 0):
-                raise HTTPException(status.HTTP_403_FORBIDDEN, "Image generation is not allowed")
-            return
-        if path == "ai/upscale":
-            require_paid_image_feature(
-                db, user, bool(user["can_image_upscale"]), "Upscale requires paid image quota"
+            raise invalid_parameters(
+                "path", "Submit image generation through /api/generation-tasks"
             )
-            return
-        if path == "ai/augment-image":
-            require_paid_image_feature(
-                db,
-                user,
-                bool(user["can_image_augment"]),
-                "Image augmentation requires paid image quota",
+        tool = PAID_TOOL_PATHS.get(path)
+        if method != "POST" or tool is None:
+            raise endpoint_denied
+        if not image_tool_allowed(user, tool):
+            raise permission_denied(
+                tool_permission_name(tool), "This image tool is not allowed"
             )
-            return
-        if path == "ai/encode-vibe":
-            require_paid_image_feature(
-                db,
-                user,
-                bool(user["can_image_encode_vibe"]),
-                "Vibe transfer requires paid image quota",
-            )
-            return
+        return
     if service == "api":
-        if method != "GET":
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "NovelAI endpoint is not allowed")
-        if path not in ALLOWED_API_PROXY_PATHS:
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "NovelAI endpoint is not allowed")
+        if method != "GET" or path not in ALLOWED_API_PROXY_PATHS:
+            raise endpoint_denied
         if path == "user/subscription" and not user["is_admin"]:
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "NovelAI subscription is admin-only")
+            raise permission_denied("admin", "NovelAI subscription is admin-only")
         return
-    if user["is_admin"]:
-        return
-    raise HTTPException(status.HTTP_403_FORBIDDEN, "NovelAI endpoint is not allowed")
+    raise endpoint_denied
 
 
 def response_headers(headers: httpx.Headers) -> dict[str, str]:
@@ -2136,11 +1936,17 @@ async def forward_to_novelai(
     body: bytes = b"",
     stream: bool = False,
 ) -> tuple[int, dict[str, str], bytes] | StreamingResponse:
+    """Call NovelAI. Only a successful streamed call returns a stream; every
+    other outcome is a complete ``(status, headers, body)`` tuple."""
     if service not in TARGET_BASES:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown NovelAI service")
+        raise api_error(status.HTTP_404_NOT_FOUND, "not_found", "Unknown NovelAI service")
     token = novelai_token()
     if not token and not FAKE_NOVELAI:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "NovelAI token is not configured")
+        raise api_error(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "service_unavailable",
+            "NovelAI token is not configured",
+        )
     if FAKE_NOVELAI:
         return fake_response(service, path, method)
     assert http_client is not None
@@ -2150,25 +1956,56 @@ async def forward_to_novelai(
         headers["Content-Type"] = "application/json"
     if stream:
         headers["Accept"] = "text/event-stream, application/json"
-    if stream:
-        req = http_client.build_request(method, url, content=body, headers=headers)
-        upstream = await http_client.send(req, stream=True)
+    try:
+        if stream:
+            req = http_client.build_request(method, url, content=body, headers=headers)
+            upstream = await http_client.send(req, stream=True)
+            if not 200 <= upstream.status_code < 300:
+                try:
+                    content = await upstream.aread()
+                finally:
+                    await upstream.aclose()
+                return upstream.status_code, response_headers(upstream.headers), content
 
-        async def body_iter():
-            try:
-                async for chunk in upstream.aiter_bytes():
-                    yield chunk
-            finally:
-                await upstream.aclose()
+            async def body_iter():
+                try:
+                    async for chunk in upstream.aiter_bytes():
+                        yield chunk
+                finally:
+                    await upstream.aclose()
 
-        return StreamingResponse(
-            body_iter(),
-            status_code=upstream.status_code,
-            headers=response_headers(upstream.headers),
-            media_type=upstream.headers.get("content-type"),
+            return StreamingResponse(
+                body_iter(),
+                status_code=upstream.status_code,
+                headers=response_headers(upstream.headers),
+                media_type=upstream.headers.get("content-type"),
+            )
+        upstream = await http_client.request(method, url, content=body, headers=headers)
+    except httpx.HTTPError as exc:
+        logger.warning(
+            "novelai_request_failed service=%s path=%s exception_type=%s",
+            service,
+            path,
+            type(exc).__name__,
         )
-    upstream = await http_client.request(method, url, content=body, headers=headers)
+        raise upstream_error(None, "NovelAI is unreachable") from None
     return upstream.status_code, response_headers(upstream.headers), upstream.content
+
+
+def raise_for_upstream_status(
+    service: str, path: str, status_code: int, content: bytes, request_body: bytes = b""
+) -> None:
+    """Map any NovelAI non-2xx (including its 401/403) to 502 upstream_error."""
+    if 200 <= status_code < 300:
+        return
+    logger.warning(
+        "novelai_upstream_error service=%s path=%s status_code=%s response_preview=%s",
+        service,
+        path,
+        status_code,
+        safe_upstream_error_preview(content, request_body),
+    )
+    raise upstream_error(status_code, f"NovelAI returned HTTP {status_code}")
 
 
 async def acquire_text_slot(user: sqlite3.Row) -> TextQueueTicket:
@@ -2181,9 +2018,11 @@ async def acquire_text_slot(user: sqlite3.Row) -> TextQueueTicket:
         if user_id in active_text_user_ids or any(
             job.user_id == user_id for job in pending_text_jobs
         ):
-            raise HTTPException(
+            raise api_error(
                 status.HTTP_429_TOO_MANY_REQUESTS,
+                "queue_full",
                 "User already has an active text generation",
+                limit=1,
             )
         base = max(text_queue_virtual_time, text_queue_last_finish[queue_class])
         virtual_finish = base + (1.0 / weight)
@@ -2246,7 +2085,7 @@ async def forward_text_to_novelai_queued(
             service, path, method=method, body=body, stream=stream
         )
     except Exception:
-        with db_connect() as db:
+        with db_session() as db:
             complete_audit_log(
                 db, audit_id, status_code=500, error_message="Text proxy failed"
             )
@@ -2263,7 +2102,7 @@ async def forward_text_to_novelai_queued(
                 close = getattr(body_iterator, "aclose", None)
                 if close is not None:
                     await close()
-                with db_connect() as db:
+                with db_session() as db:
                     complete_audit_log(db, audit_id, status_code=result.status_code)
                 await release_text_slot(ticket)
 
@@ -2274,7 +2113,7 @@ async def forward_text_to_novelai_queued(
             media_type=result.media_type,
         )
     await release_text_slot(ticket)
-    with db_connect() as db:
+    with db_session() as db:
         complete_audit_log(db, audit_id, status_code=result[0])
     return result
 
@@ -2330,34 +2169,139 @@ async def fetch_anlas_balance(retries: int = 2) -> int | None:
     return None
 
 
-async def forward_paid_image_tool_and_charge(
-    user: sqlite3.Row,
-    path: str,
-    *,
-    method: str,
-    body: bytes,
-    db: sqlite3.Connection,
-) -> tuple[int, dict[str, str], bytes]:
-    check_quota(db, user, "paid")
+@dataclass(frozen=True)
+class UpstreamImageCall:
+    status_code: int
+    headers: dict[str, str]
+    content: bytes
+    anlas_before: int | None
+    anlas_after: int | None
+
+    @property
+    def ok(self) -> bool:
+        return 200 <= self.status_code < 300
+
+    @property
+    def measured_delta(self) -> int | None:
+        if self.anlas_before is None or self.anlas_after is None:
+            return None
+        return self.anlas_before - self.anlas_after
+
+
+async def call_image_upstream(path: str, body: bytes) -> UpstreamImageCall:
+    """One NovelAI image call and its measured Anlas cost.
+
+    The caller must hold ``upstream_lane``: NovelAI rejects a second
+    concurrent image call on the account, and the balance delta is only
+    attributable while nothing else runs.
+    """
+    assert upstream_lane.held, "image calls must hold the upstream lane"
     anlas_before = await fetch_anlas_balance()
-    if anlas_before is None:
-        raise HTTPException(
-            status.HTTP_503_SERVICE_UNAVAILABLE,
-            "NovelAI Anlas balance is unavailable",
-        )
-    result = await forward_to_novelai("image", path, method=method, body=body)
+    result = await forward_to_novelai("image", path, method="POST", body=body)
     assert not isinstance(result, StreamingResponse)
     status_code, headers, content = result
-    if status_code == 200:
-        anlas_after = await fetch_anlas_balance()
-        if anlas_after is not None:
-            charge_paid_points(
-                db,
-                int(user["id"]),
-                max(0, anlas_before - anlas_after),
+    anlas_after = await fetch_anlas_balance() if 200 <= status_code < 300 else None
+    return UpstreamImageCall(status_code, headers, content, anlas_before, anlas_after)
+
+
+def paid_tool_idempotency_key(request: Request, tool: str) -> str:
+    """Validate the paid-tool headers (contract §5) and return the key."""
+    key = request.headers.get("idempotency-key", "").strip()
+    if not 8 <= len(key) <= 128:
+        raise invalid_parameters(
+            "Idempotency-Key", "An Idempotency-Key header of 8-128 characters is required"
+        )
+    expected = request.headers.get("x-naiweaver-expected-points", "").strip()
+    if not re.fullmatch(r"[0-9]{1,9}", expected):
+        raise invalid_parameters(
+            "X-NAIWeaver-Expected-Points",
+            "X-NAIWeaver-Expected-Points must be the integer tool price",
+        )
+    quote = tool_quote(tool)
+    if int(expected) != quote.points:
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "quote_changed",
+            "The tool price has changed",
+            quote=quote.to_dict(),
+        )
+    return key
+
+
+async def execute_paid_tool(
+    db: sqlite3.Connection, user_id: int, *, path: str, tool: str, body: bytes
+) -> CachedResponse:
+    """Reserve the tool cap, call NovelAI in the lane, settle the measured cost."""
+    cap = TOOL_CAPS[tool]
+    with immediate_transaction(db):
+        reserve_points(db, user_id, "red", cap)
+    settled = False
+    try:
+        async with upstream_lane.hold(RED_PRIORITY):
+            call = await call_image_upstream(path, body)
+        raise_for_upstream_status("image", path, call.status_code, call.content)
+        charge, above_quote = settle_amount(cap, call.measured_delta)
+        with immediate_transaction(db):
+            settle_points(db, user_id, "red", cap, charge)
+            if above_quote:
+                record_billing_anomaly(
+                    db,
+                    kind=ANOMALY_MEASURED_ABOVE_QUOTE,
+                    user_id=user_id,
+                    mode="paid",
+                    quoted=cap,
+                    measured=call.measured_delta,
+                    note="Measured Anlas delta exceeded the tool cap; charged the cap",
+                    tool=tool,
+                )
+        settled = True
+    finally:
+        if not settled:
+            # Upstream failure, cancellation or a settlement error: the user
+            # is never charged for work that did not complete.
+            with immediate_transaction(db):
+                release_points(db, user_id, "red", cap)
+    return CachedResponse(call.status_code, call.headers, call.content)
+
+
+async def run_paid_tool(
+    db: sqlite3.Connection,
+    user: sqlite3.Row,
+    *,
+    path: str,
+    tool: str,
+    body: bytes,
+    idempotency_key: str,
+) -> Response:
+    cache_key = (int(user["id"]), idempotency_key)
+    body_hash = hashlib.sha256(body).hexdigest()
+    while (entry := tool_response_cache.lookup(cache_key)) is not None:
+        if entry.body_hash != body_hash:
+            raise api_error(
+                status.HTTP_409_CONFLICT,
+                "duplicate_request",
+                "Idempotency-Key was reused with a different request body",
             )
-            db.commit()
-    return status_code, headers, content
+        cached = await asyncio.shield(entry.future)
+        if cached is not None:
+            return Response(
+                content=cached.content,
+                status_code=cached.status_code,
+                headers=cached.headers,
+            )
+        # The first attempt failed and released its reservation; try again.
+    entry = tool_response_cache.begin(cache_key, body_hash)
+    try:
+        result = await execute_paid_tool(
+            db, int(user["id"]), path=path, tool=tool, body=body
+        )
+    except BaseException:
+        tool_response_cache.fail(cache_key, entry)
+        raise
+    tool_response_cache.complete(cache_key, entry, result)
+    return Response(
+        content=result.content, status_code=result.status_code, headers=result.headers
+    )
 
 
 def fake_png() -> bytes:
@@ -2487,6 +2431,14 @@ async def save_history_image(task_id: str, data: bytes) -> str | None:
     return image_path
 
 
+INTERRUPTED_MESSAGE = (
+    "The gateway stopped while this image was running; its points were released"
+)
+FREE_ALLOWANCE_EXHAUSTED_MESSAGE = (
+    "The free allowance is temporarily exhausted; the reservation was released"
+)
+
+
 def job_from_task_row(task: sqlite3.Row) -> ProxyJob:
     """Rebuild an executable job from its durable queue record."""
     try:
@@ -2496,12 +2448,6 @@ def job_from_task_row(task: sqlite3.Row) -> ProxyJob:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     except (TypeError, ValueError, json.JSONDecodeError) as exc:
         raise ValueError(f"Task {task['id']} has invalid request data") from exc
-    mode = str(task["mode"])
-    cost = (
-        estimate_image_points(payload, payload["parameters"])
-        if mode == "free"
-        else int(task["cost"] or 1)
-    )
     return ProxyJob(
         virtual_finish=float(task["virtual_finish"] or 0),
         negative_weight=-int(task["queue_weight"] or QUEUE_WEIGHTS["free"]),
@@ -2511,58 +2457,93 @@ def job_from_task_row(task: sqlite3.Row) -> ProxyJob:
         service="image",
         path="ai/generate-image",
         body=body,
-        cost=cost,
-        quota_mode=mode if mode in {"free", "paid"} else None,
+        quota_mode="paid" if task["mode"] == "paid" else "free",
     )
 
 
+def fail_generation_item(
+    db: sqlite3.Connection,
+    item_id: str,
+    *,
+    error_code: str,
+    error_message: str,
+) -> str | None:
+    """Mark an unfinished item failed and release its whole reservation.
+
+    Items already in a final state are left untouched, so a reservation is
+    never released twice. Returns the item's batch id. The caller commits.
+    """
+    item = db.execute(
+        "SELECT user_id, mode, status, reserved_points, batch_id "
+        "FROM generation_tasks WHERE id = ?",
+        (item_id,),
+    ).fetchone()
+    if item is None:
+        return None
+    batch_id = str(item["batch_id"]) if item["batch_id"] else None
+    if item["status"] not in ("queued", "running"):
+        return batch_id
+    release_points(
+        db,
+        int(item["user_id"]),
+        point_kind_for_mode(item["mode"]),
+        int(item["reserved_points"] or 0),
+    )
+    completed = now_iso()
+    db.execute(
+        """
+        UPDATE generation_tasks
+        SET status = 'failed', error_message = ?,
+            released_green_points = CASE WHEN mode = 'paid' THEN 0 ELSE reserved_points END,
+            released_red_points = CASE WHEN mode = 'paid' THEN reserved_points ELSE 0 END,
+            completed_at = ?
+        WHERE id = ?
+        """,
+        (error_message, completed, item_id),
+    )
+    db.execute(
+        "INSERT OR REPLACE INTO generation_item_errors(item_id, error_code, created_at) "
+        "VALUES (?, ?, ?)",
+        (item_id, error_code, completed),
+    )
+    if batch_id:
+        refresh_submission_task(db, batch_id)
+    return batch_id
+
+
 async def restore_generation_queue() -> None:
-    """Restore queued work after a gateway restart instead of losing it in RAM."""
+    """Restore queued work after a restart; interrupted work is never re-run."""
     global queue_virtual_time
     assert queue_condition is not None
-    with db_connect() as db:
-        # The prior process cannot still be executing after a clean restart.
-        interrupted_parents = db.execute(
-            "SELECT DISTINCT batch_id FROM generation_tasks "
-            "WHERE status = 'running' AND batch_id IS NOT NULL"
+    jobs: list[ProxyJob] = []
+    with db_session() as db:
+        # The previous process cannot still be executing these. NovelAI may or
+        # may not have produced the image, so they fail and release points.
+        running = db.execute(
+            "SELECT id FROM generation_tasks WHERE status = 'running'"
         ).fetchall()
-        db.execute(
-            "UPDATE generation_tasks SET status = 'queued', started_at = NULL "
-            "WHERE status = 'running'"
-        )
-        for parent in interrupted_parents:
-            refresh_submission_task(db, str(parent["batch_id"]))
+        for row in running:
+            fail_generation_item(
+                db,
+                str(row["id"]),
+                error_code="interrupted",
+                error_message=INTERRUPTED_MESSAGE,
+            )
         rows = db.execute(
             "SELECT * FROM generation_tasks WHERE status = 'queued' "
             "ORDER BY virtual_finish ASC, queued_at ASC, id ASC"
         ).fetchall()
-        db.commit()
-    jobs: list[ProxyJob] = []
-    for row in rows:
-        try:
-            jobs.append(job_from_task_row(row))
-        except ValueError:
-            with db_connect() as db:
-                release_generation_reservation(
+        for row in rows:
+            try:
+                jobs.append(job_from_task_row(row))
+            except ValueError:
+                fail_generation_item(
                     db,
-                    int(row["user_id"]),
-                    str(row["mode"]) if row["mode"] else None,
-                    int(row["reserved_points"] or 0),
+                    str(row["id"]),
+                    error_code="invalid_parameters",
+                    error_message="Queued request data is invalid",
                 )
-                db.execute(
-                    """
-                    UPDATE generation_tasks
-                    SET status = 'failed', error_message = ?,
-                        released_green_points = CASE WHEN mode = 'free' THEN reserved_points ELSE 0 END,
-                        released_red_points = CASE WHEN mode = 'paid' THEN reserved_points ELSE 0 END,
-                        completed_at = ?
-                    WHERE id = ?
-                    """,
-                    ("Queued request data is invalid", now_iso(), row["id"]),
-                )
-                if row["batch_id"]:
-                    refresh_submission_task(db, str(row["batch_id"]))
-                db.commit()
+        db.commit()
     async with queue_condition:
         pending_jobs.extend(jobs)
         pending_jobs.sort(key=lambda job: job.sort_key)
@@ -2570,22 +2551,32 @@ async def restore_generation_queue() -> None:
             queue_virtual_time = max(job.virtual_finish for job in pending_jobs)
 
 
+# Every item endpoint returns exactly these fields (contract §7).
+GENERATION_ITEM_SELECT = """
+SELECT t.*, u.username, e.error_code, COALESCE(s.item_count, 1) AS batch_size
+FROM generation_tasks t
+JOIN users u ON u.id = t.user_id
+LEFT JOIN generation_item_errors e ON e.item_id = t.id
+LEFT JOIN generation_submission_tasks s ON s.id = t.batch_id
+"""
+
+
 def visible_history_task(
     task_id: str,
     user: sqlite3.Row,
     db: sqlite3.Connection,
 ) -> sqlite3.Row:
-    task = db.execute("SELECT * FROM generation_tasks WHERE id = ?", (task_id,)).fetchone()
+    task = db.execute(f"{GENERATION_ITEM_SELECT} WHERE t.id = ?", (task_id,)).fetchone()
     if not task:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Task not found")
+        raise api_error(status.HTTP_404_NOT_FOUND, "not_found", "Task not found")
     hidden = db.execute(
         "SELECT 1 FROM history_hidden WHERE user_id = ? AND task_id = ?",
         (user["id"], task_id),
     ).fetchone()
     if hidden:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Task not found")
+        raise api_error(status.HTTP_404_NOT_FOUND, "not_found", "Task not found")
     if task["user_id"] != user["id"] and not user["is_admin"]:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Forbidden")
+        raise permission_denied("history.all", "This task belongs to another user")
     return task
 
 
@@ -2633,167 +2624,6 @@ def refresh_submission_task(db: sqlite3.Connection, task_id: str) -> None:
     )
 
 
-async def enqueue_generate(
-    *,
-    user: sqlite3.Row,
-    service: str,
-    path: str,
-    body: bytes,
-    parsed: dict[str, Any],
-    quota_mode: str | None,
-    db: sqlite3.Connection,
-    batch_id: str | None = None,
-    batch_index: int | None = None,
-    task_type: str = "single",
-) -> tuple[str, str]:
-    global queue_virtual_time
-    assert queue_condition is not None
-    user_id = int(user["id"])
-    fingerprint = generation_request_fingerprint(parsed)
-    parent_task_id = batch_id or secrets.token_urlsafe(18)
-    queue_class = mode_for_user(user)
-    estimated_cost = estimate_image_points(parsed, parsed["parameters"])
-    async with queue_condition:
-        duplicate = db.execute(
-            """
-            SELECT id, status, created_at FROM generation_tasks
-            WHERE user_id = ? AND request_fingerprint = ?
-              AND status IN ('queued', 'running', 'success')
-            ORDER BY created_at DESC LIMIT 1
-            """,
-            (user_id, fingerprint),
-        ).fetchone()
-        if duplicate:
-            raise HTTPException(
-                status.HTTP_409_CONFLICT,
-                detail={
-                    "code": "duplicate_generation",
-                    "message": "No parameters varied. Check the seed.",
-                    "task_id": duplicate["id"],
-                    "task_status": duplicate["status"],
-                    "created_at": duplicate["created_at"],
-                },
-            )
-        outstanding = db.execute(
-            """
-            SELECT COUNT(*) FROM generation_tasks
-            WHERE user_id = ? AND status IN ('queued', 'running')
-            """,
-            (user_id,),
-        ).fetchone()[0]
-        if outstanding >= MAX_QUEUED_IMAGE_TASKS_PER_USER:
-            raise HTTPException(
-                status.HTTP_429_TOO_MANY_REQUESTS,
-                detail={
-                    "code": "queue_capacity_reached",
-                    "message": "Too many unfinished image tasks",
-                    "limit": MAX_QUEUED_IMAGE_TASKS_PER_USER,
-                },
-            )
-        weight = QUEUE_WEIGHTS[queue_class]
-        task_id = secrets.token_urlsafe(18)
-        params = parsed["parameters"]
-        created = now_iso()
-        billing_mode = quota_mode or queue_class
-        existing_parent = db.execute(
-            "SELECT user_id FROM generation_submission_tasks WHERE id = ?",
-            (parent_task_id,),
-        ).fetchone()
-        if existing_parent and int(existing_parent["user_id"]) != user_id:
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "Forbidden batch id")
-        db.execute(
-            "INSERT OR IGNORE INTO generation_submission_tasks "
-            "(id, user_id, type, status, created_at) VALUES (?, ?, ?, 'queued', ?)",
-            (parent_task_id, user_id, task_type if task_type in {"single", "batch"} else "single", created),
-        )
-        try:
-            reserved_points = reserve_generation_quota(
-                db, user_id, quota_mode, estimated_cost
-            )
-        except HTTPException as exc:
-            db.execute(
-                """
-                INSERT INTO generation_tasks(
-                  id, user_id, mode, queue_class, queue_weight, virtual_finish,
-                  status, prompt, negative_prompt, width, height, steps, scale,
-                  sampler, seed, cost, batch_id, batch_index, request_fingerprint,
-                  request_json, error_message, completed_at, created_at
-                ) VALUES (?, ?, ?, ?, ?, 0, 'rejected', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    task_id, user_id, billing_mode, queue_class, weight,
-                    str(parsed.get("input", ""))[:4000], str(params.get("uc", ""))[:4000],
-                    int(params.get("width", 0)), int(params.get("height", 0)),
-                    int(params.get("steps", 0)), float(params.get("scale", 0)),
-                    str(params.get("sampler", "")), params.get("seed"), estimated_cost,
-                    parent_task_id, batch_index, fingerprint,
-                    json.dumps(parsed, ensure_ascii=False), str(exc.detail), created, created,
-                ),
-            )
-            refresh_submission_task(db, parent_task_id)
-            db.commit()
-            return parent_task_id, task_id
-        base = max(queue_virtual_time, queue_last_finish[queue_class])
-        virtual_finish = base + (1.0 / weight)
-        queue_last_finish[queue_class] = virtual_finish
-        db.execute(
-            """
-            INSERT INTO generation_tasks(
-              id, user_id, mode, queue_class, queue_weight, virtual_finish,
-              status, prompt, negative_prompt, width, height, steps, scale,
-              sampler, seed, cost, reserved_points, reserved_green_points, reserved_red_points, batch_id, batch_index, request_fingerprint, request_json, queued_at, created_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                task_id,
-                user_id,
-                billing_mode,
-                queue_class,
-                weight,
-                virtual_finish,
-                str(parsed.get("input", ""))[:4000],
-                str(params.get("uc", ""))[:4000],
-                int(params.get("width", 0)),
-                int(params.get("height", 0)),
-                int(params.get("steps", 0)),
-                float(params.get("scale", 0)),
-                str(params.get("sampler", "")),
-                params.get("seed"),
-                estimated_cost,
-                reserved_points,
-                reserved_points if billing_mode == "free" else 0,
-                reserved_points if billing_mode == "paid" else 0,
-                parent_task_id,
-                batch_index,
-                fingerprint,
-                json.dumps(parsed, ensure_ascii=False),
-                created,
-                created,
-            ),
-        )
-        db.commit()
-        refresh_submission_task(db, parent_task_id)
-        db.commit()
-        pending_jobs.append(
-            ProxyJob(
-                virtual_finish=virtual_finish,
-                negative_weight=-weight,
-                created_at=created,
-                user_id=user_id,
-                task_id=task_id,
-                service=service,
-                path=path,
-                body=body,
-                cost=estimated_cost,
-                quota_mode=quota_mode,
-            )
-        )
-        pending_jobs.sort(key=lambda job: job.sort_key)
-        queue_condition.notify_all()
-    return parent_task_id, task_id
-
-
 def generation_request_fingerprint(parsed: dict[str, Any]) -> str:
     """Hash the normalized, server-validated generation request deterministically."""
     normalized = json.dumps(
@@ -2805,10 +2635,11 @@ def generation_request_fingerprint(parsed: dict[str, Any]) -> str:
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
-def generation_batch_request_hash(items: list[dict[str, Any]]) -> str:
-    """Hash an ordered, normalized batch for idempotency-key validation."""
+def submission_request_hash(envelope: dict[str, Any]) -> str:
+    """Hash a submission body without its idempotency key (contract §4)."""
+    body = {key: value for key, value in envelope.items() if key != "client_request_id"}
     normalized = json.dumps(
-        items,
+        body,
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),
@@ -2816,58 +2647,140 @@ def generation_batch_request_hash(items: list[dict[str, Any]]) -> str:
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
+@dataclass(frozen=True)
+class GenerationSubmission:
+    client_request_id: str
+    request: dict[str, Any]
+    seeds: list[int]
+    expected_quote: dict[str, Any]
+    request_hash: str
+
+
+def parse_generation_submission(body: bytes) -> GenerationSubmission:
+    try:
+        envelope = json.loads(body)
+    except ValueError:
+        raise invalid_parameters("body", "The body must be JSON") from None
+    if not isinstance(envelope, dict):
+        raise invalid_parameters("body", "The body must be a JSON object")
+    client_request_id = envelope.get("client_request_id")
+    if not isinstance(client_request_id, str) or not (
+        8 <= len(client_request_id.strip()) <= 128
+    ):
+        raise invalid_parameters(
+            "client_request_id", "client_request_id must have 8-128 characters"
+        )
+    request_data = envelope.get("request")
+    if not isinstance(request_data, dict):
+        raise invalid_parameters("request", "request must be a JSON object")
+    seeds = envelope.get("seeds")
+    if (
+        not isinstance(seeds, list)
+        or not seeds
+        or any(not is_strict_int(seed) or not 0 <= seed <= MAX_SEED for seed in seeds)
+    ):
+        raise invalid_parameters(
+            "seeds", f"seeds must be a non-empty list of integers in 0..{MAX_SEED}"
+        )
+    expected = envelope.get("expected_quote")
+    if (
+        not isinstance(expected, dict)
+        or expected.get("mode") not in ("free", "paid")
+        or not is_strict_int(expected.get("points"))
+    ):
+        raise invalid_parameters(
+            "expected_quote", "expected_quote with mode and integer points is required"
+        )
+    return GenerationSubmission(
+        client_request_id=client_request_id.strip(),
+        request=request_data,
+        seeds=seeds,
+        expected_quote=expected,
+        request_hash=submission_request_hash(envelope),
+    )
+
+
+def existing_submission(
+    db: sqlite3.Connection, user_id: int, client_request_id: str, request_hash: str
+) -> sqlite3.Row | None:
+    """Return the earlier submission for this idempotency key, if any."""
+    row = db.execute(
+        "SELECT id, request_hash FROM generation_submission_tasks "
+        "WHERE user_id = ? AND client_request_id = ?",
+        (user_id, client_request_id),
+    ).fetchone()
+    if row is not None and row["request_hash"] != request_hash:
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "duplicate_request",
+            "client_request_id was reused with a different request body",
+        )
+    return row
+
+
+def authorize_generation_quote(user: sqlite3.Row, quote: Quote, expected: dict[str, Any]) -> None:
+    """Permission and price confirmation for a quoted submission (contract §4)."""
+    if "allowance_exhausted" in quote.reasons:
+        if not image_generation_allowed(user, "paid") or not quote.matches(expected):
+            raise api_error(
+                status.HTTP_409_CONFLICT,
+                "free_allowance_exhausted",
+                "The free allowance is temporarily exhausted; this request costs red points",
+                quote=quote.to_dict(),
+            )
+        return
+    if not image_generation_allowed(user, quote.mode):
+        raise permission_denied(
+            generation_permission_name(quote.mode),
+            "This image request is not allowed for this account",
+        )
+    if not quote.matches(expected):
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "quote_changed",
+            "The price has changed",
+            quote=quote.to_dict(),
+        )
+
+
+def request_for_seed(request: dict[str, Any], seed: int) -> dict[str, Any]:
+    item = copy.deepcopy(request)
+    item["parameters"]["seed"] = seed
+    if item.get("action") == "img2img":
+        item["parameters"]["extra_noise_seed"] = seed
+    return item
+
+
 async def enqueue_generation_batch(
     *,
     user: sqlite3.Row,
     client_request_id: str,
-    items: list[tuple[bytes, dict[str, Any], str | None]],
+    request_hash: str,
+    items: list[dict[str, Any]],
+    quote: Quote,
     db: sqlite3.Connection,
 ) -> tuple[str, list[str], bool]:
-    """Atomically validate, reserve, and enqueue one complete image batch.
+    """Atomically reserve the quote and enqueue one complete submission.
 
-    The idempotency key is checked before semantic duplicate detection. A lost
-    202 response can therefore be replayed safely, while a new user action with
-    identical effective generation parameters is still rejected.
+    This is the only way work enters the image queue; a single image is a
+    batch with one seed. Returns ``(task_id, item_ids, replayed)``.
     """
-    global queue_virtual_time
     assert queue_condition is not None
-    if not items:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Batch is empty")
-    if len(items) > 10:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Batch is too large")
+    if not items or len(items) != quote.images:
+        raise invalid_parameters("seeds", "Every image needs exactly one seed")
 
     user_id = int(user["id"])
-    parsed_items = [item[1] for item in items]
-    request_hash = generation_batch_request_hash(parsed_items)
-    fingerprints = [generation_request_fingerprint(item) for item in parsed_items]
+    fingerprints = [generation_request_fingerprint(item) for item in items]
 
     async with queue_condition:
-        existing_submission = db.execute(
-            """
-            SELECT id, request_hash FROM generation_submission_tasks
-            WHERE user_id = ? AND client_request_id = ?
-            """,
-            (user_id, client_request_id),
-        ).fetchone()
-        if existing_submission:
-            if existing_submission["request_hash"] != request_hash:
-                raise HTTPException(
-                    status.HTTP_409_CONFLICT,
-                    detail={
-                        "code": "idempotency_key_conflict",
-                        "message": "Idempotency key was reused with different parameters",
-                    },
-                )
+        replay = existing_submission(db, user_id, client_request_id, request_hash)
+        if replay is not None:
             existing_items = db.execute(
                 "SELECT id FROM generation_tasks WHERE batch_id = ? "
                 "ORDER BY batch_index, created_at, id",
-                (existing_submission["id"],),
+                (replay["id"],),
             ).fetchall()
-            return (
-                str(existing_submission["id"]),
-                [str(item["id"]) for item in existing_items],
-                True,
-            )
+            return str(replay["id"]), [str(item["id"]) for item in existing_items], True
 
         duplicate_positions: dict[str, list[int]] = {}
         for index, fingerprint in enumerate(fingerprints):
@@ -2875,15 +2788,12 @@ async def enqueue_generation_batch(
         repeated = [positions for positions in duplicate_positions.values() if len(positions) > 1]
         if repeated:
             first_positions = repeated[0]
-            seed = parsed_items[first_positions[0]]["parameters"].get("seed")
-            raise HTTPException(
+            raise api_error(
                 status.HTTP_409_CONFLICT,
-                detail={
-                    "code": "duplicate_within_batch",
-                    "message": "No parameters varied. Check the seed.",
-                    "batch_indexes": first_positions,
-                    "seed": seed,
-                },
+                "duplicate_within_batch",
+                "No parameters varied. Check the seed.",
+                batch_indexes=first_positions,
+                seed=items[first_positions[0]]["parameters"].get("seed"),
             )
 
         for index, fingerprint in enumerate(fingerprints):
@@ -2897,17 +2807,15 @@ async def enqueue_generation_batch(
                 (user_id, fingerprint),
             ).fetchone()
             if duplicate:
-                raise HTTPException(
+                raise api_error(
                     status.HTTP_409_CONFLICT,
-                    detail={
-                        "code": "duplicate_generation",
-                        "message": "No parameters varied. Check the seed.",
-                        "task_id": duplicate["id"],
-                        "task_status": duplicate["status"],
-                        "created_at": duplicate["created_at"],
-                        "batch_index": index,
-                        "seed": duplicate["seed"],
-                    },
+                    "duplicate_generation",
+                    "No parameters varied. Check the seed.",
+                    task_id=duplicate["id"],
+                    task_status=duplicate["status"],
+                    created_at=duplicate["created_at"],
+                    batch_index=index,
+                    seed=duplicate["seed"],
                 )
 
         outstanding = int(
@@ -2920,54 +2828,23 @@ async def enqueue_generation_batch(
             ).fetchone()[0]
         )
         if outstanding + len(items) > MAX_QUEUED_IMAGE_TASKS_PER_USER:
-            raise HTTPException(
+            raise api_error(
                 status.HTTP_429_TOO_MANY_REQUESTS,
-                detail={
-                    "code": "queue_capacity_reached",
-                    "message": "Too many unfinished image tasks",
-                    "limit": MAX_QUEUED_IMAGE_TASKS_PER_USER,
-                },
+                "queue_full",
+                "Too many unfinished image tasks",
+                limit=MAX_QUEUED_IMAGE_TASKS_PER_USER,
             )
-
-        fresh_user = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
-        if not fresh_user:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
-        costs = [estimate_image_points(parsed, parsed["parameters"]) for parsed in parsed_items]
-        reservations: list[int] = []
-        green_total = 0
-        red_total = 0
-        for (_, _, quota_mode), cost in zip(items, costs):
-            if quota_mode == "free":
-                reserved = discounted_green_points(fresh_user, cost)
-                green_total += reserved
-            elif quota_mode == "paid":
-                reserved = max(0, cost)
-                red_total += reserved
-            else:
-                reserved = 0
-            reservations.append(reserved)
-        for mode, required in (("free", green_total), ("paid", red_total)):
-            if required <= 0:
-                continue
-            remaining = quota_bucket(db, fresh_user, mode)["remaining"]
-            if remaining is not None and remaining < required:
-                raise HTTPException(
-                    status.HTTP_409_CONFLICT,
-                    detail={
-                        "code": "points_insufficient",
-                        "point_kind": "red" if mode == "paid" else "green",
-                        "message": "Available points are insufficient",
-                    },
-                )
 
         queue_class = mode_for_user(user)
         weight = QUEUE_WEIGHTS[queue_class]
+        last_finish = queue_last_finish[queue_class]
         parent_task_id = secrets.token_urlsafe(18)
-        created = now_iso()
         item_ids: list[str] = []
         jobs: list[ProxyJob] = []
-        try:
-            db.execute("BEGIN IMMEDIATE")
+        green = quote.per_image if quote.point_kind == "green" else 0
+        red = quote.per_image if quote.point_kind == "red" else 0
+        with immediate_transaction(db):
+            reserve_points(db, user_id, quote.point_kind, quote.points)
             db.execute(
                 """
                 INSERT INTO generation_submission_tasks(
@@ -2982,30 +2859,15 @@ async def enqueue_generation_batch(
                     request_hash,
                     "batch" if len(items) > 1 else "single",
                     len(items),
-                    created,
+                    now_iso(),
                 ),
             )
-            if green_total:
-                db.execute(
-                    "UPDATE users SET green_points_reserved = green_points_reserved + ? WHERE id = ?",
-                    (green_total, user_id),
-                )
-            if red_total:
-                db.execute(
-                    "UPDATE users SET red_points_reserved = red_points_reserved + ? WHERE id = ?",
-                    (red_total, user_id),
-                )
-
-            for index, ((body, parsed, quota_mode), cost, reserved, fingerprint) in enumerate(
-                zip(items, costs, reservations, fingerprints)
-            ):
+            for index, (item, fingerprint) in enumerate(zip(items, fingerprints)):
                 item_id = secrets.token_urlsafe(18)
                 item_created = now_iso()
-                billing_mode = quota_mode or queue_class
-                base = max(queue_virtual_time, queue_last_finish[queue_class])
-                virtual_finish = base + (1.0 / weight)
-                queue_last_finish[queue_class] = virtual_finish
-                params = parsed["parameters"]
+                virtual_finish = max(queue_virtual_time, last_finish) + (1.0 / weight)
+                last_finish = virtual_finish
+                params = item["parameters"]
                 db.execute(
                     """
                     INSERT INTO generation_tasks(
@@ -3019,26 +2881,26 @@ async def enqueue_generation_batch(
                     (
                         item_id,
                         user_id,
-                        billing_mode,
+                        quote.mode,
                         queue_class,
                         weight,
                         virtual_finish,
-                        str(parsed.get("input", ""))[:4000],
+                        str(item.get("input", ""))[:4000],
                         str(params.get("uc", ""))[:4000],
-                        int(params.get("width", 0)),
-                        int(params.get("height", 0)),
-                        int(params.get("steps", 0)),
-                        float(params.get("scale", 0)),
-                        str(params.get("sampler", "")),
-                        params.get("seed"),
-                        cost,
-                        reserved,
-                        reserved if billing_mode == "free" else 0,
-                        reserved if billing_mode == "paid" else 0,
+                        params["width"],
+                        params["height"],
+                        params["steps"],
+                        float(params.get("scale") or 0),
+                        params["sampler"],
+                        params["seed"],
+                        quote.per_image,
+                        quote.per_image,
+                        green,
+                        red,
                         parent_task_id,
                         index,
                         fingerprint,
-                        json.dumps(parsed, ensure_ascii=False),
+                        json.dumps(item, ensure_ascii=False),
                         item_created,
                         item_created,
                     ),
@@ -3053,28 +2915,16 @@ async def enqueue_generation_batch(
                         task_id=item_id,
                         service="image",
                         path="ai/generate-image",
-                        body=body,
-                        cost=cost,
-                        quota_mode=quota_mode,
+                        body=json.dumps(
+                            item, separators=(",", ":"), ensure_ascii=False
+                        ).encode("utf-8"),
+                        quota_mode=quote.mode,
                     )
                 )
             refresh_submission_task(db, parent_task_id)
-            db.commit()
-        except Exception:
-            db.rollback()
-            # These values are scheduling hints only, but keeping a failed
-            # transaction out of their accounting avoids artificial gaps.
-            for queue_name in queue_last_finish:
-                queue_last_finish[queue_name] = max(
-                    (
-                        job.virtual_finish
-                        for job in pending_jobs
-                        if mode_for_user_id(db, job.user_id) == queue_name
-                    ),
-                    default=queue_virtual_time,
-                )
-            raise
 
+        # Scheduling state only advances once the submission is durable.
+        queue_last_finish[queue_class] = last_finish
         pending_jobs.extend(jobs)
         pending_jobs.sort(key=lambda job: job.sort_key)
         queue_condition.notify_all()
@@ -3238,35 +3088,227 @@ def log_generation_exception(
     )
 
 
-def persist_generation_failure(job: ProxyJob, error_message: str) -> str | None:
-    """Release reservations and durably mark a failed item."""
-    with db_connect() as db:
-        task = db.execute(
-            "SELECT reserved_points, batch_id FROM generation_tasks WHERE id = ?",
+def persist_generation_failure(
+    job: ProxyJob, *, error_code: str, error_message: str
+) -> str | None:
+    """Durably fail one item and release its reservation."""
+    with db_session() as db:
+        batch_id = fail_generation_item(
+            db, job.task_id, error_code=error_code, error_message=error_message
+        )
+        db.commit()
+    return batch_id
+
+
+async def fail_queued_free_jobs() -> None:
+    """The free allowance ran out: free work that has not started fails."""
+    assert queue_condition is not None
+    async with queue_condition:
+        pending_jobs[:] = [job for job in pending_jobs if job.quota_mode == "paid"]
+    with db_session() as db:
+        rows = db.execute(
+            "SELECT id FROM generation_tasks WHERE status = 'queued' AND mode <> 'paid'"
+        ).fetchall()
+        for row in rows:
+            fail_generation_item(
+                db,
+                str(row["id"]),
+                error_code="free_allowance_exhausted",
+                error_message=FREE_ALLOWANCE_EXHAUSTED_MESSAGE,
+            )
+        db.commit()
+
+
+def settle_generation_success(
+    job: ProxyJob, call: UpstreamImageCall, image_path: str
+) -> bool:
+    """Persist a successful item and charge it (contract §4, §6).
+
+    Returns True when this item proved the free allowance is exhausted.
+    """
+    exhausted = False
+    with db_session() as db:
+        item = db.execute(
+            "SELECT status, reserved_points, batch_id FROM generation_tasks WHERE id = ?",
             (job.task_id,),
         ).fetchone()
-        batch_id = str(task["batch_id"]) if task and task["batch_id"] else None
-        release_generation_reservation(
-            db,
-            job.user_id,
-            job.quota_mode,
-            int(task["reserved_points"]) if task else 0,
-        )
+        if item is None or item["status"] != "running":
+            return False
+        reserved = int(item["reserved_points"] or 0)
+        kind = point_kind_for_mode(job.quota_mode)
+        delta = call.measured_delta
+        if job.quota_mode == "paid":
+            charged, above_quote = settle_amount(reserved, delta)
+            if above_quote:
+                record_billing_anomaly(
+                    db,
+                    kind=ANOMALY_MEASURED_ABOVE_QUOTE,
+                    user_id=job.user_id,
+                    task_id=job.task_id,
+                    mode="paid",
+                    quoted=reserved,
+                    measured=delta,
+                    note="Measured Anlas delta exceeded the quote; charged the quote",
+                )
+        else:
+            # Free work is always charged its green quote. Any Anlas spent on
+            # it means NovelAI's free allowance has run out.
+            charged = reserved
+            if delta is not None and delta > 0:
+                record_billing_anomaly(
+                    db,
+                    kind=ANOMALY_FREE_ALLOWANCE_EXHAUSTED,
+                    user_id=job.user_id,
+                    task_id=job.task_id,
+                    mode="free",
+                    quoted=reserved,
+                    measured=delta,
+                    note="Free-eligible image consumed Anlas; free work is paused",
+                )
+                exhausted = True
+        settle_points(db, job.user_id, kind, reserved, charged)
         db.execute(
             """
             UPDATE generation_tasks
-            SET status = 'failed', error_message = ?,
-                released_green_points = CASE WHEN mode = 'free' THEN reserved_points ELSE 0 END,
-                released_red_points = CASE WHEN mode = 'paid' THEN reserved_points ELSE 0 END,
+            SET status = 'success', image_path = ?, anlas_before = ?,
+                anlas_after = ?, paid_points_charged = ?,
+                consumed_green_points = ?, consumed_red_points = ?,
                 completed_at = ?
             WHERE id = ?
             """,
-            (error_message, now_iso(), job.task_id),
+            (
+                image_path,
+                call.anlas_before,
+                call.anlas_after,
+                charged if kind == "red" else 0,
+                charged if kind == "green" else 0,
+                charged if kind == "red" else 0,
+                now_iso(),
+                job.task_id,
+            ),
         )
-        if batch_id:
-            refresh_submission_task(db, batch_id)
+        if item["batch_id"]:
+            refresh_submission_task(db, str(item["batch_id"]))
         db.commit()
-        return batch_id
+    return exhausted
+
+
+async def run_generation_job(job: ProxyJob) -> None:
+    """Execute one queued item. The caller holds the upstream lane."""
+    started_monotonic = time.monotonic()
+    batch_id: str | None = None
+    stage = "mark_running"
+
+    def elapsed_ms() -> int:
+        return int((time.monotonic() - started_monotonic) * 1000)
+
+    try:
+        with db_session() as db:
+            item = db.execute(
+                "SELECT status, batch_id FROM generation_tasks WHERE id = ?",
+                (job.task_id,),
+            ).fetchone()
+            if item is None or item["status"] != "queued":
+                return
+            batch_id = str(item["batch_id"]) if item["batch_id"] else None
+            owner = db.execute(
+                "SELECT * FROM users WHERE id = ?", (job.user_id,)
+            ).fetchone()
+            refusal: tuple[str, str] | None = None
+            if job.quota_mode != "paid" and free_allowance_exhausted_until(db):
+                refusal = ("free_allowance_exhausted", FREE_ALLOWANCE_EXHAUSTED_MESSAGE)
+            elif not image_generation_allowed(owner, job.quota_mode):
+                refusal = (
+                    "permission_denied",
+                    "The account can no longer run this image request",
+                )
+            if refusal is not None:
+                fail_generation_item(
+                    db, job.task_id, error_code=refusal[0], error_message=refusal[1]
+                )
+                db.commit()
+                return
+            db.execute(
+                "UPDATE generation_tasks SET status = 'running', started_at = ? WHERE id = ?",
+                (now_iso(), job.task_id),
+            )
+            if batch_id:
+                refresh_submission_task(db, batch_id)
+            db.commit()
+
+        stage = "upstream_request"
+        call = await call_image_upstream(job.path, job.body)
+        if not call.ok:
+            log_generation_upstream_failure(
+                job,
+                batch_id=batch_id,
+                status_code=call.status_code,
+                headers=call.headers,
+                content=call.content,
+                elapsed_ms=elapsed_ms(),
+            )
+            persist_generation_failure(
+                job,
+                error_code="upstream_error",
+                error_message=f"NovelAI HTTP {call.status_code}",
+            )
+            return
+        stage = "decode_and_save_image"
+        image_path = await save_history_image(job.task_id, call.content)
+        if image_path is None:
+            log_generation_upstream_failure(
+                job,
+                batch_id=batch_id,
+                status_code=call.status_code,
+                headers=call.headers,
+                content=call.content,
+                elapsed_ms=elapsed_ms(),
+                kind="invalid_image_response",
+                stage=stage,
+            )
+            persist_generation_failure(
+                job,
+                error_code="upstream_error",
+                error_message="NovelAI returned no valid image",
+            )
+            return
+        stage = "settle"
+        if settle_generation_success(job, call, image_path):
+            await fail_queued_free_jobs()
+    except asyncio.CancelledError:
+        # Shutdown: the item must not stay 'running'; it is never re-run.
+        persist_generation_failure(
+            job, error_code="interrupted", error_message=INTERRUPTED_MESSAGE
+        )
+        raise
+    except Exception as exc:
+        detail = exc.detail if isinstance(exc, HTTPException) else None
+        if isinstance(detail, dict):
+            error_code = str(detail.get("code", "internal_error"))
+            error_message = str(detail.get("message", "Generation failed"))
+        else:
+            error_code, error_message = "internal_error", "Generation failed"
+        log_generation_exception(
+            job, batch_id=batch_id, stage=stage, exc=exc, elapsed_ms=elapsed_ms()
+        )
+        try:
+            persist_generation_failure(
+                job, error_code=error_code, error_message=error_message
+            )
+        except Exception as persistence_exc:
+            logger.exception(
+                "generation_failure_persistence_failed %s original_error_type=%s "
+                "original_error=%r persistence_error_type=%s persistence_error=%r",
+                generation_job_log_context(job, batch_id),
+                type(exc).__name__,
+                str(exc),
+                type(persistence_exc).__name__,
+                str(persistence_exc),
+            )
+
+
+def _head_lane_priority() -> int:
+    return pending_jobs[0].lane_priority if pending_jobs else FREE_PRIORITY
 
 
 async def queue_worker() -> None:
@@ -3276,241 +3318,23 @@ async def queue_worker() -> None:
         async with queue_condition:
             while not pending_jobs:
                 await queue_condition.wait()
-            job = pending_jobs.pop(0)
-            active_user_ids.add(job.user_id)
-            queue_virtual_time = max(queue_virtual_time, job.virtual_finish)
-        started_monotonic = time.monotonic()
-        batch_id: str | None = None
-        stage = "mark_running"
-        failure_message = "Generation failed"
+        # Each item runs inside the upstream lane. The lane is requested with
+        # the priority of whatever heads the queue at hand-off time, so a paid
+        # tool already waiting goes before queued free work.
+        await upstream_lane.acquire(_head_lane_priority)
+        job: ProxyJob | None = None
         try:
-            with db_connect() as db:
-                db.execute(
-                    "UPDATE generation_tasks SET status = 'running', started_at = ? WHERE id = ?",
-                    (now_iso(), job.task_id),
-                )
-                parent = db.execute(
-                    "SELECT batch_id FROM generation_tasks WHERE id = ?",
-                    (job.task_id,),
-                ).fetchone()
-                if parent and parent["batch_id"]:
-                    batch_id = str(parent["batch_id"])
-                    refresh_submission_task(db, batch_id)
-                db.commit()
-
-            anlas_before: int | None = None
-            anlas_after: int | None = None
-            paid_points_charged = 0
-            if job.quota_mode == "paid":
-                stage = "fetch_anlas_before"
-                anlas_before = await fetch_anlas_balance()
-                if anlas_before is None:
-                    raise HTTPException(
-                        status.HTTP_503_SERVICE_UNAVAILABLE,
-                        "NovelAI Anlas balance is unavailable",
-                    )
-            stage = "upstream_request"
-            result = await forward_to_novelai(
-                job.service,
-                job.path,
-                method="POST",
-                body=job.body,
-            )
-            assert not isinstance(result, StreamingResponse)
-            status_code, headers, content = result
-            stage = "load_task_after_upstream"
-            with db_connect() as db:
-                task = db.execute(
-                    "SELECT reserved_points, batch_id FROM generation_tasks WHERE id = ?",
-                    (job.task_id,),
-                ).fetchone()
-                reserved_points = int(task["reserved_points"]) if task else 0
-                if task and task["batch_id"]:
-                    batch_id = str(task["batch_id"])
-                if status_code == 200:
-                    stage = "decode_and_save_image"
-                    image_path = await save_history_image(job.task_id, content)
-                    if image_path is None:
-                        log_generation_upstream_failure(
-                            job,
-                            batch_id=batch_id,
-                            status_code=status_code,
-                            headers=headers,
-                            content=content,
-                            elapsed_ms=int(
-                                (time.monotonic() - started_monotonic) * 1000
-                            ),
-                            kind="invalid_image_response",
-                            stage=stage,
-                        )
-                        raise HTTPException(
-                            status.HTTP_502_BAD_GATEWAY,
-                            "NovelAI returned no valid image",
-                        )
-                    if job.quota_mode == "paid":
-                        # If the post-request balance lookup fails, keep the
-                        # conservative reservation instead of charging zero for
-                        # work NovelAI already completed.
-                        paid_points_charged = reserved_points
-                        stage = "fetch_anlas_after"
-                        anlas_after = await fetch_anlas_balance()
-                        if anlas_after is not None and anlas_before is not None:
-                            paid_points_charged = max(0, anlas_before - anlas_after)
-                    stage = "settle_quota"
-                    settle_generation_reservation(
-                        db,
-                        job.user_id,
-                        job.quota_mode,
-                        reserved_points,
-                        actual_points=(
-                            paid_points_charged if job.quota_mode == "paid" else None
-                        ),
-                    )
-                    stage = "persist_success"
-                    db.execute(
-                        """
-                        UPDATE generation_tasks
-                        SET status = 'success', image_path = ?, anlas_before = ?,
-                            anlas_after = ?, paid_points_charged = ?,
-                            consumed_green_points = CASE WHEN mode = 'free' THEN reserved_points ELSE 0 END,
-                            consumed_red_points = CASE WHEN mode = 'paid' THEN ? ELSE 0 END,
-                            completed_at = ?
-                        WHERE id = ?
-                        """,
-                        (
-                            image_path,
-                            anlas_before,
-                            anlas_after,
-                            paid_points_charged,
-                            paid_points_charged,
-                            now_iso(),
-                            job.task_id,
-                        ),
-                    )
-                else:
-                    stage = "persist_upstream_http_failure"
-                    failure_message = f"NovelAI HTTP {status_code}"
-                    log_generation_upstream_failure(
-                        job,
-                        batch_id=batch_id,
-                        status_code=status_code,
-                        headers=headers,
-                        content=content,
-                        elapsed_ms=int(
-                            (time.monotonic() - started_monotonic) * 1000
-                        ),
-                    )
-                    release_generation_reservation(
-                        db, job.user_id, job.quota_mode, reserved_points
-                    )
-                    db.execute(
-                        """
-                        UPDATE generation_tasks
-                        SET status = 'failed', error_message = ?, anlas_before = ?,
-                            anlas_after = ?, paid_points_charged = ?,
-                            released_green_points = CASE WHEN mode = 'free' THEN reserved_points ELSE 0 END,
-                            released_red_points = CASE WHEN mode = 'paid' THEN reserved_points ELSE 0 END,
-                            completed_at = ?
-                        WHERE id = ?
-                        """,
-                        (
-                            failure_message,
-                            anlas_before,
-                            anlas_after,
-                            paid_points_charged,
-                            now_iso(),
-                            job.task_id,
-                        ),
-                    )
-                if batch_id:
-                    refresh_submission_task(db, batch_id)
-                stage = "commit_result"
-                db.commit()
-        except HTTPException as exc:
-            failure_message = str(exc.detail)
-            log_generation_exception(
-                job,
-                batch_id=batch_id,
-                stage=stage,
-                exc=exc,
-                elapsed_ms=int((time.monotonic() - started_monotonic) * 1000),
-            )
-            try:
-                batch_id = persist_generation_failure(job, failure_message)
-            except Exception as persistence_exc:
-                logger.exception(
-                    "generation_failure_persistence_failed %s original_error_type=%s "
-                    "original_error=%r persistence_error_type=%s persistence_error=%r",
-                    generation_job_log_context(job, batch_id),
-                    type(exc).__name__,
-                    str(exc),
-                    type(persistence_exc).__name__,
-                    str(persistence_exc),
-                )
-        except Exception as exc:
-            log_generation_exception(
-                job,
-                batch_id=batch_id,
-                stage=stage,
-                exc=exc,
-                elapsed_ms=int((time.monotonic() - started_monotonic) * 1000),
-            )
-            try:
-                batch_id = persist_generation_failure(job, failure_message)
-            except Exception as persistence_exc:
-                logger.exception(
-                    "generation_failure_persistence_failed %s original_error_type=%s "
-                    "original_error=%r persistence_error_type=%s persistence_error=%r",
-                    generation_job_log_context(job, batch_id),
-                    type(exc).__name__,
-                    str(exc),
-                    type(persistence_exc).__name__,
-                    str(persistence_exc),
-                )
-        finally:
             async with queue_condition:
+                if not pending_jobs:
+                    continue
+                job = pending_jobs.pop(0)
+                active_user_ids.add(job.user_id)
+                queue_virtual_time = max(queue_virtual_time, job.virtual_finish)
+            await run_generation_job(job)
+        finally:
+            upstream_lane.release()
+            if job is not None:
                 active_user_ids.discard(job.user_id)
-                queue_condition.notify()
-
-
-def mode_for_user_id(db: sqlite3.Connection, user_id: int) -> str:
-    user = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
-    if not user:
-        return "free"
-    return mode_for_user(user)
-
-
-async def legacy_generation_response(item_id: str) -> Response:
-    """Wait for a durable task and preserve the old synchronous ZIP contract."""
-    deadline = asyncio.get_running_loop().time() + 10 * 60
-    while asyncio.get_running_loop().time() < deadline:
-        with db_connect() as task_db:
-            item = task_db.execute(
-                "SELECT status, image_path, error_message FROM generation_tasks WHERE id = ?",
-                (item_id,),
-            ).fetchone()
-        if not item:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Generation task not found")
-        item_status = str(item["status"])
-        if item_status == "success":
-            if not item["image_path"]:
-                raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Image not available")
-            image = resolve_history_image_file(str(item["image_path"])).read_bytes()
-            archive_buffer = BytesIO()
-            with ZipFile(archive_buffer, "w") as archive:
-                archive.writestr("image_0.png", image)
-            return Response(
-                content=archive_buffer.getvalue(),
-                status_code=status.HTTP_200_OK,
-                media_type="application/zip",
-            )
-        if item_status in {"failed", "rejected"}:
-            raise HTTPException(
-                status.HTTP_502_BAD_GATEWAY,
-                str(item["error_message"] or "Generation failed"),
-            )
-        await asyncio.sleep(0.25)
-    raise HTTPException(status.HTTP_504_GATEWAY_TIMEOUT, "Generation timed out")
 
 
 @app.api_route("/api/nai/{service}/{path:path}", methods=["GET", "POST"])
@@ -3522,50 +3346,36 @@ async def novelai_proxy(
     db: sqlite3.Connection = Depends(get_db),
 ):
     method = request.method.upper()
+    require_novelai_proxy_permission(service, path, method, user)
+    tool = PAID_TOOL_PATHS.get(path) if service == "image" else None
+    idempotency_key = paid_tool_idempotency_key(request, tool) if tool else None
     body = await request.body()
-    audit_id: str | None = None
+    audit_id = create_audit_log(
+        db,
+        user,
+        service=service,
+        path=path,
+        method=method,
+        body=body,
+        content_type=request.headers.get("content-type", ""),
+    )
     try:
-        require_novelai_proxy_permission(service, path, method, user, db)
-        audit_id = create_audit_log(
-            db,
-            user,
-            service=service,
-            path=path,
-            method=method,
-            body=body,
-            content_type=request.headers.get("content-type", ""),
-        )
-        if service == "image" and path == "ai/generate-image" and method == "POST":
-            sanitized, parsed, quota_mode = sanitize_novelai_generate_body(body, user)
-            _, item_id = await enqueue_generate(
-                user=user,
-                service=service,
+        if tool is not None and idempotency_key is not None:
+            response = await run_paid_tool(
+                db,
+                user,
                 path=path,
-                body=sanitized,
-                parsed=parsed,
-                quota_mode=quota_mode,
-                db=db,
+                tool=tool,
+                body=body,
+                idempotency_key=idempotency_key,
             )
-            # New clients use /api/generation-tasks. This route deliberately
-            # keeps the historical synchronous ZIP response for old clients.
-            response = await legacy_generation_response(item_id)
             complete_audit_log(db, audit_id, status_code=response.status_code)
             return response
-        if service == "image" and path in PAID_DIRECT_IMAGE_PATHS and method == "POST":
-            result = await forward_paid_image_tool_and_charge(
-                user,
-                path,
-                method=method,
-                body=body,
-                db=db,
-            )
-            complete_audit_log(db, audit_id, status_code=result[0])
-            return Response(content=result[2], status_code=result[0], headers=result[1])
         stream = (
             service == "text"
             and "text/event-stream" in request.headers.get("accept", "")
         )
-        if service == "text" and method == "POST":
+        if service == "text":
             result = await forward_text_to_novelai_queued(
                 user,
                 service,
@@ -3582,6 +3392,7 @@ async def novelai_proxy(
         if isinstance(result, StreamingResponse):
             return result
         status_code, headers, content = result
+        raise_for_upstream_status(service, path, status_code, content, body)
         complete_audit_log(db, audit_id, status_code=status_code)
         return Response(content=content, status_code=status_code, headers=headers)
     except HTTPException as exc:
@@ -3601,13 +3412,37 @@ async def novelai_proxy(
         raise
 
 
+def submission_response_payload(db: sqlite3.Connection, task_id: str) -> dict[str, Any]:
+    task = db.execute(
+        "SELECT status FROM generation_submission_tasks WHERE id = ?", (task_id,)
+    ).fetchone()
+    items = db.execute(
+        "SELECT id, batch_index, status FROM generation_tasks WHERE batch_id = ? "
+        "ORDER BY batch_index, created_at, id",
+        (task_id,),
+    ).fetchall()
+    return {
+        "task_id": task_id,
+        "item_id": str(items[0]["id"]) if items else None,
+        "items": [
+            {
+                "id": str(item["id"]),
+                "batch_index": int(item["batch_index"] or 0),
+                "status": str(item["status"]),
+            }
+            for item in items
+        ],
+        "status": str(task["status"]) if task else "queued",
+    }
+
+
 @app.post("/api/generation-tasks", status_code=status.HTTP_202_ACCEPTED)
 async def submit_generation_task(
     request: Request,
     user: sqlite3.Row = Depends(require_user),
     db: sqlite3.Connection = Depends(get_db),
 ):
-    """Durably accept an image-generation request without waiting for it."""
+    """Durably accept an image-generation submission (contract §4)."""
     body = await request.body()
     audit_id = create_audit_log(
         db,
@@ -3619,67 +3454,32 @@ async def submit_generation_task(
         content_type=request.headers.get("content-type", ""),
     )
     try:
-        try:
-            envelope = json.loads(body)
-        except (TypeError, ValueError, json.JSONDecodeError):
-            envelope = None
-        is_atomic_batch = (
-            isinstance(envelope, dict)
-            and isinstance(envelope.get("request"), dict)
-            and isinstance(envelope.get("seeds"), list)
+        submission = parse_generation_submission(body)
+        replay = existing_submission(
+            db, int(user["id"]), submission.client_request_id, submission.request_hash
         )
-        if is_atomic_batch:
-            client_request_id = str(envelope.get("client_request_id", "")).strip()
-            if not (8 <= len(client_request_id) <= 128):
-                raise HTTPException(
-                    status.HTTP_400_BAD_REQUEST, "Invalid client request id"
-                )
-            seeds = envelope["seeds"]
-            if not seeds or len(seeds) > 10:
-                raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid batch size")
-            batch_items: list[tuple[bytes, dict[str, Any], str | None]] = []
-            for raw_seed in seeds:
-                if isinstance(raw_seed, bool) or not isinstance(raw_seed, int):
-                    raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid seed")
-                if raw_seed < 0 or raw_seed > 0xFFFFFFFF:
-                    raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid seed")
-                item_request = json.loads(
-                    json.dumps(envelope["request"], ensure_ascii=False)
-                )
-                parameters = item_request.get("parameters")
-                if not isinstance(parameters, dict):
-                    raise HTTPException(
-                        status.HTTP_400_BAD_REQUEST,
-                        "Invalid generation parameters",
-                    )
-                parameters["seed"] = raw_seed
-                if item_request.get("action") == "img2img":
-                    parameters["extra_noise_seed"] = raw_seed
-                item_body = json.dumps(item_request, ensure_ascii=False).encode("utf-8")
-                batch_items.append(sanitize_novelai_generate_body(item_body, user))
-            task_id, item_ids, _ = await enqueue_generation_batch(
-                user=user,
-                client_request_id=client_request_id,
-                items=batch_items,
-                db=db,
-            )
+        if replay is not None:
+            task_id = str(replay["id"])
         else:
-            sanitized, parsed, quota_mode = sanitize_novelai_generate_body(body, user)
-            task_id, item_id = await enqueue_generate(
-                user=user,
-                service="image",
-                path="ai/generate-image",
-                body=sanitized,
-                parsed=parsed,
-                quota_mode=quota_mode,
-                db=db,
-                batch_id=request.headers.get("x-naiweaver-batch-id") or None,
-                batch_index=int(request.headers["x-naiweaver-batch-index"])
-                if request.headers.get("x-naiweaver-batch-index", "").isdigit()
-                else None,
-                task_type=request.headers.get("x-naiweaver-task-type", "single"),
+            rules = image_rules_for_user(db, user)
+            if len(submission.seeds) > rules["batch_limit"]:
+                raise invalid_parameters(
+                    "seeds",
+                    f"At most {rules['batch_limit']} images per submission",
+                    limit=rules["batch_limit"],
+                )
+            normalized, quote = classify_and_quote(
+                submission.request, rules, images=len(submission.seeds)
             )
-            item_ids = [item_id]
+            authorize_generation_quote(user, quote, submission.expected_quote)
+            task_id, _, _ = await enqueue_generation_batch(
+                user=user,
+                client_request_id=submission.client_request_id,
+                request_hash=submission.request_hash,
+                items=[request_for_seed(normalized, seed) for seed in submission.seeds],
+                quote=quote,
+                db=db,
+            )
     except HTTPException as exc:
         db.rollback()
         complete_audit_log(
@@ -3690,30 +3490,8 @@ async def submit_generation_task(
         )
         raise
     complete_audit_log(db, audit_id, status_code=status.HTTP_202_ACCEPTED)
-    response_items = []
-    for index, item_id in enumerate(item_ids):
-        row = db.execute(
-            "SELECT status, batch_index FROM generation_tasks WHERE id = ?",
-            (item_id,),
-        ).fetchone()
-        response_items.append(
-            {
-                "id": item_id,
-                "batch_index": (
-                    int(row["batch_index"])
-                    if row and row["batch_index"] is not None
-                    else index
-                ),
-                "status": str(row["status"]) if row else "queued",
-            }
-        )
     response = JSONResponse(
-        {
-            "task_id": task_id,
-            "item_id": item_ids[0],
-            "items": response_items,
-            "status": generation_task_status(task_id, user, db)["status"],
-        },
+        submission_response_payload(db, task_id),
         status_code=status.HTTP_202_ACCEPTED,
     )
     response.set_cookie(
@@ -3727,11 +3505,10 @@ async def submit_generation_task(
     return response
 
 
-def public_generation_item(item: sqlite3.Row) -> dict[str, Any]:
-    """Return restorable parameters without echoing image/vector payloads."""
-    result = dict(item)
+def public_request_json(raw: Any) -> str:
+    """Restorable parameters without echoing image/vector payloads."""
     try:
-        request_data = json.loads(str(item["request_json"]))
+        request_data = json.loads(str(raw))
         if not isinstance(request_data, dict):
             raise ValueError("Invalid generation request")
         parameters = request_data.get("parameters")
@@ -3749,10 +3526,69 @@ def public_generation_item(item: sqlite3.Row) -> dict[str, Any]:
                 elif value is not None:
                     parameters[f"{key}_available"] = True
             request_data = {**request_data, "parameters": parameters}
-        result["request_json"] = json.dumps(request_data, ensure_ascii=False)
+        return json.dumps(request_data, ensure_ascii=False)
     except (TypeError, ValueError, json.JSONDecodeError):
-        result["request_json"] = ""
-    return result
+        return ""
+
+
+def generation_item_dto(item: sqlite3.Row) -> dict[str, Any]:
+    """The public shape of one generation item (contract §7)."""
+    mode = str(item["mode"])
+    return {
+        "id": item["id"],
+        "user_id": item["user_id"],
+        "username": item["username"],
+        "batch_id": item["batch_id"],
+        "batch_index": item["batch_index"],
+        "batch_size": int(item["batch_size"] or 1),
+        "status": item["status"],
+        "error_code": item["error_code"],
+        "error_message": item["error_message"],
+        "mode": mode,
+        "points_charged": int(
+            (item["consumed_red_points"] if mode == "paid" else item["consumed_green_points"])
+            or 0
+        ),
+        "prompt": item["prompt"],
+        "negative_prompt": item["negative_prompt"],
+        "width": item["width"],
+        "height": item["height"],
+        "steps": item["steps"],
+        "scale": item["scale"],
+        "sampler": item["sampler"],
+        "seed": item["seed"],
+        "request_json": public_request_json(item["request_json"]),
+        "has_image": bool(item["image_path"]),
+        "created_at": item["created_at"],
+        "completed_at": item["completed_at"],
+    }
+
+
+def submission_task_payload(
+    db: sqlite3.Connection, task: sqlite3.Row, viewer: sqlite3.Row
+) -> dict[str, Any] | None:
+    """A submission with the items the viewer has not hidden; None if all are."""
+    items = db.execute(
+        f"""
+        {GENERATION_ITEM_SELECT}
+        LEFT JOIN history_hidden h ON h.task_id = t.id AND h.user_id = ?
+        WHERE t.batch_id = ? AND h.task_id IS NULL
+        ORDER BY t.batch_index, t.created_at, t.id
+        """,
+        (viewer["id"], task["id"]),
+    ).fetchall()
+    if not items:
+        return None
+    return {
+        "id": task["id"],
+        "user_id": task["user_id"],
+        "type": task["type"],
+        "status": task["status"],
+        "item_count": task["item_count"],
+        "created_at": task["created_at"],
+        "completed_at": task["completed_at"],
+        "items": [generation_item_dto(item) for item in items],
+    }
 
 
 @app.get("/api/generation-tasks/{task_id}")
@@ -3761,30 +3597,17 @@ def generation_task_status(
     user: sqlite3.Row = Depends(require_user),
     db: sqlite3.Connection = Depends(get_db),
 ):
-    task = db.execute("SELECT * FROM generation_submission_tasks WHERE id = ?", (task_id,)).fetchone()
+    task = db.execute(
+        "SELECT * FROM generation_submission_tasks WHERE id = ?", (task_id,)
+    ).fetchone()
     if not task:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Task not found")
+        raise api_error(status.HTTP_404_NOT_FOUND, "not_found", "Task not found")
     if task["user_id"] != user["id"] and not user["is_admin"]:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Forbidden")
-    items = db.execute(
-        "SELECT * "
-        "FROM generation_tasks WHERE batch_id = ? ORDER BY batch_index, created_at, id",
-        (task_id,),
-    ).fetchall()
-    return {
-        **dict(task),
-        "items": [
-            {
-                **public_generation_item(item),
-                "image_url": (
-                    f"/api/history/{item['id']}/image"
-                    if item["image_path"]
-                    else None
-                ),
-            }
-            for item in items
-        ],
-    }
+        raise permission_denied("history.all", "This task belongs to another user")
+    payload = submission_task_payload(db, task, user)
+    if payload is None:
+        raise api_error(status.HTTP_404_NOT_FOUND, "not_found", "Task not found")
+    return payload
 
 
 @app.get("/api/generation-items/{item_id}")
@@ -3793,14 +3616,7 @@ def generation_item_status(
     user: sqlite3.Row = Depends(require_user),
     db: sqlite3.Connection = Depends(get_db),
 ):
-    item = visible_history_task(item_id, user, db)
-    return {
-        "id": item["id"],
-        "task_id": item["batch_id"],
-        "status": item["status"],
-        "error_message": item["error_message"],
-        "image_url": f"/api/history/{item['id']}/image" if item["image_path"] else None,
-    }
+    return generation_item_dto(visible_history_task(item_id, user, db))
 
 
 @app.get("/api/current-generation-task")
@@ -3810,17 +3626,22 @@ def current_generation_task(
 ):
     task = db.execute(
         """
-        SELECT * FROM generation_submission_tasks
-        WHERE user_id = ?
-        ORDER BY CASE WHEN status IN ('queued', 'running') THEN 0 ELSE 1 END,
-                 created_at DESC
+        SELECT s.* FROM generation_submission_tasks s
+        WHERE s.user_id = ?
+          AND EXISTS (
+            SELECT 1 FROM generation_tasks t
+            LEFT JOIN history_hidden h ON h.task_id = t.id AND h.user_id = ?
+            WHERE t.batch_id = s.id AND h.task_id IS NULL
+          )
+        ORDER BY CASE WHEN s.status IN ('queued', 'running') THEN 0 ELSE 1 END,
+                 s.created_at DESC
         LIMIT 1
         """,
-        (user["id"],),
+        (user["id"], user["id"]),
     ).fetchone()
     if not task:
         return {"task": None}
-    return {"task": generation_task_status(str(task["id"]), user, db)}
+    return {"task": submission_task_payload(db, task, user)}
 
 
 @app.get("/api/history")
@@ -3881,9 +3702,7 @@ def history(
         placeholders = ", ".join("?" for _ in batch_keys)
         rows = db.execute(
             f"""
-            SELECT t.*, u.username
-            FROM generation_tasks t
-            JOIN users u ON u.id = t.user_id
+            {GENERATION_ITEM_SELECT}
             LEFT JOIN history_hidden h ON h.task_id = t.id AND h.user_id = ?
             {where_sql}
               AND COALESCE(t.batch_id, t.id) IN ({placeholders})
@@ -3900,7 +3719,7 @@ def history(
             ),
         )
     return {
-        "items": [public_generation_item(row) for row in rows],
+        "items": [generation_item_dto(row) for row in rows],
         "total": int(total),
         "limit": page_limit,
         "offset": page_offset,
@@ -3915,7 +3734,7 @@ def history_image(
 ):
     task = visible_history_task(task_id, user, db)
     if not task["image_path"]:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Image not available")
+        raise api_error(status.HTTP_404_NOT_FOUND, "not_found", "Image not available")
     path = resolve_history_image_file(task["image_path"])
     return FileResponse(
         path,
@@ -3932,7 +3751,7 @@ def history_thumbnail(
 ):
     task = visible_history_task(task_id, user, db)
     if not task["image_path"]:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Thumbnail not available")
+        raise api_error(status.HTTP_404_NOT_FOUND, "not_found", "Thumbnail not available")
     path = ensure_history_thumbnail(task["image_path"])
     return FileResponse(
         path,
@@ -3952,11 +3771,13 @@ def delete_history_batch(
         (batch_id,),
     ).fetchall()
     if not tasks:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Batch not found")
+        raise api_error(status.HTTP_404_NOT_FOUND, "not_found", "Batch not found")
     if any(task["user_id"] != user["id"] for task in tasks) and not user["is_admin"]:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Forbidden")
+        raise permission_denied("history.all", "This batch belongs to another user")
     if any(task["status"] in {"queued", "running"} for task in tasks):
-        raise HTTPException(status.HTTP_409_CONFLICT, "Cannot delete an active batch")
+        raise api_error(
+            status.HTTP_409_CONFLICT, "task_active", "Cannot delete an active batch"
+        )
 
     hidden_at = now_iso()
     with db:
@@ -3978,11 +3799,13 @@ def delete_history_item(
 ):
     task = db.execute("SELECT * FROM generation_tasks WHERE id = ?", (task_id,)).fetchone()
     if not task:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Task not found")
+        raise api_error(status.HTTP_404_NOT_FOUND, "not_found", "Task not found")
     if task["user_id"] != user["id"] and not user["is_admin"]:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Forbidden")
+        raise permission_denied("history.all", "This task belongs to another user")
     if task["status"] in {"queued", "running"}:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Cannot delete an active task")
+        raise api_error(
+            status.HTTP_409_CONFLICT, "task_active", "Cannot delete an active task"
+        )
     db.execute(
         """
         INSERT OR IGNORE INTO history_hidden(user_id, task_id, hidden_at)
@@ -3996,6 +3819,9 @@ def delete_history_item(
 
 @app.get("/{path:path}")
 async def serve_web(path: str, request: Request):
+    # Unknown API paths are JSON errors, never a redirect to the IdP.
+    if path == "api" or path.startswith("api/"):
+        raise api_error(status.HTTP_404_NOT_FOUND, "not_found", "Not found")
     # Authenticate document navigation before loading the Flutter application.
     if only_auth.enabled and (not path or path == "index.html" or "." not in path):
         db = db_connect()
@@ -4007,8 +3833,6 @@ async def serve_web(path: str, request: Request):
             return RedirectResponse("/auth/login", status_code=302, headers={"Cache-Control": "no-store"})
         finally:
             db.close()
-    if path.startswith("api/"):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
     web_root = WEB_BUILD_DIR.resolve()
     if path and ".." not in Path(path).parts and not Path(path).is_absolute():
         target = (web_root / path).resolve()

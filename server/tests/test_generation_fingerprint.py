@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import asyncio
+import tests  # noqa: F401  # isolates the data directories before app imports
+
 import copy
 import json
 import sqlite3
@@ -9,8 +10,9 @@ import unittest
 from fastapi import HTTPException, status
 from starlette.requests import Request
 
-from app import main
-from app.main import generation_batch_request_hash, generation_request_fingerprint
+from app import billing, main
+from app.main import generation_request_fingerprint, submission_request_hash
+from tests import support
 
 
 class GenerationFingerprintTests(unittest.TestCase):
@@ -50,22 +52,29 @@ class GenerationFingerprintTests(unittest.TestCase):
         self.assertNotEqual(original, generation_request_fingerprint(other_seed))
         self.assertNotEqual(original, generation_request_fingerprint(other_model))
 
-    def test_batch_idempotency_hash_preserves_item_order(self) -> None:
-        second = copy.deepcopy(self.request)
-        second["parameters"]["seed"] = 124
+    def test_submission_hash_ignores_the_key_but_keeps_seed_order(self) -> None:
+        envelope = {
+            "client_request_id": "request-1",
+            "request": self.request,
+            "seeds": [1, 2],
+            "expected_quote": {"mode": "free", "points": 40},
+        }
+        same_body_new_key = {**envelope, "client_request_id": "request-2"}
+        swapped_seeds = {**envelope, "seeds": [2, 1]}
+        self.assertEqual(
+            submission_request_hash(envelope),
+            submission_request_hash(same_body_new_key),
+        )
         self.assertNotEqual(
-            generation_batch_request_hash([self.request, second]),
-            generation_batch_request_hash([second, self.request]),
+            submission_request_hash(envelope),
+            submission_request_hash(swapped_seeds),
         )
 
     def test_public_task_payload_keeps_model_but_omits_binary_inputs(self) -> None:
         request = copy.deepcopy(self.request)
         request["parameters"]["image"] = "large-base64-image"
         request["parameters"]["director_reference_images"] = ["a", "b"]
-        public = main.public_generation_item(
-            {"id": "item", "request_json": json.dumps(request)}
-        )
-        restored = json.loads(public["request_json"])
+        restored = json.loads(main.public_request_json(json.dumps(request)))
 
         self.assertEqual(restored["model"], self.request["model"])
         self.assertNotIn("image", restored["parameters"])
@@ -76,55 +85,57 @@ class GenerationFingerprintTests(unittest.TestCase):
 
 
 class GenerationModelNormalizationTests(unittest.TestCase):
-    user = {
-        "can_generate_paid": 1,
-        "is_admin": 0,
-        "green_point_limit": 0,
-        "green_point_used": 0,
-        "green_point_discount": 0,
-    }
+    rules = billing.build_image_rules(
+        is_admin=False,
+        can_generate_paid=True,
+        green_point_discount=0,
+        allowance_exhausted=False,
+    )
 
-    def request(self, *, model: str, action: str = "generate") -> bytes:
-        return json.dumps(
-            {
-                "input": "1girl",
-                "model": model,
-                "action": action,
-                "parameters": {
-                    "params_version": 3,
-                    "width": 832,
-                    "height": 1216,
-                    "steps": 23,
-                    "scale": 7.0,
-                    "sampler": "k_euler_ancestral",
-                    "seed": 123,
-                },
-            }
-        ).encode()
+    def request(self, *, model: str, action: str = "generate") -> dict:
+        return {
+            "input": "1girl",
+            "model": model,
+            "action": action,
+            "parameters": {
+                "params_version": 3,
+                "width": 832,
+                "height": 1216,
+                "steps": 23,
+                "scale": 7.0,
+                "sampler": "k_euler_ancestral",
+                "seed": 123,
+            },
+        }
 
     def test_old_full_client_is_normalized_to_v5(self) -> None:
-        _, parsed, _ = main.sanitize_novelai_generate_body(
-            self.request(model="nai-diffusion-4-5-full"), self.user
+        parsed, _ = billing.classify_and_quote(
+            self.request(model="nai-diffusion-4-5-full"), self.rules
         )
 
-        self.assertEqual(parsed["model"], main.NAI_V5_FULL_MODEL)
+        self.assertEqual(parsed["model"], billing.NAI_V5_FULL_MODEL)
         self.assertEqual(parsed["parameters"]["params_version"], 4)
         self.assertEqual(parsed["parameters"]["n_samples"], 1)
 
     def test_curated_generation_and_inpainting_match_official_routing(self) -> None:
-        _, generated, _ = main.sanitize_novelai_generate_body(
-            self.request(model="nai-diffusion-4-5-curated"), self.user
+        generated, _ = billing.classify_and_quote(
+            self.request(model="nai-diffusion-4-5-curated"), self.rules
         )
-        _, inpainted, _ = main.sanitize_novelai_generate_body(
-            self.request(
-                model="nai-diffusion-5-curated-inpainting", action="infill"
-            ),
-            self.user,
+        inpainted, _ = billing.classify_and_quote(
+            self.request(model="nai-diffusion-5-curated-inpainting", action="infill"),
+            self.rules,
+        )
+        full_inpainted, _ = billing.classify_and_quote(
+            self.request(model="nai-diffusion-4-5-full-inpainting", action="infill"),
+            self.rules,
         )
 
-        self.assertEqual(generated["model"], main.NAI_V5_CURATED_MODEL)
+        self.assertEqual(generated["model"], billing.NAI_V5_CURATED_MODEL)
         self.assertEqual(
-            inpainted["model"], main.NAI_V4_5_CURATED_INPAINTING_MODEL
+            inpainted["model"], billing.NAI_V4_5_CURATED_INPAINTING_MODEL
+        )
+        self.assertEqual(
+            full_inpainted["model"], billing.NAI_V5_FULL_INPAINTING_MODEL
         )
 
 
@@ -153,7 +164,6 @@ class GenerationFailureLoggingTests(unittest.TestCase):
                     },
                 }
             ).encode(),
-            cost=20,
             quota_mode="free",
         )
 
@@ -229,99 +239,53 @@ class GenerationFailureLoggingTests(unittest.TestCase):
 
 class AtomicGenerationBatchTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
-        self.db = sqlite3.connect(":memory:", isolation_level=None)
-        self.db.row_factory = sqlite3.Row
-        self.db.executescript(main.SCHEMA)
-        main.migrate_db(self.db)
-        self.db.execute(
-            "INSERT INTO users(username, password_hash, green_point_discount, created_at) "
-            "VALUES ('batch-test', 'unused', 100, ?)",
-            (main.now_iso(),),
-        )
-        self.user = self.db.execute(
-            "SELECT * FROM users WHERE username = 'batch-test'"
-        ).fetchone()
-        main.pending_jobs.clear()
-        main.active_user_ids.clear()
-        main.queue_condition = asyncio.Condition()
-        main.queue_virtual_time = 0.0
-        for queue_name in main.queue_last_finish:
-            main.queue_last_finish[queue_name] = 0.0
+        self.db = support.temporary_database(self)
+        self.user = support.create_user(self.db, "batch-test", green_point_discount=100)
+        support.reset_queue_state()
 
     async def asyncTearDown(self) -> None:
-        main.pending_jobs.clear()
-        main.active_user_ids.clear()
-        self.db.close()
-
-    def item(self, seed: int, *, model: str = "nai-diffusion-4-5-full"):
-        request = {
-            "input": "1girl",
-            "model": model,
-            "action": "generate",
-            "parameters": {
-                "width": 832,
-                "height": 1216,
-                "steps": 28,
-                "scale": 5.0,
-                "sampler": "k_euler_ancestral",
-                "seed": seed,
-                "uc": "",
-            },
-        }
-        return (json.dumps(request).encode(), request, "free")
+        support.reset_queue_state()
 
     async def test_replay_is_idempotent_and_model_change_is_distinct(self) -> None:
-        items = [self.item(123), self.item(124)]
-        parent_id, item_ids, replayed = await main.enqueue_generation_batch(
-            user=self.user,
-            client_request_id="request-123",
-            items=items,
-            db=self.db,
+        request = support.generation_request()
+        first = await support.submit(
+            self.db, self.user, request, [123, 124], client_request_id="request-123"
         )
-        self.assertFalse(replayed)
         self.assertEqual(len(main.pending_jobs), 2)
 
-        replay_parent, replay_ids, replayed = await main.enqueue_generation_batch(
-            user=self.user,
-            client_request_id="request-123",
-            items=items,
-            db=self.db,
+        replay = await support.submit(
+            self.db, self.user, request, [123, 124], client_request_id="request-123"
         )
-        self.assertTrue(replayed)
-        self.assertEqual(replay_parent, parent_id)
-        self.assertEqual(replay_ids, item_ids)
+        self.assertEqual(replay["task_id"], first["task_id"])
+        self.assertEqual(
+            [item["id"] for item in replay["items"]],
+            [item["id"] for item in first["items"]],
+        )
         self.assertEqual(len(main.pending_jobs), 2)
 
         with self.assertRaises(HTTPException) as duplicate:
-            await main.enqueue_generation_batch(
-                user=self.user,
-                client_request_id="request-new-action",
-                items=[self.item(123)],
-                db=self.db,
+            await support.submit(
+                self.db, self.user, request, [123], client_request_id="request-new-action"
             )
-        self.assertEqual(duplicate.exception.detail["code"], "duplicate_generation")
+        self.assertEqual(support.error_detail(duplicate)["code"], "duplicate_generation")
         self.assertEqual(len(main.pending_jobs), 2)
 
-        _, model_item_ids, _ = await main.enqueue_generation_batch(
-            user=self.user,
-            client_request_id="request-model-change",
-            items=[self.item(123, model="nai-diffusion-4-5-curated")],
-            db=self.db,
+        curated = support.generation_request()
+        curated["model"] = "nai-diffusion-4-5-curated"
+        changed = await support.submit(
+            self.db, self.user, curated, [123], client_request_id="request-model-change"
         )
-        self.assertEqual(len(model_item_ids), 1)
+        self.assertEqual(len(changed["items"]), 1)
         self.assertEqual(len(main.pending_jobs), 3)
 
     async def test_duplicate_batch_is_rejected_before_any_item_is_added(self) -> None:
         with self.assertRaises(HTTPException) as raised:
-            await main.enqueue_generation_batch(
-                user=self.user,
-                client_request_id="request-duplicate",
-                items=[self.item(999), self.item(999)],
-                db=self.db,
+            await support.submit(
+                self.db, self.user, support.generation_request(), [999, 999]
             )
 
         self.assertEqual(raised.exception.status_code, 409)
-        self.assertEqual(raised.exception.detail["code"], "duplicate_within_batch")
+        self.assertEqual(support.error_detail(raised)["code"], "duplicate_within_batch")
         self.assertEqual(len(main.pending_jobs), 0)
         count = self.db.execute("SELECT COUNT(*) FROM generation_tasks").fetchone()[0]
         self.assertEqual(count, 0)
@@ -332,19 +296,18 @@ class AtomicGenerationBatchTests(unittest.IsolatedAsyncioTestCase):
             "WHERE id = ?",
             (self.user["id"],),
         )
-        self.user = self.db.execute(
-            "SELECT * FROM users WHERE id = ?", (self.user["id"],)
-        ).fetchone()
+        self.db.commit()
+        self.user = support.fetch_user(self.db, "batch-test")
 
         with self.assertRaises(HTTPException) as raised:
-            await main.enqueue_generation_batch(
-                user=self.user,
-                client_request_id="request-insufficient-total",
-                items=[self.item(401), self.item(402)],
-                db=self.db,
+            await support.submit(
+                self.db, self.user, support.generation_request(), [401, 402]
             )
 
-        self.assertEqual(raised.exception.detail["code"], "points_insufficient")
+        detail = support.error_detail(raised)
+        self.assertEqual(detail["code"], "points_insufficient")
+        self.assertEqual(detail["point_kind"], "green")
+        self.assertEqual((detail["required"], detail["remaining"]), (40, 39))
         self.assertEqual(len(main.pending_jobs), 0)
         account = self.db.execute(
             "SELECT green_points_reserved FROM users WHERE id = ?",
@@ -352,33 +315,33 @@ class AtomicGenerationBatchTests(unittest.IsolatedAsyncioTestCase):
         ).fetchone()
         self.assertEqual(account["green_points_reserved"], 0)
 
-    async def test_single_enqueue_inserts_all_queue_columns(self) -> None:
-        body, request, mode = self.item(777)
-        parent_id, item_id = await main.enqueue_generate(
-            user=self.user,
-            service="image",
-            path="ai/generate-image",
-            body=body,
-            parsed=request,
-            quota_mode=mode,
-            db=self.db,
+    async def test_single_image_is_a_one_seed_batch(self) -> None:
+        submitted = await support.submit(
+            self.db, self.user, support.generation_request(), [777]
         )
 
         item = self.db.execute(
             "SELECT status, batch_id, seed FROM generation_tasks WHERE id = ?",
-            (item_id,),
+            (submitted["item_id"],),
         ).fetchone()
         self.assertEqual(item["status"], "queued")
-        self.assertEqual(item["batch_id"], parent_id)
+        self.assertEqual(item["batch_id"], submitted["task_id"])
         self.assertEqual(item["seed"], 777)
+        task = self.db.execute(
+            "SELECT type, item_count FROM generation_submission_tasks WHERE id = ?",
+            (submitted["task_id"],),
+        ).fetchone()
+        self.assertEqual((task["type"], task["item_count"]), ("single", 1))
 
     async def test_generation_task_http_handler_returns_202_and_persists_item(self) -> None:
-        payload = self.item(778)[1]
-        body = json.dumps(payload).encode()
-
-        async def receive():
-            return {"type": "http.request", "body": body, "more_body": False}
-
+        body = json.dumps(
+            {
+                "client_request_id": "handler-request",
+                "request": support.generation_request(),
+                "seeds": [778],
+                "expected_quote": {"mode": "free", "points": 0},
+            }
+        ).encode()
         request = Request(
             {
                 "type": "http",
@@ -387,7 +350,7 @@ class AtomicGenerationBatchTests(unittest.IsolatedAsyncioTestCase):
                 "headers": [(b"content-type", b"application/json")],
                 "client": ("127.0.0.1", 12345),
             },
-            receive,
+            support.make_request("/api/generation-tasks", body).receive,
         )
 
         response = await main.submit_generation_task(
