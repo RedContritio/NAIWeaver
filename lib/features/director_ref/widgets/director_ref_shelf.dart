@@ -157,17 +157,8 @@ class DirectorRefShelf extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => SavedRefsSheet(
-        onLoad: (saved) async {
-          final notifier = context.read<DirectorRefNotifier>();
-          await notifier.addReference(saved.reference.originalImageBytes);
-          final refs = notifier.references;
-          if (refs.isNotEmpty) {
-            final last = refs.last;
-            notifier.updateType(last.id, saved.reference.type);
-            notifier.updateStrength(last.id, saved.reference.strength);
-            notifier.updateFidelity(last.id, saved.reference.fidelity);
-          }
-        },
+        onLoad: (saved) =>
+            context.read<DirectorRefNotifier>().addFromSaved(saved),
         onPickImage: () => _pickAndAdd(context),
         onBrowseFiles: !kIsWeb && Platform.isAndroid
             ? () => _pickAndAdd(context, useFileBrowser: true)
@@ -257,7 +248,7 @@ class _AddRefButton extends StatelessWidget {
 }
 
 class SavedRefsSheet extends StatefulWidget {
-  final Future<void> Function(SavedDirectorRef) onLoad;
+  final Future<String?> Function(SavedDirectorRef) onLoad;
 
   /// Optional: when provided, the sheet shows a "Pick image" action at the top
   /// that opens the standard file picker. Used so the Ref button can deep-link

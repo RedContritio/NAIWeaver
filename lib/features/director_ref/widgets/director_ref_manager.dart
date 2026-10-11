@@ -75,18 +75,8 @@ class _DirectorRefManagerState extends State<DirectorRefManager> {
     setState(() => _savedRefs = reordered);
   }
 
-  Future<void> _loadSaved(SavedDirectorRef saved) async {
-    final notifier = context.read<DirectorRefNotifier>();
-    await notifier.addReference(saved.reference.originalImageBytes);
-    // Update the newly-added reference with saved settings
-    final refs = notifier.references;
-    if (refs.isNotEmpty) {
-      final last = refs.last;
-      notifier.updateType(last.id, saved.reference.type);
-      notifier.updateStrength(last.id, saved.reference.strength);
-      notifier.updateFidelity(last.id, saved.reference.fidelity);
-    }
-  }
+  Future<void> _loadSaved(SavedDirectorRef saved) =>
+      context.read<DirectorRefNotifier>().addFromSaved(saved);
 
   Future<String?> _promptForName(BuildContext context, String title) async {
     final controller = TextEditingController();

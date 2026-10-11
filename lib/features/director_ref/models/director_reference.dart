@@ -55,6 +55,7 @@ class DirectorReference {
   });
 
   DirectorReference copyWith({
+    String? id,
     DirectorReferenceType? type,
     double? strength,
     double? fidelity,
@@ -62,7 +63,7 @@ class DirectorReference {
     bool? enabled,
   }) {
     return DirectorReference(
-      id: id,
+      id: id ?? this.id,
       originalImageBytes: originalImageBytes,
       processedBase64: processedBase64 ?? this.processedBase64,
       type: type ?? this.type,

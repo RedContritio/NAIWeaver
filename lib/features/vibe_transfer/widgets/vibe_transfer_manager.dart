@@ -77,12 +77,8 @@ class _VibeTransferManagerState extends State<VibeTransferManager> {
     setState(() => _savedVibes = reordered);
   }
 
-  void _loadSaved(SavedVibeTransfer saved) {
-    final notifier = context.read<VibeTransferNotifier>();
-    // Vector is already stored, no API call needed
-    final vibes = List<VibeTransfer>.from(notifier.vibes)..add(saved.vibe);
-    notifier.setVibes(vibes);
-  }
+  void _loadSaved(SavedVibeTransfer saved) =>
+      context.read<VibeTransferNotifier>().addFromSaved(saved);
 
   Future<String?> _promptForName(BuildContext context, String title) async {
     final controller = TextEditingController();
