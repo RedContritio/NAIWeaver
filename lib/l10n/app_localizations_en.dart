@@ -2557,6 +2557,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cascadeRemoveBeat => 'Remove Beat';
 
   @override
+  String get cascadeRemoveBeatMessage =>
+      'This beat and its prompts will be removed from the sequence.';
+
+  @override
+  String get cascadeRemoveActionTag => 'Remove action tag';
+
+  @override
   String get settingsCheckForUpdates => 'Check for Updates';
 
   @override

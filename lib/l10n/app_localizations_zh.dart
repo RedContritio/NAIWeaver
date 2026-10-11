@@ -2471,6 +2471,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cascadeRemoveBeat => '移除镜头';
 
   @override
+  String get cascadeRemoveBeatMessage => '此节拍及其提示词将从序列中移除。';
+
+  @override
+  String get cascadeRemoveActionTag => '移除动作标签';
+
+  @override
   String get settingsCheckForUpdates => '检查更新';
 
   @override

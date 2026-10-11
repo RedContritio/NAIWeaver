@@ -6,6 +6,7 @@ import '../../../../core/utils/responsive.dart';
 import '../../../../core/widgets/confirm_dialog.dart';
 import '../providers/cascade_notifier.dart';
 import '../models/prompt_cascade.dart';
+import '../../../../core/theme/vision_metrics.dart';
 
 class CascadeLibraryView extends StatelessWidget {
   const CascadeLibraryView({super.key});
@@ -20,14 +21,16 @@ class CascadeLibraryView extends StatelessWidget {
         final state = notifier.state;
 
         if (state.isLoading) {
-          return Center(child: CircularProgressIndicator(color: t.textDisabled));
+          return Center(
+            child: CircularProgressIndicator(color: t.textDisabled),
+          );
         }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: EdgeInsets.all(isMobile(context) ? 16.0 : 24.0),
+              padding: EdgeInsets.all(isTouchSized(context) ? 16.0 : 24.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -38,7 +41,7 @@ class CascadeLibraryView extends StatelessWidget {
                         l.cascadeLibrary,
                         style: TextStyle(
                           color: t.textPrimary,
-                          fontSize: t.fontSize(isMobile(context) ? 14 : 18),
+                          fontSize: t.fontSize(isTouchSized(context) ? 14 : 18),
                           fontWeight: FontWeight.w900,
                           letterSpacing: 2,
                         ),
@@ -53,13 +56,17 @@ class CascadeLibraryView extends StatelessWidget {
                       ),
                     ],
                   ),
-                  if (isMobile(context))
+                  if (isTouchSized(context))
                     IconButton(
                       onPressed: () => _showCreateDialog(context, notifier),
                       icon: Icon(Icons.add, color: t.background, size: 20),
                       style: IconButton.styleFrom(
                         backgroundColor: t.accent,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            VisionMetrics.radius4,
+                          ),
+                        ),
                       ),
                     )
                   else
@@ -75,7 +82,11 @@ class CascadeLibraryView extends StatelessWidget {
                           fontSize: t.fontSize(10),
                           letterSpacing: 1,
                         ),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            VisionMetrics.radius4,
+                          ),
+                        ),
                       ),
                     ),
                 ],
@@ -85,7 +96,9 @@ class CascadeLibraryView extends StatelessWidget {
               child: state.savedCascades.isEmpty
                   ? _buildEmptyState(context)
                   : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: VisionMetrics.space24,
+                      ),
                       itemCount: state.savedCascades.length,
                       itemBuilder: (context, index) {
                         final cascade = state.savedCascades[index];
@@ -107,7 +120,7 @@ class CascadeLibraryView extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.movie_filter, size: 48, color: t.borderSubtle),
-          const SizedBox(height: 16),
+          const SizedBox(height: VisionMetrics.space16),
           Text(
             l.cascadeNoCascades,
             style: TextStyle(
@@ -122,18 +135,25 @@ class CascadeLibraryView extends StatelessWidget {
     );
   }
 
-  Widget _buildCascadeCard(BuildContext context, PromptCascade cascade, CascadeNotifier notifier) {
+  Widget _buildCascadeCard(
+    BuildContext context,
+    PromptCascade cascade,
+    CascadeNotifier notifier,
+  ) {
     final t = context.t;
     final l = context.l;
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: VisionMetrics.space12),
       decoration: BoxDecoration(
         color: t.borderSubtle,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(VisionMetrics.radius8),
         border: Border.all(color: t.borderSubtle),
       ),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: VisionMetrics.space16,
+          vertical: VisionMetrics.space8,
+        ),
         onTap: () => notifier.setActiveCascade(cascade),
         title: Text(
           cascade.name.toUpperCase(),
@@ -145,13 +165,13 @@ class CascadeLibraryView extends StatelessWidget {
           ),
         ),
         subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4.0),
+          padding: const EdgeInsets.only(top: VisionMetrics.space4),
           child: Text(
-            l.cascadeBeatsAndSlots(cascade.beats.length, cascade.characterCount),
-            style: TextStyle(
-              color: t.textDisabled,
-              fontSize: t.fontSize(9),
+            l.cascadeBeatsAndSlots(
+              cascade.beats.length,
+              cascade.characterCount,
             ),
+            style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9)),
           ),
         ),
         trailing: Row(
@@ -183,7 +203,12 @@ class CascadeLibraryView extends StatelessWidget {
             backgroundColor: t.surfaceHigh,
             title: Text(
               l.cascadeCreateNew,
-              style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(12), fontWeight: FontWeight.w900, letterSpacing: 2),
+              style: TextStyle(
+                color: t.textPrimary,
+                fontSize: t.fontSize(12),
+                fontWeight: FontWeight.w900,
+                letterSpacing: 2,
+              ),
             ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
@@ -191,21 +216,37 @@ class CascadeLibraryView extends StatelessWidget {
               children: [
                 TextField(
                   controller: nameController,
-                  style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(13)),
+                  style: TextStyle(
+                    color: t.textPrimary,
+                    fontSize: t.fontSize(13),
+                  ),
                   decoration: InputDecoration(
                     hintText: l.cascadeName,
-                    hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(10)),
+                    hintStyle: TextStyle(
+                      color: t.textMinimal,
+                      fontSize: t.fontSize(10),
+                    ),
                     filled: true,
                     fillColor: t.borderSubtle,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(
+                        VisionMetrics.radius4,
+                      ),
+                      borderSide: BorderSide.none,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: VisionMetrics.space24),
                 Text(
                   l.cascadeCharSlotsLabel,
-                  style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9), fontWeight: FontWeight.bold, letterSpacing: 1),
+                  style: TextStyle(
+                    color: t.textDisabled,
+                    fontSize: t.fontSize(9),
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: VisionMetrics.space8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -219,13 +260,19 @@ class CascadeLibraryView extends StatelessWidget {
                               height: 40,
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
-                                color: charCount == i ? t.accent : t.borderSubtle,
-                                borderRadius: BorderRadius.circular(4),
+                                color: charCount == i
+                                    ? t.accent
+                                    : t.borderSubtle,
+                                borderRadius: BorderRadius.circular(
+                                  VisionMetrics.radius4,
+                                ),
                               ),
                               child: Text(
                                 '$i',
                                 style: TextStyle(
-                                  color: charCount == i ? t.background : t.textPrimary,
+                                  color: charCount == i
+                                      ? t.background
+                                      : t.textPrimary,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -236,7 +283,7 @@ class CascadeLibraryView extends StatelessWidget {
                   ],
                 ),
                 if (charCount > 0) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: VisionMetrics.space16),
                   InkWell(
                     onTap: () => setState(() => autoPosition = !autoPosition),
                     child: Row(
@@ -245,19 +292,29 @@ class CascadeLibraryView extends StatelessWidget {
                           width: 20,
                           height: 20,
                           decoration: BoxDecoration(
-                            color: autoPosition ? Colors.orange : t.borderSubtle,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: autoPosition ? Colors.orange : t.textMinimal),
+                            color: autoPosition
+                                ? t.accentFavorite
+                                : t.borderSubtle,
+                            borderRadius: BorderRadius.circular(
+                              VisionMetrics.radius4,
+                            ),
+                            border: Border.all(
+                              color: autoPosition
+                                  ? t.accentFavorite
+                                  : t.textMinimal,
+                            ),
                           ),
                           child: autoPosition
                               ? Icon(Icons.check, size: 14, color: t.background)
                               : null,
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: VisionMetrics.space12),
                         Text(
                           l.cascadeAutoPosition,
                           style: TextStyle(
-                            color: autoPosition ? Colors.orange : t.textDisabled,
+                            color: autoPosition
+                                ? t.accentFavorite
+                                : t.textDisabled,
                             fontSize: t.fontSize(9),
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1,
@@ -272,17 +329,36 @@ class CascadeLibraryView extends StatelessWidget {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text(l.commonCancel, style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(10))),
+                child: Text(
+                  l.commonCancel,
+                  style: TextStyle(
+                    color: t.textDisabled,
+                    fontSize: t.fontSize(10),
+                  ),
+                ),
               ),
               ElevatedButton(
                 onPressed: () {
                   if (nameController.text.isNotEmpty) {
-                    notifier.createNewCascade(nameController.text, charCount, useCoords: !autoPosition);
+                    notifier.createNewCascade(
+                      nameController.text,
+                      charCount,
+                      useCoords: !autoPosition,
+                    );
                     Navigator.pop(context);
                   }
                 },
-                style: ElevatedButton.styleFrom(backgroundColor: t.accent, foregroundColor: t.background),
-                child: Text(l.commonCreate, style: TextStyle(fontWeight: FontWeight.bold, fontSize: t.fontSize(10))),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: t.accent,
+                  foregroundColor: t.background,
+                ),
+                child: Text(
+                  l.commonCreate,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: t.fontSize(10),
+                  ),
+                ),
               ),
             ],
           ),
@@ -291,7 +367,11 @@ class CascadeLibraryView extends StatelessWidget {
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, PromptCascade cascade, CascadeNotifier notifier) async {
+  Future<void> _confirmDelete(
+    BuildContext context,
+    PromptCascade cascade,
+    CascadeNotifier notifier,
+  ) async {
     final t = context.t;
     final l = context.l;
     final confirm = await showConfirmDialog(

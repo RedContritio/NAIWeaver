@@ -799,6 +799,8 @@
   "cascadeBeatN": "ビート {n}",
   "cascadeCloneBeat": "ビートを複製",
   "cascadeRemoveBeat": "ビートを削除",
+  "cascadeRemoveBeatMessage": "このビートとそのプロンプトはシーケンスから削除されます。",
+  "cascadeRemoveActionTag": "アクションタグを削除",
 
   "settingsCheckForUpdates": "アップデートを確認",
   "settingsUpdateAvailable": "アップデートあり",

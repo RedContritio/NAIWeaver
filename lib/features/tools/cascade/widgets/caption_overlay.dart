@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/vision_metrics.dart';
 
 /// A display-only narration caption rendered over the bottom of an image using
 /// the "scrim" technique: a transparent→dark bottom gradient that guarantees
@@ -37,9 +38,16 @@ class CaptionOverlay extends StatelessWidget {
       child: IgnorePointer(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final h = constraints.maxHeight.isFinite ? constraints.maxHeight : 0.0;
+            final h = constraints.maxHeight.isFinite
+                ? constraints.maxHeight
+                : 0.0;
             return Container(
-              padding: const EdgeInsets.fromLTRB(14, 28, 14, 12),
+              padding: const EdgeInsets.fromLTRB(
+                VisionMetrics.space16,
+                28,
+                VisionMetrics.space16,
+                VisionMetrics.space12,
+              ),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
@@ -65,7 +73,11 @@ class CaptionOverlay extends StatelessWidget {
                   // Outline + shadow so text stays legible even where the scrim
                   // is faint (top edge) over a bright image.
                   shadows: const [
-                    Shadow(color: Colors.black, blurRadius: 4, offset: Offset(0, 1)),
+                    Shadow(
+                      color: Colors.black,
+                      blurRadius: 4,
+                      offset: Offset(0, 1),
+                    ),
                     Shadow(color: Color(0xCC000000), blurRadius: 8),
                   ],
                 ),

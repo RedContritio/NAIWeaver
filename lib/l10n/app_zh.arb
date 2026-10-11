@@ -867,6 +867,8 @@
   "@cascadeBeatN": { "placeholders": { "n": { "type": "int" } } },
   "cascadeCloneBeat": "复制镜头",
   "cascadeRemoveBeat": "移除镜头",
+  "cascadeRemoveBeatMessage": "此节拍及其提示词将从序列中移除。",
+  "cascadeRemoveActionTag": "移除动作标签",
 
   "settingsCheckForUpdates": "检查更新",
   "settingsUpdateAvailable": "有更新可用",

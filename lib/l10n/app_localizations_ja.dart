@@ -2488,6 +2488,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get cascadeRemoveBeat => 'ビートを削除';
 
   @override
+  String get cascadeRemoveBeatMessage => 'このビートとそのプロンプトはシーケンスから削除されます。';
+
+  @override
+  String get cascadeRemoveActionTag => 'アクションタグを削除';
+
+  @override
   String get settingsCheckForUpdates => 'アップデートを確認';
 
   @override

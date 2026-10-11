@@ -872,6 +872,8 @@
   "@cascadeBeatN": { "placeholders": { "n": { "type": "int" } } },
   "cascadeCloneBeat": "Clone Beat",
   "cascadeRemoveBeat": "Remove Beat",
+  "cascadeRemoveBeatMessage": "This beat and its prompts will be removed from the sequence.",
+  "cascadeRemoveActionTag": "Remove action tag",
 
   "settingsCheckForUpdates": "Check for Updates",
   "settingsUpdateAvailable": "Update Available",

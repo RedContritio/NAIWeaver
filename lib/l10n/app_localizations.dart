@@ -4714,6 +4714,18 @@ abstract class AppLocalizations {
   /// **'Remove Beat'**
   String get cascadeRemoveBeat;
 
+  /// No description provided for @cascadeRemoveBeatMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This beat and its prompts will be removed from the sequence.'**
+  String get cascadeRemoveBeatMessage;
+
+  /// No description provided for @cascadeRemoveActionTag.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove action tag'**
+  String get cascadeRemoveActionTag;
+
   /// No description provided for @settingsCheckForUpdates.
   ///
   /// In en, this message translates to:
