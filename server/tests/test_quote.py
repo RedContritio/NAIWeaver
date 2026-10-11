@@ -154,6 +154,61 @@ class StrictParsingTests(unittest.TestCase):
         self.assertEqual(raised.exception.detail["limit"], 28)
 
 
+class ParameterWhitelistTests(unittest.TestCase):
+    keys = json.loads(
+        (FIXTURE_PATH.parent / "image_request_keys.json").read_text(encoding="utf-8")
+    )
+    rules = StrictParsingTests.rules
+
+    def test_whitelist_covers_every_key_the_client_sends(self) -> None:
+        self.assertEqual(
+            set(self.keys["top_level_keys"]) - billing.REQUEST_KEYS, set()
+        )
+        self.assertEqual(
+            set(self.keys["parameter_keys"]) - billing.ALLOWED_PARAMETERS, set()
+        )
+
+    def test_a_request_with_every_client_key_is_accepted(self) -> None:
+        request = {key: "x" for key in self.keys["top_level_keys"]}
+        request["action"] = "img2img"
+        params = {key: ["x"] for key in self.keys["parameter_keys"]}
+        params.update(
+            width=832, height=1216, steps=28, sampler="k_euler_ancestral",
+            scale=5.0, sm=False, sm_dyn=False,
+        )
+        request["parameters"] = params
+        forwarded, quote = billing.classify_and_quote(request, self.rules)
+        self.assertEqual(quote.mode, "paid")
+        self.assertEqual(set(forwarded["parameters"]), set(params))
+
+    def test_unknown_keys_are_rejected_with_their_field(self) -> None:
+        base = StrictParsingTests().request()
+        for field, mutate in (
+            ("parameters.cfg_rescale", lambda r: r["parameters"].update(cfg_rescale=0.5)),
+            ("parameters.legacy", lambda r: r["parameters"].update(legacy=True)),
+            ("extra", lambda r: r.update(extra=1)),
+        ):
+            with self.subTest(field):
+                request = copy.deepcopy(base)
+                mutate(request)
+                with self.assertRaises(HTTPException) as raised:
+                    billing.classify_and_quote(request, self.rules)
+                detail = raised.exception.detail
+                self.assertEqual((detail["code"], detail["field"]), ("invalid_parameters", field))
+
+    def test_auto_smea_is_priced_as_smea(self) -> None:
+        base = StrictParsingTests().request()
+        _, plain = billing.classify_and_quote(base, self.rules)
+        request = copy.deepcopy(base)
+        request["parameters"]["autoSmea"] = True
+        _, quote = billing.classify_and_quote(request, self.rules)
+        self.assertEqual(quote.reasons, ("smea",))
+        self.assertGreater(quote.points, plain.points)
+        request["parameters"]["autoSmea"] = "yes"
+        with self.assertRaises(HTTPException):
+            billing.classify_and_quote(request, self.rules)
+
+
 class ToolQuoteAndSettlementTests(unittest.TestCase):
     def test_tool_quotes_are_the_configured_caps(self) -> None:
         self.assertEqual(billing.TOOL_CAPS, {"upscale": 10, "augment": 80, "encode_vibe": 2})

@@ -219,6 +219,11 @@ class FakeNovelAI:
         self.balance_available = True
         self.costs: dict[str, int] = {}
         self.statuses: dict[str, int] = {}
+        # Paths answered 200 with this body instead of a zipped image.
+        self.contents: dict[str, bytes] = {}
+        # The next balance read after a call reports the balance from before it.
+        self.stale_reads = 0
+        self.stale_balance: int | None = None
         self.calls: list[str] = []
         self.bodies: list[bytes] = []
         self.gate: asyncio.Event | None = None
@@ -243,7 +248,10 @@ class FakeNovelAI:
             status = self.statuses.get(path, 200)
             if not 200 <= status < 300:
                 return status, {"content-type": "application/json"}, b'{"message":"rejected"}'
+            self.stale_balance = self.balance
             self.balance -= self.costs.get(path, 0)
+            if path in self.contents:
+                return status, {"content-type": "application/zip"}, self.contents[path]
             if path == "ai/encode-vibe":
                 return status, {"content-type": "application/octet-stream"}, b"vibe-" + body[:16]
             return status, {"content-type": "application/zip"}, zipped_png()
@@ -251,7 +259,12 @@ class FakeNovelAI:
             self.in_flight -= 1
 
     async def fetch_balance(self, retries: int = 2) -> int | None:
-        return self.balance if self.balance_available else None
+        if not self.balance_available:
+            return None
+        if self.stale_reads and self.stale_balance is not None:
+            self.stale_reads -= 1
+            return self.stale_balance
+        return self.balance
 
 
 async def wait_until(predicate: Callable[[], bool], timeout: float = 5.0) -> None:

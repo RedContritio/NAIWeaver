@@ -1,0 +1,43 @@
+{
+  "description": "Every key the web client can put in an image generation request. The gateway whitelists them in server/app/billing.py (server/tests/test_quote.py asserts the whitelist covers this file); any other key is rejected with 400 invalid_parameters. Update this file together with the Dart builder.",
+  "source": "ImageGenerationRequest buildImageGenerationRequest(...) in lib/core/services/novel_ai_service.dart",
+  "top_level_keys": {
+    "input": "body map in buildImageGenerationRequest",
+    "model": "body map in buildImageGenerationRequest",
+    "action": "body map in buildImageGenerationRequest",
+    "parameters": "body map in buildImageGenerationRequest"
+  },
+  "parameter_keys": {
+    "params_version": "parameters map, always present",
+    "width": "parameters map, always present",
+    "height": "parameters map, always present",
+    "scale": "parameters map, always present",
+    "sampler": "parameters map, always present",
+    "steps": "parameters map, always present",
+    "seed": "parameters map, always present",
+    "n_samples": "parameters map, always present",
+    "noise_schedule": "parameters map, always present",
+    "sm": "parameters map, always present",
+    "sm_dyn": "parameters map, always present",
+    "dynamic_thresholding": "parameters map, always present",
+    "uc": "parameters map, always present",
+    "characterPrompts": "parameters map, when characters is non-empty",
+    "v4_prompt": "parameters map, always present (caption.base_caption, caption.char_captions, use_coords, use_order)",
+    "v4_negative_prompt": "parameters map, always present (caption.base_caption, caption.char_captions)",
+    "image": "parameters map, action != generate and sourceImageBase64 given",
+    "mask": "parameters map, action != generate and maskBase64 given",
+    "strength": "parameters map, action != generate and img2imgStrength given",
+    "noise": "parameters map, action == img2img and img2imgNoise given",
+    "extra_noise_seed": "parameters map, action == img2img",
+    "add_original_image": "parameters map, action != generate",
+    "mask_blur": "parameters map, action == infill and maskBlur given",
+    "director_reference_images": "parameters map, directorRefImages non-empty",
+    "director_reference_descriptions": "parameters map, directorRefDescriptions non-empty",
+    "director_reference_strength_values": "parameters map, directorRefStrengths non-empty",
+    "director_reference_secondary_strength_values": "parameters map, directorRefSecondaryStrengths non-empty",
+    "director_reference_information_extracted": "parameters map, directorRefInfoExtracted non-empty",
+    "reference_image_multiple": "parameters map, vibeTransferImages non-empty",
+    "reference_strength_multiple": "parameters map, vibeTransferStrengths non-empty",
+    "reference_information_extracted_multiple": "parameters map, vibeTransferInfoExtracted non-empty"
+  }
+}
