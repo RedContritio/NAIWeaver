@@ -28,6 +28,12 @@ def accepted_encodings(request: Request) -> set[str]:
     return accepted
 
 
+def _weak_etag(tag: str) -> str:
+    """Weak comparison form: a proxy may turn "x" into W/"x"."""
+    tag = tag.strip()
+    return tag[2:] if tag.startswith("W/") else tag
+
+
 def static_file_response(request: Request, target: Path) -> Response:
     """Serve a web build file with a precompressed variant and revalidation.
 
@@ -38,9 +44,16 @@ def static_file_response(request: Request, target: Path) -> Response:
     body = target
     encoding = None
     accepted = accepted_encodings(request)
+    target_mtime = target.stat().st_mtime_ns
     for name, suffix in PRECOMPRESSED_ENCODINGS:
         candidate = target.with_name(target.name + suffix)
-        if name in accepted and candidate.is_file():
+        # A sibling older than the source is a stale bundle left over from a
+        # rebuild that skipped compress-web.sh; never serve it.
+        if (
+            name in accepted
+            and candidate.is_file()
+            and candidate.stat().st_mtime_ns >= target_mtime
+        ):
             body, encoding = candidate, name
             break
     stat = body.stat()
@@ -51,7 +64,9 @@ def static_file_response(request: Request, target: Path) -> Response:
         "Vary": "Accept-Encoding",
     }
     if_none_match = request.headers.get("if-none-match", "")
-    if etag in {tag.strip() for tag in if_none_match.split(",")} or if_none_match.strip() == "*":
+    if _weak_etag(etag) in {_weak_etag(tag) for tag in if_none_match.split(",")} or (
+        if_none_match.strip() == "*"
+    ):
         return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
     if encoding:
         headers["Content-Encoding"] = encoding
@@ -59,7 +74,7 @@ def static_file_response(request: Request, target: Path) -> Response:
     return FileResponse(body, media_type=media_type, headers=headers, stat_result=stat)
 
 
-@router.get("/api/health")
+@router.api_route("/api/health", methods=["GET", "HEAD"])
 def health():
     return {"ok": True}
 
@@ -81,7 +96,7 @@ def unknown_api(path: str = ""):
     raise api_error(status.HTTP_404_NOT_FOUND, "not_found", "Not found")
 
 
-@router.get("/{path:path}")
+@router.api_route("/{path:path}", methods=["GET", "HEAD"])
 async def serve_web(path: str, request: Request):
     # Authenticate document navigation before loading the Flutter application.
     if only_auth.enabled and (not path or path == "index.html" or "." not in path):

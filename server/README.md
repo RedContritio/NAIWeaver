@@ -315,8 +315,8 @@ Every proxied request and generation submission is audited. The request body
 of an accepted request is stored under `NAIWEAVER_AUDIT_DIR`; a rejected
 generation submission records metadata only, never the body.
 
-Body files older than `NAIWEAVER_AUDIT_RETENTION_DAYS` (default `30`; `0`
-keeps them forever) are deleted at startup and once a day. The audit rows stay
+Body files older than `NAIWEAVER_AUDIT_RETENTION_DAYS` (default `0` = keep
+forever; set a number of days to enable cleanup) are deleted at startup and once a day. The audit rows stay
 in the database, lose their body path and are marked
 `request_body_expired_at`; `GET /api/admin/audit/{id}/body` then answers 404
 with an "expired" message, and `GET /api/admin/audit` reports

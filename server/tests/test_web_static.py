@@ -3,6 +3,7 @@ from __future__ import annotations
 import tests  # noqa: F401  # isolates the data directories before app imports
 
 import gzip
+import os
 import tempfile
 from pathlib import Path
 import unittest
@@ -61,6 +62,33 @@ class StaticWebTests(unittest.TestCase):
         )
         self.assertEqual(raw.status_code, 200)
         self.assertNotEqual(raw.headers["etag"], compressed.headers["etag"])
+
+    def test_stale_precompressed_sibling_is_ignored(self) -> None:
+        gz = self.web / "main.dart.js.gz"
+        source = self.web / "main.dart.js"
+        stat = gz.stat()
+        os.utime(source, ns=(stat.st_atime_ns, stat.st_mtime_ns + 5_000_000_000))
+        response = self.client.get("/main.dart.js", headers={"Accept-Encoding": "gzip"})
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("content-encoding", response.headers)
+
+    def test_weakened_etag_still_revalidates(self) -> None:
+        first = self.client.get("/main.dart.js", headers={"Accept-Encoding": "gzip"})
+        again = self.client.get(
+            "/main.dart.js",
+            headers={"Accept-Encoding": "gzip", "If-None-Match": "W/" + first.headers["etag"]},
+        )
+        self.assertEqual(again.status_code, 304)
+
+    def test_head_requests_return_headers_without_body(self) -> None:
+        health = self.client.head("/api/health")
+        self.assertEqual(health.status_code, 200)
+        self.assertEqual(health.content, b"")
+        page = self.client.head("/main.dart.js", headers={"Accept-Encoding": "gzip"})
+        self.assertEqual(page.status_code, 200)
+        self.assertEqual(page.content, b"")
+        self.assertEqual(page.headers["content-encoding"], "gzip")
+        self.assertEqual(self.client.head("/api/nope").status_code, 404)
 
     def test_paths_outside_the_build_are_never_served(self) -> None:
         (self.web.parent / "secret.txt").write_text("nope")

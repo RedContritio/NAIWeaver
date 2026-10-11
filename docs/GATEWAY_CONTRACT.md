@@ -258,8 +258,13 @@ created_at, completed_at`
 
 - `GET /api/admin/audit` items carry `request_body_available` and
   `request_body_expired`.
-- Audit request bodies are kept for `NAIWEAVER_AUDIT_RETENTION_DAYS` (default
-  30). After that `GET /api/admin/audit/{id}/body` is 404 with a message that
-  the body expired; the audit row itself is kept.
+- Audit request bodies are kept forever by default
+  (`NAIWEAVER_AUDIT_RETENTION_DAYS=0`). When a number of days is set, after that
+  `GET /api/admin/audit/{id}/body` is 404 with a message that the body
+  expired; the audit row itself is kept.
+- `GET /api/admin/audit` returns a fixed field set; the storage path and body
+  hash (`request_body_path`, `request_body_sha256`) are never exposed.
+- `PATCH /api/admin/users/{id}` with `is_admin` changing to false resets
+  `green_point_discount` to the role default (0) unless the request sets it.
 - A rejected `POST /api/generation-tasks` is audited with metadata only (no
   stored body).

@@ -33,6 +33,23 @@ from .users import user_admin_dict
 
 router = APIRouter()
 
+AUDIT_LOG_FIELDS = (
+    "id",
+    "user_id",
+    "username",
+    "service",
+    "path",
+    "method",
+    "status_code",
+    "request_json",
+    "error_message",
+    "created_at",
+    "completed_at",
+    "request_content_type",
+    "request_body_bytes",
+    "request_body_expired_at",
+)
+
 
 class UserUpdateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -164,13 +181,12 @@ def admin_audit_logs(
     ).fetchall()
     items = []
     for row in rows:
-        item = dict(row)
-        item["request_body_available"] = bool(item["request_body_path"])
-        item["request_body_expired"] = bool(item["request_body_expired_at"])
+        # Explicit DTO: the storage path and body hash stay server-side.
+        item = {name: row[name] for name in AUDIT_LOG_FIELDS}
+        item["request_body_available"] = bool(row["request_body_path"])
+        item["request_body_expired"] = bool(row["request_body_expired_at"])
         item["request_body_url"] = (
-            f"/api/admin/audit/{item['id']}/body"
-            if item["request_body_path"]
-            else None
+            f"/api/admin/audit/{row['id']}/body" if row["request_body_path"] else None
         )
         items.append(item)
     return {"items": items}
@@ -277,21 +293,28 @@ def admin_update_user(
         "red_points_used",
     }
     fields = set(payload.model_fields_set)
+    demoted_discount: int | None = None
     makes_admin = bool(payload.is_admin) and "is_admin" in fields
+    role_change = "is_admin" in fields and bool(payload.is_admin) != bool(user["is_admin"])
     if makes_admin:
         # Administrators are always unlimited, as when one is created.
         fields.add("green_point_discount")
+    elif role_change and "green_point_discount" not in fields:
+        # Demotion drops the admin-only unlimited discount to the role default.
+        fields.add("green_point_discount")
+        demoted_discount = role_defaults("paid")["green_point_discount"]
     for field in sorted(fields):
         if field in bool_fields:
             assignments.append(f"{field} = ?")
             values.append(int(bool(getattr(payload, field))))
         elif field in int_fields:
             assignments.append(f"{field} = ?")
-            values.append(
-                100
-                if makes_admin and field == "green_point_discount"
-                else getattr(payload, field)
-            )
+            if field == "green_point_discount" and makes_admin:
+                values.append(100)
+            elif field == "green_point_discount" and demoted_discount is not None:
+                values.append(demoted_discount)
+            else:
+                values.append(getattr(payload, field))
     if assignments:
         values.append(user_id)
         db.execute(f"UPDATE users SET {', '.join(assignments)} WHERE id = ?", values)

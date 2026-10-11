@@ -136,6 +136,9 @@ class RetentionTests(AuditTestCase):
         self.assertTrue(items["old"]["request_body_expired"])
         self.assertFalse(items["old"]["request_body_available"])
         self.assertFalse(items["fresh"]["request_body_expired"])
+        for leaked in ("request_body_path", "request_body_sha256"):
+            self.assertNotIn(leaked, items["fresh"])
+        self.assertEqual(items["fresh"]["request_body_url"], "/api/admin/audit/fresh/body")
 
     def test_zero_days_keeps_everything(self) -> None:
         old = self.add_audit("old", 400, b"old body")
