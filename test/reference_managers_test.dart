@@ -25,13 +25,22 @@ DirectorReference _ref(String id, {bool enabled = true}) => DirectorReference(
   enabled: enabled,
 );
 
-/// Lets real file I/O started by the widget finish, then rebuilds.
-Future<void> _settleIo(WidgetTester tester) async {
-  for (var i = 0; i < 10; i++) {
+/// Lets real file I/O started by the widget finish: keeps pumping until the
+/// widget has had no new frame to draw for a few rounds (at most 3 s), instead
+/// of a fixed number of delays that flaked under a loaded full-suite run.
+Future<void> _settleIo(
+  WidgetTester tester, {
+  Duration timeout = const Duration(seconds: 3),
+}) async {
+  final deadline = DateTime.now().add(timeout);
+  var quiet = 0;
+  while (quiet < 3 && DateTime.now().isBefore(deadline)) {
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 20)),
     );
+    final changed = tester.binding.hasScheduledFrame;
     await tester.pump();
+    quiet = changed ? 0 : quiet + 1;
   }
 }
 
