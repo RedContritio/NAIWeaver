@@ -76,20 +76,3 @@ Future<void> showChipActions(
 }
 
 enum _ChipAction { edit, delete }
-
-/// Opens [builder] in an app sheet for content that already pads itself for
-/// the keyboard (the editor sheets). The sheet's own keyboard padding would
-/// count it twice, so the view insets are hidden from the content.
-Future<T?> showSelfPaddedSheet<T>({
-  required BuildContext context,
-  required WidgetBuilder builder,
-}) {
-  return showAppSheet<T>(
-    context: context,
-    builder: (sheetContext) => MediaQuery.removeViewInsets(
-      context: sheetContext,
-      removeBottom: true,
-      child: Builder(builder: builder),
-    ),
-  );
-}

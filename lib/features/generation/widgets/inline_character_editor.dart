@@ -975,7 +975,7 @@ class _InteractionsSection extends StatelessWidget {
   }) {
     final notifier = context.read<GenerationNotifier>();
 
-    showSelfPaddedSheet(
+    showAppSheet(
       context: context,
       builder: (context) => ActionInteractionSheet(
         sourceIndices: sourceIndices,

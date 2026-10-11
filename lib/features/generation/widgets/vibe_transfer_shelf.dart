@@ -22,18 +22,13 @@ class VibeTransferShelf extends StatelessWidget {
   ) {
     showAppSheet(
       context: context,
-      // The editor pads for the keyboard itself; the sheet already did.
-      builder: (sheetContext) => MediaQuery.removeViewInsets(
-        context: sheetContext,
-        removeBottom: true,
-        child: VibeTransferEditorSheet(
-          vibe: vibeTransfer,
-          onStrengthChanged: (v) => notifier.updateStrength(vibeTransfer.id, v),
-          onInfoExtractedChanged: (v) =>
-              notifier.updateInfoExtracted(vibeTransfer.id, v),
-          onToggleEnabled: () => notifier.toggleEnabled(vibeTransfer.id),
-          onRemove: () => notifier.removeVibe(vibeTransfer.id),
-        ),
+      builder: (_) => VibeTransferEditorSheet(
+        vibe: vibeTransfer,
+        onStrengthChanged: (v) => notifier.updateStrength(vibeTransfer.id, v),
+        onInfoExtractedChanged: (v) =>
+            notifier.updateInfoExtracted(vibeTransfer.id, v),
+        onToggleEnabled: () => notifier.toggleEnabled(vibeTransfer.id),
+        onRemove: () => notifier.removeVibe(vibeTransfer.id),
       ),
     );
   }
