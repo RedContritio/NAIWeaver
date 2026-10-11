@@ -116,6 +116,22 @@ class BackendHistoryApi {
     }
     return ServerGenerationTask.fromJson(data);
   }
+
+  /// Cancels the items of the submission [id] that have not started and
+  /// returns the submission as it is afterwards.
+  Future<ServerGenerationTask> cancelGenerationTask(String id) async {
+    final response = await _client.post<dynamic>(
+      '/api/generation-tasks/$id/cancel',
+    );
+    final data = response.data;
+    if (data is! Map<String, dynamic>) {
+      throw const BackendException(
+        statusCode: null,
+        code: BackendErrorCode.invalidResponse,
+      );
+    }
+    return ServerGenerationTask.fromJson(data);
+  }
 }
 
 class ServerGenerationTask {

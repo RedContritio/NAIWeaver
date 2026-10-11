@@ -11,6 +11,7 @@ import '../../../../core/widgets/vision_slider.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../gallery/services/tool_result_saver.dart';
 import '../../../generation/providers/generation_notifier.dart';
+import '../../../generation/widgets/quote_confirm_dialog.dart';
 import '../../widgets/tool_config_bottom_sheet.dart';
 import '../../widgets/tool_source_picker.dart';
 import '../providers/enhance_notifier.dart';
@@ -513,7 +514,9 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
     notifier.setPrompt(_promptController.text);
     notifier.setNegativePrompt(_negativePromptController.text);
     _syncStylesAndCharacters(notifier, gen);
-    await notifier.enhance();
+    await notifier.enhance(
+      confirmQuote: (confirmation) => confirmQuoteChange(context, confirmation),
+    );
     if (mounted && notifier.hasResult && gen.state.autoSaveImages) {
       await _saveResult(notifier);
     }

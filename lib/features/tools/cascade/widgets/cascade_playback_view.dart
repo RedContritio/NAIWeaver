@@ -17,6 +17,7 @@ import '../services/cascade_stitching_service.dart';
 import 'caption_overlay.dart';
 import 'cascade_help_dialog.dart';
 import '../../../generation/providers/generation_notifier.dart';
+import '../../../generation/widgets/quote_confirm_dialog.dart';
 import '../../../../core/services/tag_service.dart';
 
 class CascadePlaybackView extends StatefulWidget {
@@ -751,7 +752,11 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
                           }
                           return;
                         }
-                        final result = await genNotifier.generateCascadeBeat(request);
+                        final result = await genNotifier.generateCascadeBeat(
+                          request,
+                          confirmQuote: (confirmation) =>
+                              confirmQuoteChange(context, confirmation),
+                        );
                         if (result != null) {
                           cascadeNotifier.setBeatPreview(currentIndex, result);
                           if (currentIndex < totalBeats - 1) {

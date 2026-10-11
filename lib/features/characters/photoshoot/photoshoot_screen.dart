@@ -1,8 +1,12 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:provider/provider.dart';
 
+import '../../../core/gateway/backend_gateway.dart';
+import '../../../core/gateway/backend_permissions.dart';
+import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../../core/theme/vision_tokens.dart';
 import '../../../core/utils/app_snackbar.dart';
@@ -10,7 +14,9 @@ import '../../../core/utils/tag_suggestion_helper.dart';
 import '../../../core/widgets/browser_native_selectable_text.dart';
 import '../../gallery/providers/gallery_notifier.dart';
 import '../../gallery/ui/image_detail_view.dart';
+import '../../auth/backend_auth_notifier.dart';
 import '../../generation/providers/generation_notifier.dart';
+import '../../generation/widgets/quote_confirm_dialog.dart';
 import '../models/closet_outfit.dart';
 import '../models/saved_character.dart';
 import '../outfit/outfit_renderer.dart';
@@ -245,41 +251,38 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
 
   Future<void> _generate(String prompt) async {
     if (prompt.isEmpty) return;
+    if (!canGenerateImage(context)) {
+      showErrorSnackBar(context, context.l.gatewayErrPermissionDenied);
+      return;
+    }
     final gen = context.read<GenerationNotifier>();
-    // generate() reads the prompt + negative prompt from the shared
-    // controllers, so we must write both. Snapshot the user's main-screen
-    // values and restore them afterwards so a photoshoot GENERATE (which stays
-    // on this screen) doesn't silently wipe what they had typed on the main
-    // editor. SEND intentionally keeps them.
-    final savedMainPrompt = gen.promptController.text;
-    final savedMainNegative = gen.negativePromptController.text;
+    final auth = useBackendGateway ? context.read<BackendAuthNotifier>() : null;
+    // The photoshoot's own prompts go straight to the generation: the main
+    // editor's boxes (and what the user types there meanwhile) are not
+    // borrowed, so there is nothing to restore afterwards. Without character
+    // or outfit negatives the main negative prompt applies, as before. SEND
+    // intentionally copies the prompts to the main editor.
     final negatives = _assembledNegativePrompt();
-    gen.promptController.text = prompt;
-    if (negatives.isNotEmpty) gen.negativePromptController.text = negatives;
     // Drop focus + collapse the drawer so the freshly-generated image is visible.
     FocusScope.of(context).unfocus();
     setState(() => _drawerExpanded = false);
-    try {
-      await gen.generate();
-      if (!mounted) return;
-      // generate() never throws — it swallows errors and records them on its
-      // state. So check the state, not the (impossible) exception, to decide
-      // whether it actually succeeded.
-      final st = gen.state;
-      if (st.hasAuthError) {
-        showErrorSnackBar(context, 'AUTH ERROR — CHECK API KEY');
-      } else if (st.errorMessage != null && st.errorMessage!.isNotEmpty) {
-        showErrorSnackBar(context, 'GENERATION FAILED: ${st.errorMessage}');
-      } else {
-        showAppSnackBar(context, 'GENERATED');
-      }
-    } catch (e) {
-      // Belt-and-braces: if generate() ever does throw, still surface it.
-      if (!mounted) return;
-      showErrorSnackBar(context, 'GENERATION FAILED: $e');
-    } finally {
-      gen.promptController.text = savedMainPrompt;
-      gen.negativePromptController.text = savedMainNegative;
+    final outcome = await gen.generate(
+      prompt: prompt,
+      negativePrompt: negatives.isEmpty ? null : negatives,
+      confirmQuote: (confirmation) => confirmQuoteChange(context, confirmation),
+    );
+    unawaited(auth?.refreshSession());
+    if (!mounted || outcome.declined) return;
+    // Judge by what happened to the images, not by the call returning.
+    if (outcome.authFailed) {
+      showErrorSnackBar(context, 'AUTH ERROR — CHECK API KEY');
+    } else if (outcome.succeeded) {
+      showAppSnackBar(context, 'GENERATED');
+    } else {
+      showErrorSnackBar(
+        context,
+        'GENERATION FAILED: ${outcome.errorMessage ?? context.l.generationFailedFallback}',
+      );
     }
   }
 

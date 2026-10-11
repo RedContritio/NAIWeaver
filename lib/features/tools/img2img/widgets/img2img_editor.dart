@@ -7,6 +7,7 @@ import '../../../../core/utils/app_snackbar.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../gallery/services/tool_result_saver.dart';
 import '../../../generation/providers/generation_notifier.dart';
+import '../../../generation/widgets/quote_confirm_dialog.dart';
 import '../../canvas/providers/canvas_notifier.dart';
 import '../../canvas/services/canvas_gallery_service.dart';
 import '../../canvas/widgets/canvas_editor.dart';
@@ -332,7 +333,8 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
   bool _hasUnsavedResult(Img2ImgNotifier img2img, GenerationNotifier gen) {
     final result = img2img.session?.resultImageBytes;
     return result != null &&
-        !(identical(gen.state.generatedImage, result) && gen.imageSaved);
+        !(identical(gen.state.generatedImage, result) &&
+            (gen.state.selectedItem?.saved ?? false));
   }
 
   Future<void> _backToPicker(
@@ -456,9 +458,7 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
     GenerationNotifier genNotifier,
   ) async {
     final session = img2imgNotifier.session;
-    if (session == null) return;
-
-    genNotifier.setLoading(true);
+    if (session == null || genNotifier.state.isLoading) return;
 
     // Sync prompt text to session
     img2imgNotifier.setPrompt(_promptController.text);
@@ -498,6 +498,8 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
       final resultBytes = await genNotifier.generateImg2Img(
         request,
         sourceImageBytes: session.sourceImageBytes,
+        confirmQuote: (confirmation) =>
+            confirmQuoteChange(context, confirmation),
       );
 
       // Show result in the editor if generation succeeded
@@ -506,7 +508,6 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
         if (mounted) setState(() => _showResult = true);
       }
     } catch (e) {
-      genNotifier.setLoading(false);
       debugPrint('Img2Img generate error: $e');
       if (mounted) {
         showErrorSnackBar(

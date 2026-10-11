@@ -920,6 +920,16 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
       color: t.secondaryText,
     );
 
+    // Through the gateway only the samplers it accepts are offered; the one in
+    // use stays listed so the field never shows a value it has no item for.
+    final accepted = notifier.imageRules?.allowedSamplers ?? const <String>[];
+    final offered = notifier.service.viaGateway && accepted.isNotEmpty
+        ? accepted
+        : AdvancedSettingsPanel.samplers;
+    final samplers = offered.contains(state.sampler)
+        ? offered
+        : [state.sampler, ...offered];
+
     Widget samplerField = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -949,9 +959,7 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
           onChanged: (String? newValue) {
             if (newValue != null) notifier.updateSettings(sampler: newValue);
           },
-          items: AdvancedSettingsPanel.samplers.map<DropdownMenuItem<String>>((
-            String value,
-          ) {
+          items: samplers.map<DropdownMenuItem<String>>((String value) {
             return DropdownMenuItem<String>(
               value: value,
               child: Text(

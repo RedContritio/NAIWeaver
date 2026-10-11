@@ -33,6 +33,9 @@ class _Generation extends GenerationNotifier {
 void main() {
   test('another account never sees the previous account workspace', () async {
     final generation = _Generation(await testPreferences());
+    // Disposing while the initial load is still running is what made this
+    // test flaky: the load finishes first.
+    await generation.initialized;
     addTearDown(generation.dispose);
     generation.updateBackendUserId(1);
     generation.setGeneratedImage(Uint8List.fromList([1, 2, 3]));

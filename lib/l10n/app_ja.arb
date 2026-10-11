@@ -1332,5 +1332,13 @@
   "refAccessPausedNoRedPoints": "レッドポイント不足: {items}を停止しました。送信されません",
   "refAccessPausedNoPermission": "有料生成の権限がありません: {items}を停止しました。送信されません",
   "refAccessResumed": "有料ポイントが使えるようになりました: {items}は再び送信されます",
-  "toolMaxRedPoints": "最大 {points} レッド"
+  "toolMaxRedPoints": "最大 {points} レッド",
+  "generationBusy": "生成がすでに実行中です。完了するまでお待ちください。",
+  "generationFailedFallback": "生成に失敗しました",
+  "generationSeedInvalid": "シードは 0 から 4294967295 までの整数にしてください。",
+  "generationCancelQueued": "待機をキャンセル",
+  "generationResumeWatching": "再開",
+  "generationWatchTimedOut": "サーバーの待機を停止しました。画像は完成する可能性があります。再開して確認してください。",
+  "generationItemCancelled": "開始前にキャンセルされました",
+  "generationReuseSeed": "シードを再利用"
 }

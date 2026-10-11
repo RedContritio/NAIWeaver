@@ -50,7 +50,18 @@ class _BytesOnlyFilePicker extends FilePicker {
 class _FakeGenerationNotifier extends ChangeNotifier
     implements GenerationNotifier {
   _FakeGenerationNotifier(Uint8List? current)
-    : state = GenerationState(generatedImage: current);
+    : state = GenerationState(
+        generatedImages: [
+          if (current != null)
+            GeneratedImageItem(
+              id: 'current',
+              batchIndex: 1,
+              batchCount: 1,
+              bytes: current,
+            ),
+        ],
+        selectedGeneratedImageId: current == null ? null : 'current',
+      );
 
   @override
   GenerationState state;

@@ -1405,5 +1405,13 @@
   "refAccessPausedNoRedPoints": "红点不足：{items}已暂停，不会发送",
   "refAccessPausedNoPermission": "没有付费生成权限：{items}已暂停，不会发送",
   "refAccessResumed": "付费点数已恢复：{items}将重新发送",
-  "toolMaxRedPoints": "最多 {points} 红点"
+  "toolMaxRedPoints": "最多 {points} 红点",
+  "generationBusy": "已有生成正在进行，请等待完成。",
+  "generationFailedFallback": "生成失败",
+  "generationSeedInvalid": "种子必须是 0 到 4294967295 之间的整数。",
+  "generationCancelQueued": "取消排队",
+  "generationResumeWatching": "继续等待",
+  "generationWatchTimedOut": "已停止等待服务器。图片可能仍会完成，可点击继续等待再次检查。",
+  "generationItemCancelled": "已在开始前取消",
+  "generationReuseSeed": "复用种子"
 }

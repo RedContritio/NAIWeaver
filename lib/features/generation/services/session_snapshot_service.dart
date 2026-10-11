@@ -7,6 +7,13 @@ import '../../vibe_transfer/models/vibe_transfer.dart';
 
 /// Data object for session snapshot serialization.
 class SessionSnapshot {
+  /// Bumped when a restore has to migrate what older snapshots stored; a
+  /// snapshot written by this build already carries the current choices, so
+  /// the migration runs once per snapshot.
+  static const int currentVersion = 1;
+
+  /// The version the snapshot was written with (0: before versions existed).
+  final int version;
   final String prompt;
   final String negativePrompt;
   final String seed;
@@ -31,6 +38,7 @@ class SessionSnapshot {
   final List<VibeTransfer> vibeTransfers;
 
   SessionSnapshot({
+    this.version = currentVersion,
     required this.prompt,
     required this.negativePrompt,
     required this.seed,
@@ -56,6 +64,7 @@ class SessionSnapshot {
   });
 
   Map<String, dynamic> toJson() => {
+    'version': version,
     'prompt': prompt,
     'negative_prompt': negativePrompt,
     'seed': seed,
@@ -103,6 +112,7 @@ class SessionSnapshot {
         [];
 
     return SessionSnapshot(
+      version: (json['version'] as num?)?.toInt() ?? 0,
       prompt: json['prompt'] as String? ?? '',
       negativePrompt: json['negative_prompt'] as String? ?? '',
       seed: json['seed'] as String? ?? '',

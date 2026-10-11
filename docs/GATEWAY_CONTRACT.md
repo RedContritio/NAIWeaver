@@ -215,6 +215,17 @@ The client never auto-retries these POSTs.
 - A queued task whose account was disabled or lost the permission fails with
   `permission_denied` and releases its reservation.
 
+### Cancelling queued items (`POST /api/generation-tasks/{id}/cancel`)
+
+`{id}` is the submission id. The caller must own the submission (anyone else,
+admins included, gets 404 `not_found`). Every item of it that is still
+`queued` becomes `cancelled`, leaves the pending queue and has its whole
+reservation released in the same transaction. Items that are `running` or
+already final are not touched, so the call is safe to repeat and to race with
+the worker: an item the worker has not marked `running` is never executed
+after it was cancelled. A cancelled item has no `error_code`. The response is
+the submission as in §7 (200), whatever was or was not cancellable.
+
 ## 7. History and task items
 
 Items returned by `/api/history`, `/api/generation-tasks/{id}`,

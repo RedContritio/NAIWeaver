@@ -7,7 +7,6 @@ import 'core/widgets/confirm_dialog.dart';
 import 'core/widgets/browser_native_text_area.dart';
 import 'core/gateway/backend_gateway.dart';
 import 'core/gateway/backend_permissions.dart';
-import 'core/gateway/image_quote.dart';
 import 'core/services/nai_cost_estimator.dart';
 import 'core/services/client_diagnostics.dart';
 import 'core/services/client_diagnostics_runtime.dart';
@@ -42,6 +41,7 @@ import 'core/theme/theme_notifier.dart';
 import 'core/theme/theme_extensions.dart';
 import 'core/theme/vision_tokens.dart';
 import 'features/generation/models/generation_quote.dart';
+import 'features/generation/widgets/quote_confirm_dialog.dart';
 import 'features/generation/providers/generation_notifier.dart';
 import 'features/generation/services/reference_access_monitor.dart';
 import 'features/generation/widgets/billing_text.dart';
@@ -956,28 +956,6 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
     });
   }
 
-  /// Asks whether to go on at the price the server decided.
-  Future<bool> _confirmQuote(QuoteConfirmation confirmation) async {
-    if (!mounted) return false;
-    final l = context.l;
-    final price = confirmation.serverMode == QuoteMode.paid
-        ? l.quoteConfirmPriceRed(confirmation.serverPoints)
-        : l.quoteConfirmPriceGreen(confirmation.serverPoints);
-    final reason = confirmation.allowanceExhausted
-        ? l.quoteConfirmReasonAllowance
-        : l.quoteConfirmReasonOther;
-    final confirmed = await showConfirmDialog(
-      context,
-      title: l.quoteConfirmTitle,
-      message:
-          '$price\n${l.quoteConfirmShown(confirmation.shown.points)}\n$reason',
-      confirmLabel: l.quoteConfirmContinue,
-      cancelLabel: l.commonCancel,
-      confirmColor: context.tRead.accent,
-    );
-    return confirmed == true;
-  }
-
   /// Opens where the references and vibes are managed.
   void _openInputs(GenerationNotifier notifier) {
     final sheet = _mobileGenerationSheetKey.currentState;
@@ -1009,7 +987,7 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
     if (mobileSheet != null) unawaited(mobileSheet.collapse());
     final future = notifier.generate(
       batchLimit: imageBatchLimit,
-      confirmQuote: _confirmQuote,
+      confirmQuote: (confirmation) => confirmQuoteChange(context, confirmation),
     );
     if (!useBackendGateway) return;
     future.whenComplete(() {
