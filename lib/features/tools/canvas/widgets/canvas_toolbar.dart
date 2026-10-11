@@ -304,7 +304,7 @@ class _CanvasToolbarState extends State<CanvasToolbar> {
                     color: t.accentDanger,
                   ),
                   onPressed: notifier.deleteSelectionContents,
-                  tooltip: '${l.canvasDeleteSelection} (Del)',
+                  tooltip: '${l.canvasDeleteSelection} (Del)', // l10n-ignore: keyboard key label
                   splashRadius: 16,
                 ),
 
@@ -905,7 +905,7 @@ class _CanvasToolbarState extends State<CanvasToolbar> {
               SizedBox(
                 width: 40,
                 child: Text(
-                  '${notifier.brushDiameterPx.round()}px',
+                  '${notifier.brushDiameterPx.round()}px', // l10n-ignore: CSS pixel unit
                   style: TextStyle(
                     color: t.textTertiary,
                     fontSize: t.fontSize(7),

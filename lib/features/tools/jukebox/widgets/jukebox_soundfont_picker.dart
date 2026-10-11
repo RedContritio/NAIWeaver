@@ -9,6 +9,7 @@ import '../../../../core/theme/vision_metrics.dart';
 import '../../../../core/theme/vision_tokens.dart';
 import '../../../../core/widgets/ui/app_pill.dart';
 import '../../../../core/widgets/confirm_dialog.dart';
+import '../../../../core/jukebox/models/jukebox_soundfont_l10n.dart';
 
 /// SoundFont selection list with download / delete / progress UI.
 class JukeboxSoundFontPicker extends StatelessWidget {
@@ -84,7 +85,7 @@ class JukeboxSoundFontPicker extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            sf.description,
+                            sf.localizedDescription(context.l),
                             style: TextStyle(
                               color: t.textMinimal,
                               fontSize: t.fontSize(7),
@@ -136,10 +137,10 @@ class JukeboxSoundFontPicker extends StatelessWidget {
                 ),
               ],
               // Error message
-              if (isError && dlState.errorMessage != null) ...[
+              if (isError && dlState.issue != null) ...[
                 const SizedBox(height: VisionMetrics.space4),
                 Text(
-                  dlState.errorMessage!,
+                  dlState.issue!.label(context.l),
                   style: TextStyle(
                     color: t.accentDanger,
                     fontSize: t.fontSize(7),

@@ -142,7 +142,7 @@ class _SlideshowLauncherState extends State<SlideshowLauncher> {
                 icon: Icons.add,
                 tooltip: l.slideshowNewConfig,
                 onPressed: () {
-                  notifier.createNew();
+                  notifier.createNew(l.slideshowDefaultName);
                   _save(context, notifier);
                   setState(() => _showingEditor = true);
                 },

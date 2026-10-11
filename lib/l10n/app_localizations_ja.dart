@@ -5402,4 +5402,99 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get mlSegmentFailed => 'セグメンテーションに失敗しました — 別の点を試してください';
+
+  @override
+  String get charsGenStepCreating => 'キャラクターを作成中…';
+
+  @override
+  String get charsGenStepWardrobe => 'ワードローブを生成中…';
+
+  @override
+  String get charsGenStepSaving => '保存中…';
+
+  @override
+  String get charsGenStepDone => '完了';
+
+  @override
+  String get charsGenErrUnusable =>
+      'モデルから使えるキャラクター JSON が返りませんでした。もう一度試すか、上位プランのアカウント / より長い出力長を選んでください。';
+
+  @override
+  String canvasLayerNameN(int n) {
+    return 'レイヤー $n';
+  }
+
+  @override
+  String canvasImageLayerNameN(int n) {
+    return '画像 $n';
+  }
+
+  @override
+  String canvasLayerCopyName(String name) {
+    return '$name のコピー';
+  }
+
+  @override
+  String get canvasSegmentedLayerName => 'セグメント';
+
+  @override
+  String commonCopyName(String name) {
+    return '$name（コピー）';
+  }
+
+  @override
+  String get packDefaultExportName => 'マイパック';
+
+  @override
+  String slideshowDefaultName(int n) {
+    return 'スライドショー $n';
+  }
+
+  @override
+  String get mlModelDescIsnetAnime => '二値マスク、アニメ向けに最適化';
+
+  @override
+  String get mlModelDescRmbgQuantized => 'アルファマット、量子化版';
+
+  @override
+  String get mlModelDescRmbgBest => 'アルファマット、最高品質';
+
+  @override
+  String get mlModelDescUpscaleFast => '2倍拡大、高速で軽量';
+
+  @override
+  String get mlModelDescUpscaleMobile => '2倍拡大、モバイル向けフォールバック';
+
+  @override
+  String get mlModelDescUpscaleBest => '2倍拡大、最高品質';
+
+  @override
+  String get mlModelDescSamEncoder => '対話型セグメンテーション用の画像エンコーダー';
+
+  @override
+  String get mlModelDescSamDecoder => '対話型セグメンテーション用のマスクデコーダー';
+
+  @override
+  String get soundfontDescNes => '8ビットのレトロな NES サウンド';
+
+  @override
+  String get soundfontDescGeneralUser => '高品質な General MIDI サウンドフォント';
+
+  @override
+  String get soundfontDescCat => 'すべての楽器が猫の鳴き声';
+
+  @override
+  String get soundfontDescSnes => '16ビットのスーパーファミコンサウンド';
+
+  @override
+  String get soundfontDescGenesis => 'セガ メガドライブ YM2612 FM シンセ';
+
+  @override
+  String get soundfontDescN64Roxie => 'ニンテンドー64のゲームサンプル';
+
+  @override
+  String get soundfontDescN64Sdk => 'ニンテンドー64 SDK 標準サンプル';
+
+  @override
+  String get mlDownloadHashMismatch => 'ハッシュの検証に失敗しました';
 }

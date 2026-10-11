@@ -10171,6 +10171,174 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Segmentation failed — try different points'**
   String get mlSegmentFailed;
+
+  /// No description provided for @charsGenStepCreating.
+  ///
+  /// In en, this message translates to:
+  /// **'Creating character…'**
+  String get charsGenStepCreating;
+
+  /// No description provided for @charsGenStepWardrobe.
+  ///
+  /// In en, this message translates to:
+  /// **'Generating wardrobe…'**
+  String get charsGenStepWardrobe;
+
+  /// No description provided for @charsGenStepSaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving…'**
+  String get charsGenStepSaving;
+
+  /// No description provided for @charsGenStepDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get charsGenStepDone;
+
+  /// No description provided for @charsGenErrUnusable.
+  ///
+  /// In en, this message translates to:
+  /// **'The model didn\'t return usable character JSON. Try again, or pick a higher-tier account / larger output length.'**
+  String get charsGenErrUnusable;
+
+  /// No description provided for @canvasLayerNameN.
+  ///
+  /// In en, this message translates to:
+  /// **'Layer {n}'**
+  String canvasLayerNameN(int n);
+
+  /// No description provided for @canvasImageLayerNameN.
+  ///
+  /// In en, this message translates to:
+  /// **'Image {n}'**
+  String canvasImageLayerNameN(int n);
+
+  /// No description provided for @canvasLayerCopyName.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} copy'**
+  String canvasLayerCopyName(String name);
+
+  /// No description provided for @canvasSegmentedLayerName.
+  ///
+  /// In en, this message translates to:
+  /// **'Segmented'**
+  String get canvasSegmentedLayerName;
+
+  /// No description provided for @commonCopyName.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} (Copy)'**
+  String commonCopyName(String name);
+
+  /// No description provided for @packDefaultExportName.
+  ///
+  /// In en, this message translates to:
+  /// **'My Pack'**
+  String get packDefaultExportName;
+
+  /// No description provided for @slideshowDefaultName.
+  ///
+  /// In en, this message translates to:
+  /// **'Slideshow {n}'**
+  String slideshowDefaultName(int n);
+
+  /// No description provided for @mlModelDescIsnetAnime.
+  ///
+  /// In en, this message translates to:
+  /// **'Binary mask, anime-optimized'**
+  String get mlModelDescIsnetAnime;
+
+  /// No description provided for @mlModelDescRmbgQuantized.
+  ///
+  /// In en, this message translates to:
+  /// **'Alpha matte, quantized'**
+  String get mlModelDescRmbgQuantized;
+
+  /// No description provided for @mlModelDescRmbgBest.
+  ///
+  /// In en, this message translates to:
+  /// **'Alpha matte, best quality'**
+  String get mlModelDescRmbgBest;
+
+  /// No description provided for @mlModelDescUpscaleFast.
+  ///
+  /// In en, this message translates to:
+  /// **'2x upscaling, fast and tiny'**
+  String get mlModelDescUpscaleFast;
+
+  /// No description provided for @mlModelDescUpscaleMobile.
+  ///
+  /// In en, this message translates to:
+  /// **'2x upscaling, mobile fallback'**
+  String get mlModelDescUpscaleMobile;
+
+  /// No description provided for @mlModelDescUpscaleBest.
+  ///
+  /// In en, this message translates to:
+  /// **'2x upscaling, best quality'**
+  String get mlModelDescUpscaleBest;
+
+  /// No description provided for @mlModelDescSamEncoder.
+  ///
+  /// In en, this message translates to:
+  /// **'Image encoder for interactive segmentation'**
+  String get mlModelDescSamEncoder;
+
+  /// No description provided for @mlModelDescSamDecoder.
+  ///
+  /// In en, this message translates to:
+  /// **'Mask decoder for interactive segmentation'**
+  String get mlModelDescSamDecoder;
+
+  /// No description provided for @soundfontDescNes.
+  ///
+  /// In en, this message translates to:
+  /// **'8-bit retro NES sounds'**
+  String get soundfontDescNes;
+
+  /// No description provided for @soundfontDescGeneralUser.
+  ///
+  /// In en, this message translates to:
+  /// **'High quality General MIDI soundfont'**
+  String get soundfontDescGeneralUser;
+
+  /// No description provided for @soundfontDescCat.
+  ///
+  /// In en, this message translates to:
+  /// **'Every instrument is a meowing cat'**
+  String get soundfontDescCat;
+
+  /// No description provided for @soundfontDescSnes.
+  ///
+  /// In en, this message translates to:
+  /// **'16-bit Super Nintendo sounds'**
+  String get soundfontDescSnes;
+
+  /// No description provided for @soundfontDescGenesis.
+  ///
+  /// In en, this message translates to:
+  /// **'Sega Genesis YM2612 FM synth'**
+  String get soundfontDescGenesis;
+
+  /// No description provided for @soundfontDescN64Roxie.
+  ///
+  /// In en, this message translates to:
+  /// **'Nintendo 64 game samples'**
+  String get soundfontDescN64Roxie;
+
+  /// No description provided for @soundfontDescN64Sdk.
+  ///
+  /// In en, this message translates to:
+  /// **'Nintendo 64 SDK default samples'**
+  String get soundfontDescN64Sdk;
+
+  /// No description provided for @mlDownloadHashMismatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Hash verification failed'**
+  String get mlDownloadHashMismatch;
 }
 
 class _AppLocalizationsDelegate

@@ -102,7 +102,7 @@ class _CharacterGenProgressDialogState
               ),
               const SizedBox(height: 14),
               Text(
-                p?.text ?? l.charsGenPreparing,
+                p?.text(l) ?? l.charsGenPreparing,
                 style: TextStyle(
                   color: t.textPrimary,
                   fontSize: t.fontSize(12),

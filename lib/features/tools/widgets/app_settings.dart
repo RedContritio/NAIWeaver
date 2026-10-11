@@ -1576,9 +1576,9 @@ class _AppSettingsState extends State<AppSettings> {
             letterSpacing: 1,
           ),
           items: const [
-            DropdownMenuItem(value: Locale('en'), child: Text('ENGLISH')),
-            DropdownMenuItem(value: Locale('ja'), child: Text('日本語')),
-            DropdownMenuItem(value: Locale('zh'), child: Text('中文 (简体)')),
+            DropdownMenuItem(value: Locale('en'), child: Text('ENGLISH')), // l10n-ignore: language picker shows each language's own name
+            DropdownMenuItem(value: Locale('ja'), child: Text('日本語')), // l10n-ignore: language picker
+            DropdownMenuItem(value: Locale('zh'), child: Text('中文 (简体)')), // l10n-ignore: language picker
           ],
           onChanged: (locale) {
             if (locale != null) {

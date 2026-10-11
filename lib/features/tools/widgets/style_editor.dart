@@ -92,7 +92,7 @@ class _StyleEditorContentState extends State<_StyleEditorContent> {
         notifier.state.originalName == style.name;
     if (!editing) {
       if (!await _guard(notifier).resolve(context) || !mounted) return;
-      style == null ? notifier.createNewStyle() : notifier.selectStyle(style);
+      style == null ? notifier.createNewStyle(context.l.styleNew) : notifier.selectStyle(style);
     }
     setState(() => _showingEditor = true);
   }
@@ -204,7 +204,10 @@ class _StyleEditorContentState extends State<_StyleEditorContent> {
                     ManagerListAction(
                       label: l.commonDuplicate,
                       icon: Icons.copy,
-                      onSelected: () => notifier.duplicateStyle(style),
+                      onSelected: () => notifier.duplicateStyle(
+                        style,
+                        context.l.commonCopyName(style.name),
+                      ),
                     ),
                     ManagerListAction(
                       label: l.commonDelete,

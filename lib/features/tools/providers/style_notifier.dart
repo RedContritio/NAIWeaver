@@ -182,9 +182,9 @@ class StyleNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  void duplicateStyle(PromptStyle style) {
+  void duplicateStyle(PromptStyle style, String copyName) {
     final newStyle = PromptStyle(
-      name: "${style.name} (Copy)",
+      name: copyName,
       prefix: style.prefix,
       suffix: style.suffix,
       negativeContent: style.negativeContent,
@@ -222,9 +222,9 @@ class StyleNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  void createNewStyle() {
+  void createNewStyle(String name) {
     final newStyle = PromptStyle(
-      name: "NEW STYLE",
+      name: name,
       prefix: "",
       suffix: "",
       negativeContent: "",

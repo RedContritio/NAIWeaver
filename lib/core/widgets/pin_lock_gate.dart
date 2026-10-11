@@ -291,7 +291,7 @@ class _PinEntryScreenState extends State<PinEntryScreen>
               ),
               const SizedBox(height: 8),
               Text(
-                'NAIWEAVER',
+                'NAIWEAVER', // l10n-ignore: brand name
                 style: TextStyle(
                   color: t.textPrimary,
                   fontSize: t.fontSize(12),

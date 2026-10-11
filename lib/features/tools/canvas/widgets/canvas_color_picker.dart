@@ -727,7 +727,7 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
                     LengthLimitingTextInputFormatter(6),
                   ],
                   decoration: InputDecoration(
-                    hintText: 'FFFFFF',
+                    hintText: 'FFFFFF', // l10n-ignore: hex placeholder
                     hintStyle: TextStyle(color: t.textMinimal),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: VisionMetrics.space8,

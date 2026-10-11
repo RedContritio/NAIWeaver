@@ -145,7 +145,7 @@ class _ColorPickerDialogState extends State<ColorPickerDialog> {
                       LengthLimitingTextInputFormatter(6),
                     ],
                     decoration: InputDecoration(
-                      hintText: 'FFFFFF',
+                      hintText: 'FFFFFF', // l10n-ignore: hex placeholder
                       hintStyle: TextStyle(color: t.textMinimal),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       enabledBorder: OutlineInputBorder(

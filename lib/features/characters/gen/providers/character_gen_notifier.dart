@@ -38,8 +38,8 @@ class CharacterGenNotifier extends ChangeNotifier {
   CharacterGenProgress? _progress;
   CharacterGenProgress? get progress => _progress;
 
-  String? _lastError;
-  String? get lastError => _lastError;
+  Object? _lastError;
+  Object? get lastError => _lastError;
 
   /// The id of the character produced by the last successful run (so the UI can
   /// select it). Cleared at the start of each run.
@@ -54,7 +54,7 @@ class CharacterGenNotifier extends ChangeNotifier {
     if (_isGenerating) return null;
     final service = _textGen.service;
     if (service == null) {
-      _lastError = 'NovelAI token not set — add it in Settings.';
+      _lastError = TextGenException('NovelAI token not set', cause: TextGenIssue.noToken);
       notifyListeners();
       return null;
     }
@@ -91,10 +91,10 @@ class CharacterGenNotifier extends ChangeNotifier {
       _lastError = null; // cancellation isn't an error
       return null;
     } on TextGenException catch (e) {
-      _lastError = e.message;
+      _lastError = e;
       return null;
     } catch (e) {
-      _lastError = e.toString();
+      _lastError = e;
       return null;
     } finally {
       _isGenerating = false;

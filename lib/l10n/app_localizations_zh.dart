@@ -5362,4 +5362,99 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get mlSegmentFailed => '分割失败——请换几个点再试';
+
+  @override
+  String get charsGenStepCreating => '正在创建角色…';
+
+  @override
+  String get charsGenStepWardrobe => '正在生成衣橱…';
+
+  @override
+  String get charsGenStepSaving => '正在保存…';
+
+  @override
+  String get charsGenStepDone => '完成';
+
+  @override
+  String get charsGenErrUnusable =>
+      '模型没有返回可用的角色 JSON。请重试，或换用更高等级的账号 / 更大的输出长度。';
+
+  @override
+  String canvasLayerNameN(int n) {
+    return '图层 $n';
+  }
+
+  @override
+  String canvasImageLayerNameN(int n) {
+    return '图片 $n';
+  }
+
+  @override
+  String canvasLayerCopyName(String name) {
+    return '$name 副本';
+  }
+
+  @override
+  String get canvasSegmentedLayerName => '分割结果';
+
+  @override
+  String commonCopyName(String name) {
+    return '$name（副本）';
+  }
+
+  @override
+  String get packDefaultExportName => '我的资源包';
+
+  @override
+  String slideshowDefaultName(int n) {
+    return '幻灯片 $n';
+  }
+
+  @override
+  String get mlModelDescIsnetAnime => '二值蒙版，针对动漫优化';
+
+  @override
+  String get mlModelDescRmbgQuantized => 'Alpha 蒙版，量化版';
+
+  @override
+  String get mlModelDescRmbgBest => 'Alpha 蒙版，最佳画质';
+
+  @override
+  String get mlModelDescUpscaleFast => '2 倍放大，快速且小巧';
+
+  @override
+  String get mlModelDescUpscaleMobile => '2 倍放大，移动端备选';
+
+  @override
+  String get mlModelDescUpscaleBest => '2 倍放大，最佳画质';
+
+  @override
+  String get mlModelDescSamEncoder => '交互式分割的图像编码器';
+
+  @override
+  String get mlModelDescSamDecoder => '交互式分割的蒙版解码器';
+
+  @override
+  String get soundfontDescNes => '8 位复古 NES 音色';
+
+  @override
+  String get soundfontDescGeneralUser => '高品质 General MIDI 音色库';
+
+  @override
+  String get soundfontDescCat => '所有乐器都是猫叫声';
+
+  @override
+  String get soundfontDescSnes => '16 位超级任天堂音色';
+
+  @override
+  String get soundfontDescGenesis => '世嘉 Genesis YM2612 FM 合成器';
+
+  @override
+  String get soundfontDescN64Roxie => '任天堂 64 游戏采样';
+
+  @override
+  String get soundfontDescN64Sdk => '任天堂 64 SDK 默认采样';
+
+  @override
+  String get mlDownloadHashMismatch => '哈希校验失败';
 }

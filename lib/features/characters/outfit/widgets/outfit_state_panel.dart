@@ -294,7 +294,7 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
-                      '+ nsfw',
+                      '+ nsfw', // l10n-ignore: prompt tag shown as rendered
                       style: TextStyle(
                         color: t.accentDanger,
                         fontSize: t.fontSize(10),

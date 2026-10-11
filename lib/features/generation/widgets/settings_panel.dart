@@ -1066,7 +1066,7 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
 
     Widget furryToggle = _buildFlagToggle(
       icon: Icons.pets,
-      label: 'FURRY',
+      label: 'FURRY', // l10n-ignore: NovelAI mode name
       active: state.furryMode,
       color: t.accentFavorite,
       onTap: () => notifier.updateSettings(furryMode: !state.furryMode),
@@ -1076,7 +1076,7 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
 
     Widget curatedToggle = _buildFlagToggle(
       icon: Icons.auto_awesome,
-      label: 'CURATED',
+      label: 'CURATED', // l10n-ignore: NovelAI mode name
       active: state.useCurated,
       color: t.accentSuccess,
       onTap: () => notifier.updateSettings(useCurated: !state.useCurated),

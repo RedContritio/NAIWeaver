@@ -5564,4 +5564,101 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mlSegmentFailed => 'Segmentation failed — try different points';
+
+  @override
+  String get charsGenStepCreating => 'Creating character…';
+
+  @override
+  String get charsGenStepWardrobe => 'Generating wardrobe…';
+
+  @override
+  String get charsGenStepSaving => 'Saving…';
+
+  @override
+  String get charsGenStepDone => 'Done';
+
+  @override
+  String get charsGenErrUnusable =>
+      'The model didn\'t return usable character JSON. Try again, or pick a higher-tier account / larger output length.';
+
+  @override
+  String canvasLayerNameN(int n) {
+    return 'Layer $n';
+  }
+
+  @override
+  String canvasImageLayerNameN(int n) {
+    return 'Image $n';
+  }
+
+  @override
+  String canvasLayerCopyName(String name) {
+    return '$name copy';
+  }
+
+  @override
+  String get canvasSegmentedLayerName => 'Segmented';
+
+  @override
+  String commonCopyName(String name) {
+    return '$name (Copy)';
+  }
+
+  @override
+  String get packDefaultExportName => 'My Pack';
+
+  @override
+  String slideshowDefaultName(int n) {
+    return 'Slideshow $n';
+  }
+
+  @override
+  String get mlModelDescIsnetAnime => 'Binary mask, anime-optimized';
+
+  @override
+  String get mlModelDescRmbgQuantized => 'Alpha matte, quantized';
+
+  @override
+  String get mlModelDescRmbgBest => 'Alpha matte, best quality';
+
+  @override
+  String get mlModelDescUpscaleFast => '2x upscaling, fast and tiny';
+
+  @override
+  String get mlModelDescUpscaleMobile => '2x upscaling, mobile fallback';
+
+  @override
+  String get mlModelDescUpscaleBest => '2x upscaling, best quality';
+
+  @override
+  String get mlModelDescSamEncoder =>
+      'Image encoder for interactive segmentation';
+
+  @override
+  String get mlModelDescSamDecoder =>
+      'Mask decoder for interactive segmentation';
+
+  @override
+  String get soundfontDescNes => '8-bit retro NES sounds';
+
+  @override
+  String get soundfontDescGeneralUser => 'High quality General MIDI soundfont';
+
+  @override
+  String get soundfontDescCat => 'Every instrument is a meowing cat';
+
+  @override
+  String get soundfontDescSnes => '16-bit Super Nintendo sounds';
+
+  @override
+  String get soundfontDescGenesis => 'Sega Genesis YM2612 FM synth';
+
+  @override
+  String get soundfontDescN64Roxie => 'Nintendo 64 game samples';
+
+  @override
+  String get soundfontDescN64Sdk => 'Nintendo 64 SDK default samples';
+
+  @override
+  String get mlDownloadHashMismatch => 'Hash verification failed';
 }

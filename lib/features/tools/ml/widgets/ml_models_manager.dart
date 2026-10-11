@@ -19,6 +19,7 @@ import '../../../../core/widgets/ui/app_pill.dart';
 import '../../../../core/widgets/ui/app_tone.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../generation/providers/generation_notifier.dart';
+import '../../../../core/ml/ml_model_entry_l10n.dart';
 
 bool get _hasLocalMlPlatform =>
     kIsWeb || (!Platform.isAndroid && !Platform.isIOS);
@@ -717,7 +718,7 @@ class _MLModelCard extends StatelessWidget {
                         ),
                         const SizedBox(height: VisionMetrics.radius2),
                         Text(
-                          '${entry.description} · ${entry.fileSizeLabel}',
+                          '${entry.localizedDescription(context.l)} · ${entry.fileSizeLabel}',
                           style: TextStyle(
                             color: t.textDisabled,
                             fontSize: smallText,
@@ -819,10 +820,10 @@ class _MLModelCard extends StatelessWidget {
               ],
 
               // Error message
-              if (hasError && state.errorMessage != null) ...[
+              if (hasError && state.issue != null) ...[
                 const SizedBox(height: VisionMetrics.space8),
                 Text(
-                  state.errorMessage!.toUpperCase(),
+                  state.issue!.label(context.l).toUpperCase(),
                   style: TextStyle(
                     color: t.accentDanger,
                     fontSize: t.fontSize(touch ? 9 : 8),

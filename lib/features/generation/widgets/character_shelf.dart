@@ -227,7 +227,7 @@ class _AutoPositionChip extends StatelessWidget {
           ),
           alignment: Alignment.center,
           child: Text(
-            'AUTO',
+            context.l.charEditorAutoPosition,
             style: TextStyle(
               color: isActive ? t.background : t.textDisabled,
               fontSize: t.fontSize(9),

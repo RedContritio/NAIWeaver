@@ -422,7 +422,7 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
                 onSendToCanvas: (resultBytes) {
                   Navigator.pop(ctx);
                   final canvasNotifier = context.read<CanvasNotifier>();
-                  canvasNotifier.addImageLayer(resultBytes, name: 'Segmented');
+                  canvasNotifier.addImageLayer(resultBytes, name: context.l.canvasSegmentedLayerName);
                 },
               ),
             ),

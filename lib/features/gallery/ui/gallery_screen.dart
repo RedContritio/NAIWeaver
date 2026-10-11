@@ -389,7 +389,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                 onSendToCanvas: (resultBytes) {
                   Navigator.pop(ctx);
                   final canvasNotifier = context.read<CanvasNotifier>();
-                  canvasNotifier.addImageLayer(resultBytes, name: 'Segmented');
+                  canvasNotifier.addImageLayer(resultBytes, name: context.l.canvasSegmentedLayerName);
                 },
               ),
             ),

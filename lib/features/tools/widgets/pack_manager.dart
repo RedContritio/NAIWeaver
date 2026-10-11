@@ -154,6 +154,7 @@ class _PackManagerState extends State<PackManager> {
     showDialog(
       context: context,
       builder: (ctx) => _ExportDialog(
+        defaultName: context.l.packDefaultExportName,
         presets: presets,
         styles: styles,
         wildcardFiles: wcFiles,
@@ -284,8 +285,10 @@ class _ExportDialog extends StatefulWidget {
   final List<AppThemeConfig> userThemes;
   final List<GalleryAlbum> galleryAlbums;
   final Map<String, Object> settings;
+  final String defaultName;
 
   const _ExportDialog({
+    required this.defaultName,
     required this.presets,
     required this.styles,
     required this.wildcardFiles,
@@ -302,7 +305,7 @@ class _ExportDialog extends StatefulWidget {
 }
 
 class _ExportDialogState extends State<_ExportDialog> {
-  final _nameController = TextEditingController(text: 'My Pack');
+  late final _nameController = TextEditingController(text: widget.defaultName);
   final _descController = TextEditingController();
   late Set<int> _selectedPresets;
   late Set<int> _selectedStyles;

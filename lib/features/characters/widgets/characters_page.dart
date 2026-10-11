@@ -33,6 +33,7 @@ import '../services/wardrobe_generator_service.dart';
 import 'outfit_editor_sheet.dart';
 import 'tag_text_field.dart';
 import 'wardrobe_generate_dialog.dart';
+import '../gen/character_gen_error_message.dart';
 
 /// Puts a character's [tags] (plus `nsfw` when [dishevelled]) and its
 /// [negativeTags] where `charInsertTarget` says, via the shared
@@ -137,7 +138,7 @@ class _CharactersPageState extends State<CharactersPage> {
       if (mounted) setState(() => _selectedId = id);
       showAppSnackBar(context, context.l.charsGenerated);
     } else if (notifier.lastError != null) {
-      showErrorSnackBar(context, notifier.lastError!);
+      showErrorSnackBar(context, characterGenErrorMessage(context.l, notifier.lastError!));
     }
   }
 
