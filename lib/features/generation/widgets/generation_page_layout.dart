@@ -149,7 +149,7 @@ class GenerationComposerRow extends StatelessWidget {
   }
 }
 
-/// A generation composer with a grab handle directly below the prompt input.
+/// A generation composer with a grab handle directly above the prompt input.
 /// The action rail keeps its width and does not become part of the drag target.
 class ResizableGenerationComposer extends StatelessWidget {
   const ResizableGenerationComposer({
