@@ -58,6 +58,9 @@ lib/
 │   ├── l10n/
 │   │   ├── locale_notifier.dart           # Locale state management (ChangeNotifier) with persistence
 │   │   └── l10n_extensions.dart           # BuildContext extension: `context.l` for localized strings
+│   ├── gateway/
+│   │   ├── image_quote.dart               # Local port of the gateway's classify_and_quote (docs/GATEWAY_CONTRACT.md §3); display only, the server's quote is charged
+│   │   └── backend_permissions.dart       # Permission/quota checks, GenerationAccess, PaidImageAccess, tool cap labels
 │   ├── services/
 │   │   ├── novel_ai_service.dart          # NovelAI API client (Dio, ZIP decompression)
 │   │   ├── backend_client.dart            # The one Dio client for the gateway: BackendException mapping, GET-only retries, 401 reporting
@@ -115,6 +118,7 @@ lib/
     │   │   └── generation_notifier.dart    # Central business logic (~1400 lines)
     │   ├── services/
     │   │   ├── session_snapshot_service.dart   # Generation session state snapshots
+    │   │   ├── reference_access_monitor.dart   # Pauses references/vibes without paid access and announces access changes once
     │   │   ├── character_manager.dart         # Character lifecycle management
     │   │   ├── preset_service.dart            # Preset apply/save logic extracted from notifier
     │   │   └── metadata_import_service.dart   # PNG metadata import and field restoration

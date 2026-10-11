@@ -1,13 +1,15 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/material.dart';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 import 'package:naiweaver/core/gateway/backend_permissions.dart';
 import 'package:naiweaver/core/gateway/backend_rules.dart';
 import 'package:naiweaver/core/services/backend_history_api.dart';
 import 'package:naiweaver/core/services/novel_ai_service.dart';
-import 'package:naiweaver/core/services/preferences_service.dart';
 import 'package:naiweaver/core/services/styles.dart';
 import 'package:naiweaver/core/services/tag_service.dart';
 import 'package:naiweaver/core/services/wildcard_service.dart';
@@ -16,7 +18,9 @@ import 'package:naiweaver/features/director_ref/providers/director_ref_notifier.
 import 'package:naiweaver/features/generation/models/generation_quote.dart';
 import 'package:naiweaver/features/generation/models/nai_character.dart';
 import 'package:naiweaver/features/generation/providers/generation_notifier.dart';
+import 'package:naiweaver/features/gallery/providers/gallery_notifier.dart';
 import 'package:naiweaver/features/generation/services/reference_access_monitor.dart';
+import 'package:naiweaver/features/generation/widgets/settings_panel.dart';
 import 'package:naiweaver/features/vibe_transfer/models/vibe_transfer.dart';
 import 'package:naiweaver/features/vibe_transfer/providers/vibe_transfer_notifier.dart';
 
@@ -426,23 +430,53 @@ void main() {
       expect(rig.vibes.vibes, hasLength(1));
     });
 
-    test(
-      'rebuilding changes neither the settings nor the references',
-      () async {
-        final rig = await _rig(dir, accept, access: _freeOnly);
-        await rig.directors.setReferences([_reference('a')]);
+    testWidgets(
+      'building the settings never changes the parameters or inputs',
+      (tester) async {
+        final rig = await tester.runAsync(
+          () => _rig(dir, accept, access: _freeOnly),
+        );
+        final generation = rig!.generation;
+        await tester.runAsync(
+          () => rig.directors.setReferences([_reference('a')]),
+        );
         rig.vibes.setVibes([_vibe('a')]);
-        rig.generation.updateSettings(steps: 40, smea: true);
+        generation.updateSettings(width: 1536, height: 1024, steps: 40);
 
-        // The quote is what a rebuilding widget reads.
-        for (var i = 0; i < 3; i++) {
-          rig.generation.quote;
-        }
+        final gallery = GalleryNotifier(
+          outputDir: dir.path,
+          prefs: await testPreferences(),
+        );
+        await pumpHarness(
+          tester,
+          ExpandedSettingsContent(
+            group: GenerationSettingsGroup.parameters,
+            onManageStyles: () {},
+            onSavePreset: () {},
+          ),
+          size: const Size(1800, 1400),
+          providers: [
+            ChangeNotifierProvider.value(value: generation),
+            ChangeNotifierProvider.value(value: rig.directors),
+            ChangeNotifierProvider.value(value: rig.vibes),
+            ChangeNotifierProvider.value(value: gallery),
+          ],
+        );
+        await tester.pump();
 
-        expect(rig.generation.state.steps, 40);
-        expect(rig.generation.state.smea, isTrue);
+        // The account can only generate for free: it is told so and offered the
+        // adjustment, but nothing was changed on its behalf.
+        expect(find.text('ADJUST TO FREE PARAMETERS'), findsOneWidget);
+        expect(generation.state.width, 1536);
+        expect(generation.state.height, 1024);
+        expect(generation.state.steps, 40);
         expect(rig.directors.references, hasLength(1));
         expect(rig.vibes.vibes, hasLength(1));
+
+        await tester.tap(find.text('ADJUST TO FREE PARAMETERS'));
+        await tester.pump();
+        expect(generation.state.steps, 28);
+        expect(find.text('ADJUST TO FREE PARAMETERS'), findsNothing);
       },
     );
   });

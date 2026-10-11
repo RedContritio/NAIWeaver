@@ -7309,6 +7309,228 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Hide every image in this batch from your history?'**
   String get serverHistoryBatchDeleteConfirm;
+
+  /// No description provided for @quotePointsTooltipFree.
+  ///
+  /// In en, this message translates to:
+  /// **'Free · {points} green points'**
+  String quotePointsTooltipFree(int points);
+
+  /// No description provided for @quotePointsTooltipPaid.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid · {points} red points'**
+  String quotePointsTooltipPaid(int points);
+
+  /// No description provided for @quoteDiscountNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Green point discount: {percent}%'**
+  String quoteDiscountNote(int percent);
+
+  /// No description provided for @quoteInvalidBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid'**
+  String get quoteInvalidBadge;
+
+  /// No description provided for @quoteInvalidTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'These parameters are outside what the server accepts ({field}).'**
+  String quoteInvalidTooltip(String field);
+
+  /// No description provided for @quoteReasonSizeNotFree.
+  ///
+  /// In en, this message translates to:
+  /// **'Size is not a free size'**
+  String get quoteReasonSizeNotFree;
+
+  /// No description provided for @quoteReasonStepsOverFreeLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'Steps above the free limit'**
+  String get quoteReasonStepsOverFreeLimit;
+
+  /// No description provided for @quoteReasonSmea.
+  ///
+  /// In en, this message translates to:
+  /// **'SMEA enabled'**
+  String get quoteReasonSmea;
+
+  /// No description provided for @quoteReasonImageInput.
+  ///
+  /// In en, this message translates to:
+  /// **'Image input (img2img / inpaint)'**
+  String get quoteReasonImageInput;
+
+  /// No description provided for @quoteReasonDirectorRefs.
+  ///
+  /// In en, this message translates to:
+  /// **'Precise references'**
+  String get quoteReasonDirectorRefs;
+
+  /// No description provided for @quoteReasonVibes.
+  ///
+  /// In en, this message translates to:
+  /// **'Vibe transfer'**
+  String get quoteReasonVibes;
+
+  /// No description provided for @quoteReasonAllowanceExhausted.
+  ///
+  /// In en, this message translates to:
+  /// **'Free allowance used up for now'**
+  String get quoteReasonAllowanceExhausted;
+
+  /// No description provided for @quoteReasonPaidTool.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid tool'**
+  String get quoteReasonPaidTool;
+
+  /// No description provided for @quoteAdjustToFree.
+  ///
+  /// In en, this message translates to:
+  /// **'Make free'**
+  String get quoteAdjustToFree;
+
+  /// No description provided for @quoteAdjustToFreeTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Set size, steps and SMEA back to what is free'**
+  String get quoteAdjustToFreeTooltip;
+
+  /// No description provided for @quoteFreeOnlyNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account can only generate for free. These settings would cost red points:'**
+  String get quoteFreeOnlyNotice;
+
+  /// No description provided for @quoteFreeAllowanceUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The free allowance is used up for now, so free generation is unavailable for a while.'**
+  String get quoteFreeAllowanceUnavailable;
+
+  /// No description provided for @quoteAdjustToFreeAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjust to free parameters'**
+  String get quoteAdjustToFreeAction;
+
+  /// No description provided for @quoteConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Price changed'**
+  String get quoteConfirmTitle;
+
+  /// No description provided for @quoteConfirmPriceRed.
+  ///
+  /// In en, this message translates to:
+  /// **'The server price applies: {points} red points.'**
+  String quoteConfirmPriceRed(int points);
+
+  /// No description provided for @quoteConfirmPriceGreen.
+  ///
+  /// In en, this message translates to:
+  /// **'The server price applies: {points} green points.'**
+  String quoteConfirmPriceGreen(int points);
+
+  /// No description provided for @quoteConfirmShown.
+  ///
+  /// In en, this message translates to:
+  /// **'The price shown was {points}.'**
+  String quoteConfirmShown(int points);
+
+  /// No description provided for @quoteConfirmReasonAllowance.
+  ///
+  /// In en, this message translates to:
+  /// **'The free allowance is used up for now, so this image is charged in red points instead.'**
+  String get quoteConfirmReasonAllowance;
+
+  /// No description provided for @quoteConfirmReasonOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Prices or your account changed after the price was shown.'**
+  String get quoteConfirmReasonOther;
+
+  /// No description provided for @quoteConfirmContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue at this price'**
+  String get quoteConfirmContinue;
+
+  /// No description provided for @generationInputsActive.
+  ///
+  /// In en, this message translates to:
+  /// **'REF {references} · VIBE {vibes}'**
+  String generationInputsActive(int references, int vibes);
+
+  /// No description provided for @generationInputsPaused.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} paused'**
+  String generationInputsPaused(int count);
+
+  /// No description provided for @generationInputsTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'References and vibes sent with the next image. Tap to open them.'**
+  String get generationInputsTooltip;
+
+  /// No description provided for @refPausedNoRedPoints.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused: not enough red points. Not sent.'**
+  String get refPausedNoRedPoints;
+
+  /// No description provided for @refPausedNoPermission.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused: this account cannot generate with paid points. Not sent.'**
+  String get refPausedNoPermission;
+
+  /// No description provided for @refAccessCountRefs.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 reference} other{{count} references}}'**
+  String refAccessCountRefs(int count);
+
+  /// No description provided for @refAccessCountVibes.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 vibe} other{{count} vibes}}'**
+  String refAccessCountVibes(int count);
+
+  /// No description provided for @refAccessSeparator.
+  ///
+  /// In en, this message translates to:
+  /// **', '**
+  String get refAccessSeparator;
+
+  /// No description provided for @refAccessPausedNoRedPoints.
+  ///
+  /// In en, this message translates to:
+  /// **'Not enough red points: {items} paused and will not be sent'**
+  String refAccessPausedNoRedPoints(String items);
+
+  /// No description provided for @refAccessPausedNoPermission.
+  ///
+  /// In en, this message translates to:
+  /// **'No paid generation permission: {items} paused and will not be sent'**
+  String refAccessPausedNoPermission(String items);
+
+  /// No description provided for @refAccessResumed.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid points available again: {items} will be sent again'**
+  String refAccessResumed(String items);
+
+  /// No description provided for @toolMaxRedPoints.
+  ///
+  /// In en, this message translates to:
+  /// **'up to {points} red'**
+  String toolMaxRedPoints(int points);
 }
 
 class _AppLocalizationsDelegate

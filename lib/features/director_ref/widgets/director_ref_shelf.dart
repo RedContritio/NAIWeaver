@@ -8,6 +8,7 @@ import '../../../core/services/path_service.dart';
 import '../../../core/services/reference_library_service.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../../core/utils/responsive.dart';
+import '../../generation/widgets/billing_text.dart';
 import '../models/director_reference.dart';
 import '../providers/director_ref_notifier.dart';
 import 'director_ref_chip.dart';
@@ -173,6 +174,9 @@ class DirectorRefShelf extends StatelessWidget {
                     reference: ref,
                     onTap: () => _openEditor(context, notifier, ref),
                     onLongPress: () => notifier.removeReference(ref.id),
+                    pausedReason: notifier.isPaused(ref)
+                        ? pausedReasonText(context.l, notifier.access)
+                        : null,
                   ),
                 ),
                 _AddRefButton(

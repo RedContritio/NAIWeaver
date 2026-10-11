@@ -3944,4 +3944,164 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get serverHistoryBatchDeleteConfirm =>
       'Hide every image in this batch from your history?';
+
+  @override
+  String quotePointsTooltipFree(int points) {
+    return 'Free · $points green points';
+  }
+
+  @override
+  String quotePointsTooltipPaid(int points) {
+    return 'Paid · $points red points';
+  }
+
+  @override
+  String quoteDiscountNote(int percent) {
+    return 'Green point discount: $percent%';
+  }
+
+  @override
+  String get quoteInvalidBadge => 'Invalid';
+
+  @override
+  String quoteInvalidTooltip(String field) {
+    return 'These parameters are outside what the server accepts ($field).';
+  }
+
+  @override
+  String get quoteReasonSizeNotFree => 'Size is not a free size';
+
+  @override
+  String get quoteReasonStepsOverFreeLimit => 'Steps above the free limit';
+
+  @override
+  String get quoteReasonSmea => 'SMEA enabled';
+
+  @override
+  String get quoteReasonImageInput => 'Image input (img2img / inpaint)';
+
+  @override
+  String get quoteReasonDirectorRefs => 'Precise references';
+
+  @override
+  String get quoteReasonVibes => 'Vibe transfer';
+
+  @override
+  String get quoteReasonAllowanceExhausted => 'Free allowance used up for now';
+
+  @override
+  String get quoteReasonPaidTool => 'Paid tool';
+
+  @override
+  String get quoteAdjustToFree => 'Make free';
+
+  @override
+  String get quoteAdjustToFreeTooltip =>
+      'Set size, steps and SMEA back to what is free';
+
+  @override
+  String get quoteFreeOnlyNotice =>
+      'Your account can only generate for free. These settings would cost red points:';
+
+  @override
+  String get quoteFreeAllowanceUnavailable =>
+      'The free allowance is used up for now, so free generation is unavailable for a while.';
+
+  @override
+  String get quoteAdjustToFreeAction => 'Adjust to free parameters';
+
+  @override
+  String get quoteConfirmTitle => 'Price changed';
+
+  @override
+  String quoteConfirmPriceRed(int points) {
+    return 'The server price applies: $points red points.';
+  }
+
+  @override
+  String quoteConfirmPriceGreen(int points) {
+    return 'The server price applies: $points green points.';
+  }
+
+  @override
+  String quoteConfirmShown(int points) {
+    return 'The price shown was $points.';
+  }
+
+  @override
+  String get quoteConfirmReasonAllowance =>
+      'The free allowance is used up for now, so this image is charged in red points instead.';
+
+  @override
+  String get quoteConfirmReasonOther =>
+      'Prices or your account changed after the price was shown.';
+
+  @override
+  String get quoteConfirmContinue => 'Continue at this price';
+
+  @override
+  String generationInputsActive(int references, int vibes) {
+    return 'REF $references · VIBE $vibes';
+  }
+
+  @override
+  String generationInputsPaused(int count) {
+    return '$count paused';
+  }
+
+  @override
+  String get generationInputsTooltip =>
+      'References and vibes sent with the next image. Tap to open them.';
+
+  @override
+  String get refPausedNoRedPoints => 'Paused: not enough red points. Not sent.';
+
+  @override
+  String get refPausedNoPermission =>
+      'Paused: this account cannot generate with paid points. Not sent.';
+
+  @override
+  String refAccessCountRefs(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count references',
+      one: '1 reference',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String refAccessCountVibes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count vibes',
+      one: '1 vibe',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get refAccessSeparator => ', ';
+
+  @override
+  String refAccessPausedNoRedPoints(String items) {
+    return 'Not enough red points: $items paused and will not be sent';
+  }
+
+  @override
+  String refAccessPausedNoPermission(String items) {
+    return 'No paid generation permission: $items paused and will not be sent';
+  }
+
+  @override
+  String refAccessResumed(String items) {
+    return 'Paid points available again: $items will be sent again';
+  }
+
+  @override
+  String toolMaxRedPoints(int points) {
+    return 'up to $points red';
+  }
 }

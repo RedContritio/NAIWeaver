@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
 import '../../features/auth/backend_auth_notifier.dart';
+import '../l10n/l10n_extensions.dart';
 import 'backend_gateway.dart';
 
 class BackendPermission {
@@ -93,6 +94,26 @@ bool canUsePaidImageFeatures(BuildContext context) {
 bool isFreeOnlyImageUser(BuildContext context) {
   if (!useBackendGateway) return false;
   return GenerationAccess.of(context.watch<BackendAuthNotifier>()).freeOnly;
+}
+
+/// The NovelAI tools that are charged a fixed number of red points.
+enum PaidTool { upscale, augment, encodeVibe }
+
+/// The most red points [count] runs of [tool] can cost this user
+/// (`rules.tool_caps`), shown where the tool is started; null outside the
+/// gateway.
+String? paidToolCapLabel(BuildContext context, PaidTool tool, {int count = 1}) {
+  if (!useBackendGateway) return null;
+  final caps = context.watch<BackendAuthNotifier>().rules?.toolCaps;
+  if (caps == null) return null;
+  return context.l.toolMaxRedPoints(
+    count *
+        switch (tool) {
+          PaidTool.upscale => caps.upscale,
+          PaidTool.augment => caps.augment,
+          PaidTool.encodeVibe => caps.encodeVibe,
+        },
+  );
 }
 
 int backendImageBatchLimit(BuildContext context) {

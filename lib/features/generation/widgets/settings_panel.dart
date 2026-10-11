@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../../core/gateway/backend_gateway.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/gateway/backend_permissions.dart';
+import '../../../core/gateway/backend_rules.dart';
 import '../../../core/services/client_diagnostics.dart';
 import '../../../core/services/preferences_service.dart';
 import '../../../core/services/tag_service.dart';
@@ -25,8 +26,12 @@ import '../../../core/widgets/editable_slider_value.dart';
 import '../../../core/widgets/vision_slider.dart';
 import '../../../core/services/styles.dart';
 import '../../gallery/providers/gallery_notifier.dart';
+import '../../director_ref/providers/director_ref_notifier.dart';
 import '../../director_ref/widgets/director_ref_shelf.dart';
+import '../../vibe_transfer/providers/vibe_transfer_notifier.dart';
+import '../models/generation_quote.dart';
 import '../providers/generation_notifier.dart';
+import 'billing_text.dart';
 import 'generation_seed_control.dart';
 import 'inline_character_editor.dart';
 import 'vibe_transfer_shelf.dart';
@@ -85,19 +90,18 @@ class AdvancedSettingsPanel extends StatelessWidget {
     return [...builtIn, ...custom];
   }
 
-  static bool isFreeResolution(double width, double height) {
-    final w = width.toInt();
-    final h = height.toInt();
-    return (w == 832 && h == 1216) ||
-        (w == 1216 && h == 832) ||
-        (w == 1024 && h == 1024);
-  }
-
-  static List<ResolutionOption> freeResolutionOptions(BuildContext context) {
+  /// The built-in and saved resolutions the gateway prices as free
+  /// (`rules.free_sizes`).
+  static List<ResolutionOption> freeResolutionOptions(
+    BuildContext context,
+    ImageRules? rules,
+  ) {
+    final freeSizes = rules?.freeSizes ?? const [];
     return resolutionOptions(context)
         .where(
-          (opt) =>
-              isFreeResolution(opt.width.toDouble(), opt.height.toDouble()),
+          (opt) => freeSizes.any(
+            (size) => size.width == opt.width && size.height == opt.height,
+          ),
         )
         .toList();
   }
@@ -291,6 +295,12 @@ class AdvancedSettingsPanel extends StatelessWidget {
 enum GenerationSettingsGroup { all, prompt, inputs, parameters }
 
 class ExpandedSettingsContent extends StatefulWidget {
+  /// The references and vibes section, wherever the settings are shown; the
+  /// active-inputs indicator scrolls to it.
+  static final referenceSectionKey = GlobalKey(
+    debugLabel: 'generation-reference-section',
+  );
+
   final VoidCallback onManageStyles;
   final void Function(String styleName)? onEditStyle;
   final VoidCallback onSavePreset;
@@ -369,40 +379,6 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
     super.dispose();
   }
 
-  void _scheduleFreeImageClamp(GenerationState state) {
-    final needsResolutionClamp = !AdvancedSettingsPanel.isFreeResolution(
-      state.width,
-      state.height,
-    );
-    final needsClamp =
-        needsResolutionClamp || state.steps > 28 || state.smea || state.smeaDyn;
-    if (!needsClamp) return;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final current = context.read<GenerationNotifier>().state;
-      context.read<GenerationNotifier>().updateSettings(
-        width:
-            AdvancedSettingsPanel.isFreeResolution(
-              current.width,
-              current.height,
-            )
-            ? null
-            : 832,
-        height:
-            AdvancedSettingsPanel.isFreeResolution(
-              current.width,
-              current.height,
-            )
-            ? null
-            : 1216,
-        steps: current.steps > 28 ? 28 : null,
-        smea: current.smea ? false : null,
-        smeaDyn: current.smeaDyn ? false : null,
-      );
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final notifier = context.watch<GenerationNotifier>();
@@ -416,19 +392,23 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
     final sectionGap = compact ? 16.0 : 24.0;
     final showLocalGalleryControls = !(useBackendGateway && kIsWeb);
 
-    if (isFreeOnlyImageUser(context)) {
-      _scheduleFreeImageClamp(state);
-    }
-
     final builders = <String, Widget Function()>{
-      'dimensions_seed': () =>
+      'dimensions_seed': () => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (notifier.quote?.canAdjustToFree ?? false)
+            _buildFreeParametersNotice(notifier, notifier.quote!, t),
           _buildDimensionsSeed(notifier, state, mobile, t, compact: compact),
+        ],
+      ),
       'steps_scale': () =>
           _buildStepsScale(notifier, state, mobile, t, compact: compact),
       'sampler_post': () =>
           _buildSamplerPost(notifier, state, mobile, t, compact: compact),
       'characters': () => const InlineCharacterEditor(),
-      if (canUsePaidImageFeatures(context))
+      if (canUsePaidImageFeatures(context) ||
+          context.watch<DirectorRefNotifier>().references.isNotEmpty ||
+          context.watch<VibeTransferNotifier>().vibes.isNotEmpty)
         'reference_images': () => _buildReferenceImages(state, mobile, t),
       'styles': () => _buildStyles(notifier, state, t),
       'negative_prompt': () => _buildNegativePrompt(notifier, t),
@@ -498,37 +478,90 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
     bool mobile,
     VisionTokens t,
   ) {
+    // The shelf switches only decide what is shown for editing; what is sent
+    // never depends on them. Vibes already on the list stay visible (and can
+    // be removed) without the permission to encode new ones.
     final showRef = state.showDirectorRefShelf;
     final showVibe =
         state.showVibeTransferShelf &&
-        hasBackendPermission(context, BackendPermission.imageEncodeVibe);
+        (hasBackendPermission(context, BackendPermission.imageEncodeVibe) ||
+            context.watch<VibeTransferNotifier>().vibes.isNotEmpty);
     if (!showRef && !showVibe) return const SizedBox.shrink();
 
-    return Column(
-      key: const ValueKey<String>('advanced-reference-images'),
-      children: [
-        if (showRef)
-          _buildReferenceInputRow(
-            key: const ValueKey<String>('advanced-precise-reference-row'),
-            label: context.l.refPreciseReferences,
-            icon: Icons.person_search_outlined,
-            color: t.accentRefCharacter,
-            shelf: const DirectorRefShelf(),
-            mobile: mobile,
-            t: t,
+    return KeyedSubtree(
+      key: ExpandedSettingsContent.referenceSectionKey,
+      child: Column(
+        key: const ValueKey<String>('advanced-reference-images'),
+        children: [
+          if (showRef)
+            _buildReferenceInputRow(
+              key: const ValueKey<String>('advanced-precise-reference-row'),
+              label: context.l.refPreciseReferences,
+              icon: Icons.person_search_outlined,
+              color: t.accentRefCharacter,
+              shelf: const DirectorRefShelf(),
+              mobile: mobile,
+              t: t,
+            ),
+          if (showRef && showVibe) const SizedBox(height: 8),
+          if (showVibe)
+            _buildReferenceInputRow(
+              key: const ValueKey<String>('advanced-vibe-transfer-row'),
+              label: context.l.refVibeTransfer,
+              icon: Icons.auto_awesome_outlined,
+              color: t.accentVibeTransfer,
+              shelf: const VibeTransferShelf(),
+              mobile: mobile,
+              t: t,
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Shown to an account that can only generate for free while its settings
+  /// would cost red points: nothing is changed until the user asks.
+  Widget _buildFreeParametersNotice(
+    GenerationNotifier notifier,
+    GenerationQuote quote,
+    VisionTokens t,
+  ) {
+    final l = context.l;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: t.accentDanger.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: t.accentDanger.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l.quoteFreeOnlyNotice,
+            style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(10)),
           ),
-        if (showRef && showVibe) const SizedBox(height: 8),
-        if (showVibe)
-          _buildReferenceInputRow(
-            key: const ValueKey<String>('advanced-vibe-transfer-row'),
-            label: context.l.refVibeTransfer,
-            icon: Icons.auto_awesome_outlined,
-            color: t.accentVibeTransfer,
-            shelf: const VibeTransferShelf(),
-            mobile: mobile,
-            t: t,
+          for (final reason in quote.quote?.reasons ?? const <String>[])
+            Text(
+              '• ${quoteReasonText(l, reason)}',
+              style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(10)),
+            ),
+          if (quote.quote == null)
+            Text(
+              l.quoteInvalidTooltip(quote.invalidField ?? ''),
+              style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(10)),
+            ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: notifier.adjustToFreeParameters,
+            child: Text(
+              l.quoteAdjustToFreeAction.toUpperCase(),
+              style: TextStyle(color: t.accent, fontSize: t.fontSize(10)),
+            ),
           ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -594,7 +627,10 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
     final batchValue = math.max(1, math.min(state.batchCount, batchLimit));
     final freeOnly = isFreeOnlyImageUser(context);
     final resolutionOptions = freeOnly
-        ? AdvancedSettingsPanel.freeResolutionOptions(context)
+        ? AdvancedSettingsPanel.freeResolutionOptions(
+            context,
+            notifier.imageRules,
+          )
         : AdvancedSettingsPanel.resolutionOptions(context);
     final selectedResolution =
         resolutionOptions.any(
@@ -824,17 +860,23 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
     bool compact = false,
   }) {
     final freeOnly = isFreeOnlyImageUser(context);
+    // The gateway's limits for this account; a direct NovelAI account has
+    // NovelAI's own (28 free, 50 at most).
+    final rules = notifier.imageRules;
+    final freeSteps = rules?.freeMaxSteps ?? 28;
+    final maxSteps = rules?.maxSteps ?? 50;
+    final stepsLimit = freeOnly ? freeSteps : maxSteps;
     Widget stepsSlider = _buildCompactSlider(
       context,
       context.l.panelSteps.toUpperCase(),
       state.steps,
       1,
-      freeOnly ? 28 : 50,
+      stepsLimit.toDouble(),
       1,
       (v) => notifier.updateSettings(steps: v),
       t,
-      warnAbove: freeOnly ? null : 28,
-      hardMax: freeOnly ? 28 : null,
+      warnAbove: freeSteps.toDouble(),
+      hardMax: stepsLimit.toDouble(),
     );
     Widget scaleSlider = _buildCompactSlider(
       context,

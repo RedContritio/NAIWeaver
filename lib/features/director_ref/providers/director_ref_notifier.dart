@@ -33,6 +33,10 @@ class DirectorRefNotifier extends ChangeNotifier {
   bool isSent(DirectorReference ref) =>
       ref.enabled && _access == PaidImageAccess.allowed;
 
+  /// Enabled by the user but held back for lack of access.
+  bool isPaused(DirectorReference ref) =>
+      ref.enabled && _access != PaidImageAccess.allowed;
+
   /// References the user enabled that are held back for lack of access.
   int get pausedCount => _access == PaidImageAccess.allowed
       ? 0

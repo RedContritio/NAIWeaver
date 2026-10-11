@@ -508,13 +508,6 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
                       child: Row(
                         children: [
                           Expanded(child: widget.compactPrompt),
-                          if (widget.inputCount > 0) ...[
-                            const SizedBox(width: 6),
-                            _InputCountBadge(
-                              count: widget.inputCount,
-                              icon: Icons.image_outlined,
-                            ),
-                          ],
                           const SizedBox(width: 8),
                           widget.compactActions,
                         ],
@@ -551,13 +544,11 @@ class _KeepAlivePageState extends State<_KeepAlivePage>
   }
 }
 
-/// Active reference-input counter, shared by the compact bar (with an icon,
-/// since the bar has no label) and the inputs tab label.
+/// Active reference-input counter on the inputs tab label.
 class _InputCountBadge extends StatelessWidget {
-  const _InputCountBadge({required this.count, this.icon});
+  const _InputCountBadge({required this.count});
 
   final int count;
-  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
@@ -568,22 +559,13 @@ class _InputCountBadge extends StatelessWidget {
         color: t.accent.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 13, color: t.accent),
-            const SizedBox(width: 3),
-          ],
-          Text(
-            '$count',
-            style: TextStyle(
-              color: t.accent,
-              fontSize: t.fontSize(10),
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
+      child: Text(
+        '$count',
+        style: TextStyle(
+          color: t.accent,
+          fontSize: t.fontSize(10),
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }

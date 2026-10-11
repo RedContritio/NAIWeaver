@@ -181,8 +181,9 @@ class ReferenceSliderField extends StatelessWidget {
 }
 
 /// A current reference or vibe in Tools → References: thumbnail, enable
-/// toggle, library/remove actions and its editing fields. A disabled entry is
-/// dimmed (it stays editable) so it reads the same as in the shelf.
+/// toggle, library/remove actions and its editing fields. A disabled or
+/// paused entry is dimmed (it stays editable) so it reads the same as in the
+/// shelf; a paused one also says why it is not sent.
 class ReferenceItemCard extends StatelessWidget {
   const ReferenceItemCard({
     super.key,
@@ -194,6 +195,7 @@ class ReferenceItemCard extends StatelessWidget {
     required this.onSave,
     required this.onRemove,
     required this.children,
+    this.pausedReason,
   });
 
   /// Opacity of a disabled entry's image and fields.
@@ -210,11 +212,16 @@ class ReferenceItemCard extends StatelessWidget {
   /// Type selector / label and the slider fields.
   final List<Widget> children;
 
+  /// Why an enabled entry is not sent (the account lacks paid access); null
+  /// when it is.
+  final String? pausedReason;
+
   @override
   Widget build(BuildContext context) {
     final t = context.t;
     final thumbSize = isMobile(context) ? 64.0 : 80.0;
-    final opacity = enabled ? 1.0 : disabledOpacity;
+    final paused = pausedReason;
+    final opacity = enabled && paused == null ? 1.0 : disabledOpacity;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -223,7 +230,9 @@ class ReferenceItemCard extends StatelessWidget {
         color: t.borderSubtle,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: enabled ? accent.withValues(alpha: 0.3) : t.textMinimal,
+          color: enabled && paused == null
+              ? accent.withValues(alpha: 0.3)
+              : t.textMinimal,
           width: 0.5,
         ),
       ),
@@ -275,6 +284,28 @@ class ReferenceItemCard extends StatelessWidget {
               ),
             ],
           ),
+          if (paused != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(
+                  Icons.pause_circle_outline,
+                  size: 14,
+                  color: t.accentDanger,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    paused,
+                    style: TextStyle(
+                      color: t.accentDanger,
+                      fontSize: t.fontSize(9),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 12),
           Opacity(
             opacity: opacity,

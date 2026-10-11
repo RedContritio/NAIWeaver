@@ -3824,4 +3824,145 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get serverHistoryBatchDeleteConfirm => '从你的历史中隐藏这一组的全部图片？';
+
+  @override
+  String quotePointsTooltipFree(int points) {
+    return '免费 · $points 绿点';
+  }
+
+  @override
+  String quotePointsTooltipPaid(int points) {
+    return '付费 · $points 红点';
+  }
+
+  @override
+  String quoteDiscountNote(int percent) {
+    return '绿点折扣：$percent%';
+  }
+
+  @override
+  String get quoteInvalidBadge => '参数无效';
+
+  @override
+  String quoteInvalidTooltip(String field) {
+    return '当前参数超出服务端允许的范围（$field）。';
+  }
+
+  @override
+  String get quoteReasonSizeNotFree => '分辨率不在免费尺寸内';
+
+  @override
+  String get quoteReasonStepsOverFreeLimit => '步数超过免费上限';
+
+  @override
+  String get quoteReasonSmea => '启用了 SMEA';
+
+  @override
+  String get quoteReasonImageInput => '含图片输入（图生图 / 局部重绘）';
+
+  @override
+  String get quoteReasonDirectorRefs => '包含精确参考图';
+
+  @override
+  String get quoteReasonVibes => '包含 Vibe';
+
+  @override
+  String get quoteReasonAllowanceExhausted => '免费额度暂时用尽';
+
+  @override
+  String get quoteReasonPaidTool => '付费工具';
+
+  @override
+  String get quoteAdjustToFree => '改为免费';
+
+  @override
+  String get quoteAdjustToFreeTooltip => '把尺寸、步数和 SMEA 改回免费范围';
+
+  @override
+  String get quoteFreeOnlyNotice => '当前账号只能免费生成，以下设置会消耗红点：';
+
+  @override
+  String get quoteFreeAllowanceUnavailable => '免费额度暂时用尽，暂时无法免费生成。';
+
+  @override
+  String get quoteAdjustToFreeAction => '调整为免费参数';
+
+  @override
+  String get quoteConfirmTitle => '价格有变化';
+
+  @override
+  String quoteConfirmPriceRed(int points) {
+    return '价格以服务端为准：$points 红点。';
+  }
+
+  @override
+  String quoteConfirmPriceGreen(int points) {
+    return '价格以服务端为准：$points 绿点。';
+  }
+
+  @override
+  String quoteConfirmShown(int points) {
+    return '之前显示的价格是 $points 点。';
+  }
+
+  @override
+  String get quoteConfirmReasonAllowance => '免费额度暂时用尽，这次改用红点计费。';
+
+  @override
+  String get quoteConfirmReasonOther => '显示价格之后，价格或账号状态发生了变化。';
+
+  @override
+  String get quoteConfirmContinue => '按此价格继续';
+
+  @override
+  String generationInputsActive(int references, int vibes) {
+    return '参考图 $references · VIBE $vibes';
+  }
+
+  @override
+  String generationInputsPaused(int count) {
+    return '$count 个已暂停';
+  }
+
+  @override
+  String get generationInputsTooltip => '下一张图会带上的参考图和 Vibe。点击打开。';
+
+  @override
+  String get refPausedNoRedPoints => '已暂停：红点不足，不会发送。';
+
+  @override
+  String get refPausedNoPermission => '已暂停：当前账号不能使用付费点数生成，不会发送。';
+
+  @override
+  String refAccessCountRefs(int count) {
+    return '$count 张参考图';
+  }
+
+  @override
+  String refAccessCountVibes(int count) {
+    return '$count 个 Vibe';
+  }
+
+  @override
+  String get refAccessSeparator => '、';
+
+  @override
+  String refAccessPausedNoRedPoints(String items) {
+    return '红点不足：$items已暂停，不会发送';
+  }
+
+  @override
+  String refAccessPausedNoPermission(String items) {
+    return '没有付费生成权限：$items已暂停，不会发送';
+  }
+
+  @override
+  String refAccessResumed(String items) {
+    return '付费点数已恢复：$items将重新发送';
+  }
+
+  @override
+  String toolMaxRedPoints(int points) {
+    return '最多 $points 红点';
+  }
 }

@@ -28,6 +28,10 @@ class VibeTransferNotifier extends ChangeNotifier {
   bool isSent(VibeTransfer vibe) =>
       vibe.enabled && _access == PaidImageAccess.allowed;
 
+  /// Enabled by the user but held back for lack of access.
+  bool isPaused(VibeTransfer vibe) =>
+      vibe.enabled && _access != PaidImageAccess.allowed;
+
   /// Vibes the user enabled that are held back for lack of access.
   int get pausedCount => _access == PaidImageAccess.allowed
       ? 0
