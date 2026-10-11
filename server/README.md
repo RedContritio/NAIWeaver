@@ -176,6 +176,25 @@ mode, NovelAI endpoints are mapped to backend routes:
 - text host: `/api/nai/text/...`
 
 The backend strips any browser `Authorization` value and injects the local
-NovelAI token. Image generation is queued globally, forced to `n_samples = 1`,
-and each user may hold up to 20 unfinished image tasks by default. Configure
-that capacity with `NAIWEAVER_MAX_QUEUED_IMAGE_TASKS_PER_USER`.
+NovelAI token. Image generation is submitted only through
+`/api/generation-tasks`, queued globally, forced to `n_samples = 1`, and each
+user may hold up to 20 unfinished image tasks by default. Configure that
+capacity with `NAIWEAVER_MAX_QUEUED_IMAGE_TASKS_PER_USER`.
+
+Pricing, submission, errors and history payloads follow
+`docs/GATEWAY_CONTRACT.md`. Every NovelAI image call (queued generations and
+paid tools) runs through one serialized upstream lane, red-point work first.
+Paid tools are quoted at a configurable cap, reserved before the call and
+settled at the measured Anlas cost:
+
+```bash
+NAIWEAVER_TOOL_CAP_UPSCALE=10
+NAIWEAVER_TOOL_CAP_AUGMENT=80
+NAIWEAVER_TOOL_CAP_ENCODE_VIBE=2
+# How long free-eligible work is priced in red points after NovelAI charged
+# Anlas for a free image (see the free allowance in the contract).
+NAIWEAVER_FREE_ALLOWANCE_COOLDOWN_SECONDS=1800
+```
+
+Settlements that disagree with their quote are recorded in the
+`billing_anomalies` table.
