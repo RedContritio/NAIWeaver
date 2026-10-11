@@ -1681,6 +1681,15 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get packRefLibrarySaveFailed => '无法保存已存参考图，请释放存储空间后重新导入。';
+
+  @override
+  String get packSelectAll => '全选';
+
+  @override
+  String get packSelectNone => '全不选';
+
+  @override
   String get packExportGalleryTitle => '导出图库';
 
   @override

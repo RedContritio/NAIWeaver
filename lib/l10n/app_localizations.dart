@@ -3232,6 +3232,24 @@ abstract class AppLocalizations {
   /// **'Import failed: {error}'**
   String packImportFailed(String error);
 
+  /// No description provided for @packRefLibrarySaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The saved references could not be stored. Free up storage space and import again.'**
+  String get packRefLibrarySaveFailed;
+
+  /// No description provided for @packSelectAll.
+  ///
+  /// In en, this message translates to:
+  /// **'ALL'**
+  String get packSelectAll;
+
+  /// No description provided for @packSelectNone.
+  ///
+  /// In en, this message translates to:
+  /// **'NONE'**
+  String get packSelectNone;
+
   /// No description provided for @packExportGalleryTitle.
   ///
   /// In en, this message translates to:

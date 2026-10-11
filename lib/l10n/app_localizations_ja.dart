@@ -1697,6 +1697,16 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get packRefLibrarySaveFailed =>
+      '保存済みリファレンスを保存できませんでした。ストレージの空きを確保してから再度インポートしてください。';
+
+  @override
+  String get packSelectAll => 'すべて';
+
+  @override
+  String get packSelectNone => 'なし';
+
+  @override
   String get packExportGalleryTitle => 'ギャラリーをエクスポート';
 
   @override

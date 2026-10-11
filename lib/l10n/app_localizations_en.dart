@@ -1756,6 +1756,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get packRefLibrarySaveFailed =>
+      'The saved references could not be stored. Free up storage space and import again.';
+
+  @override
+  String get packSelectAll => 'ALL';
+
+  @override
+  String get packSelectNone => 'NONE';
+
+  @override
   String get packExportGalleryTitle => 'EXPORT GALLERY';
 
   @override

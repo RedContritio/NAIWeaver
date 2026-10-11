@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import '../../../core/utils/file_picker_helper.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -15,6 +14,7 @@ import '../../../core/theme/theme_extensions.dart';
 import '../../../core/theme/vision_tokens.dart';
 import '../../../core/utils/app_snackbar.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/widgets/section_title.dart';
 import '../../../core/services/presets.dart';
 import '../../../core/services/styles.dart';
 import '../../../core/theme/app_theme_config.dart';
@@ -24,6 +24,7 @@ import '../../gallery/providers/gallery_notifier.dart';
 import '../../generation/models/character_preset.dart';
 import '../../generation/providers/generation_notifier.dart';
 import '../providers/wildcard_notifier.dart';
+import '../../../core/theme/vision_metrics.dart';
 
 class PackManager extends StatefulWidget {
   const PackManager({super.key});
@@ -37,27 +38,23 @@ class _PackManagerState extends State<PackManager> {
   Widget build(BuildContext context) {
     final t = context.t;
     final l = context.l;
-    final mobile = isMobile(context);
+    final mobile = isTouchSized(context);
 
     return ListView(
       key: const ValueKey('pack-manager-scroll-view'),
-      padding: EdgeInsets.all(mobile ? 16 : 24),
+      padding: EdgeInsets.all(
+        mobile ? VisionMetrics.space16 : VisionMetrics.space24,
+      ),
       children: [
-        Text(
-          l.packTitle,
-          style: TextStyle(
-            color: t.textSecondary,
-            fontSize: t.fontSize(mobile ? 14 : 11),
-            fontWeight: FontWeight.w900,
-            letterSpacing: 2,
-          ),
-        ),
-        const SizedBox(height: 4),
+        SectionTitle(l.packTitle, t: t, variant: SectionTitleVariant.compact),
         Text(
           l.packDesc,
-          style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(mobile ? 12 : 9)),
+          style: TextStyle(
+            color: t.textDisabled,
+            fontSize: t.fontSize(mobile ? 12 : 9),
+          ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: VisionMetrics.space24),
         LayoutBuilder(
           builder: (context, constraints) {
             final exportCard = _PackActionCard(
@@ -75,12 +72,13 @@ class _PackManagerState extends State<PackManager> {
               onTap: () => _importPack(context),
             );
 
-            if (constraints.maxWidth < 480) {
+            if (windowSizeClassForWidth(constraints.maxWidth) ==
+                WindowSizeClass.compact) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   exportCard,
-                  const SizedBox(height: 12),
+                  const SizedBox(height: VisionMetrics.space12),
                   importCard,
                 ],
               );
@@ -90,30 +88,28 @@ class _PackManagerState extends State<PackManager> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(child: exportCard),
-                const SizedBox(width: 12),
+                const SizedBox(width: VisionMetrics.space12),
                 Expanded(child: importCard),
               ],
             );
           },
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: VisionMetrics.space24),
         Divider(color: t.borderSubtle),
-        const SizedBox(height: 16),
-        Text(
+        const SizedBox(height: VisionMetrics.space16),
+        SectionTitle(
           l.packGalleryExport,
-          style: TextStyle(
-            color: t.textSecondary,
-            fontSize: t.fontSize(mobile ? 14 : 11),
-            fontWeight: FontWeight.w900,
-            letterSpacing: 2,
-          ),
+          t: t,
+          variant: SectionTitleVariant.compact,
         ),
-        const SizedBox(height: 4),
         Text(
           l.packGalleryExportDesc,
-          style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(mobile ? 12 : 9)),
+          style: TextStyle(
+            color: t.textDisabled,
+            fontSize: t.fontSize(mobile ? 12 : 9),
+          ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: VisionMetrics.space16),
         _PackActionCard(
           icon: Icons.photo_library_outlined,
           label: l.packExportGalleryZip,
@@ -146,7 +142,8 @@ class _PackManagerState extends State<PackManager> {
     final wcFiles = <File>[];
     if (await wcDir.exists()) {
       await for (final entity in wcDir.list()) {
-        if (entity is File && p.extension(entity.path).toLowerCase() == '.txt') {
+        if (entity is File &&
+            p.extension(entity.path).toLowerCase() == '.txt') {
           wcFiles.add(entity);
         }
       }
@@ -184,14 +181,15 @@ class _PackManagerState extends State<PackManager> {
     );
     if (result == null || result.files.isEmpty) return;
 
-    final fileBytes = result.files.single.bytes;
-    Uint8List bytes;
-    if (fileBytes != null) {
-      bytes = fileBytes;
-    } else {
-      final path = result.files.single.path;
-      if (path == null) return;
-      bytes = await File(path).readAsBytes();
+    final bytes = await readPickedFileBytes(result.files.single);
+    if (bytes == null) {
+      if (context.mounted) {
+        showErrorSnackBar(
+          context,
+          context.l.packFailedRead(result.files.single.name),
+        );
+      }
+      return;
     }
 
     PackContents contents;
@@ -230,22 +228,26 @@ class _PackActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final mobile = isMobile(context);
+    final mobile = isTouchSized(context);
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(VisionMetrics.radius8),
       child: Container(
-        padding: EdgeInsets.all(mobile ? 20 : 16),
+        padding: EdgeInsets.all(
+          mobile ? VisionMetrics.space16 : VisionMetrics.space16,
+        ),
         decoration: BoxDecoration(
           color: t.surfaceHigh,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
+          borderRadius: BorderRadius.circular(VisionMetrics.radius8),
+          border: Border.all(
+            color: color.withValues(alpha: VisionMetrics.opacityDisabled),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(icon, color: color, size: mobile ? 28 : 24),
-            const SizedBox(height: 12),
+            const SizedBox(height: VisionMetrics.space12),
             Text(
               label,
               style: TextStyle(
@@ -255,10 +257,13 @@ class _PackActionCard extends StatelessWidget {
                 letterSpacing: 2,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: VisionMetrics.space4),
             Text(
               description,
-              style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(mobile ? 10 : 8)),
+              style: TextStyle(
+                color: t.textDisabled,
+                fontSize: t.fontSize(mobile ? 10 : 8),
+              ),
             ),
           ],
         ),
@@ -315,12 +320,24 @@ class _ExportDialogState extends State<_ExportDialog> {
     super.initState();
     _selectedPresets = Set.from(List.generate(widget.presets.length, (i) => i));
     _selectedStyles = Set.from(List.generate(widget.styles.length, (i) => i));
-    _selectedWildcards = Set.from(List.generate(widget.wildcardFiles.length, (i) => i));
-    _selectedSavedRefs = Set.from(List.generate(widget.savedRefs.length, (i) => i));
-    _selectedSavedVibes = Set.from(List.generate(widget.savedVibes.length, (i) => i));
-    _selectedCharacterPresets = Set.from(List.generate(widget.characterPresets.length, (i) => i));
-    _selectedThemes = Set.from(List.generate(widget.userThemes.length, (i) => i));
-    _selectedAlbums = Set.from(List.generate(widget.galleryAlbums.length, (i) => i));
+    _selectedWildcards = Set.from(
+      List.generate(widget.wildcardFiles.length, (i) => i),
+    );
+    _selectedSavedRefs = Set.from(
+      List.generate(widget.savedRefs.length, (i) => i),
+    );
+    _selectedSavedVibes = Set.from(
+      List.generate(widget.savedVibes.length, (i) => i),
+    );
+    _selectedCharacterPresets = Set.from(
+      List.generate(widget.characterPresets.length, (i) => i),
+    );
+    _selectedThemes = Set.from(
+      List.generate(widget.userThemes.length, (i) => i),
+    );
+    _selectedAlbums = Set.from(
+      List.generate(widget.galleryAlbums.length, (i) => i),
+    );
     _includeSettings = widget.settings.isNotEmpty;
   }
 
@@ -335,11 +352,19 @@ class _ExportDialogState extends State<_ExportDialog> {
   Widget build(BuildContext context) {
     final t = context.t;
     final l = context.l;
-    final mobile = isMobile(context);
+    final mobile = isTouchSized(context);
 
     return AlertDialog(
       backgroundColor: t.surfaceHigh,
-      title: Text(l.packExportDialogTitle, style: TextStyle(fontSize: t.fontSize(mobile ? 14 : 10), letterSpacing: 2, color: t.textSecondary, fontWeight: FontWeight.w900)),
+      title: Text(
+        l.packExportDialogTitle,
+        style: TextStyle(
+          fontSize: t.fontSize(mobile ? 14 : 10),
+          letterSpacing: 2,
+          color: t.textSecondary,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
       content: SizedBox(
         width: mobile ? double.maxFinite : 500,
         child: SingleChildScrollView(
@@ -349,141 +374,154 @@ class _ExportDialogState extends State<_ExportDialog> {
             children: [
               TextField(
                 controller: _nameController,
-                style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(mobile ? 14 : 12)),
+                style: TextStyle(
+                  color: t.textPrimary,
+                  fontSize: t.fontSize(mobile ? 14 : 12),
+                ),
                 decoration: InputDecoration(
                   labelText: l.packName,
-                  labelStyle: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9), letterSpacing: 1),
-                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: t.borderMedium)),
+                  labelStyle: TextStyle(
+                    color: t.textDisabled,
+                    fontSize: t.fontSize(9),
+                    letterSpacing: 1,
+                  ),
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: t.borderMedium),
+                  ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: VisionMetrics.space8),
               TextField(
                 controller: _descController,
-                style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(mobile ? 13 : 11)),
+                style: TextStyle(
+                  color: t.textSecondary,
+                  fontSize: t.fontSize(mobile ? 13 : 11),
+                ),
                 decoration: InputDecoration(
                   labelText: l.packDescriptionOptional,
-                  labelStyle: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9), letterSpacing: 1),
-                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: t.borderMedium)),
+                  labelStyle: TextStyle(
+                    color: t.textDisabled,
+                    fontSize: t.fontSize(9),
+                    letterSpacing: 1,
+                  ),
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: t.borderMedium),
+                  ),
                 ),
               ),
-              const SizedBox(height: 20),
-              if (widget.presets.isNotEmpty) ...[
-                _sectionHeader(l.packPresetsSection(_selectedPresets.length, widget.presets.length), t,
-                  allSelected: _selectedPresets.length == widget.presets.length,
-                  onToggle: () => setState(() {
-                    if (_selectedPresets.length == widget.presets.length) { _selectedPresets.clear(); }
-                    else { _selectedPresets = Set.from(List.generate(widget.presets.length, (i) => i)); }
-                  }),
+              const SizedBox(height: VisionMetrics.space16),
+              _packSection<int>(
+                update: setState,
+                title: l.packPresetsSection(
+                  _selectedPresets.length,
+                  widget.presets.length,
                 ),
-                for (int i = 0; i < widget.presets.length; i++)
-                  _checkTile(widget.presets[i].name, _selectedPresets.contains(i), (v) {
-                    setState(() => v! ? _selectedPresets.add(i) : _selectedPresets.remove(i));
-                  }, t, mobile),
-                const SizedBox(height: 12),
-              ],
-              if (widget.styles.isNotEmpty) ...[
-                _sectionHeader(l.packStylesSection(_selectedStyles.length, widget.styles.length), t,
-                  allSelected: _selectedStyles.length == widget.styles.length,
-                  onToggle: () => setState(() {
-                    if (_selectedStyles.length == widget.styles.length) { _selectedStyles.clear(); }
-                    else { _selectedStyles = Set.from(List.generate(widget.styles.length, (i) => i)); }
-                  }),
+                items: {
+                  for (var i = 0; i < widget.presets.length; i++)
+                    i: widget.presets[i].name,
+                },
+                selected: _selectedPresets,
+                toggleAll: true,
+              ),
+              _packSection<int>(
+                update: setState,
+                title: l.packStylesSection(
+                  _selectedStyles.length,
+                  widget.styles.length,
                 ),
-                for (int i = 0; i < widget.styles.length; i++)
-                  _checkTile(widget.styles[i].name, _selectedStyles.contains(i), (v) {
-                    setState(() => v! ? _selectedStyles.add(i) : _selectedStyles.remove(i));
-                  }, t, mobile),
-                const SizedBox(height: 12),
-              ],
-              if (widget.wildcardFiles.isNotEmpty) ...[
-                _sectionHeader(l.packWildcardsSection(_selectedWildcards.length, widget.wildcardFiles.length), t,
-                  allSelected: _selectedWildcards.length == widget.wildcardFiles.length,
-                  onToggle: () => setState(() {
-                    if (_selectedWildcards.length == widget.wildcardFiles.length) { _selectedWildcards.clear(); }
-                    else { _selectedWildcards = Set.from(List.generate(widget.wildcardFiles.length, (i) => i)); }
-                  }),
+                items: {
+                  for (var i = 0; i < widget.styles.length; i++)
+                    i: widget.styles[i].name,
+                },
+                selected: _selectedStyles,
+                toggleAll: true,
+              ),
+              _packSection<int>(
+                update: setState,
+                title: l.packWildcardsSection(
+                  _selectedWildcards.length,
+                  widget.wildcardFiles.length,
                 ),
-                for (int i = 0; i < widget.wildcardFiles.length; i++)
-                  _checkTile(p.basenameWithoutExtension(widget.wildcardFiles[i].path), _selectedWildcards.contains(i), (v) {
-                    setState(() => v! ? _selectedWildcards.add(i) : _selectedWildcards.remove(i));
-                  }, t, mobile),
-                const SizedBox(height: 12),
-              ],
-              if (widget.savedRefs.isNotEmpty) ...[
-                _sectionHeader(l.packSavedRefsSection(_selectedSavedRefs.length, widget.savedRefs.length), t,
-                  allSelected: _selectedSavedRefs.length == widget.savedRefs.length,
-                  onToggle: () => setState(() {
-                    if (_selectedSavedRefs.length == widget.savedRefs.length) { _selectedSavedRefs.clear(); }
-                    else { _selectedSavedRefs = Set.from(List.generate(widget.savedRefs.length, (i) => i)); }
-                  }),
+                items: {
+                  for (var i = 0; i < widget.wildcardFiles.length; i++)
+                    i: p.basenameWithoutExtension(widget.wildcardFiles[i].path),
+                },
+                selected: _selectedWildcards,
+                toggleAll: true,
+              ),
+              _packSection<int>(
+                update: setState,
+                title: l.packSavedRefsSection(
+                  _selectedSavedRefs.length,
+                  widget.savedRefs.length,
                 ),
-                for (int i = 0; i < widget.savedRefs.length; i++)
-                  _checkTile(widget.savedRefs[i].name, _selectedSavedRefs.contains(i), (v) {
-                    setState(() => v! ? _selectedSavedRefs.add(i) : _selectedSavedRefs.remove(i));
-                  }, t, mobile),
-                const SizedBox(height: 12),
-              ],
-              if (widget.savedVibes.isNotEmpty) ...[
-                _sectionHeader(l.packSavedVibesSection(_selectedSavedVibes.length, widget.savedVibes.length), t,
-                  allSelected: _selectedSavedVibes.length == widget.savedVibes.length,
-                  onToggle: () => setState(() {
-                    if (_selectedSavedVibes.length == widget.savedVibes.length) { _selectedSavedVibes.clear(); }
-                    else { _selectedSavedVibes = Set.from(List.generate(widget.savedVibes.length, (i) => i)); }
-                  }),
+                items: {
+                  for (var i = 0; i < widget.savedRefs.length; i++)
+                    i: widget.savedRefs[i].name,
+                },
+                selected: _selectedSavedRefs,
+                toggleAll: true,
+              ),
+              _packSection<int>(
+                update: setState,
+                title: l.packSavedVibesSection(
+                  _selectedSavedVibes.length,
+                  widget.savedVibes.length,
                 ),
-                for (int i = 0; i < widget.savedVibes.length; i++)
-                  _checkTile(widget.savedVibes[i].name, _selectedSavedVibes.contains(i), (v) {
-                    setState(() => v! ? _selectedSavedVibes.add(i) : _selectedSavedVibes.remove(i));
-                  }, t, mobile),
-                const SizedBox(height: 12),
-              ],
-              if (widget.characterPresets.isNotEmpty) ...[
-                _sectionHeader(l.packCharacterPresetsSection(_selectedCharacterPresets.length, widget.characterPresets.length), t,
-                  allSelected: _selectedCharacterPresets.length == widget.characterPresets.length,
-                  onToggle: () => setState(() {
-                    if (_selectedCharacterPresets.length == widget.characterPresets.length) { _selectedCharacterPresets.clear(); }
-                    else { _selectedCharacterPresets = Set.from(List.generate(widget.characterPresets.length, (i) => i)); }
-                  }),
+                items: {
+                  for (var i = 0; i < widget.savedVibes.length; i++)
+                    i: widget.savedVibes[i].name,
+                },
+                selected: _selectedSavedVibes,
+                toggleAll: true,
+              ),
+              _packSection<int>(
+                update: setState,
+                title: l.packCharacterPresetsSection(
+                  _selectedCharacterPresets.length,
+                  widget.characterPresets.length,
                 ),
-                for (int i = 0; i < widget.characterPresets.length; i++)
-                  _checkTile(widget.characterPresets[i].name, _selectedCharacterPresets.contains(i), (v) {
-                    setState(() => v! ? _selectedCharacterPresets.add(i) : _selectedCharacterPresets.remove(i));
-                  }, t, mobile),
-                const SizedBox(height: 12),
-              ],
-              if (widget.userThemes.isNotEmpty) ...[
-                _sectionHeader(l.packThemesSection(_selectedThemes.length, widget.userThemes.length), t,
-                  allSelected: _selectedThemes.length == widget.userThemes.length,
-                  onToggle: () => setState(() {
-                    if (_selectedThemes.length == widget.userThemes.length) { _selectedThemes.clear(); }
-                    else { _selectedThemes = Set.from(List.generate(widget.userThemes.length, (i) => i)); }
-                  }),
+                items: {
+                  for (var i = 0; i < widget.characterPresets.length; i++)
+                    i: widget.characterPresets[i].name,
+                },
+                selected: _selectedCharacterPresets,
+                toggleAll: true,
+              ),
+              _packSection<int>(
+                update: setState,
+                title: l.packThemesSection(
+                  _selectedThemes.length,
+                  widget.userThemes.length,
                 ),
-                for (int i = 0; i < widget.userThemes.length; i++)
-                  _checkTile(widget.userThemes[i].name, _selectedThemes.contains(i), (v) {
-                    setState(() => v! ? _selectedThemes.add(i) : _selectedThemes.remove(i));
-                  }, t, mobile),
-                const SizedBox(height: 12),
-              ],
-              if (widget.galleryAlbums.isNotEmpty) ...[
-                _sectionHeader(l.packAlbumsSection(_selectedAlbums.length, widget.galleryAlbums.length), t,
-                  allSelected: _selectedAlbums.length == widget.galleryAlbums.length,
-                  onToggle: () => setState(() {
-                    if (_selectedAlbums.length == widget.galleryAlbums.length) { _selectedAlbums.clear(); }
-                    else { _selectedAlbums = Set.from(List.generate(widget.galleryAlbums.length, (i) => i)); }
-                  }),
+                items: {
+                  for (var i = 0; i < widget.userThemes.length; i++)
+                    i: widget.userThemes[i].name,
+                },
+                selected: _selectedThemes,
+                toggleAll: true,
+              ),
+              _packSection<int>(
+                update: setState,
+                title: l.packAlbumsSection(
+                  _selectedAlbums.length,
+                  widget.galleryAlbums.length,
                 ),
-                for (int i = 0; i < widget.galleryAlbums.length; i++)
-                  _checkTile(widget.galleryAlbums[i].name, _selectedAlbums.contains(i), (v) {
-                    setState(() => v! ? _selectedAlbums.add(i) : _selectedAlbums.remove(i));
-                  }, t, mobile),
-                const SizedBox(height: 12),
-              ],
+                items: {
+                  for (var i = 0; i < widget.galleryAlbums.length; i++)
+                    i: widget.galleryAlbums[i].name,
+                },
+                selected: _selectedAlbums,
+                toggleAll: true,
+              ),
               if (widget.settings.isNotEmpty) ...[
-                _sectionHeader(l.packSettingsSection, t),
-                _checkTile(l.packSettingsItem, _includeSettings, (v) {
-                  setState(() => _includeSettings = v ?? false);
-                }, t, mobile),
+                _packSectionHeader(l.packSettingsSection, t),
+                _PackCheckTile(
+                  name: l.packSettingsItem,
+                  checked: _includeSettings,
+                  onChanged: (v) =>
+                      setState(() => _includeSettings = v ?? false),
+                ),
               ],
             ],
           ),
@@ -492,50 +530,32 @@ class _ExportDialogState extends State<_ExportDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text(l.commonCancel, style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9))),
+          child: Text(
+            l.commonCancel,
+            style: TextStyle(color: t.textDisabled, fontSize: t.buttonSize(9)),
+          ),
         ),
         TextButton(
           onPressed: _exporting ? null : _export,
           child: _exporting
-              ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: t.accent))
-              : Text(l.commonExport, style: TextStyle(color: t.accent, fontSize: t.fontSize(9), fontWeight: FontWeight.bold)),
+              ? SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: t.accent,
+                  ),
+                )
+              : Text(
+                  l.commonExport,
+                  style: TextStyle(
+                    color: t.accent,
+                    fontSize: t.fontSize(9),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
         ),
       ],
-    );
-  }
-
-  Widget _sectionHeader(String text, VisionTokens t, {VoidCallback? onToggle, bool allSelected = false}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        children: [
-          Text(text, style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(8), letterSpacing: 2, fontWeight: FontWeight.bold)),
-          const Spacer(),
-          if (onToggle != null)
-            GestureDetector(
-              onTap: onToggle,
-              child: Text(
-                allSelected ? 'NONE' : 'ALL',
-                style: TextStyle(color: t.accent, fontSize: t.fontSize(8), letterSpacing: 1),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _checkTile(String name, bool checked, ValueChanged<bool?> onChanged, VisionTokens t, bool mobile) {
-    return SizedBox(
-      height: mobile ? 36 : 28,
-      child: CheckboxListTile(
-        dense: true,
-        contentPadding: EdgeInsets.zero,
-        controlAffinity: ListTileControlAffinity.leading,
-        value: checked,
-        onChanged: onChanged,
-        activeColor: t.accent,
-        title: Text(name, style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(mobile ? 12 : 10))),
-      ),
     );
   }
 
@@ -547,8 +567,12 @@ class _ExportDialogState extends State<_ExportDialog> {
     setState(() => _exporting = true);
 
     try {
-      final selectedPresets = _selectedPresets.map((i) => widget.presets[i]).toList();
-      final selectedStyles = _selectedStyles.map((i) => widget.styles[i]).toList();
+      final selectedPresets = _selectedPresets
+          .map((i) => widget.presets[i])
+          .toList();
+      final selectedStyles = _selectedStyles
+          .map((i) => widget.styles[i])
+          .toList();
 
       final wildcards = <String, String>{};
       for (final i in _selectedWildcards) {
@@ -556,11 +580,21 @@ class _ExportDialogState extends State<_ExportDialog> {
         wildcards[p.basename(file.path)] = await file.readAsString();
       }
 
-      final selectedSavedRefs = _selectedSavedRefs.map((i) => widget.savedRefs[i]).toList();
-      final selectedSavedVibes = _selectedSavedVibes.map((i) => widget.savedVibes[i]).toList();
-      final selectedCharacterPresets = _selectedCharacterPresets.map((i) => widget.characterPresets[i]).toList();
-      final selectedThemes = _selectedThemes.map((i) => widget.userThemes[i]).toList();
-      final selectedAlbums = _selectedAlbums.map((i) => widget.galleryAlbums[i]).toList();
+      final selectedSavedRefs = _selectedSavedRefs
+          .map((i) => widget.savedRefs[i])
+          .toList();
+      final selectedSavedVibes = _selectedSavedVibes
+          .map((i) => widget.savedVibes[i])
+          .toList();
+      final selectedCharacterPresets = _selectedCharacterPresets
+          .map((i) => widget.characterPresets[i])
+          .toList();
+      final selectedThemes = _selectedThemes
+          .map((i) => widget.userThemes[i])
+          .toList();
+      final selectedAlbums = _selectedAlbums
+          .map((i) => widget.galleryAlbums[i])
+          .toList();
 
       final packBytes = PackService.exportPack(
         name: _nameController.text.trim(),
@@ -627,14 +661,28 @@ class _ImportDialogState extends State<_ImportDialog> {
   @override
   void initState() {
     super.initState();
-    _selectedPresets = Set.from(List.generate(widget.contents.presets.length, (i) => i));
-    _selectedStyles = Set.from(List.generate(widget.contents.styles.length, (i) => i));
+    _selectedPresets = Set.from(
+      List.generate(widget.contents.presets.length, (i) => i),
+    );
+    _selectedStyles = Set.from(
+      List.generate(widget.contents.styles.length, (i) => i),
+    );
     _selectedWildcards = Set.from(widget.contents.wildcards.keys);
-    _selectedSavedRefs = Set.from(List.generate(widget.contents.savedRefs.length, (i) => i));
-    _selectedSavedVibes = Set.from(List.generate(widget.contents.savedVibes.length, (i) => i));
-    _selectedCharacterPresets = Set.from(List.generate(widget.contents.characterPresets.length, (i) => i));
-    _selectedThemes = Set.from(List.generate(widget.contents.userThemes.length, (i) => i));
-    _selectedAlbums = Set.from(List.generate(widget.contents.galleryAlbums.length, (i) => i));
+    _selectedSavedRefs = Set.from(
+      List.generate(widget.contents.savedRefs.length, (i) => i),
+    );
+    _selectedSavedVibes = Set.from(
+      List.generate(widget.contents.savedVibes.length, (i) => i),
+    );
+    _selectedCharacterPresets = Set.from(
+      List.generate(widget.contents.characterPresets.length, (i) => i),
+    );
+    _selectedThemes = Set.from(
+      List.generate(widget.contents.userThemes.length, (i) => i),
+    );
+    _selectedAlbums = Set.from(
+      List.generate(widget.contents.galleryAlbums.length, (i) => i),
+    );
     _includeSettings = widget.contents.settings.isNotEmpty;
   }
 
@@ -642,13 +690,30 @@ class _ImportDialogState extends State<_ImportDialog> {
   Widget build(BuildContext context) {
     final t = context.t;
     final l = context.l;
-    final mobile = isMobile(context);
+    final mobile = isTouchSized(context);
     final m = widget.contents.manifest;
-    final total = _selectedPresets.length + _selectedStyles.length + _selectedWildcards.length + _selectedSavedRefs.length + _selectedSavedVibes.length + _selectedCharacterPresets.length + _selectedThemes.length + _selectedAlbums.length + (_includeSettings ? 1 : 0);
+    final total =
+        _selectedPresets.length +
+        _selectedStyles.length +
+        _selectedWildcards.length +
+        _selectedSavedRefs.length +
+        _selectedSavedVibes.length +
+        _selectedCharacterPresets.length +
+        _selectedThemes.length +
+        _selectedAlbums.length +
+        (_includeSettings ? 1 : 0);
 
     return AlertDialog(
       backgroundColor: t.surfaceHigh,
-      title: Text(l.packImportDialogTitle2, style: TextStyle(fontSize: t.fontSize(mobile ? 14 : 10), letterSpacing: 2, color: t.textSecondary, fontWeight: FontWeight.w900)),
+      title: Text(
+        l.packImportDialogTitle2,
+        style: TextStyle(
+          fontSize: t.fontSize(mobile ? 14 : 10),
+          letterSpacing: 2,
+          color: t.textSecondary,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
       content: SizedBox(
         width: mobile ? double.maxFinite : 500,
         child: SingleChildScrollView(
@@ -656,82 +721,134 @@ class _ImportDialogState extends State<_ImportDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(m.name, style: TextStyle(color: t.accent, fontSize: t.fontSize(mobile ? 16 : 13), fontWeight: FontWeight.bold)),
+              Text(
+                m.name,
+                style: TextStyle(
+                  color: t.accent,
+                  fontSize: t.fontSize(mobile ? 16 : 13),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               if (m.description.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(m.description, style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(mobile ? 12 : 10))),
+                  padding: const EdgeInsets.only(top: VisionMetrics.space4),
+                  child: Text(
+                    m.description,
+                    style: TextStyle(
+                      color: t.textDisabled,
+                      fontSize: t.fontSize(mobile ? 12 : 10),
+                    ),
+                  ),
                 ),
-              const SizedBox(height: 16),
-              if (widget.contents.presets.isNotEmpty) ...[
-                _sectionHeader(l.packPresetsSection(_selectedPresets.length, widget.contents.presets.length), t),
-                for (int i = 0; i < widget.contents.presets.length; i++)
-                  _checkTile(widget.contents.presets[i].name, _selectedPresets.contains(i), (v) {
-                    setState(() => v! ? _selectedPresets.add(i) : _selectedPresets.remove(i));
-                  }, t, mobile),
-                const SizedBox(height: 12),
-              ],
-              if (widget.contents.styles.isNotEmpty) ...[
-                _sectionHeader(l.packStylesSection(_selectedStyles.length, widget.contents.styles.length), t),
-                for (int i = 0; i < widget.contents.styles.length; i++)
-                  _checkTile(widget.contents.styles[i].name, _selectedStyles.contains(i), (v) {
-                    setState(() => v! ? _selectedStyles.add(i) : _selectedStyles.remove(i));
-                  }, t, mobile),
-                const SizedBox(height: 12),
-              ],
-              if (widget.contents.wildcards.isNotEmpty) ...[
-                _sectionHeader(l.packWildcardsSection(_selectedWildcards.length, widget.contents.wildcards.length), t),
-                for (final key in widget.contents.wildcards.keys)
-                  _checkTile(p.basenameWithoutExtension(key), _selectedWildcards.contains(key), (v) {
-                    setState(() => v! ? _selectedWildcards.add(key) : _selectedWildcards.remove(key));
-                  }, t, mobile),
-                const SizedBox(height: 12),
-              ],
-              if (widget.contents.savedRefs.isNotEmpty) ...[
-                _sectionHeader(l.packSavedRefsSection(_selectedSavedRefs.length, widget.contents.savedRefs.length), t),
-                for (int i = 0; i < widget.contents.savedRefs.length; i++)
-                  _checkTile(widget.contents.savedRefs[i].name, _selectedSavedRefs.contains(i), (v) {
-                    setState(() => v! ? _selectedSavedRefs.add(i) : _selectedSavedRefs.remove(i));
-                  }, t, mobile),
-                const SizedBox(height: 12),
-              ],
-              if (widget.contents.savedVibes.isNotEmpty) ...[
-                _sectionHeader(l.packSavedVibesSection(_selectedSavedVibes.length, widget.contents.savedVibes.length), t),
-                for (int i = 0; i < widget.contents.savedVibes.length; i++)
-                  _checkTile(widget.contents.savedVibes[i].name, _selectedSavedVibes.contains(i), (v) {
-                    setState(() => v! ? _selectedSavedVibes.add(i) : _selectedSavedVibes.remove(i));
-                  }, t, mobile),
-                const SizedBox(height: 12),
-              ],
-              if (widget.contents.characterPresets.isNotEmpty) ...[
-                _sectionHeader(l.packCharacterPresetsSection(_selectedCharacterPresets.length, widget.contents.characterPresets.length), t),
-                for (int i = 0; i < widget.contents.characterPresets.length; i++)
-                  _checkTile(widget.contents.characterPresets[i].name, _selectedCharacterPresets.contains(i), (v) {
-                    setState(() => v! ? _selectedCharacterPresets.add(i) : _selectedCharacterPresets.remove(i));
-                  }, t, mobile),
-                const SizedBox(height: 12),
-              ],
-              if (widget.contents.userThemes.isNotEmpty) ...[
-                _sectionHeader(l.packThemesSection(_selectedThemes.length, widget.contents.userThemes.length), t),
-                for (int i = 0; i < widget.contents.userThemes.length; i++)
-                  _checkTile(widget.contents.userThemes[i].name, _selectedThemes.contains(i), (v) {
-                    setState(() => v! ? _selectedThemes.add(i) : _selectedThemes.remove(i));
-                  }, t, mobile),
-                const SizedBox(height: 12),
-              ],
-              if (widget.contents.galleryAlbums.isNotEmpty) ...[
-                _sectionHeader(l.packAlbumsSection(_selectedAlbums.length, widget.contents.galleryAlbums.length), t),
-                for (int i = 0; i < widget.contents.galleryAlbums.length; i++)
-                  _checkTile(widget.contents.galleryAlbums[i].name, _selectedAlbums.contains(i), (v) {
-                    setState(() => v! ? _selectedAlbums.add(i) : _selectedAlbums.remove(i));
-                  }, t, mobile),
-                const SizedBox(height: 12),
-              ],
+              const SizedBox(height: VisionMetrics.space16),
+              _packSection<int>(
+                update: setState,
+                title: l.packPresetsSection(
+                  _selectedPresets.length,
+                  widget.contents.presets.length,
+                ),
+                items: {
+                  for (var i = 0; i < widget.contents.presets.length; i++)
+                    i: widget.contents.presets[i].name,
+                },
+                selected: _selectedPresets,
+              ),
+              _packSection<int>(
+                update: setState,
+                title: l.packStylesSection(
+                  _selectedStyles.length,
+                  widget.contents.styles.length,
+                ),
+                items: {
+                  for (var i = 0; i < widget.contents.styles.length; i++)
+                    i: widget.contents.styles[i].name,
+                },
+                selected: _selectedStyles,
+              ),
+              _packSection<String>(
+                update: setState,
+                title: l.packWildcardsSection(
+                  _selectedWildcards.length,
+                  widget.contents.wildcards.length,
+                ),
+                items: {
+                  for (final key in widget.contents.wildcards.keys)
+                    key: p.basenameWithoutExtension(key),
+                },
+                selected: _selectedWildcards,
+              ),
+              _packSection<int>(
+                update: setState,
+                title: l.packSavedRefsSection(
+                  _selectedSavedRefs.length,
+                  widget.contents.savedRefs.length,
+                ),
+                items: {
+                  for (var i = 0; i < widget.contents.savedRefs.length; i++)
+                    i: widget.contents.savedRefs[i].name,
+                },
+                selected: _selectedSavedRefs,
+              ),
+              _packSection<int>(
+                update: setState,
+                title: l.packSavedVibesSection(
+                  _selectedSavedVibes.length,
+                  widget.contents.savedVibes.length,
+                ),
+                items: {
+                  for (var i = 0; i < widget.contents.savedVibes.length; i++)
+                    i: widget.contents.savedVibes[i].name,
+                },
+                selected: _selectedSavedVibes,
+              ),
+              _packSection<int>(
+                update: setState,
+                title: l.packCharacterPresetsSection(
+                  _selectedCharacterPresets.length,
+                  widget.contents.characterPresets.length,
+                ),
+                items: {
+                  for (
+                    var i = 0;
+                    i < widget.contents.characterPresets.length;
+                    i++
+                  )
+                    i: widget.contents.characterPresets[i].name,
+                },
+                selected: _selectedCharacterPresets,
+              ),
+              _packSection<int>(
+                update: setState,
+                title: l.packThemesSection(
+                  _selectedThemes.length,
+                  widget.contents.userThemes.length,
+                ),
+                items: {
+                  for (var i = 0; i < widget.contents.userThemes.length; i++)
+                    i: widget.contents.userThemes[i].name,
+                },
+                selected: _selectedThemes,
+              ),
+              _packSection<int>(
+                update: setState,
+                title: l.packAlbumsSection(
+                  _selectedAlbums.length,
+                  widget.contents.galleryAlbums.length,
+                ),
+                items: {
+                  for (var i = 0; i < widget.contents.galleryAlbums.length; i++)
+                    i: widget.contents.galleryAlbums[i].name,
+                },
+                selected: _selectedAlbums,
+              ),
               if (widget.contents.settings.isNotEmpty) ...[
-                _sectionHeader(l.packSettingsSection, t),
-                _checkTile(l.packSettingsItem, _includeSettings, (v) {
-                  setState(() => _includeSettings = v ?? false);
-                }, t, mobile),
+                _packSectionHeader(l.packSettingsSection, t),
+                _PackCheckTile(
+                  name: l.packSettingsItem,
+                  checked: _includeSettings,
+                  onChanged: (v) =>
+                      setState(() => _includeSettings = v ?? false),
+                ),
               ],
             ],
           ),
@@ -740,42 +857,38 @@ class _ImportDialogState extends State<_ImportDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text(l.commonCancel, style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9))),
+          child: Text(
+            l.commonCancel,
+            style: TextStyle(color: t.textDisabled, fontSize: t.buttonSize(9)),
+          ),
         ),
         TextButton(
           onPressed: _importing || total == 0 ? null : _import,
           child: _importing
-              ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: t.accentSuccess))
-              : Text(l.packImportCount(total), style: TextStyle(color: t.accentSuccess, fontSize: t.fontSize(9), fontWeight: FontWeight.bold)),
+              ? SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: t.accentSuccess,
+                  ),
+                )
+              : Text(
+                  l.packImportCount(total),
+                  style: TextStyle(
+                    color: t.accentSuccess,
+                    fontSize: t.fontSize(9),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
         ),
       ],
     );
   }
 
-  Widget _sectionHeader(String text, VisionTokens t) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Text(text, style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(8), letterSpacing: 2, fontWeight: FontWeight.bold)),
-    );
-  }
-
-  Widget _checkTile(String name, bool checked, ValueChanged<bool?> onChanged, VisionTokens t, bool mobile) {
-    return SizedBox(
-      height: mobile ? 36 : 28,
-      child: CheckboxListTile(
-        dense: true,
-        contentPadding: EdgeInsets.zero,
-        controlAffinity: ListTileControlAffinity.leading,
-        value: checked,
-        onChanged: onChanged,
-        activeColor: t.accent,
-        title: Text(name, style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(mobile ? 12 : 10))),
-      ),
-    );
-  }
-
   Future<void> _import() async {
     setState(() => _importing = true);
+    var libraryStored = true;
 
     try {
       final gen = context.read<GenerationNotifier>();
@@ -792,7 +905,9 @@ class _ImportDialogState extends State<_ImportDialog> {
         final existing = await PresetStorage.loadPresets(gen.presetsFilePath);
         for (final i in _selectedPresets) {
           final preset = widget.contents.presets[i];
-          final existingIndex = existing.indexWhere((p) => p.name == preset.name);
+          final existingIndex = existing.indexWhere(
+            (p) => p.name == preset.name,
+          );
           if (existingIndex >= 0) {
             existing[existingIndex] = preset;
           } else {
@@ -807,7 +922,9 @@ class _ImportDialogState extends State<_ImportDialog> {
         final existing = await StyleStorage.loadStyles(gen.stylesFilePath);
         for (final i in _selectedStyles) {
           final style = widget.contents.styles[i];
-          final existingIndex = existing.indexWhere((s) => s.name == style.name);
+          final existingIndex = existing.indexWhere(
+            (s) => s.name == style.name,
+          );
           if (existingIndex >= 0) {
             existing[existingIndex] = style;
           } else {
@@ -835,7 +952,9 @@ class _ImportDialogState extends State<_ImportDialog> {
 
         for (final i in _selectedSavedRefs) {
           final ref = widget.contents.savedRefs[i];
-          final existingIndex = library.directorRefs.indexWhere((r) => r.name == ref.name);
+          final existingIndex = library.directorRefs.indexWhere(
+            (r) => r.name == ref.name,
+          );
           if (existingIndex >= 0) {
             library.directorRefs[existingIndex] = ref;
           } else {
@@ -845,7 +964,9 @@ class _ImportDialogState extends State<_ImportDialog> {
 
         for (final i in _selectedSavedVibes) {
           final vibe = widget.contents.savedVibes[i];
-          final existingIndex = library.vibeTransfers.indexWhere((v) => v.name == vibe.name);
+          final existingIndex = library.vibeTransfers.indexWhere(
+            (v) => v.name == vibe.name,
+          );
           if (existingIndex >= 0) {
             library.vibeTransfers[existingIndex] = vibe;
           } else {
@@ -853,7 +974,7 @@ class _ImportDialogState extends State<_ImportDialog> {
           }
         }
 
-        await ReferenceLibraryService.save(libPath, library);
+        libraryStored = await ReferenceLibraryService.save(libPath, library);
       }
 
       // Import character presets (merge by id)
@@ -866,15 +987,17 @@ class _ImportDialogState extends State<_ImportDialog> {
 
       // Import user themes (merge by id)
       if (_selectedThemes.isNotEmpty) {
-        final selected =
-            _selectedThemes.map((i) => widget.contents.userThemes[i]).toList();
+        final selected = _selectedThemes
+            .map((i) => widget.contents.userThemes[i])
+            .toList();
         await themeNotifier.addOrReplaceUserThemes(selected);
       }
 
       // Import gallery albums (merge by id, union membership)
       if (_selectedAlbums.isNotEmpty) {
-        final selected =
-            _selectedAlbums.map((i) => widget.contents.galleryAlbums[i]).toList();
+        final selected = _selectedAlbums
+            .map((i) => widget.contents.galleryAlbums[i])
+            .toList();
         await galleryNotifier.importAlbums(selected);
       }
 
@@ -890,9 +1013,18 @@ class _ImportDialogState extends State<_ImportDialog> {
         Navigator.pop(context);
         // Settings and themes are snapshotted into notifiers at startup, so
         // those categories fully apply on next launch — tell the user.
-        final needsRestart = _includeSettings && widget.contents.settings.isNotEmpty;
-        showAppSnackBar(context,
-            needsRestart ? context.l.packImportRestartHint : context.l.packImportSuccess);
+        final needsRestart =
+            _includeSettings && widget.contents.settings.isNotEmpty;
+        if (!libraryStored) {
+          showErrorSnackBar(context, context.l.packRefLibrarySaveFailed);
+        } else {
+          showAppSnackBar(
+            context,
+            needsRestart
+                ? context.l.packImportRestartHint
+                : context.l.packImportSuccess,
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -988,13 +1120,21 @@ class _GalleryExportDialogState extends State<_GalleryExportDialog> {
   Widget build(BuildContext context) {
     final t = context.t;
     final l = context.l;
-    final mobile = isMobile(context);
+    final mobile = isTouchSized(context);
     final gallery = context.watch<GalleryNotifier>();
     final totalCount = _countImages(gallery);
 
     return AlertDialog(
       backgroundColor: t.surfaceHigh,
-      title: Text(l.packExportGalleryTitle, style: TextStyle(fontSize: t.fontSize(mobile ? 14 : 10), letterSpacing: 2, color: t.textSecondary, fontWeight: FontWeight.w900)),
+      title: Text(
+        l.packExportGalleryTitle,
+        style: TextStyle(
+          fontSize: t.fontSize(mobile ? 14 : 10),
+          letterSpacing: 2,
+          color: t.textSecondary,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
       content: SizedBox(
         width: mobile ? double.maxFinite : 500,
         child: SingleChildScrollView(
@@ -1004,43 +1144,40 @@ class _GalleryExportDialogState extends State<_GalleryExportDialog> {
             children: [
               // Albums
               if (gallery.albums.isNotEmpty) ...[
-                _sectionHeader(l.packAlbums, t),
+                _packSectionHeader(l.packAlbums, t),
                 for (final album in gallery.albums)
-                  _checkTile(
-                    '${album.name} (${_albumImageCount(gallery, album.id)})',
-                    _selectedAlbumIds.contains(album.id),
-                    (v) => setState(() => v! ? _selectedAlbumIds.add(album.id) : _selectedAlbumIds.remove(album.id)),
-                    t,
-                    mobile,
+                  _PackCheckTile(
+                    name:
+                        '${album.name} (${_albumImageCount(gallery, album.id)})',
+                    checked: _selectedAlbumIds.contains(album.id),
+                    onChanged: (v) => setState(
+                      () => v!
+                          ? _selectedAlbumIds.add(album.id)
+                          : _selectedAlbumIds.remove(album.id),
+                    ),
                   ),
-                const SizedBox(height: 12),
+                const SizedBox(height: VisionMetrics.space12),
               ],
 
               // Unsorted
-              _checkTile(
-                l.packUnsortedCount(_unsortedCount(gallery)),
-                _includeUnsorted,
-                (v) => setState(() => _includeUnsorted = v!),
-                t,
-                mobile,
+              _PackCheckTile(
+                name: l.packUnsortedCount(_unsortedCount(gallery)),
+                checked: _includeUnsorted,
+                onChanged: (v) => setState(() => _includeUnsorted = v!),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: VisionMetrics.space16),
 
               // Toggles
-              _sectionHeader(l.packOptions, t),
-              _checkTile(
-                l.packStripMetadata,
-                _stripMetadata,
-                (v) => setState(() => _stripMetadata = v!),
-                t,
-                mobile,
+              _packSectionHeader(l.packOptions, t),
+              _PackCheckTile(
+                name: l.packStripMetadata,
+                checked: _stripMetadata,
+                onChanged: (v) => setState(() => _stripMetadata = v!),
               ),
-              _checkTile(
-                l.packFavoritesOnly,
-                _favoritesOnly,
-                (v) => setState(() => _favoritesOnly = v!),
-                t,
-                mobile,
+              _PackCheckTile(
+                name: l.packFavoritesOnly,
+                checked: _favoritesOnly,
+                onChanged: (v) => setState(() => _favoritesOnly = v!),
               ),
             ],
           ),
@@ -1049,37 +1186,32 @@ class _GalleryExportDialogState extends State<_GalleryExportDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text(l.commonCancel, style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9))),
+          child: Text(
+            l.commonCancel,
+            style: TextStyle(color: t.textDisabled, fontSize: t.buttonSize(9)),
+          ),
         ),
         TextButton(
           onPressed: _exporting || totalCount == 0 ? null : _export,
           child: _exporting
-              ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: t.accentEdit))
-              : Text(l.packExportCount(totalCount), style: TextStyle(color: t.accentEdit, fontSize: t.fontSize(9), fontWeight: FontWeight.bold)),
+              ? SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: t.accentEdit,
+                  ),
+                )
+              : Text(
+                  l.packExportCount(totalCount),
+                  style: TextStyle(
+                    color: t.accentEdit,
+                    fontSize: t.fontSize(9),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
         ),
       ],
-    );
-  }
-
-  Widget _sectionHeader(String text, VisionTokens t) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Text(text, style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(8), letterSpacing: 2, fontWeight: FontWeight.bold)),
-    );
-  }
-
-  Widget _checkTile(String name, bool checked, ValueChanged<bool?> onChanged, VisionTokens t, bool mobile) {
-    return SizedBox(
-      height: mobile ? 36 : 28,
-      child: CheckboxListTile(
-        dense: true,
-        contentPadding: EdgeInsets.zero,
-        controlAffinity: ListTileControlAffinity.leading,
-        value: checked,
-        onChanged: onChanged,
-        activeColor: t.accent,
-        title: Text(name, style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(mobile ? 12 : 10))),
-      ),
     );
   }
 
@@ -1123,5 +1255,112 @@ class _GalleryExportDialogState extends State<_GalleryExportDialog> {
     } finally {
       if (mounted) setState(() => _exporting = false);
     }
+  }
+}
+
+// ─── Shared selection widgets ───────────────────────────────
+
+Widget _packSectionHeader(String text, VisionTokens t, {Widget? trailing}) =>
+    SectionTitle(
+      text,
+      t: t,
+      variant: SectionTitleVariant.compact,
+      trailing: trailing,
+    );
+
+/// A titled checklist over [items] (id -> label); empty lists render nothing.
+/// [update] is the dialog's `setState`. With [toggleAll] the header gets an
+/// ALL/NONE switch.
+Widget _packSection<T>({
+  required void Function(VoidCallback) update,
+  required String title,
+  required Map<T, String> items,
+  required Set<T> selected,
+  bool toggleAll = false,
+}) {
+  if (items.isEmpty) return const SizedBox.shrink();
+  return Builder(
+    builder: (context) {
+      final t = context.t;
+      final l = context.l;
+      final allSelected = selected.length == items.length;
+      return Padding(
+        padding: const EdgeInsets.only(bottom: VisionMetrics.space12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _packSectionHeader(
+              title,
+              t,
+              trailing: toggleAll
+                  ? TextButton(
+                      onPressed: () => update(() {
+                        if (allSelected) {
+                          selected.clear();
+                        } else {
+                          selected
+                            ..clear()
+                            ..addAll(items.keys);
+                        }
+                      }),
+                      child: Text(
+                        allSelected ? l.packSelectNone : l.packSelectAll,
+                        style: TextStyle(
+                          color: t.accent,
+                          fontSize: t.buttonSize(8),
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    )
+                  : null,
+            ),
+            for (final entry in items.entries)
+              _PackCheckTile(
+                name: entry.value,
+                checked: selected.contains(entry.key),
+                onChanged: (v) => update(
+                  () =>
+                      v! ? selected.add(entry.key) : selected.remove(entry.key),
+                ),
+              ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+class _PackCheckTile extends StatelessWidget {
+  const _PackCheckTile({
+    required this.name,
+    required this.checked,
+    required this.onChanged,
+  });
+
+  final String name;
+  final bool checked;
+  final ValueChanged<bool?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: context.hitSize),
+      child: CheckboxListTile(
+        dense: true,
+        contentPadding: EdgeInsets.zero,
+        controlAffinity: ListTileControlAffinity.leading,
+        value: checked,
+        onChanged: onChanged,
+        activeColor: t.accent,
+        title: Text(
+          name,
+          style: TextStyle(
+            color: t.textSecondary,
+            fontSize: t.fontSize(isTouchSized(context) ? 12 : 10),
+          ),
+        ),
+      ),
+    );
   }
 }
