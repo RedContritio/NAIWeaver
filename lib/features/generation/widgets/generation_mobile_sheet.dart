@@ -114,6 +114,13 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
   final ValueNotifier<double> _extent = ValueNotifier<double>(0);
   final ValueNotifier<bool> _expanded = ValueNotifier<bool>(false);
 
+  /// Wraps the tab pages so the sheet can tell whether focus is inside them.
+  final FocusNode _pagesFocusNode = FocusNode(
+    debugLabel: 'GenerationMobileSheet pages',
+    canRequestFocus: false,
+    skipTraversal: true,
+  );
+
   double _minimumExtent = 1;
   double _middleExtent = 1;
 
@@ -148,6 +155,7 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
     _tabController.dispose();
     _extent.dispose();
     _expanded.dispose();
+    _pagesFocusNode.dispose();
     super.dispose();
   }
 
@@ -172,7 +180,10 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
       'extent': _currentExtent,
     });
     _tabController.animateTo(tab.index);
-    await _animateTo(full ? 1 : _middleExtent);
+    // Focusing the prompt lands here too, so never pull back a sheet that is
+    // already open further than asked. Animating to its own size still stops
+    // a collapse that is running.
+    await _animateTo(math.max(full ? 1 : _middleExtent, _currentExtent));
   }
 
   Future<void> _animateTo(double extent) async {
@@ -196,7 +207,15 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
 
   void _setExtent(double extent) {
     _extent.value = extent;
-    _expanded.value = extent > _minimumExtent + _expandedThreshold;
+    final expanded = extent > _minimumExtent + _expandedThreshold;
+    if (expanded == _expanded.value) return;
+    _expanded.value = expanded;
+    // The pages stay mounted behind the summary bar, so a field in them keeps
+    // its focus when the sheet is dragged closed. Do not leave the keyboard
+    // up for a field that can no longer be seen.
+    if (!expanded && _pagesFocusNode.hasFocus) {
+      FocusManager.instance.primaryFocus?.unfocus();
+    }
   }
 
   bool _handleSheetNotification(DraggableScrollableNotification notification) {
@@ -320,6 +339,14 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
                 snapAnimationDuration: _snapAnimationDuration,
                 shouldCloseOnMinExtent: false,
                 builder: (context, scrollController) {
+                  // Built once per sheet build: the layout builder below runs
+                  // on every drag frame and reuses these instances untouched.
+                  final header = ValueListenableBuilder<bool>(
+                    valueListenable: _expanded,
+                    builder: (context, expanded, _) =>
+                        _buildHeader(t, expanded),
+                  );
+                  final pages = _buildPages(context);
                   return Material(
                     key: GenerationMobileSheet.panelKey,
                     color: t.surfaceHigh,
@@ -351,48 +378,9 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
                                   SizedBox(
                                     height:
                                         GenerationMobileSheet.peekContentHeight,
-                                    child: ValueListenableBuilder<bool>(
-                                      valueListenable: _expanded,
-                                      builder: (context, expanded, _) =>
-                                          _buildHeader(t, expanded),
-                                    ),
+                                    child: header,
                                   ),
-                                  Expanded(
-                                    child: ValueListenableBuilder<bool>(
-                                      valueListenable: _expanded,
-                                      builder: (context, expanded, _) {
-                                        if (!expanded) {
-                                          return const SizedBox.shrink();
-                                        }
-                                        return TabBarView(
-                                          controller: _tabController,
-                                          children: [
-                                            RepaintBoundary(
-                                              child: KeyedSubtree(
-                                                key: GenerationMobileSheet
-                                                    .promptPageKey,
-                                                child: widget.prompt,
-                                              ),
-                                            ),
-                                            RepaintBoundary(
-                                              child: KeyedSubtree(
-                                                key: GenerationMobileSheet
-                                                    .inputsPageKey,
-                                                child: widget.inputs,
-                                              ),
-                                            ),
-                                            RepaintBoundary(
-                                              child: KeyedSubtree(
-                                                key: GenerationMobileSheet
-                                                    .parametersPageKey,
-                                                child: widget.parameters,
-                                              ),
-                                            ),
-                                          ],
-                                        );
-                                      },
-                                    ),
-                                  ),
+                                  Expanded(child: pages),
                                   SizedBox(height: safeBottom),
                                 ],
                               ),
@@ -408,6 +396,43 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
           ],
         );
       },
+    );
+  }
+
+  /// The tab pages stay mounted while the sheet is collapsed. They are
+  /// squeezed to zero height under the summary bar, which keeps them out of
+  /// sight, hit testing and the semantics tree, while their state, scroll
+  /// positions and native text areas (with their undo history) survive the
+  /// collapse that follows every generation.
+  Widget _buildPages(BuildContext context) {
+    Widget page(Key key, Widget child) {
+      return _KeepAlivePage(
+        child: RepaintBoundary(
+          child: KeyedSubtree(key: key, child: child),
+        ),
+      );
+    }
+
+    return Focus(
+      focusNode: _pagesFocusNode,
+      // The sheet already keeps its content above the bottom safe area (see
+      // the spacer below the pages), so the pages must not pad for it again.
+      child: MediaQuery.removePadding(
+        context: context,
+        removeBottom: true,
+        // Every page owns its scroll position. The route's primary controller
+        // would otherwise end up attached to all three kept-alive pages.
+        child: PrimaryScrollController.none(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              page(GenerationMobileSheet.promptPageKey, widget.prompt),
+              page(GenerationMobileSheet.inputsPageKey, widget.inputs),
+              page(GenerationMobileSheet.parametersPageKey, widget.parameters),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -483,6 +508,29 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
         ),
       ],
     );
+  }
+}
+
+/// Keeps a tab page alive while another tab is shown, so switching tabs does
+/// not rebuild it from scratch either.
+class _KeepAlivePage extends StatefulWidget {
+  const _KeepAlivePage({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_KeepAlivePage> createState() => _KeepAlivePageState();
+}
+
+class _KeepAlivePageState extends State<_KeepAlivePage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }
 
