@@ -71,6 +71,35 @@ class CliTests(unittest.TestCase):
         self.run_cli("user", "create", "plain")
         self.assertEqual(self.user("plain")["can_generate_paid"], 0)
 
+    def test_grant_adds_to_the_balance_even_if_it_changed_meanwhile(self) -> None:
+        self.run_cli("user", "create", "alice", "--role", "paid")
+        original = cli.user_row_or_exit
+
+        def grant_elsewhere(db, username):
+            row = original(db, username)
+            with closing(main.db_connect()) as other:
+                other.execute("UPDATE users SET red_points = red_points + 100")
+                other.commit()
+            return row
+
+        with mock.patch.object(cli, "user_row_or_exit", grant_elsewhere):
+            self.run_cli("user", "points", "grant", "alice", "--red", "50")
+        self.assertEqual(self.user("alice")["red_points"], 3150)
+
+    def test_cli_commands_keep_in_flight_tool_reservations(self) -> None:
+        self.run_cli("user", "create", "alice", "--role", "paid")
+        user = self.user("alice")
+        with closing(main.db_connect()) as db:
+            db.execute(
+                "INSERT INTO tool_reservations(user_id, mode, points, tool, created_at) "
+                "VALUES (?, 'paid', 80, 'augment', 'now')",
+                (user["id"],),
+            )
+            db.execute("UPDATE users SET red_points_reserved = 80")
+            db.commit()
+        self.run_cli("user", "points", "show", "alice")
+        self.assertEqual(self.user("alice")["red_points_reserved"], 80)
+
     def test_update_changes_only_the_options_given(self) -> None:
         self.run_cli("user", "create", "agent_test", "--role", "free", "--green-points", "10000")
         self.run_cli("user", "points", "grant", "agent_test", "--red", "500")

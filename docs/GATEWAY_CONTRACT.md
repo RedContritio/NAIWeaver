@@ -18,7 +18,7 @@ The client maps `code` to localized text and never shows raw exceptions.
 | code | HTTP | extra fields | meaning |
 |---|---|---|---|
 | `not_authenticated` | 401 | | gateway session missing/expired (never used for upstream 401) |
-| `auth_unavailable` | 503 | | the identity provider is temporarily unavailable (or not configured); any existing session is kept |
+| `auth_unavailable` | 503 | | the identity provider is temporarily unavailable (or not configured, or its signing key is not yet published); any existing session is kept |
 | `login_failed` | 403 | | the identity provider returned an error or the login could not be verified |
 | `account_not_linked` | 403 | | the identity provider subject is not in the account mapping, or the account is disabled |
 | `permission_denied` | 403 | `permission` | user lacks the permission |
@@ -36,7 +36,8 @@ Other codes the gateway emits: `not_found` (404, including unknown `/api/*`
 paths), `task_active` (409, deleting a queued/running item),
 `duplicate_generation` / `duplicate_within_batch` (409, identical effective
 parameters; extra `task_id`, `batch_index`, `seed`), `rate_limited` (429,
-feedback), `method_not_allowed` (405), `service_unavailable` (503) and
+feedback, and `GET /auth/login` once more than 30 logins start within a minute
+across all clients), `method_not_allowed` (405), `service_unavailable` (503) and
 `internal_error` (500). `queue_full` is also used for the one-active-text-job
 limit (`limit: 1`). Body validation failures are `invalid_parameters` (400)
 with `field` set to the offending body path.
@@ -86,6 +87,11 @@ instant estimate from `rules`. Both sides share the golden cases in
 
 Per image:
 
+0. Only known keys are accepted: the request's top level is `input`, `model`,
+   `action`, `parameters`, and `parameters` may hold only the keys the client
+   builds (listed in `test/fixtures/image_request_keys.json`) plus `autoSmea`
+   (a boolean; true is priced as `sm`). Any other key is `invalid_parameters`
+   with `field` set to the key (`parameters.<key>` inside `parameters`).
 1. Strictly parse `width`, `height`, `steps` as JSON integers (reject bool,
    float, string). Normalized values are written back into the forwarded body.
    `width`/`height` are multiples of 64 in `64..max_dimension`, `steps` is in
@@ -167,8 +173,8 @@ exhausted_until, cooldown_seconds}`.
 
 Headers (both required):
 
-- `Idempotency-Key: <8..128 chars>` — a retry with the same key returns the
-  cached response (bounded in-memory cache) instead of calling NovelAI again.
+- `Idempotency-Key: <8..128 chars>` — a retry with the same key, tool path
+  and body returns the cached response (bounded in-memory cache) instead of calling NovelAI again.
 - `X-NAIWeaver-Expected-Points: <int>` — must equal `tool_caps[...]`;
   otherwise 409 `quote_changed` with `quote` (`mode: "paid"`,
   `reasons: ["paid_tool"]`).
@@ -180,7 +186,12 @@ failed call released its reservation and may be retried with the same key.
 
 The cap is reserved before the call; the charge is the measured Anlas delta,
 never above the cap (cap is charged when the delta cannot be measured).
-A delta above the cap records a billing anomaly.
+A delta above the cap records a billing anomaly. A delta of 0 is re-read
+once after a short wait (`NAIWEAVER_BALANCE_RECHECK_SECONDS`, default 1); if
+still 0 the tool is charged 0 (it may really be free) and an `unmeasured`
+anomaly is recorded. In-flight tool reservations are stored in
+`tool_reservations`, so rebuilding the counters keeps them; the service drops
+leftovers of a previous process at startup.
 The client never auto-retries these POSTs.
 
 ## 6. Execution and settlement
@@ -192,7 +203,12 @@ The client never auto-retries these POSTs.
   delta is unavailable or negative; a delta above the reservation records a
   billing anomaly and charges the reservation. `free` work is charged its
   green reservation.
-- Upstream failure releases the whole reservation.
+- Upstream failure releases the whole reservation. So does a 2xx response
+  without a decodable image; the measured delta is still audited
+  (`decode_failed` for paid work, the free-allowance rules for free work).
+- A paid generation whose balance delta is still 0 after a re-read is charged
+  its quote and recorded as `unmeasured`; a free task whose balance could not
+  be read is also recorded as `unmeasured`.
 - On startup, tasks left `running` become `failed` with `interrupted` and
   their reservations are released; they are never re-run. A task cut off by
   a graceful shutdown is marked the same way before the process exits.

@@ -35,7 +35,9 @@ from .roles import (
 from .billing import (
     ALLOWED_SAMPLERS,
     ANOMALY_FREE_ALLOWANCE_EXHAUSTED,
+    ANOMALY_DECODE_FAILED,
     ANOMALY_MEASURED_ABOVE_QUOTE,
+    ANOMALY_UNMEASURED,
     FREE_ALLOWANCE_COOLDOWN_SECONDS,
     MAX_DIMENSION,
     MAX_SEED,
@@ -53,10 +55,14 @@ from .billing import (
     point_kind_for_mode,
     record_billing_anomaly,
     release_points,
+    release_tool_points,
     remaining_points,
     reserve_points,
+    reserve_tool_points,
     settle_amount,
     settle_points,
+    settle_tool_points,
+    settlement_transaction,
     tool_quote,
 )
 from .body_limit import BodySizeLimitMiddleware
@@ -368,6 +374,18 @@ CREATE TABLE IF NOT EXISTS billing_anomalies (
 CREATE INDEX IF NOT EXISTS idx_billing_anomalies_kind_created
 ON billing_anomalies(kind, created_at);
 
+-- In-flight paid-tool reservations. Generation reservations live on their
+-- items; this makes tool reservations durable too, so rebuilding the user
+-- counters (migrate_db, run by every CLI command) keeps them.
+CREATE TABLE IF NOT EXISTS tool_reservations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  mode TEXT NOT NULL,
+  points INTEGER NOT NULL,
+  tool TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
 """
 
 
@@ -596,6 +614,9 @@ def session_response(
 
 def db_connect() -> sqlite3.Connection:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    if not DB_PATH.exists():
+        # The database holds session secrets: owner-only from the start.
+        os.close(os.open(DB_PATH, os.O_CREAT | os.O_WRONLY, 0o600))
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
@@ -630,6 +651,44 @@ def init_db() -> None:
         db.executescript(SCHEMA)
         migrate_db(db)
         db.commit()
+    DB_PATH.chmod(0o600)
+
+
+def recompute_reserved_points(db: sqlite3.Connection) -> None:
+    """Rebuild the reserved counters from durable reservations.
+
+    The counters are a cache of active item reservations plus in-flight tool
+    reservations. This repairs leaked counters while preserving consumed
+    point balances.
+    """
+    db.execute(
+        """
+        UPDATE users
+        SET green_points_reserved = COALESCE((
+              SELECT SUM(reserved_points) FROM generation_tasks i
+              WHERE i.user_id = users.id AND i.mode = 'free'
+                AND i.status IN ('queued', 'running')
+            ), 0),
+            red_points_reserved = COALESCE((
+              SELECT SUM(reserved_points) FROM generation_tasks i
+              WHERE i.user_id = users.id AND i.mode = 'paid'
+                AND i.status IN ('queued', 'running')
+            ), 0) + COALESCE((
+              SELECT SUM(points) FROM tool_reservations r
+              WHERE r.user_id = users.id AND r.mode = 'paid'
+            ), 0)
+        """
+    )
+
+
+def reclaim_tool_reservations(db: sqlite3.Connection) -> None:
+    """Drop tool reservations left by a previous gateway process.
+
+    Only the service calls this at startup, when no tool call can be in
+    flight; the CLI must not, or it would erase a running service's holds.
+    """
+    db.execute("DELETE FROM tool_reservations")
+    recompute_reserved_points(db)
 
 
 def migrate_db(db: sqlite3.Connection) -> None:
@@ -855,24 +914,7 @@ def migrate_db(db: sqlite3.Connection) -> None:
           )
         """
     )
-    # Reserved counters are a cache of durable active item reservations. This
-    # repairs leaked counters after an interrupted older implementation while
-    # preserving consumed point balances.
-    db.execute(
-        """
-        UPDATE users
-        SET green_points_reserved = COALESCE((
-              SELECT SUM(reserved_points) FROM generation_tasks i
-              WHERE i.user_id = users.id AND i.mode = 'free'
-                AND i.status IN ('queued', 'running')
-            ), 0),
-            red_points_reserved = COALESCE((
-              SELECT SUM(reserved_points) FROM generation_tasks i
-              WHERE i.user_id = users.id AND i.mode = 'paid'
-                AND i.status IN ('queued', 'running')
-            ), 0)
-        """
-    )
+    recompute_reserved_points(db)
     db.execute(
         """
         CREATE TABLE IF NOT EXISTS history_hidden (
@@ -1013,6 +1055,9 @@ async def lifespan(_: FastAPI):
     global upstream_lane, tool_response_cache
     validate_runtime_config()
     init_db()
+    with closing(db_connect()) as db:
+        reclaim_tool_reservations(db)
+        db.commit()
     bootstrap_users()
     timeout = httpx.Timeout(60.0, read=300.0)
     http_client = httpx.AsyncClient(timeout=timeout)
@@ -1610,6 +1655,8 @@ def admin_create_user(
     _: sqlite3.Row = Depends(require_admin),
     db: sqlite3.Connection = Depends(get_db),
 ):
+    if payload.role == "admin" and payload.is_admin is False:
+        raise invalid_parameters("is_admin", "role admin contradicts is_admin=false")
     values = role_defaults(payload.role)
     values.update(
         (name, value)
@@ -1705,7 +1752,6 @@ def admin_config(
     exhausted_until = free_allowance_exhausted_until(db)
     return {
         "green_point_limit": DEFAULT_GREEN_POINT_LIMIT,
-        "green_point_discount": 0,
         "red_points": DEFAULT_RED_POINTS,
         "admin_red_points": DEFAULT_ADMIN_RED_POINTS,
         "free_max_steps": MAX_STEPS_FREE,
@@ -2029,17 +2075,24 @@ async def forward_text_to_novelai_queued(
     audit_id: str | None = None,
 ) -> tuple[int, dict[str, str], bytes] | StreamingResponse:
     ticket = await acquire_text_slot(user)
+    # Anything that ends the request before a stream takes over the slot
+    # (an error, or cancellation) frees it here.
+    handed_over = False
     try:
         result = await forward_to_novelai(
             service, path, method=method, body=body, stream=stream
         )
+        if isinstance(result, StreamingResponse):
+            handed_over = True
     except Exception:
         with db_session() as db:
             complete_audit_log(
                 db, audit_id, status_code=500, error_message="Text proxy failed"
             )
-        await release_text_slot(ticket)
         raise
+    finally:
+        if not handed_over:
+            await release_text_slot(ticket)
     if isinstance(result, StreamingResponse):
         body_iterator = result.body_iterator
 
@@ -2061,7 +2114,6 @@ async def forward_text_to_novelai_queued(
             headers=dict(result.headers),
             media_type=result.media_type,
         )
-    await release_text_slot(ticket)
     with db_session() as db:
         complete_audit_log(db, audit_id, status_code=result[0])
     return result
@@ -2137,7 +2189,12 @@ class UpstreamImageCall:
         return self.anlas_before - self.anlas_after
 
 
-async def call_image_upstream(path: str, body: bytes) -> UpstreamImageCall:
+BALANCE_RECHECK_SECONDS = float(os.environ.get("NAIWEAVER_BALANCE_RECHECK_SECONDS", "1"))
+
+
+async def call_image_upstream(
+    path: str, body: bytes, *, paid: bool = False
+) -> UpstreamImageCall:
     """One NovelAI image call and its measured Anlas cost.
 
     The caller must hold ``upstream_lane``: NovelAI rejects a second
@@ -2150,6 +2207,11 @@ async def call_image_upstream(path: str, body: bytes) -> UpstreamImageCall:
     assert not isinstance(result, StreamingResponse)
     status_code, headers, content = result
     anlas_after = await fetch_anlas_balance() if 200 <= status_code < 300 else None
+    if paid and anlas_after is not None and anlas_after == anlas_before:
+        # Paid work that cost nothing is more likely a stale balance than a
+        # free call; read it once more before believing it.
+        await asyncio.sleep(BALANCE_RECHECK_SECONDS)
+        anlas_after = await fetch_anlas_balance()
     return UpstreamImageCall(status_code, headers, content, anlas_before, anlas_after)
 
 
@@ -2183,33 +2245,49 @@ async def execute_paid_tool(
     """Reserve the tool cap, call NovelAI in the lane, settle the measured cost."""
     cap = TOOL_CAPS[tool]
     with immediate_transaction(db):
-        reserve_points(db, user_id, "red", cap)
+        reservation_id = reserve_tool_points(db, user_id, cap, tool)
     settled = False
     try:
         async with upstream_lane.hold(RED_PRIORITY):
-            call = await call_image_upstream(path, body)
+            call = await call_image_upstream(path, body, paid=True)
         raise_for_upstream_status("image", path, call.status_code, call.content)
-        charge, above_quote = settle_amount(cap, call.measured_delta)
-        with immediate_transaction(db):
-            settle_points(db, user_id, "red", cap, charge)
-            if above_quote:
+        delta = call.measured_delta
+        # A tool may really be free, so an unchanged balance is charged as
+        # measured (0) but reported.
+        charge, above_quote = settle_amount(cap, delta)
+        with settlement_transaction(db):
+            settle_tool_points(db, reservation_id, charge)
+            if above_quote or delta == 0:
                 record_billing_anomaly(
                     db,
-                    kind=ANOMALY_MEASURED_ABOVE_QUOTE,
+                    kind=ANOMALY_MEASURED_ABOVE_QUOTE if above_quote else ANOMALY_UNMEASURED,
                     user_id=user_id,
                     mode="paid",
                     quoted=cap,
-                    measured=call.measured_delta,
-                    note="Measured Anlas delta exceeded the tool cap; charged the cap",
+                    measured=delta,
+                    note=(
+                        "Measured Anlas delta exceeded the tool cap; charged the cap"
+                        if above_quote
+                        else "Tool call left the Anlas balance unchanged; charged 0"
+                    ),
                     tool=tool,
                 )
         settled = True
     finally:
         if not settled:
             # Upstream failure, cancellation or a settlement error: the user
-            # is never charged for work that did not complete.
-            with immediate_transaction(db):
-                release_points(db, user_id, "red", cap)
+            # is never charged for work that did not complete. If even the
+            # release fails, the durable row is reclaimed at the next start.
+            try:
+                with settlement_transaction(db):
+                    release_tool_points(db, reservation_id)
+            except sqlite3.Error:
+                logger.exception(
+                    "tool_reservation_release_failed user_id=%s tool=%s reservation_id=%s",
+                    user_id,
+                    tool,
+                    reservation_id,
+                )
     return CachedResponse(call.status_code, call.headers, call.content)
 
 
@@ -2222,7 +2300,7 @@ async def run_paid_tool(
     body: bytes,
     idempotency_key: str,
 ) -> Response:
-    cache_key = (int(user["id"]), idempotency_key)
+    cache_key = (int(user["id"]), path, idempotency_key)
     body_hash = hashlib.sha256(body).hexdigest()
     while (entry := tool_response_cache.lookup(cache_key)) is not None:
         if entry.body_hash != body_hash:
@@ -2518,9 +2596,10 @@ def visible_history_task(
     task = db.execute(f"{GENERATION_ITEM_SELECT} WHERE t.id = ?", (task_id,)).fetchone()
     if not task:
         raise api_error(status.HTTP_404_NOT_FOUND, "not_found", "Task not found")
+    # Hidden by the viewer or by the owner: never returned, even to admins.
     hidden = db.execute(
-        "SELECT 1 FROM history_hidden WHERE user_id = ? AND task_id = ?",
-        (user["id"], task_id),
+        "SELECT 1 FROM history_hidden WHERE user_id IN (?, ?) AND task_id = ?",
+        (user["id"], task["user_id"], task_id),
     ).fetchone()
     if hidden:
         raise api_error(status.HTTP_404_NOT_FOUND, "not_found", "Task not found")
@@ -3068,6 +3147,72 @@ async def fail_queued_free_jobs() -> None:
         db.commit()
 
 
+def record_free_measurement(
+    db: sqlite3.Connection, job: ProxyJob, reserved: int, delta: int | None
+) -> bool:
+    """Audit what a free-eligible image cost in Anlas.
+
+    Any Anlas spent means NovelAI's free allowance has run out (returns True);
+    a balance that could not be read is reported as unmeasured.
+    """
+    if delta is None:
+        record_billing_anomaly(
+            db,
+            kind=ANOMALY_UNMEASURED,
+            user_id=job.user_id,
+            task_id=job.task_id,
+            mode="free",
+            quoted=reserved,
+            measured=None,
+            note="Anlas balance could not be read; free allowance not verified",
+        )
+        return False
+    if delta <= 0:
+        return False
+    record_billing_anomaly(
+        db,
+        kind=ANOMALY_FREE_ALLOWANCE_EXHAUSTED,
+        user_id=job.user_id,
+        task_id=job.task_id,
+        mode="free",
+        quoted=reserved,
+        measured=delta,
+        note="Free-eligible image consumed Anlas; free work is paused",
+    )
+    return True
+
+
+def record_decode_failure(job: ProxyJob, call: UpstreamImageCall) -> bool:
+    """NovelAI answered 2xx without a usable image: keep the measured cost.
+
+    The caller releases the reservation, so the user pays nothing; the
+    anomaly shows what the account paid upstream. Returns True when a free
+    item proved the allowance exhausted.
+    """
+    delta = call.measured_delta
+    exhausted = False
+    with db_session() as db:
+        item = db.execute(
+            "SELECT reserved_points FROM generation_tasks WHERE id = ?", (job.task_id,)
+        ).fetchone()
+        reserved = int(item["reserved_points"] or 0) if item else 0
+        if job.quota_mode == "paid":
+            record_billing_anomaly(
+                db,
+                kind=ANOMALY_DECODE_FAILED,
+                user_id=job.user_id,
+                task_id=job.task_id,
+                mode="paid",
+                quoted=reserved,
+                measured=delta,
+                note="NovelAI returned no valid image; reservation released",
+            )
+        else:
+            exhausted = record_free_measurement(db, job, reserved, delta)
+        db.commit()
+    return exhausted
+
+
 def settle_generation_success(
     job: ProxyJob, call: UpstreamImageCall, image_path: str
 ) -> bool:
@@ -3088,7 +3233,21 @@ def settle_generation_success(
         delta = call.measured_delta
         if job.quota_mode == "paid":
             charged, above_quote = settle_amount(reserved, delta)
-            if above_quote:
+            if delta == 0:
+                # Paid work cannot cost nothing: the balance was not
+                # measurable, so the quote stands.
+                charged = reserved
+                record_billing_anomaly(
+                    db,
+                    kind=ANOMALY_UNMEASURED,
+                    user_id=job.user_id,
+                    task_id=job.task_id,
+                    mode="paid",
+                    quoted=reserved,
+                    measured=delta,
+                    note="Anlas balance did not change; charged the quote",
+                )
+            elif above_quote:
                 record_billing_anomaly(
                     db,
                     kind=ANOMALY_MEASURED_ABOVE_QUOTE,
@@ -3100,21 +3259,9 @@ def settle_generation_success(
                     note="Measured Anlas delta exceeded the quote; charged the quote",
                 )
         else:
-            # Free work is always charged its green quote. Any Anlas spent on
-            # it means NovelAI's free allowance has run out.
+            # Free work is always charged its green quote.
             charged = reserved
-            if delta is not None and delta > 0:
-                record_billing_anomaly(
-                    db,
-                    kind=ANOMALY_FREE_ALLOWANCE_EXHAUSTED,
-                    user_id=job.user_id,
-                    task_id=job.task_id,
-                    mode="free",
-                    quoted=reserved,
-                    measured=delta,
-                    note="Free-eligible image consumed Anlas; free work is paused",
-                )
-                exhausted = True
+            exhausted = record_free_measurement(db, job, reserved, delta)
         settle_points(db, job.user_id, kind, reserved, charged)
         db.execute(
             """
@@ -3186,7 +3333,9 @@ async def run_generation_job(job: ProxyJob) -> None:
             db.commit()
 
         stage = "upstream_request"
-        call = await call_image_upstream(job.path, job.body)
+        call = await call_image_upstream(
+            job.path, job.body, paid=job.quota_mode == "paid"
+        )
         if not call.ok:
             log_generation_upstream_failure(
                 job,
@@ -3215,11 +3364,14 @@ async def run_generation_job(job: ProxyJob) -> None:
                 kind="invalid_image_response",
                 stage=stage,
             )
+            exhausted = record_decode_failure(job, call)
             persist_generation_failure(
                 job,
                 error_code="upstream_error",
                 error_message="NovelAI returned no valid image",
             )
+            if exhausted:
+                await fail_queued_free_jobs()
             return
         stage = "settle"
         if settle_generation_success(job, call, image_path):
@@ -3520,7 +3672,7 @@ def submission_task_payload(
     items = db.execute(
         f"""
         {GENERATION_ITEM_SELECT}
-        LEFT JOIN history_hidden h ON h.task_id = t.id AND h.user_id = ?
+        LEFT JOIN history_hidden h ON h.task_id = t.id AND h.user_id IN (?, t.user_id)
         WHERE t.batch_id = ? AND h.task_id IS NULL
         ORDER BY t.batch_index, t.created_at, t.id
         """,
@@ -3579,7 +3731,7 @@ def current_generation_task(
         WHERE s.user_id = ?
           AND EXISTS (
             SELECT 1 FROM generation_tasks t
-            LEFT JOIN history_hidden h ON h.task_id = t.id AND h.user_id = ?
+            LEFT JOIN history_hidden h ON h.task_id = t.id AND h.user_id IN (?, t.user_id)
             WHERE t.batch_id = s.id AND h.task_id IS NULL
           )
         ORDER BY CASE WHEN s.status IN ('queued', 'running') THEN 0 ELSE 1 END,
@@ -3625,7 +3777,7 @@ def history(
         SELECT COUNT(DISTINCT COALESCE(t.batch_id, t.id))
         FROM generation_tasks t
         JOIN users u ON u.id = t.user_id
-        LEFT JOIN history_hidden h ON h.task_id = t.id AND h.user_id = ?
+        LEFT JOIN history_hidden h ON h.task_id = t.id AND h.user_id IN (?, t.user_id)
         {where_sql}
         """,
         params,
@@ -3637,7 +3789,7 @@ def history(
                MAX(t.created_at) AS latest_created_at
         FROM generation_tasks t
         JOIN users u ON u.id = t.user_id
-        LEFT JOIN history_hidden h ON h.task_id = t.id AND h.user_id = ?
+        LEFT JOIN history_hidden h ON h.task_id = t.id AND h.user_id IN (?, t.user_id)
         {where_sql}
         GROUP BY COALESCE(t.batch_id, t.id)
         ORDER BY latest_created_at DESC, batch_key DESC
@@ -3652,7 +3804,7 @@ def history(
         rows = db.execute(
             f"""
             {GENERATION_ITEM_SELECT}
-            LEFT JOIN history_hidden h ON h.task_id = t.id AND h.user_id = ?
+            LEFT JOIN history_hidden h ON h.task_id = t.id AND h.user_id IN (?, t.user_id)
             {where_sql}
               AND COALESCE(t.batch_id, t.id) IN ({placeholders})
             """,

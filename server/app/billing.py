@@ -12,13 +12,17 @@ from contextlib import contextmanager
 import copy
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+import logging
 import math
 import os
 import sqlite3
+import time
 from typing import Any, Iterator, Mapping
 
 from .errors import api_error, invalid_parameters
 
+
+logger = logging.getLogger("uvicorn.error.naiweaver")
 
 MAX_STEPS_FREE = int(os.environ.get("NAIWEAVER_FREE_MAX_STEPS", "28"))
 MAX_STEPS_PAID = int(os.environ.get("NAIWEAVER_PAID_MAX_STEPS", "50"))
@@ -90,6 +94,38 @@ VIBE_PARAMETERS = frozenset(
         "reference_information_extracted_multiple",
     }
 )
+# Every key the web client sends (test/fixtures/image_request_keys.json lists
+# them with their Dart source); anything else is rejected rather than
+# forwarded to NovelAI unpriced. ``autoSmea`` is not sent by the client but
+# turns SMEA on upstream, so it is accepted and priced as SMEA.
+REQUEST_KEYS = frozenset({"input", "model", "action", "parameters"})
+GENERATION_PARAMETERS = frozenset(
+    {
+        "params_version",
+        "width",
+        "height",
+        "scale",
+        "sampler",
+        "steps",
+        "seed",
+        "n_samples",
+        "noise_schedule",
+        "sm",
+        "sm_dyn",
+        "autoSmea",
+        "dynamic_thresholding",
+        "uc",
+        "characterPrompts",
+        "v4_prompt",
+        "v4_negative_prompt",
+    }
+)
+ALLOWED_PARAMETERS = (
+    GENERATION_PARAMETERS
+    | IMAGE_INPUT_PARAMETERS
+    | DIRECTOR_REFERENCE_PARAMETERS
+    | VIBE_PARAMETERS
+)
 # Canonical order of ``Quote.reasons``; the client relies on it in golden tests.
 REASON_ORDER = (
     "size_not_free",
@@ -104,6 +140,13 @@ REASON_ORDER = (
 
 ANOMALY_FREE_ALLOWANCE_EXHAUSTED = "free_allowance_exhausted"
 ANOMALY_MEASURED_ABOVE_QUOTE = "measured_above_quote"
+ANOMALY_UNMEASURED = "unmeasured"
+ANOMALY_DECODE_FAILED = "decode_failed"
+
+# Settlement and release retry a locked database a few times so a reservation
+# is not left behind by a momentary writer.
+SETTLEMENT_ATTEMPTS = 5
+SETTLEMENT_BACKOFF_SECONDS = 0.1
 
 
 @dataclass(frozen=True)
@@ -258,6 +301,9 @@ def classify_and_quote(
         raise invalid_parameters("request", "request must be a JSON object")
     if not is_strict_int(images) or images < 1:
         raise invalid_parameters("seeds", "At least one image is required")
+    for key in request:
+        if key not in REQUEST_KEYS:
+            raise invalid_parameters(key, f"{key} is not a supported request field")
     data = copy.deepcopy(request)
     action = data.get("action")
     if action not in IMAGE_ACTIONS:
@@ -265,6 +311,11 @@ def classify_and_quote(
     params = data.get("parameters")
     if not isinstance(params, dict):
         raise invalid_parameters("parameters", "parameters must be a JSON object")
+    for key in params:
+        if key not in ALLOWED_PARAMETERS:
+            raise invalid_parameters(
+                f"parameters.{key}", f"{key} is not a supported parameter"
+            )
 
     width = _strict_int(params, "width")
     height = _strict_int(params, "height")
@@ -294,6 +345,8 @@ def classify_and_quote(
         raise invalid_parameters("scale", "scale must be a number")
     smea = _optional_flag(params, "sm")
     smea_dyn = _optional_flag(params, "sm_dyn")
+    # Unsure whether NovelAI bills autoSmea as SMEA: price it as SMEA.
+    auto_smea = _optional_flag(params, "autoSmea")
     director_count = _reference_count(params, "director_reference_images")
     vibe_count = _reference_count(params, "reference_image_multiple")
 
@@ -305,6 +358,8 @@ def classify_and_quote(
         params["sm"] = smea
     if "sm_dyn" in params:
         params["sm_dyn"] = smea_dyn
+    if "autoSmea" in params:
+        params["autoSmea"] = auto_smea
     params["params_version"] = 4
     params["n_samples"] = 1
     data["parameters"] = params
@@ -318,7 +373,7 @@ def classify_and_quote(
         reasons.add("size_not_free")
     if steps > int(rules["free_max_steps"]):
         reasons.add("steps_over_free_limit")
-    if smea or smea_dyn:
+    if smea or smea_dyn or auto_smea:
         reasons.add("smea")
     if any(nonempty_parameter(params, key) for key in IMAGE_INPUT_PARAMETERS):
         reasons.add("image_input")
@@ -340,7 +395,7 @@ def classify_and_quote(
         pricing["smea_dyn_multiplier"]
         if smea_dyn
         else pricing["smea_multiplier"]
-        if smea
+        if smea or auto_smea
         else 1.0
     )
     base = max(math.ceil(math.ceil(raw) * multiplier), int(pricing["min_points"]))
@@ -418,17 +473,36 @@ def remaining_points(user: Mapping[str, Any], kind: str) -> int | None:
 
 
 @contextmanager
-def immediate_transaction(db: sqlite3.Connection) -> Iterator[None]:
-    """Hold SQLite's write lock from the balance check to the commit."""
+def immediate_transaction(
+    db: sqlite3.Connection, *, attempts: int = 1
+) -> Iterator[None]:
+    """Hold SQLite's write lock from the balance check to the commit.
+
+    A locked database is retried ``attempts`` times with exponential backoff
+    before the error is raised.
+    """
     if db.in_transaction:
         db.commit()
-    db.execute("BEGIN IMMEDIATE")
+    for attempt in range(attempts):
+        try:
+            db.execute("BEGIN IMMEDIATE")
+            break
+        except sqlite3.OperationalError:
+            if attempt + 1 == attempts:
+                logger.error("write lock unavailable after %d attempts", attempts)
+                raise
+            time.sleep(SETTLEMENT_BACKOFF_SECONDS * 2**attempt)
     try:
         yield
     except BaseException:
         db.rollback()
         raise
     db.commit()
+
+
+def settlement_transaction(db: sqlite3.Connection):
+    """``immediate_transaction`` for settling or releasing a reservation."""
+    return immediate_transaction(db, attempts=SETTLEMENT_ATTEMPTS)
 
 
 def reserve_points(db: sqlite3.Connection, user_id: int, kind: str, amount: int) -> None:
@@ -478,6 +552,46 @@ def release_points(db: sqlite3.Connection, user_id: int, kind: str, reserved: in
         f"UPDATE users SET {reserved_column} = MAX(0, {reserved_column} - ?) WHERE id = ?",
         (reserved, user_id),
     )
+
+
+def reserve_tool_points(
+    db: sqlite3.Connection, user_id: int, amount: int, tool: str
+) -> int:
+    """Reserve red points for a tool call and return the durable reservation id.
+
+    The row lets the counters be rebuilt (``migrate_db``) while the call is in
+    flight. Call inside ``immediate_transaction``.
+    """
+    reserve_points(db, user_id, "red", amount)
+    cursor = db.execute(
+        "INSERT INTO tool_reservations(user_id, mode, points, tool, created_at) "
+        "VALUES (?, 'paid', ?, ?, ?)",
+        (user_id, amount, tool, datetime.now(timezone.utc).isoformat()),
+    )
+    return int(cursor.lastrowid)
+
+
+def _take_tool_reservation(db: sqlite3.Connection, reservation_id: int) -> sqlite3.Row | None:
+    row = db.execute(
+        "SELECT user_id, points FROM tool_reservations WHERE id = ?", (reservation_id,)
+    ).fetchone()
+    if row is not None:
+        db.execute("DELETE FROM tool_reservations WHERE id = ?", (reservation_id,))
+    return row
+
+
+def settle_tool_points(db: sqlite3.Connection, reservation_id: int, charged: int) -> None:
+    """Charge a tool reservation and drop it; a reservation already reclaimed
+    (and so already out of the counters) is left alone."""
+    row = _take_tool_reservation(db, reservation_id)
+    if row is not None:
+        settle_points(db, int(row["user_id"]), "red", int(row["points"]), charged)
+
+
+def release_tool_points(db: sqlite3.Connection, reservation_id: int) -> None:
+    row = _take_tool_reservation(db, reservation_id)
+    if row is not None:
+        release_points(db, int(row["user_id"]), "red", int(row["points"]))
 
 
 def record_billing_anomaly(

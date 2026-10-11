@@ -88,6 +88,8 @@ overrides the green total.
 The admin API (`POST /api/admin/users`) takes the same `role`; fields left out
 take the role's values and explicit fields override them. Administrators always
 get a `100%` green discount, on creation and when promoted by `PATCH`.
+`role: "admin"` together with `is_admin: false` is a contradiction and is
+rejected with 400 `invalid_parameters` (`field: "is_admin"`).
 
 `agent_test` is the canonical account for live browser, smoke, and end-to-end
 tests against the deployed service. Keep credentials and WebAuthn enrollment
@@ -135,7 +137,8 @@ provider user IDs to existing local numeric user IDs using
 happens at login. Unmapped users retain their data but cannot sign in.
 
 Browser cookies contain only a random session ID. Sessions, with their refresh
-tokens, are stored in the gateway's SQLite database under a SHA-256 digest of
+tokens (encrypted with a key derived from the client secret, so rotating the
+secret signs everyone out; the database file is created with mode 0600), are stored in the gateway's SQLite database under a SHA-256 digest of
 that ID, so they survive restarts. Access tokens are verified on receipt and
 normal requests check their validity locally. Refreshes are serialized per
 session; an identity provider outage keeps the session (`auth_unavailable`),

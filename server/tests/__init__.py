@@ -46,3 +46,6 @@ for _name in (
     "NAIWEAVER_FREE_ALLOWANCE_COOLDOWN_SECONDS",
 ):
     os.environ.pop(_name, None)
+
+# Do not wait between balance reads in tests.
+os.environ["NAIWEAVER_BALANCE_RECHECK_SECONDS"] = "0"
