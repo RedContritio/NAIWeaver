@@ -168,9 +168,9 @@ class PresetNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  void duplicatePreset(GenerationPreset preset) {
+  void duplicatePreset(GenerationPreset preset, String copyName) {
     final newPreset = GenerationPreset(
-      name: "${preset.name} (Copy)",
+      name: copyName,
       prompt: preset.prompt,
       negativePrompt: preset.negativePrompt,
       width: preset.width,
@@ -199,9 +199,9 @@ class PresetNotifier extends ChangeNotifier {
     return _state.presets.any((p) => p.name == currentName && p.name != _state.originalName);
   }
 
-  void createNewPreset() {
+  void createNewPreset(String name) {
     final newPreset = GenerationPreset(
-      name: "NEW PRESET",
+      name: name,
       prompt: "",
       negativePrompt: "",
       width: 832,

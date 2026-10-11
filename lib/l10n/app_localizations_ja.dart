@@ -137,9 +137,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mainPresetName => 'プリセット名';
 
   @override
-  String get mainAdvancedSettings => '詳細設定';
-
-  @override
   String get generationSheetPrompt => 'プロンプト';
 
   @override
@@ -463,19 +460,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsEditPositivePrefix => 'ポジティブプレフィックスを編集';
 
   @override
-  String get settingsEditNegativePrefix => 'ネガティブプレフィックスを編集';
-
-  @override
   String get settingsDemoPrefixes => 'デモプレフィックス';
 
   @override
-  String get settingsNotSet => '（未設定）';
-
-  @override
   String get settingsGithubRepository => 'GitHubリポジトリ';
-
-  @override
-  String get settingsGithubPlaceholder => 'GitHubリンクプレースホルダ';
 
   @override
   String get galleryTitle => 'ギャラリー';
@@ -839,9 +827,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get panelSampler => 'サンプラー';
 
   @override
-  String get panelPostProcessing => '後処理';
-
-  @override
   String get panelStyles => 'スタイル';
 
   @override
@@ -883,10 +868,11 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get panelInputsEmptyMessage =>
-      'プリサイスリファレンスとバイブ転送は有料ツールで、このアカウントでは使用できず、追加済みの項目もありません。';
+      'プリサイスリファレンスとバイブトランスファーは有料ツールで、このアカウントでは使用できず、追加済みの項目もありません。';
 
   @override
-  String get panelInputsHiddenMessage => 'プリサイスリファレンスとバイブ転送の棚は設定でオフになっています。';
+  String get panelInputsHiddenMessage =>
+      'プリサイスリファレンスとバイブトランスファーの棚は設定でオフになっています。';
 
   @override
   String get panelSaveToAlbum => 'アルバムに保存';
@@ -1041,15 +1027,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get helpShortcutArtistPrefix => 'タグ候補をアーティストに絞り込む';
-
-  @override
-  String get helpShortcutSourceAction => 'アクションを実行するキャラクター';
-
-  @override
-  String get helpShortcutTargetAction => 'アクションを受けるキャラクター';
-
-  @override
-  String get helpShortcutMutualAction => 'キャラクター間の共有アクション';
 
   @override
   String get helpShortcutEnter => '生成（またはタグ候補を選択）';
@@ -1537,12 +1514,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get refVibeTransfer => 'バイブトランスファー';
 
   @override
-  String get refDialogCancel => 'キャンセル';
-
-  @override
-  String get refDialogSave => '保存';
-
-  @override
   String get refNameHint => '名前';
 
   @override
@@ -1598,9 +1569,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get refSaveVibe => 'バイブを保存';
-
-  @override
-  String get refVibeTransfers => 'バイブトランスファー';
 
   @override
   String refVibeCount(int count) {
@@ -1707,9 +1675,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get packExportGalleryZipDesc => 'フォルダ内のアルバム階層を保持';
-
-  @override
-  String get packImportDialogTitle => 'NAIWeaverパックをインポート';
 
   @override
   String packFailedRead(String error) {
@@ -2272,15 +2237,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get img2imgUseAsSource => 'ソースとして使用';
 
   @override
-  String get img2imgInpainting => 'インペインティング';
-
-  @override
-  String get img2imgTitle => 'IMG2IMG';
-
-  @override
-  String get img2imgEditorLabel => 'エディタ';
-
-  @override
   String get img2imgBackToPicker => 'ピッカーに戻る';
 
   @override
@@ -2696,9 +2652,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsUpdateInstallFailed => 'インストーラーを起動できませんでした';
 
   @override
-  String get settingsUpdateSkipVersion => 'このバージョンをスキップ';
-
-  @override
   String get settingsUpdateOpenInBrowser => 'ブラウザで開く';
 
   @override
@@ -2720,7 +2673,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mainEstimatedCostReference => '参照画像';
 
   @override
-  String get mainEstimatedCostVibe => 'Vibe';
+  String get mainEstimatedCostVibe => 'バイブトランスファー';
 
   @override
   String get mainEstimatedCostSerialImages => '直列枚数';
@@ -2783,9 +2736,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get canvasRedo => 'やり直し';
 
   @override
-  String get canvasClear => 'すべてのストロークをクリア';
-
-  @override
   String get canvasFlatten => '統合';
 
   @override
@@ -2809,21 +2759,6 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get canvasFlattening => '統合中...';
-
-  @override
-  String get canvasRestoreSession => '前回のキャンバスセッションが見つかりました。復元しますか？';
-
-  @override
-  String get canvasRestore => '復元';
-
-  @override
-  String get canvasAutoSave => 'キャンバス自動保存';
-
-  @override
-  String get canvasAutoSaveDesc => 'クラッシュ復旧のためにキャンバス編集セッションを自動保存します';
-
-  @override
   String get canvasColor => 'カラー';
 
   @override
@@ -2839,15 +2774,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get canvasLayerDuplicate => 'レイヤー複製';
 
   @override
-  String get canvasLayerRename => '名前変更';
-
-  @override
-  String get canvasLayerVisible => '表示';
-
-  @override
-  String get canvasLayerHidden => '非表示';
-
-  @override
   String get canvasLayerOpacity => '不透明度';
 
   @override
@@ -2855,11 +2781,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get canvasLayerDeleteConfirm => 'このレイヤーを削除しますか？ストロークは失われます。';
-
-  @override
-  String canvasLayerDefault(int number) {
-    return 'レイヤー $number';
-  }
 
   @override
   String get canvasLayerClear => 'レイヤークリア';
@@ -2904,9 +2825,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get canvasTextSize => 'サイズ';
 
   @override
-  String get canvasTextPlace => '配置';
-
-  @override
   String get canvasTextFont => 'フォント';
 
   @override
@@ -2943,18 +2861,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get canvasPaletteHoldHint => '長押しで置換';
 
   @override
-  String get canvasBlendNormal => '通常';
-
-  @override
-  String get canvasBlendMultiply => '乗算';
-
-  @override
-  String get canvasBlendScreen => 'スクリーン';
-
-  @override
-  String get canvasBlendOverlay => 'オーバーレイ';
-
-  @override
   String get settingsOutputFolder => '出力フォルダ';
 
   @override
@@ -2985,9 +2891,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsFolderUseDefault => '既定のフォルダーを使う';
-
-  @override
-  String get settingsOutputFolderClear => 'クリア';
 
   @override
   String get settingsUseSdCard => 'SDカードを使用';
@@ -3146,15 +3049,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String charEditorMutualDisplay(String source, String target, String action) {
-    return '$source ↔ $target: $action';
-  }
-
-  @override
   String get charEditorSavePreset => 'プリセットを保存';
-
-  @override
-  String get charEditorLoadPreset => 'プリセットを読み込み';
 
   @override
   String get charEditorPresetName => 'プリセット名';
@@ -3545,9 +3440,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get jukeboxSettings => '設定';
 
   @override
-  String get jukeboxQueue => 'キュー';
-
-  @override
   String get jukeboxQueueEmpty => 'キューは空です';
 
   @override
@@ -3597,15 +3489,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get jukeboxCategoryRock => 'ロック';
-
-  @override
-  String get jukeboxEnableMusic => '音楽を有効化';
-
-  @override
-  String get jukeboxMusicVolume => '音楽の音量';
-
-  @override
-  String get jukeboxKaraokeLyrics => 'カラオケ歌詞';
 
   @override
   String get mlModels => 'MLモデル';
@@ -3717,13 +3600,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mlTierQuality => '高品質';
 
   @override
-  String get mlRemovingBg => '背景を除去中';
-
-  @override
   String get mlUpscalingImages => '画像をアップスケール中';
-
-  @override
-  String get mlBgRemovalFailed => '背景除去に失敗';
 
   @override
   String get mlUpscaleFailed => 'アップスケールに失敗';
@@ -4034,9 +3911,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get commonMenu => 'メニュー';
 
   @override
-  String get presetDuplicate => '複製';
-
-  @override
   String get presetLoad => 'プリセット読み込み';
 
   @override
@@ -4151,19 +4025,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsExportFolderDefault => 'デフォルト（デバイスギャラリー）';
 
   @override
-  String get settingsUpscaleBackend => 'アップスケールバックエンド';
-
-  @override
-  String get settingsUpscaleBackendDesc =>
-      'ローカルMLモデルまたはNovelAI APIからアップスケール方法を選択';
-
-  @override
-  String get settingsUpscaleBackendMl => 'ML（ローカル）';
-
-  @override
-  String get settingsUpscaleBackendNovelai => 'NovelAI（API）';
-
-  @override
   String get quickActionEnhance => 'エンハンス';
 
   @override
@@ -4266,9 +4127,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get jukeboxSelectInstrument => '楽器を選択';
-
-  @override
-  String get jukeboxWatch => '観る';
 
   @override
   String get jukeboxPlayGame => 'プレイ';
@@ -4515,13 +4373,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get directorToolsFromGallery => 'ギャラリーから';
 
   @override
-  String get settingsBgRemovalBackend => '背景除去バックエンド';
-
-  @override
-  String get settingsBgRemovalBackendDesc =>
-      'ローカルMLモデルまたはNovelAI APIから背景除去方法を選択';
-
-  @override
   String get importDialogTitle => 'メタデータのインポート';
 
   @override
@@ -4556,12 +4407,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get img2imgOutputRes => '出力解像度';
-
-  @override
-  String get img2imgResetRes => 'ソースにリセット';
-
-  @override
-  String get img2imgChangeRes => '変更';
 
   @override
   String get duplicateImageWarning =>
@@ -4832,7 +4677,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get quoteReasonDirectorRefs => '精密リファレンスを含みます';
 
   @override
-  String get quoteReasonVibes => 'Vibe を含みます';
+  String get quoteReasonVibes => 'バイブトランスファーを含みます';
 
   @override
   String get quoteReasonAllowanceExhausted => '無料枠が一時的に使い切られています';
@@ -4886,7 +4731,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String generationInputsActive(int references, int vibes) {
-    return '参照 $references · VIBE $vibes';
+    return '参照 $references · バイブトランスファー $vibes';
   }
 
   @override
@@ -4895,7 +4740,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get generationInputsTooltip => '次の画像に付けるリファレンスと Vibe。タップして開きます。';
+  String get generationInputsTooltip => '次の画像に付けるリファレンスとバイブトランスファー。タップして開きます。';
 
   @override
   String get refPausedNoRedPoints => '停止中: レッドポイント不足のため送信されません。';
@@ -4910,7 +4755,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String refAccessCountVibes(int count) {
-    return 'Vibe $count 件';
+    return 'バイブトランスファー $count 件';
   }
 
   @override
@@ -5081,6 +4926,577 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get photoshootStyleInk => 'インク';
+
+  @override
+  String get cascadeHelpTitle => 'カスケードガイド';
+
+  @override
+  String get cascadeHelpOverviewHeader => '概要';
+
+  @override
+  String get cascadeHelpOverviewBody =>
+      'カスケードは、キャラクターを一貫させたまま複数ビートのシーン連作を生成します。各ビートは、独自の環境・キャラクターのポーズ・設定を持つ1回の生成です。キャラクターの外見はキャスティングシートで一度設定すれば、すべてのビートに適用されます。';
+
+  @override
+  String get cascadeHelpSetupHeader => 'セットアップの流れ';
+
+  @override
+  String get cascadeHelpStepCreate => '作成';
+
+  @override
+  String get cascadeHelpStepCreateDesc => '名前、キャラクター数 (0〜5)、配置モードを設定します';
+
+  @override
+  String get cascadeHelpStepEdit => 'ビートを編集';
+
+  @override
+  String get cascadeHelpStepEditDesc =>
+      'ビートごとに、シーン/アクション、環境、キャラクタープロンプト、アクション、位置、スタイル、設定を指定します';
+
+  @override
+  String get cascadeHelpStepCast => 'キャスト';
+
+  @override
+  String get cascadeHelpStepCastDesc => '保存してメイン画面の再生ビューに戻ります';
+
+  @override
+  String get cascadeHelpStepGenerate => '生成';
+
+  @override
+  String get cascadeHelpStepGenerateDesc =>
+      'キャラクターの外見と、必要に応じてグローバルインジェクションを入力し、各ビートを生成します';
+
+  @override
+  String get cascadeHelpBasePromptHeader => 'ベースプロンプト';
+
+  @override
+  String get cascadeHelpScene => 'シーン / アクション';
+
+  @override
+  String get cascadeHelpSceneDesc =>
+      '何が起きているか、どう切り取るかを表すベースプロンプトのタグです（例：\"2girls, hugging, wide shot, from above\"）。人数・アクション・カメラ関連のタグはここに入れます。';
+
+  @override
+  String get cascadeHelpEnvironment => '環境';
+
+  @override
+  String get cascadeHelpEnvironmentDesc =>
+      'シーンの舞台を表すベースプロンプトのタグです（例：\"forest, night, indoors\"）。';
+
+  @override
+  String get cascadeHelpBasePromptNote =>
+      'どちらも文章ではなくタグで、同じベースプロンプトに入ります。シーン/アクションが先、環境が後に続きます。';
+
+  @override
+  String get cascadeHelpSlotsHeader => 'キャラクタースロット';
+
+  @override
+  String get cascadeHelpSlotPositive => 'ポジティブプロンプト';
+
+  @override
+  String get cascadeHelpSlotPositiveDesc =>
+      'ビートごとのキャラクタータグ（例：\"happy, sitting\"）';
+
+  @override
+  String get cascadeHelpSlotNegative => 'ネガティブプロンプト';
+
+  @override
+  String get cascadeHelpSlotNegativeDesc => 'このキャラクターについて、ビートごとに避けたい要素';
+
+  @override
+  String get cascadeHelpSlotGrid => '位置グリッド';
+
+  @override
+  String get cascadeHelpSlotGridDesc => '5x5 グリッドで正確に配置します（手動配置がオンの場合）';
+
+  @override
+  String get cascadeHelpSlotActions => 'アクションタグ';
+
+  @override
+  String get cascadeHelpSlotActionsDesc => 'このビートでのキャラクター間のやり取りを設定します';
+
+  @override
+  String get cascadeHelpActionsHeader => 'アクションのやり取り';
+
+  @override
+  String get cascadeHelpActionsIntro =>
+      'キャラクタースロット間のリンクアイコンをタップすると、そのビートのやり取りを設定できます。';
+
+  @override
+  String get cascadeHelpSourceTarget => '送り手 → 受け手';
+
+  @override
+  String get cascadeHelpSourceTargetDesc => '方向のあるアクション（例：AがBを抱きしめる）';
+
+  @override
+  String get cascadeHelpMutual => '相互 ↔';
+
+  @override
+  String get cascadeHelpMutualDesc => '両方のキャラクターが対等に関わるアクション（例：手をつなぐ）';
+
+  @override
+  String get cascadeHelpActionsNote =>
+      'タグはキャラクタープロンプト内に source#action、target#action、mutual#action の形で埋め込まれます。';
+
+  @override
+  String get cascadeHelpCastingHeader => 'キャスティングシート';
+
+  @override
+  String get cascadeHelpCastAppearance => 'キャラクターの外見';
+
+  @override
+  String get cascadeHelpCastAppearanceDesc =>
+      '各キャラクターの基本の見た目（例：\"1girl, blue hair\"）。全ビートで共通です';
+
+  @override
+  String get cascadeHelpCastGlobalScene => 'グローバルシーン';
+
+  @override
+  String get cascadeHelpCastGlobalSceneDesc =>
+      '全ビートに適用されるシーン/アクションのタグ（例：\"2girls, school uniform\"）。各ビート自身のシーン/アクションタグの前に付きます';
+
+  @override
+  String get cascadeHelpCastInjection => 'グローバルインジェクション';
+
+  @override
+  String get cascadeHelpCastInjectionDesc => '全ビートに追加されるプロンプトやスタイル';
+
+  @override
+  String get cascadeHelpCastThumbs => 'ビートのサムネイル';
+
+  @override
+  String get cascadeHelpCastThumbsDesc => 'タップで選択。生成後にプレビューが表示されます';
+
+  @override
+  String get cascadeHelpCastCaption => 'ナレーションキャプション';
+
+  @override
+  String get cascadeHelpCastCaptionDesc =>
+      'ビートのプレビュー上に表示される自由記述のナレーション（表示専用）。タグではなく文章です。目のアイコンで表示を切り替えます。カスケードには保存されません。';
+
+  @override
+  String get cascadeHelpCastExport => 'エクスポート';
+
+  @override
+  String get cascadeHelpCastExportDesc =>
+      'キャプションを1枚のビート PNG に焼き込むか、生成済みの全ビートを縦または横のストーリーボードにまとめます（共有アイコン）';
+
+  @override
+  String get cascadeHelpCastGenerate => '生成';
+
+  @override
+  String get cascadeHelpCastGenerateDesc => '選択中のビートを生成し、自動で次へ進みます';
+
+  @override
+  String get cascadeHelpPerBeatHeader => 'ビートごとの設定';
+
+  @override
+  String get cascadeHelpPerBeatBody =>
+      '各ビートに独自の解像度、サンプラー、ステップ数、スケール、スタイルを設定できます。スタイルはスタイルライブラリからビートごとに切り替えます。';
+
+  @override
+  String get cascadeHelpTipsHeader => 'ヒント';
+
+  @override
+  String get cascadeHelpTip1 => 'ビート間の場面転換には環境タグを使いましょう';
+
+  @override
+  String get cascadeHelpTip2 => 'キャラクターの外見はキャスティングシートで一貫させましょう';
+
+  @override
+  String get cascadeHelpTip3 => 'ビートごとにアクションタグを変えて、やり取りの変化を表現しましょう';
+
+  @override
+  String get cascadeHelpTip4 => 'ビートを複製すれば、似たシーンをすばやく試せます';
+
+  @override
+  String get cascadeHelpTip5 => 'ビートごとに異なるスタイルを使って、雰囲気を変えられます';
+
+  @override
+  String get canvasHelpToolsHeader => 'ツール';
+
+  @override
+  String get canvasHelpPaint => 'ペイント — フリーハンドのブラシ';
+
+  @override
+  String get canvasHelpErase => '消しゴム — ストロークを消す';
+
+  @override
+  String get canvasHelpLine => 'ライン — 直線を引く';
+
+  @override
+  String get canvasHelpRectangle => '四角 — 枠線または塗りつぶし';
+
+  @override
+  String get canvasHelpCircle => '円 / 楕円';
+
+  @override
+  String get canvasHelpFill => '塗りつぶし — 領域をバケツ塗り';
+
+  @override
+  String get canvasHelpText => 'テキスト — キャンバスに文字を追加';
+
+  @override
+  String get canvasHelpEyedropper => 'スポイト — 色を拾う';
+
+  @override
+  String get canvasHelpTransform => '移動 — レイヤーの移動/拡大縮小';
+
+  @override
+  String get canvasHelpSelect => '選択 — 矩形選択';
+
+  @override
+  String get canvasHelpLasso => '投げ縄 — フリーハンド選択';
+
+  @override
+  String get canvasHelpBlur => 'ぼかし — ガウスぼかしのブラシ';
+
+  @override
+  String get canvasHelpClone => 'コピースタンプ — 元の位置からコピー';
+
+  @override
+  String get canvasHelpNavigationHeader => 'ナビゲーション';
+
+  @override
+  String get canvasHelpKeySpaceDrag => 'Space + ドラッグ';
+
+  @override
+  String get canvasHelpPan => 'キャンバスを移動';
+
+  @override
+  String get canvasHelpKeyScroll => 'スクロール';
+
+  @override
+  String get canvasHelpZoom => '拡大 / 縮小';
+
+  @override
+  String get canvasHelpKeyCtrlScroll => 'Ctrl + スクロール';
+
+  @override
+  String get canvasHelpBrushSize => 'ブラシサイズを調整';
+
+  @override
+  String get canvasHelpBrushStep => 'ブラシを小さく / 大きく';
+
+  @override
+  String get canvasHelpActionsHeader => '操作';
+
+  @override
+  String get canvasHelpKeyEscape => 'Esc';
+
+  @override
+  String get canvasHelpCancelSelection => '選択を解除';
+
+  @override
+  String get canvasHelpKeyAltClick => 'Alt + クリック';
+
+  @override
+  String get canvasHelpSetCloneSource => 'コピースタンプの元位置を設定';
+
+  @override
+  String get canvasHelpModesHeader => 'モード';
+
+  @override
+  String get canvasHelpModeSelect => '選択';
+
+  @override
+  String get canvasHelpModeSelectDesc => '四隅のハンドルで移動・回転・拡大縮小できる矩形選択です。';
+
+  @override
+  String get canvasHelpModeLasso => '投げ縄';
+
+  @override
+  String get canvasHelpModeLassoDesc => 'フリーハンドで囲む選択範囲で、バウンディングボックスのハンドルが付きます。';
+
+  @override
+  String get canvasHelpModeBlur => 'ぼかし';
+
+  @override
+  String get canvasHelpModeBlurDesc => 'ガウスぼかしをかけます。シグマはサイズスライダーで調整します。';
+
+  @override
+  String get canvasHelpModeClone => 'コピースタンプ';
+
+  @override
+  String get canvasHelpModeCloneDesc =>
+      '元の位置のピクセルをコピーします。Alt+クリックで元位置を設定してから描画します。';
+
+  @override
+  String get canvasHelpModeSmooth => 'スムーズ';
+
+  @override
+  String get canvasHelpModeSmoothDesc => 'ツールバーで切り替えると、ブラシのストロークがアンチエイリアスされます。';
+
+  @override
+  String get commonApply => '適用';
+
+  @override
+  String get commonDefault => 'デフォルト';
+
+  @override
+  String get pinUnlockButton => 'ロック解除';
+
+  @override
+  String pinLockoutMessage(int seconds) {
+    return '試行回数が多すぎます。$seconds秒後にもう一度お試しください';
+  }
+
+  @override
+  String get pinBiometricUnlock => '生体認証でロック解除';
+
+  @override
+  String get pinUnlockReason => 'NAIWeaver のロックを解除';
+
+  @override
+  String get jukeboxPlayerVolume => 'プレイヤー音量';
+
+  @override
+  String get jukeboxCategoryCustom => 'カスタム';
+
+  @override
+  String galleryShareFailed(String error) {
+    return '共有に失敗しました: $error';
+  }
+
+  @override
+  String get gallerySdCard => 'SDカード';
+
+  @override
+  String get canvasQuick => 'クイック';
+
+  @override
+  String get canvasReset => 'リセット';
+
+  @override
+  String get canvasPalette => 'パレット';
+
+  @override
+  String get canvasRecent => '最近';
+
+  @override
+  String get canvasResizeTitle => 'キャンバスのサイズ変更';
+
+  @override
+  String get canvasAnchor => '基準位置';
+
+  @override
+  String get helpShortcutKeyHoldTap => '長押し';
+
+  @override
+  String get helpShortcutKeyDragDrop => 'PNG をドラッグ＆ドロップ';
+
+  @override
+  String get charsDress => '衣装';
+
+  @override
+  String get tagSuggestHonorOutfitState => '衣装の状態を反映';
+
+  @override
+  String charEditorSheetTitle(int n) {
+    return 'キャラクター $n エディタ';
+  }
+
+  @override
+  String get charEditorNameOptional => '名前（任意）';
+
+  @override
+  String get charEditorCharacterPrompt => 'キャラクタープロンプト';
+
+  @override
+  String get charEditorEnterTags => 'タグを入力';
+
+  @override
+  String get charEditorCharacterUc => 'キャラクター UC';
+
+  @override
+  String get charEditorPositionGrid => '位置（5x5 グリッド）';
+
+  @override
+  String get charEditorSaveCharacter => 'キャラクターを保存';
+
+  @override
+  String get interactionEditorTitle => 'インタラクションエディタ';
+
+  @override
+  String get interactionActionLabel => 'アクション';
+
+  @override
+  String get interactionActionHint => 'アクションを入力（例：hugging）';
+
+  @override
+  String get interactionDirectionLabel => '方向';
+
+  @override
+  String get interactionSave => 'インタラクションを保存';
+
+  @override
+  String tagLibPreviewSummary(
+    String prompt,
+    int width,
+    int height,
+    int steps,
+    String scale,
+  ) {
+    return 'P: $prompt | ${width}X$height | ステップ: $steps | スケール: $scale';
+  }
+
+  @override
+  String panelSectionError(String id, String error) {
+    return '$id でエラー: $error';
+  }
+
+  @override
+  String get mlStageStarting => '開始中...';
+
+  @override
+  String get mlStagePreprocessing => '前処理中...';
+
+  @override
+  String get mlStageAnalyzing => '画像を解析中...';
+
+  @override
+  String get mlStageLoadingModel => 'モデルを読み込み中...';
+
+  @override
+  String get mlStageLoadingEncoder => 'エンコーダーを読み込み中...';
+
+  @override
+  String get mlStageEncodingImage => '画像をエンコード中...';
+
+  @override
+  String get mlStageRunningInference => '推論を実行中...';
+
+  @override
+  String get mlStageGeneratingMatte => 'マットを生成中...';
+
+  @override
+  String get mlStageGeneratingMask => 'マスクを生成中...';
+
+  @override
+  String get mlStageApplyingMask => 'マスクを適用中...';
+
+  @override
+  String get mlStageSplittingTiles => 'タイルに分割中...';
+
+  @override
+  String get mlStageUpscalingTiles => 'タイルを拡大中...';
+
+  @override
+  String get mlStageRecombiningAlpha => 'アルファを再合成中...';
+
+  @override
+  String get mlStageStitching => '結果を結合中...';
+
+  @override
+  String get mlStageComplete => '完了';
+
+  @override
+  String get mlCpuOnly => 'CPUのみ';
+
+  @override
+  String get mlSegmentEncodeFailed =>
+      '画像のエンコードに失敗しました — セグメンテーションモデルがダウンロード済みか確認してください';
+
+  @override
+  String get mlSegmentNotEncoded => '画像がエンコードされていません — セグメントツールを開き直してください';
+
+  @override
+  String get mlSegmentFailed => 'セグメンテーションに失敗しました — 別の点を試してください';
+
+  @override
+  String get charsGenStepCreating => 'キャラクターを作成中…';
+
+  @override
+  String get charsGenStepWardrobe => 'ワードローブを生成中…';
+
+  @override
+  String get charsGenStepSaving => '保存中…';
+
+  @override
+  String get charsGenStepDone => '完了';
+
+  @override
+  String get charsGenErrUnusable =>
+      'モデルから使えるキャラクター JSON が返りませんでした。もう一度試すか、上位プランのアカウント / より長い出力長を選んでください。';
+
+  @override
+  String canvasLayerNameN(int n) {
+    return 'レイヤー $n';
+  }
+
+  @override
+  String canvasImageLayerNameN(int n) {
+    return '画像 $n';
+  }
+
+  @override
+  String canvasLayerCopyName(String name) {
+    return '$name のコピー';
+  }
+
+  @override
+  String get canvasSegmentedLayerName => 'セグメント';
+
+  @override
+  String commonCopyName(String name) {
+    return '$name（コピー）';
+  }
+
+  @override
+  String get packDefaultExportName => 'マイパック';
+
+  @override
+  String slideshowDefaultName(int n) {
+    return 'スライドショー $n';
+  }
+
+  @override
+  String get mlModelDescIsnetAnime => '二値マスク、アニメ向けに最適化';
+
+  @override
+  String get mlModelDescRmbgQuantized => 'アルファマット、量子化版';
+
+  @override
+  String get mlModelDescRmbgBest => 'アルファマット、最高品質';
+
+  @override
+  String get mlModelDescUpscaleFast => '2倍拡大、高速で軽量';
+
+  @override
+  String get mlModelDescUpscaleMobile => '2倍拡大、モバイル向けフォールバック';
+
+  @override
+  String get mlModelDescUpscaleBest => '2倍拡大、最高品質';
+
+  @override
+  String get mlModelDescSamEncoder => '対話型セグメンテーション用の画像エンコーダー';
+
+  @override
+  String get mlModelDescSamDecoder => '対話型セグメンテーション用のマスクデコーダー';
+
+  @override
+  String get soundfontDescNes => '8ビットのレトロな NES サウンド';
+
+  @override
+  String get soundfontDescGeneralUser => '高品質な General MIDI サウンドフォント';
+
+  @override
+  String get soundfontDescCat => 'すべての楽器が猫の鳴き声';
+
+  @override
+  String get soundfontDescSnes => '16ビットのスーパーファミコンサウンド';
+
+  @override
+  String get soundfontDescGenesis => 'セガ メガドライブ YM2612 FM シンセ';
+
+  @override
+  String get soundfontDescN64Roxie => 'ニンテンドー64のゲームサンプル';
+
+  @override
+  String get soundfontDescN64Sdk => 'ニンテンドー64 SDK 標準サンプル';
+
+  @override
+  String get mlDownloadHashMismatch => 'ハッシュの検証に失敗しました';
 
   @override
   String get startupFailedTitle => 'NAIWeaver を起動できませんでした';

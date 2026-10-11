@@ -9,6 +9,7 @@ import '../models/saved_character.dart';
 import '../services/wardrobe_generator_service.dart';
 import 'character_gen_data.dart';
 import 'character_gen_prompts.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// The form inputs collected from the user.
 class CharacterGenForm {
@@ -44,19 +45,23 @@ class CharacterGenForm {
 /// Coarse pipeline steps, surfaced to the progress UI.
 enum CharacterGenStep { preparing, generating, wardrobe, saving, done }
 
+/// Client-side reasons a character generation fails; carried as the `cause`
+/// of a [TextGenException] and localized at the UI layer.
+enum CharacterGenIssue { unusableJson }
+
 extension CharacterGenStepX on CharacterGenStep {
-  String get label {
+  String label(AppLocalizations l) {
     switch (this) {
       case CharacterGenStep.preparing:
-        return 'Preparing…';
+        return l.charsGenPreparing;
       case CharacterGenStep.generating:
-        return 'Creating character…';
+        return l.charsGenStepCreating;
       case CharacterGenStep.wardrobe:
-        return 'Generating wardrobe…';
+        return l.charsGenStepWardrobe;
       case CharacterGenStep.saving:
-        return 'Saving…';
+        return l.charsGenStepSaving;
       case CharacterGenStep.done:
-        return 'Done';
+        return l.charsGenStepDone;
     }
   }
 }
@@ -73,8 +78,8 @@ class CharacterGenProgress {
 
   const CharacterGenProgress(this.step, {this.current, this.total, this.detail});
 
-  String get text {
-    var s = step.label;
+  String text(AppLocalizations l) {
+    var s = step.label(l);
     if (current != null && total != null) s = '$s ($current/$total)';
     if (detail != null && detail!.isNotEmpty) s = '$s — $detail';
     return s;
@@ -174,8 +179,8 @@ class CharacterGenService {
     final parsed = _parseCharacterJson(raw);
     if (parsed == null) {
       throw TextGenException(
-        'The model didn\'t return usable character JSON. Try again, or pick a higher-tier '
-        'account / larger output length.',
+        'Model did not return usable character JSON',
+        cause: CharacterGenIssue.unusableJson,
       );
     }
 

@@ -6,6 +6,7 @@ import '../../../core/widgets/tag_suggestion_overlay.dart';
 import '../../../core/services/tag_service.dart';
 import '../models/nai_character.dart';
 import '../providers/generation_notifier.dart';
+import '../../../core/l10n/l10n_extensions.dart';
 
 class ActionInteractionSheet extends StatefulWidget {
   final List<int> sourceIndices;
@@ -195,7 +196,7 @@ class _ActionInteractionSheetState extends State<ActionInteractionSheet> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'INTERACTION EDITOR',
+                  context.l.interactionEditorTitle,
                   style: TextStyle(
                     fontWeight: FontWeight.w900,
                     fontSize: t.fontSize(12),
@@ -222,7 +223,7 @@ class _ActionInteractionSheetState extends State<ActionInteractionSheet> {
             ),
             const SizedBox(height: 24),
             Text(
-              'ACTION',
+              context.l.interactionActionLabel,
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 fontSize: t.fontSize(9),
@@ -241,7 +242,7 @@ class _ActionInteractionSheetState extends State<ActionInteractionSheet> {
                 height: 1.4,
               ),
               decoration: InputDecoration(
-                hintText: 'ENTER ACTION (e.g., hugging)',
+                hintText: context.l.interactionActionHint,
                 hintStyle: TextStyle(
                   fontSize: t.fontSize(9),
                   color: t.textMinimal,
@@ -270,7 +271,7 @@ class _ActionInteractionSheetState extends State<ActionInteractionSheet> {
             ),
             const SizedBox(height: 20),
             Text(
-              'DIRECTION',
+              context.l.interactionDirectionLabel,
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 fontSize: t.fontSize(9),
@@ -316,7 +317,7 @@ class _ActionInteractionSheetState extends State<ActionInteractionSheet> {
                 ),
               ),
               child: Text(
-                'SAVE INTERACTION',
+                context.l.interactionSave,
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   letterSpacing: 2,

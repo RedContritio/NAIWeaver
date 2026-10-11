@@ -25,6 +25,7 @@ import '../../generation/providers/generation_notifier.dart';
 import '../../characters/providers/character_library_notifier.dart';
 import '../providers/preset_notifier.dart';
 import '../../../core/theme/vision_metrics.dart';
+import '../../director_ref/models/director_reference_type_l10n.dart';
 
 class PresetManager extends StatelessWidget {
   const PresetManager({super.key});
@@ -95,7 +96,7 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
     if (!editing) {
       if (!await _guard(notifier).resolve(context) || !mounted) return;
       preset == null
-          ? notifier.createNewPreset()
+          ? notifier.createNewPreset(context.l.presetNew)
           : notifier.selectPreset(preset);
     }
     setState(() => _showingEditor = true);
@@ -196,7 +197,10 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
                     ManagerListAction(
                       label: l.commonDuplicate,
                       icon: Icons.copy,
-                      onSelected: () => notifier.duplicatePreset(preset),
+                      onSelected: () => notifier.duplicatePreset(
+                        preset,
+                        context.l.commonCopyName(preset.name),
+                      ),
                     ),
                     ManagerListAction(
                       label: l.commonDelete,
@@ -437,17 +441,17 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
         ),
         const SizedBox(height: VisionMetrics.space16),
         ShelfToggle(
-          label: "SMEA",
+          label: "SMEA", // l10n-ignore: NovelAI parameter name
           value: preset.smea,
           onChanged: (v) => notifier.updateCurrentPreset(smea: v),
         ),
         ShelfToggle(
-          label: "SMEA DYN",
+          label: "SMEA DYN", // l10n-ignore: NovelAI parameter name
           value: preset.smeaDyn,
           onChanged: (v) => notifier.updateCurrentPreset(smeaDyn: v),
         ),
         ShelfToggle(
-          label: "DECRISPER",
+          label: "DECRISPER", // l10n-ignore: NovelAI parameter name
           value: preset.decrisper,
           onChanged: (v) => notifier.updateCurrentPreset(decrisper: v),
         ),
@@ -674,7 +678,7 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
                     const SizedBox(height: VisionMetrics.space8),
                     _buildMiniTextField(
                       key: ValueKey('preset-char-$index-uc'),
-                      label: "UC",
+                      label: "UC", // l10n-ignore: NovelAI parameter name
                       initialValue: char.uc,
                       onChanged: (val) {
                         final updated = List<NaiCharacter>.from(
@@ -815,7 +819,7 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
                         Positioned(
                           top: 4,
                           left: 4,
-                          child: AppPill(text: ref.type.label, dense: true),
+                          child: AppPill(text: ref.type.localizedLabel(context.l), dense: true),
                         ),
                         // Remove button
                         Positioned(
@@ -842,7 +846,7 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            "STR ${ref.strength.toStringAsFixed(1)}",
+                            '${context.l.refStrengthShort} ${ref.strength.toStringAsFixed(1)}',
                             style: TextStyle(
                               color: t.textDisabled,
                               fontSize: t.fontSize(7),
@@ -850,7 +854,7 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
                             ),
                           ),
                           Text(
-                            "FID ${ref.fidelity.toStringAsFixed(1)}",
+                            '${context.l.refFidelityShort} ${ref.fidelity.toStringAsFixed(1)}',
                             style: TextStyle(
                               color: t.textDisabled,
                               fontSize: t.fontSize(7),

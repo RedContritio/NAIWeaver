@@ -170,7 +170,7 @@ List<SingleChildWidget> buildAppProviders(AppServices services) {
     ),
     ChangeNotifierProvider(create: (_) => CascadeNotifier()),
     ChangeNotifierProvider(create: (_) => Img2ImgNotifier()),
-    ChangeNotifierProvider(create: (_) => CanvasNotifier()),
+    ChangeNotifierProvider(create: (_) => CanvasNotifier(prefs: prefs)),
     ChangeNotifierProvider(
       create: (_) => SlideshowNotifier()
         ..loadFromJson(prefs.slideshowConfigs)

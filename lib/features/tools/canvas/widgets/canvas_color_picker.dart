@@ -471,7 +471,7 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
           Row(
             children: [
               Text(
-                'COLOR',
+                context.l.canvasColor,
                 style: TextStyle(
                   color: t.textDisabled,
                   fontSize: t.fontSize(8),
@@ -539,7 +539,7 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
           Row(
             children: [
               Text(
-                'OPACITY',
+                context.l.canvasOpacity,
                 style: TextStyle(
                   color: t.textDisabled,
                   fontSize: t.fontSize(7),
@@ -579,7 +579,7 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
             Row(
               children: [
                 Text(
-                  'QUICK',
+                  context.l.canvasQuick,
                   style: TextStyle(
                     color: t.textDisabled,
                     fontSize: t.fontSize(7),
@@ -592,7 +592,7 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
                     _quickPalette = _buildQuickPalette();
                   }),
                   child: Text(
-                    'RESET',
+                    context.l.canvasReset,
                     style: TextStyle(
                       color: t.textMinimal,
                       fontSize: t.fontSize(6),
@@ -637,7 +637,7 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
 
           // Default palette grid
           Text(
-            'PALETTE',
+            context.l.canvasPalette,
             style: TextStyle(
               color: t.textDisabled,
               fontSize: t.fontSize(7),
@@ -671,7 +671,7 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
             Row(
               children: [
                 Text(
-                  'RECENT',
+                  context.l.canvasRecent,
                   style: TextStyle(
                     color: t.textDisabled,
                     fontSize: t.fontSize(7),
@@ -727,7 +727,7 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
                     LengthLimitingTextInputFormatter(6),
                   ],
                   decoration: InputDecoration(
-                    hintText: 'FFFFFF',
+                    hintText: 'FFFFFF', // l10n-ignore: hex placeholder
                     hintStyle: TextStyle(color: t.textMinimal),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: VisionMetrics.space8,

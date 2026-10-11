@@ -12,6 +12,7 @@ import 'ml_storage_service.dart';
 import 'ml_background_removal_service.dart';
 import 'ml_upscale_service.dart';
 import 'ml_segmentation_service.dart';
+import 'ml_stage.dart';
 
 class MLNotifier extends ChangeNotifier with WidgetsBindingObserver {
   final String mlModelsDir;
@@ -35,7 +36,7 @@ class MLNotifier extends ChangeNotifier with WidgetsBindingObserver {
   // — Processing state —
   bool _isProcessing = false;
   double _processingProgress = 0.0;
-  String _processingStage = '';
+  MLStage _processingStage = MLStage.starting;
   String? _processingError;
   BGRemovalResult? _lastBgResult;
 
@@ -146,7 +147,7 @@ class MLNotifier extends ChangeNotifier with WidgetsBindingObserver {
 
   bool get isProcessing => _isProcessing;
   double get processingProgress => _processingProgress;
-  String get processingStage => _processingStage;
+  MLStage get processingStage => _processingStage;
   String? get processingError => _processingError;
   BGRemovalResult? get lastBgResult => _lastBgResult;
 
@@ -172,7 +173,7 @@ class MLNotifier extends ChangeNotifier with WidgetsBindingObserver {
     _isProcessing = true;
     _processingError = null;
     _processingProgress = 0.0;
-    _processingStage = 'Starting...';
+    _processingStage = MLStage.starting;
     notifyListeners();
 
     try {
@@ -187,7 +188,7 @@ class MLNotifier extends ChangeNotifier with WidgetsBindingObserver {
       );
 
       if (result == null) {
-        _processingError = 'Background removal failed';
+        _processingError = 'background_removal_failed';
         return null;
       }
 
@@ -210,7 +211,7 @@ class MLNotifier extends ChangeNotifier with WidgetsBindingObserver {
     _isProcessing = true;
     _processingError = null;
     _processingProgress = 0.0;
-    _processingStage = 'Starting...';
+    _processingStage = MLStage.starting;
     notifyListeners();
 
     try {
@@ -225,7 +226,7 @@ class MLNotifier extends ChangeNotifier with WidgetsBindingObserver {
       );
 
       if (result == null) {
-        _processingError = 'Upscaling failed';
+        _processingError = 'upscale_failed';
       }
 
       return result;
@@ -292,7 +293,7 @@ class MLNotifier extends ChangeNotifier with WidgetsBindingObserver {
     _isProcessing = true;
     _processingError = null;
     _processingProgress = 0.0;
-    _processingStage = 'Encoding image...';
+    _processingStage = MLStage.encodingImage;
     notifyListeners();
 
     try {

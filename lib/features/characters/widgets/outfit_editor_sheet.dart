@@ -154,7 +154,7 @@ class _OutfitEditorSheetState extends State<OutfitEditorSheet> {
                       TagTextField(
                         controller: _negativeTags,
                         label: l.charsNegativeTagsOptional,
-                        hint: 'bad anatomy, extra straps',
+                        hint: 'bad anatomy, extra straps', // l10n-ignore: example prompt tags
                         minLines: 1,
                         maxLines: 3,
                       ),

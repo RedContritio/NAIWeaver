@@ -37,8 +37,6 @@ class JukeboxSong {
     this.recommendedProgram,
   });
 
-  String get categoryLabel => category.name.toUpperCase();
-
   Map<String, dynamic> toJson() => {
         'id': id,
         'title': title,

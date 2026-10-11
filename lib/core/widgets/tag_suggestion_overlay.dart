@@ -7,6 +7,7 @@ import '../services/tag_service.dart';
 import '../theme/theme_extensions.dart';
 import '../theme/vision_tokens.dart';
 import '../utils/tag_category_color.dart';
+import '../l10n/l10n_extensions.dart';
 
 /// Shared tag suggestion overlay used across the main generation screen
 /// and all tool editors (preset manager, style editor, etc.).
@@ -258,7 +259,7 @@ class _TagSuggestionOverlayState extends State<TagSuggestionOverlay> {
               ),
               const SizedBox(width: 4),
               Text(
-                'honor outfit state',
+                context.l.tagSuggestHonorOutfitState,
                 style: TextStyle(
                   color: honor ? t.textSecondary : t.textTertiary,
                   fontSize: t.fontSize(9),

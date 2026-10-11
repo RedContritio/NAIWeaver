@@ -37,6 +37,31 @@ number) and compares them with `scripts/ui_conventions_baseline.txt`.
   tests (Flutter pinned to 3.44.8) on every push to `master` and every pull
   request.
 
+## Localization check
+
+`scripts/check_l10n.sh` keeps `lib/l10n/app_{en,ja,zh}.arb` honest. It fails on:
+
+- **Dead keys**: a key in `app_en.arb` that nothing under `lib/` (outside
+  `lib/l10n`) references as `.keyName`. Delete it from all three files. A key
+  that is reached some other way goes into `scripts/l10n_dead_key_allowlist.txt`
+  with a comment saying why.
+- **Key drift**: `app_en.arb`, `app_ja.arb` and `app_zh.arb` must define the
+  same keys.
+- **Hardcoded UI strings**: `Text('...')`, `tooltip:`, `hintText:`,
+  `labelText:`, `helperText:`, `semanticLabel:` and snackbar messages whose
+  literal contains words are counted per file and compared with
+  `scripts/l10n_hardcoded_baseline.txt` (currently empty). Add the string to
+  all three ARB files, run `flutter gen-l10n`, and use `context.l`. Services
+  without a `BuildContext` return an enum or code and the UI maps it to text.
+  Text that must not be translated (brand names, protocol values, a language's
+  own name) takes a `// l10n-ignore: <reason>` comment on that line.
+
+Terminology: zh uses 「氛围迁移」 for Vibe Transfer, ja uses バイブトランスファー;
+never a bare "Vibe" in those files.
+
+`scripts/check_l10n.sh --update` rewrites the baseline after counts go down.
+CI runs it next to the UI conventions check.
+
 ## Tests
 
 Tests cover critical paths only: billing and quotes, the auth session

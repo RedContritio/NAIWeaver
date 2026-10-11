@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/channel_info.dart';
 import '../models/game_score.dart';
 import '../models/jukebox_song.dart';
+import '../models/song_category_l10n.dart';
 import '../jukebox_registry.dart';
 import '../providers/jukebox_notifier.dart';
 import '../../theme/theme_extensions.dart';
@@ -118,7 +119,7 @@ class _GameSongBrowserState extends State<GameSongBrowser> {
       child: Row(
         children: categories.map((cat) {
           final selected = cat == _selectedCategory;
-          final label = cat?.name.toUpperCase() ?? context.l.jukeboxCategoryAll;
+          final label = cat?.label(context.l) ?? context.l.jukeboxCategoryAll;
           return Padding(
             padding: const EdgeInsets.only(right: VisionMetrics.space8),
             child: FilterChip(
@@ -231,7 +232,7 @@ class _GameSongBrowserState extends State<GameSongBrowser> {
                               ),
                             ),
                             child: Text(
-                              song.categoryLabel,
+                              song.category.label(context.l),
                               style: TextStyle(
                                 color: t.accent,
                                 fontSize: t.fontSize(7),
@@ -507,7 +508,7 @@ class _GameSongDetailState extends State<GameSongDetail> {
                   Divider(color: t.borderSubtle),
                   const SizedBox(height: VisionMetrics.space12),
                   Text(
-                    'PLAYER VOLUME',
+                    context.l.jukeboxPlayerVolume,
                     style: TextStyle(
                       color: t.textMinimal,
                       fontSize: t.fontSize(9),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/theme_extensions.dart';
+import '../l10n/l10n_extensions.dart';
 
 /// Shows a styled confirmation dialog and returns `true` if confirmed.
 Future<bool?> showConfirmDialog(
@@ -38,7 +39,7 @@ Future<bool?> showConfirmDialog(
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: Text(
-              (cancelLabel ?? 'CANCEL').toUpperCase(),
+              (cancelLabel ?? ctx.l.commonCancel).toUpperCase(),
               style: TextStyle(color: t.textDisabled, fontSize: t.buttonSize(9)),
             ),
           ),

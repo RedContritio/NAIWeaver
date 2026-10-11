@@ -16,6 +16,7 @@ import '../models/slideshow_config.dart';
 import '../providers/slideshow_notifier.dart';
 import '../../../../core/jukebox/jukebox_registry.dart';
 import '../../../../core/jukebox/models/jukebox_song.dart';
+import '../../../../core/jukebox/models/song_category_l10n.dart';
 import '../../jukebox/widgets/jukebox_panel.dart';
 import '../../widgets/shelf_toggle.dart';
 import '../../widgets/synced_text_field.dart';
@@ -141,7 +142,7 @@ class _SlideshowLauncherState extends State<SlideshowLauncher> {
                 icon: Icons.add,
                 tooltip: l.slideshowNewConfig,
                 onPressed: () {
-                  notifier.createNew();
+                  notifier.createNew(l.slideshowDefaultName);
                   _save(context, notifier);
                   setState(() => _showingEditor = true);
                 },
@@ -701,7 +702,7 @@ class _SlideshowLauncherState extends State<SlideshowLauncher> {
     final categories = [null, ...SongCategory.values];
     final labels = [
       context.l.slideshowCategoryAll,
-      ...SongCategory.values.map((c) => JukeboxRegistry.categoryDisplayName(c)),
+      ...SongCategory.values.map((c) => c.label(context.l)),
     ];
     return AppSegmented<int?>(
       options: [

@@ -12,6 +12,9 @@ import '../services/canvas_flatten_service.dart';
 import '../services/flood_fill.dart';
 import '../services/selection_geometry.dart';
 import '../widgets/canvas_color_picker.dart';
+import '../../../../core/l10n/locale_notifier.dart';
+import '../../../../core/services/preferences_service.dart';
+import '../../../../l10n/app_localizations.dart';
 
 /// Parameters for source image resize in isolate.
 class _ResizeParams {
@@ -72,6 +75,14 @@ enum CanvasTool { paint, erase, line, rectangle, circle, fill, text, eyedropper,
 /// Manages a canvas editing session: layer CRUD, stroke lifecycle,
 /// action-based undo/redo, brush settings.
 class CanvasNotifier extends ChangeNotifier {
+  CanvasNotifier({PreferencesService? prefs}) : _prefs = prefs;
+
+  final PreferencesService? _prefs;
+
+  AppLocalizations get _l10n => lookupAppLocalizations(
+        _prefs == null ? const Locale('en') : LocaleNotifier.resolve(_prefs),
+      );
+
   CanvasSession? _session;
   CanvasSession? get session => _session;
   bool get hasSession => _session != null;
@@ -227,7 +238,7 @@ class CanvasNotifier extends ChangeNotifier {
     const defaultLayerId = 'layer_1';
     final defaultLayer = CanvasLayer(
       id: defaultLayerId,
-      name: 'Layer 1',
+      name: _l10n.canvasLayerNameN(1),
     );
     _nextLayerNumber = 2;
     _activeSelection = null;
@@ -561,7 +572,7 @@ class CanvasNotifier extends ChangeNotifier {
   void addLayer() {
     if (_session == null) return;
     final id = 'layer_${DateTime.now().microsecondsSinceEpoch}';
-    final name = 'Layer $_nextLayerNumber';
+    final name = _l10n.canvasLayerNameN(_nextLayerNumber);
     _nextLayerNumber++;
 
     final layer = CanvasLayer(id: id, name: name);
@@ -601,7 +612,7 @@ class CanvasNotifier extends ChangeNotifier {
     final newId = 'layer_${DateTime.now().microsecondsSinceEpoch}';
     final copy = src.copyWith(
       id: newId,
-      name: '${src.name} copy',
+      name: _l10n.canvasLayerCopyName(src.name),
       strokes: List<PaintStroke>.from(src.strokes),
     );
     final insertIdx = srcIdx + 1;
@@ -688,7 +699,7 @@ class CanvasNotifier extends ChangeNotifier {
   void addImageLayer(Uint8List bytes, {String? name}) {
     if (_session == null) return;
     final id = 'layer_${DateTime.now().microsecondsSinceEpoch}';
-    final layerName = name ?? 'Image $_nextLayerNumber';
+    final layerName = name ?? _l10n.canvasImageLayerNameN(_nextLayerNumber);
     _nextLayerNumber++;
 
     final layer = CanvasLayer(

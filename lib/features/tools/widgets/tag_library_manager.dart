@@ -819,7 +819,13 @@ class _QuickTagPreviewDialogState extends State<_QuickTagPreviewDialog> {
               builder: (context, notifier, child) {
                 final settings = notifier.state.previewSettings;
                 return Text(
-                  "P: ${settings.positivePrompt.toUpperCase()} | ${settings.width.toInt()}X${settings.height.toInt()} | STEPS: ${settings.steps} | SCALE: ${settings.scale}",
+                  context.l.tagLibPreviewSummary(
+                    settings.positivePrompt.toUpperCase(),
+                    settings.width.toInt(),
+                    settings.height.toInt(),
+                    settings.steps,
+                    '${settings.scale}',
+                  ),
                   style: TextStyle(
                     color: t.textMinimal,
                     fontSize: t.fontSize(7),

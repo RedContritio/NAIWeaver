@@ -1,4 +1,5 @@
 import 'ml_model_entry.dart';
+import '../../l10n/app_localizations.dart';
 
 enum MLRecommendationLevel { recommended, slow, notRecommended, unavailable }
 
@@ -19,7 +20,7 @@ class MLDeviceCapabilities {
     this.platform = '',
   });
 
-  String get providerLabel {
+  String providerLabel(AppLocalizations l) {
     if (hasGpuAcceleration) {
       if (activeProvider.contains('CUDA')) return 'GPU: CUDA';
       if (activeProvider.contains('DirectML')) return 'GPU: DirectML';
@@ -27,11 +28,11 @@ class MLDeviceCapabilities {
       if (activeProvider.contains('NNAPI')) return 'GPU: NNAPI';
       return 'GPU: $activeProvider';
     }
-    return 'CPU only';
+    return l.mlCpuOnly;
   }
 
-  String get deviceInfoLabel {
-    final provider = providerLabel;
+  String deviceInfoLabel(AppLocalizations l) {
+    final provider = providerLabel(l);
     if (totalRamMB != null) {
       final gb = (totalRamMB! / 1024).round();
       return '$provider \u00b7 $gb GB RAM';

@@ -17,6 +17,9 @@ jobs:
       - name: UI convention ratchet
         run: scripts/check_ui_conventions.sh
 
+      - name: Localization check
+        run: scripts/check_l10n.sh
+
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.44.8

@@ -180,9 +180,9 @@ List<_Shortcut> _getShortcuts(AppLocalizations l) => [
   _Shortcut('/f', l.helpShortcutFavorites),
   _Shortcut('/fa /fc /fg /fr /fm', l.helpShortcutFavCategories),
   _Shortcut('artist:', l.helpShortcutArtistPrefix),
-  _Shortcut('Hold tap', l.helpShortcutHoldDismiss),
+  _Shortcut(l.helpShortcutKeyHoldTap, l.helpShortcutHoldDismiss),
   _Shortcut('Enter', l.helpShortcutEnter),
-  _Shortcut('Drag & drop PNG', l.helpShortcutDragDrop),
+  _Shortcut(l.helpShortcutKeyDragDrop, l.helpShortcutDragDrop),
 ];
 
 class _Feature {

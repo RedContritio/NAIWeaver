@@ -92,7 +92,7 @@ Future<ResolutionOption?> showCustomResolutionDialog(BuildContext context) {
             }
 
             final name = nameController.text.trim().isEmpty
-                ? 'CUSTOM'
+                ? l.panelCustom.toUpperCase()
                 : nameController.text.trim().toUpperCase();
             final option = ResolutionOption(name, w, h, isCustom: true);
 

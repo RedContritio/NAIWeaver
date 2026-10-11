@@ -13,6 +13,7 @@ import '../../../../core/widgets/ui/app_pill.dart';
 import '../../../../core/widgets/ui/app_sheet.dart';
 import '../../../../core/widgets/ui/app_tone.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../../core/ml/ml_model_entry_l10n.dart';
 
 /// Bottom sheet for picking an ML model of a given type.
 /// Shows download status, tier badges, and device recommendations.
@@ -76,7 +77,7 @@ class MLModelPicker extends StatelessWidget {
               child: Align(
                 alignment: Alignment.centerRight,
                 child: AppPill(
-                  text: caps.deviceInfoLabel,
+                  text: caps.deviceInfoLabel(context.l),
                   tone: caps.hasGpuAcceleration
                       ? AppTone.success
                       : AppTone.warning,
@@ -257,7 +258,7 @@ class _ModelPickerCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        entry.description,
+                        entry.localizedDescription(context.l),
                         style: TextStyle(
                           color: t.textTertiary,
                           fontSize: t.fontSize(9),
@@ -340,7 +341,7 @@ class _ModelPickerCard extends StatelessWidget {
                             const SizedBox(width: VisionMetrics.space4),
                             Expanded(
                               child: Text(
-                                downloadState.errorMessage ??
+                                downloadState.issue?.label(l) ??
                                     l.mlDownloadFailed,
                                 style: TextStyle(
                                   color: t.accentDanger,

@@ -16,7 +16,7 @@ void showCascadeHelpDialog(BuildContext context) {
       return AlertDialog(
         backgroundColor: t.surfaceHigh,
         title: Text(
-          'CASCADE GUIDE',
+          l.cascadeHelpTitle,
           style: TextStyle(
             color: t.textPrimary,
             fontSize: t.fontSize(mobile ? 16 : 14),
@@ -33,217 +33,75 @@ void showCascadeHelpDialog(BuildContext context) {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _sectionHeader(t, 'OVERVIEW', mobile),
+                _sectionHeader(t, l.cascadeHelpOverviewHeader, mobile),
                 const SizedBox(height: VisionMetrics.space8),
-                _paragraph(
-                  t,
-                  'Cascade generates multi-beat scene sequences with consistent characters. '
-                  'Each beat is one generation with its own environment, character poses, and settings. '
-                  'Character appearances are set once in the casting sheet and applied to all beats.',
-                  mobile,
-                ),
+                _paragraph(t, l.cascadeHelpOverviewBody, mobile),
 
                 _divider(t),
 
-                _sectionHeader(t, 'SETUP FLOW', mobile),
+                _sectionHeader(t, l.cascadeHelpSetupHeader, mobile),
                 const SizedBox(height: VisionMetrics.space8),
-                _stepRow(
-                  t,
-                  '1',
-                  'Create',
-                  'Set name, character count (0-5), and positioning mode',
-                  mobile,
-                ),
-                _stepRow(
-                  t,
-                  '2',
-                  'Edit Beats',
-                  'Set scene/action, environment, character prompts, actions, positions, styles, and settings per beat',
-                  mobile,
-                ),
-                _stepRow(
-                  t,
-                  '3',
-                  'Cast',
-                  'Save and return to the main screen playback view',
-                  mobile,
-                ),
-                _stepRow(
-                  t,
-                  '4',
-                  'Generate',
-                  'Enter character appearances, optional global injection, then generate each beat',
-                  mobile,
-                ),
+                _stepRow(t, '1', l.cascadeHelpStepCreate, l.cascadeHelpStepCreateDesc, mobile),
+                _stepRow(t, '2', l.cascadeHelpStepEdit, l.cascadeHelpStepEditDesc, mobile),
+                _stepRow(t, '3', l.cascadeHelpStepCast, l.cascadeHelpStepCastDesc, mobile),
+                _stepRow(t, '4', l.cascadeHelpStepGenerate, l.cascadeHelpStepGenerateDesc, mobile),
 
                 _divider(t),
 
-                _sectionHeader(t, 'BASE PROMPT', mobile),
+                _sectionHeader(t, l.cascadeHelpBasePromptHeader, mobile),
                 const SizedBox(height: VisionMetrics.space8),
-                _bulletRow(
-                  t,
-                  'Scene / Action',
-                  'Base-prompt tags for what is happening and how it is framed (e.g., "2girls, hugging, wide shot, from above"). Subject-count, action, and camera tags go here.',
-                  mobile,
-                ),
-                _bulletRow(
-                  t,
-                  'Environment',
-                  'Base-prompt tags for where the scene takes place (e.g., "forest, night, indoors").',
-                  mobile,
-                ),
+                _bulletRow(t, l.cascadeHelpScene, l.cascadeHelpSceneDesc, mobile),
+                _bulletRow(t, l.cascadeHelpEnvironment, l.cascadeHelpEnvironmentDesc, mobile),
                 const SizedBox(height: VisionMetrics.space4),
-                _paragraph(
-                  t,
-                  'Both are tags (not prose) and feed the same base prompt — Scene / Action leads, Environment follows.',
-                  mobile,
-                ),
+                _paragraph(t, l.cascadeHelpBasePromptNote, mobile),
 
                 _divider(t),
 
-                _sectionHeader(t, 'CHARACTER SLOTS', mobile),
+                _sectionHeader(t, l.cascadeHelpSlotsHeader, mobile),
                 const SizedBox(height: VisionMetrics.space8),
-                _bulletRow(
-                  t,
-                  'Positive Prompt',
-                  'Per-beat character tags (e.g., "happy, sitting")',
-                  mobile,
-                ),
-                _bulletRow(
-                  t,
-                  'Negative Prompt',
-                  'Per-beat undesired content for this character',
-                  mobile,
-                ),
-                _bulletRow(
-                  t,
-                  'Position Grid',
-                  '5x5 grid for precise placement (if manual positioning is on)',
-                  mobile,
-                ),
-                _bulletRow(
-                  t,
-                  'Action Tags',
-                  'Define interactions between characters for this beat',
-                  mobile,
-                ),
+                _bulletRow(t, l.cascadeHelpSlotPositive, l.cascadeHelpSlotPositiveDesc, mobile),
+                _bulletRow(t, l.cascadeHelpSlotNegative, l.cascadeHelpSlotNegativeDesc, mobile),
+                _bulletRow(t, l.cascadeHelpSlotGrid, l.cascadeHelpSlotGridDesc, mobile),
+                _bulletRow(t, l.cascadeHelpSlotActions, l.cascadeHelpSlotActionsDesc, mobile),
 
                 _divider(t),
 
-                _sectionHeader(t, 'ACTION INTERACTIONS', mobile),
+                _sectionHeader(t, l.cascadeHelpActionsHeader, mobile),
                 const SizedBox(height: VisionMetrics.space8),
-                _paragraph(
-                  t,
-                  'Tap the link icon between character slots to set an interaction for that beat.',
-                  mobile,
-                ),
+                _paragraph(t, l.cascadeHelpActionsIntro, mobile),
                 const SizedBox(height: VisionMetrics.space4),
-                _bulletRow(
-                  t,
-                  'Source \u2192 Target',
-                  'Directional action (e.g., A hugging B)',
-                  mobile,
-                ),
-                _bulletRow(
-                  t,
-                  'Mutual \u2194',
-                  'Both characters participate equally (e.g., holding hands)',
-                  mobile,
-                ),
+                _bulletRow(t, l.cascadeHelpSourceTarget, l.cascadeHelpSourceTargetDesc, mobile),
+                _bulletRow(t, l.cascadeHelpMutual, l.cascadeHelpMutualDesc, mobile),
                 const SizedBox(height: VisionMetrics.space4),
-                _paragraph(
-                  t,
-                  'Tags are embedded as source#action, target#action, or mutual#action in character prompts.',
-                  mobile,
-                ),
+                _paragraph(t, l.cascadeHelpActionsNote, mobile),
 
                 _divider(t),
 
-                _sectionHeader(t, 'CASTING SHEET', mobile),
+                _sectionHeader(t, l.cascadeHelpCastingHeader, mobile),
                 const SizedBox(height: VisionMetrics.space8),
-                _bulletRow(
-                  t,
-                  'Character Appearance',
-                  'Base look for each character (e.g., "1girl, blue hair") \u2014 shared across all beats',
-                  mobile,
-                ),
-                _bulletRow(
-                  t,
-                  'Global Scene',
-                  'Scene/action tags applied to every beat (e.g., "2girls, school uniform") \u2014 leads each beat\'s own Scene / Action tags',
-                  mobile,
-                ),
-                _bulletRow(
-                  t,
-                  'Global Injection',
-                  'Additional prompt text or style applied to every beat',
-                  mobile,
-                ),
-                _bulletRow(
-                  t,
-                  'Beat Thumbnails',
-                  'Tap to select; shows preview after generation',
-                  mobile,
-                ),
-                _bulletRow(
-                  t,
-                  'Narration Caption',
-                  'Free-text narration shown over the beat preview (display only) — prose, not tags. Toggle with the eye icon. Not saved with the cascade.',
-                  mobile,
-                ),
-                _bulletRow(
-                  t,
-                  'Export',
-                  'Burn captions into a single beat PNG, or assemble all generated beats into a vertical/horizontal storyboard strip (share icon)',
-                  mobile,
-                ),
-                _bulletRow(
-                  t,
-                  'Generate',
-                  'Generates selected beat, auto-advances to next',
-                  mobile,
-                ),
+                _bulletRow(t, l.cascadeHelpCastAppearance, l.cascadeHelpCastAppearanceDesc, mobile),
+                _bulletRow(t, l.cascadeHelpCastGlobalScene, l.cascadeHelpCastGlobalSceneDesc, mobile),
+                _bulletRow(t, l.cascadeHelpCastInjection, l.cascadeHelpCastInjectionDesc, mobile),
+                _bulletRow(t, l.cascadeHelpCastThumbs, l.cascadeHelpCastThumbsDesc, mobile),
+                _bulletRow(t, l.cascadeHelpCastCaption, l.cascadeHelpCastCaptionDesc, mobile),
+                _bulletRow(t, l.cascadeHelpCastExport, l.cascadeHelpCastExportDesc, mobile),
+                _bulletRow(t, l.cascadeHelpCastGenerate, l.cascadeHelpCastGenerateDesc, mobile),
 
                 _divider(t),
 
-                _sectionHeader(t, 'PER-BEAT SETTINGS', mobile),
+                _sectionHeader(t, l.cascadeHelpPerBeatHeader, mobile),
                 const SizedBox(height: VisionMetrics.space8),
-                _paragraph(
-                  t,
-                  'Each beat can have its own resolution, sampler, steps, scale, and styles. '
-                  'Styles are toggled per-beat from your style library.',
-                  mobile,
-                ),
+                _paragraph(t, l.cascadeHelpPerBeatBody, mobile),
 
                 _divider(t),
 
-                _sectionHeader(t, 'TIPS', mobile),
+                _sectionHeader(t, l.cascadeHelpTipsHeader, mobile),
                 const SizedBox(height: VisionMetrics.space8),
-                _tipRow(
-                  t,
-                  'Use environment tags for scene changes between beats',
-                  mobile,
-                ),
-                _tipRow(
-                  t,
-                  'Keep character appearances consistent in the casting sheet',
-                  mobile,
-                ),
-                _tipRow(
-                  t,
-                  'Change action tags per-beat to show interactions evolving',
-                  mobile,
-                ),
-                _tipRow(
-                  t,
-                  'Clone beats to quickly iterate on similar scenes',
-                  mobile,
-                ),
-                _tipRow(
-                  t,
-                  'Each beat can use different styles for different moods',
-                  mobile,
-                ),
+                _tipRow(t, l.cascadeHelpTip1, mobile),
+                _tipRow(t, l.cascadeHelpTip2, mobile),
+                _tipRow(t, l.cascadeHelpTip3, mobile),
+                _tipRow(t, l.cascadeHelpTip4, mobile),
+                _tipRow(t, l.cascadeHelpTip5, mobile),
               ],
             ),
           ),

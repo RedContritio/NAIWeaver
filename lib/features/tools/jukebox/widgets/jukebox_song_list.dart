@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/jukebox/models/jukebox_song.dart';
+import '../../../../core/jukebox/models/song_category_l10n.dart';
 import '../../../../core/jukebox/jukebox_registry.dart';
 import '../../../../core/jukebox/providers/jukebox_notifier.dart';
 import '../../../../core/theme/vision_metrics.dart';
@@ -37,7 +38,7 @@ class JukeboxCategoryChips extends StatelessWidget {
           children: [
             _chip(null, context.l.jukeboxCategoryAll),
             ...SongCategory.values.map(
-              (cat) => _chip(cat, JukeboxRegistry.categoryDisplayName(cat)),
+              (cat) => _chip(cat, cat.label(context.l)),
             ),
           ],
         ),

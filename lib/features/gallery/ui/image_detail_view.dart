@@ -399,9 +399,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
           if (mounted) {
             showErrorSnackBar(
               context,
-              context.l.galleryExportFailed(
-                'Export folder unavailable — re-pick it in Settings',
-              ),
+              context.l.galleryExportFolderUnavailable,
             );
           }
           return;

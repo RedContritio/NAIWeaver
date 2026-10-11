@@ -72,10 +72,10 @@ class SlideshowNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  SlideshowConfig createNew() {
+  SlideshowConfig createNew(String Function(int n) nameFor) {
     final config = SlideshowConfig(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      name: 'Slideshow ${_configs.length + 1}',
+      name: nameFor(_configs.length + 1),
     );
     addConfig(config);
     return config;
