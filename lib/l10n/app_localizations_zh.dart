@@ -105,6 +105,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mainEnterPrompt => '输入提示词';
 
   @override
+  String get mainMoreActions => '更多操作';
+
+  @override
   String get mainHelp => '帮助';
 
   @override

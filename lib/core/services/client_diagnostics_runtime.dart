@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
+import '../../features/generation/providers/generation_notifier.dart';
 import 'client_diagnostics.dart';
 import 'client_diagnostics_platform.dart';
 
@@ -20,6 +21,10 @@ class ClientDiagnosticsRuntime with WidgetsBindingObserver {
   Timer? _heartbeat;
   bool _started = false;
   String? _lastFocusSignature;
+  final Expando<bool> _observed = Expando<bool>('observed generation');
+  String? _lastGenerationSignature;
+  String? _lastPositivePromptSignature;
+  String? _lastNegativePromptSignature;
 
   void start() {
     if (_started) return;
@@ -186,6 +191,154 @@ class ClientDiagnosticsRuntime with WidgetsBindingObserver {
   @override
   void didHaveMemoryPressure() {
     _diagnostics.record('flutter_memory_pressure');
+  }
+
+  /// Records generation and prompt-editing state changes of [notifier]. One
+  /// observer per notifier, however often this is called; the notifier owns
+  /// the controllers, so they go away together.
+  void observeGeneration(GenerationNotifier notifier) {
+    if (_observed[notifier] == true) return;
+    _observed[notifier] = true;
+    notifier.addListener(() => _recordGenerationState(notifier));
+    notifier.promptController.addListener(
+      () => _recordPromptEditingState(
+        event: 'positive_prompt_editing_state_changed',
+        controller: notifier.promptController,
+        negative: false,
+      ),
+    );
+    notifier.negativePromptController.addListener(
+      () => _recordPromptEditingState(
+        event: 'negative_prompt_editing_state_changed',
+        controller: notifier.negativePromptController,
+        negative: true,
+      ),
+    );
+    _recordGenerationState(notifier);
+    _recordPromptEditingState(
+      event: 'positive_prompt_editing_state_changed',
+      controller: notifier.promptController,
+      negative: false,
+    );
+    _recordPromptEditingState(
+      event: 'negative_prompt_editing_state_changed',
+      controller: notifier.negativePromptController,
+      negative: true,
+    );
+  }
+
+  void _recordPromptEditingState({
+    required String event,
+    required TextEditingController controller,
+    required bool negative,
+  }) {
+    final value = controller.value;
+    final signature = [
+      value.text.length,
+      value.selection.baseOffset,
+      value.selection.extentOffset,
+      value.composing.start,
+      value.composing.end,
+    ].join(':');
+    if (negative) {
+      if (_lastNegativePromptSignature == signature) return;
+      _lastNegativePromptSignature = signature;
+    } else {
+      if (_lastPositivePromptSignature == signature) return;
+      _lastPositivePromptSignature = signature;
+    }
+    _diagnostics.record(event, {
+      'character_count': value.text.length,
+      'selection_base_offset': value.selection.baseOffset,
+      'selection_extent_offset': value.selection.extentOffset,
+      'selection_valid': value.selection.isValid,
+      'selection_collapsed': value.selection.isCollapsed,
+      'composing_start': value.composing.start,
+      'composing_end': value.composing.end,
+      'composing_valid': value.composing.isValid,
+    });
+  }
+
+  void _recordGenerationState(GenerationNotifier notifier) {
+    final state = notifier.state;
+    final tasks = state.generatedImages;
+    final complete = tasks.where((item) => item.isComplete).length;
+    final queued = tasks
+        .where((item) => item.progress == GenerationTaskProgress.queued)
+        .length;
+    final generating = tasks
+        .where((item) => item.progress == GenerationTaskProgress.generating)
+        .length;
+    final failed = tasks
+        .where((item) => item.progress == GenerationTaskProgress.failed)
+        .length;
+    final rejected = tasks
+        .where((item) => item.progress == GenerationTaskProgress.rejected)
+        .length;
+    final cancelled = tasks
+        .where((item) => item.progress == GenerationTaskProgress.cancelled)
+        .length;
+    final selectedIndex = tasks.indexWhere(
+      (item) => item.id == state.selectedGeneratedImageId,
+    );
+    final signature = [
+      state.isLoading,
+      state.batchCount,
+      tasks.length,
+      complete,
+      queued,
+      generating,
+      failed,
+      rejected,
+      cancelled,
+      selectedIndex,
+      state.width,
+      state.height,
+      state.steps,
+      state.scale,
+      state.sampler,
+      state.smea,
+      state.smeaDyn,
+      state.decrisper,
+      state.activeStyleNames.length,
+      state.characters.length,
+      state.interactions.length,
+      state.errorMessage != null,
+      state.duplicateImageDetected,
+    ].join(':');
+    if (_lastGenerationSignature == signature) return;
+    _lastGenerationSignature = signature;
+    _diagnostics.record('generation_state_changed', {
+      'is_loading': state.isLoading,
+      'configured_batch_count': state.batchCount,
+      'task_count': tasks.length,
+      'completed_task_count': complete,
+      'queued_task_count': queued,
+      'generating_task_count': generating,
+      'failed_task_count': failed,
+      'rejected_task_count': rejected,
+      'cancelled_task_count': cancelled,
+      'selected_task_index': selectedIndex,
+      'auto_follow_latest': state.autoFollowLatestImage,
+      'width': state.width,
+      'height': state.height,
+      'steps': state.steps,
+      'scale': state.scale,
+      'sampler': state.sampler,
+      'smea': state.smea,
+      'smea_dyn': state.smeaDyn,
+      'decrisper': state.decrisper,
+      'random_mode': state.randomizeSeed,
+      'active_style_count': state.activeStyleNames.length,
+      'character_count': state.characters.length,
+      'interaction_count': state.interactions.length,
+      'positive_length': notifier.promptController.text.length,
+      'negative_length': notifier.negativePromptController.text.length,
+      'has_error': state.errorMessage != null,
+      'error_tone': state.errorTone.name,
+      'duplicate_detected': state.duplicateImageDetected,
+      'use_curated': state.useCurated,
+    });
   }
 
   void _recordMetrics(String event) {

@@ -106,6 +106,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mainEnterPrompt => 'Enter Prompt';
 
   @override
+  String get mainMoreActions => 'More actions';
+
+  @override
   String get mainHelp => 'Help';
 
   @override

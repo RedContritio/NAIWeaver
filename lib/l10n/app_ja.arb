@@ -34,6 +34,7 @@
   "mainExport": "エクスポート",
   "mainEdit": "編集",
   "mainEnterPrompt": "プロンプトを入力",
+  "mainMoreActions": "その他の操作",
   "mainHelp": "ヘルプ",
   "mainAuthError": "認証エラー：API設定を確認してください",
   "mainSettings": "設定",

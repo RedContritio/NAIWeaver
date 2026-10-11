@@ -292,6 +292,12 @@ abstract class AppLocalizations {
   /// **'Enter Prompt'**
   String get mainEnterPrompt;
 
+  /// No description provided for @mainMoreActions.
+  ///
+  /// In en, this message translates to:
+  /// **'More actions'**
+  String get mainMoreActions;
+
   /// No description provided for @mainHelp.
   ///
   /// In en, this message translates to:

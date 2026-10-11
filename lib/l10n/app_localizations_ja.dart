@@ -105,6 +105,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mainEnterPrompt => 'プロンプトを入力';
 
   @override
+  String get mainMoreActions => 'その他の操作';
+
+  @override
   String get mainHelp => 'ヘルプ';
 
   @override

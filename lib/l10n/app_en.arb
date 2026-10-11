@@ -34,6 +34,7 @@
   "mainExport": "Export",
   "mainEdit": "Edit",
   "mainEnterPrompt": "Enter Prompt",
+  "mainMoreActions": "More actions",
   "mainHelp": "Help",
   "mainAuthError": "Authentication error: please check API settings",
   "mainSettings": "Settings",
