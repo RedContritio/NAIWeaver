@@ -171,6 +171,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsApiKeyHint => 'pst-xxxx...';
 
   @override
+  String get settingsApiKeyVisibility => 'Show or hide the API key';
+
+  @override
   String get settingsApiManaged => 'NovelAI API Key Managed By Server';
 
   @override
@@ -2633,6 +2636,35 @@ class AppLocalizationsEn extends AppLocalizations {
       'Show your Anlas balance in the top bar';
 
   @override
+  String get settingsCopyButton => 'Copy to Clipboard';
+
+  @override
+  String get settingsCopyButtonDesc => 'Show copy button on generated images';
+
+  @override
+  String get settingsHideTagValues => 'Hide Tag Values';
+
+  @override
+  String get settingsHideTagValuesDesc =>
+      'Hide tag count values in autocomplete suggestions';
+
+  @override
+  String get settingsFontSize => 'Font Size';
+
+  @override
+  String get settingsFontSizeDesc => 'Scales all UI text. Default 100%.';
+
+  @override
+  String get settingsOpenLinkTitle => 'Open External Link';
+
+  @override
+  String get settingsOpenLinkBody =>
+      'You are about to leave NAIWeaver and open a new window:';
+
+  @override
+  String get settingsOpenLinkConfirm => 'Open Link';
+
+  @override
   String get canvasEditorTitle => 'CANVAS EDITOR';
 
   @override
@@ -2834,6 +2866,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsOutputFolderBrowse => 'Browse';
+
+  @override
+  String get settingsFolderUseDefault => 'Use default folder';
 
   @override
   String get settingsOutputFolderClear => 'Clear';

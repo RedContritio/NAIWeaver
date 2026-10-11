@@ -418,6 +418,12 @@ abstract class AppLocalizations {
   /// **'pst-xxxx...'**
   String get settingsApiKeyHint;
 
+  /// No description provided for @settingsApiKeyVisibility.
+  ///
+  /// In en, this message translates to:
+  /// **'Show or hide the API key'**
+  String get settingsApiKeyVisibility;
+
   /// No description provided for @settingsApiManaged.
   ///
   /// In en, this message translates to:
@@ -4852,6 +4858,60 @@ abstract class AppLocalizations {
   /// **'Show your Anlas balance in the top bar'**
   String get settingsAnlasTrackerDesc;
 
+  /// No description provided for @settingsCopyButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy to Clipboard'**
+  String get settingsCopyButton;
+
+  /// No description provided for @settingsCopyButtonDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Show copy button on generated images'**
+  String get settingsCopyButtonDesc;
+
+  /// No description provided for @settingsHideTagValues.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide Tag Values'**
+  String get settingsHideTagValues;
+
+  /// No description provided for @settingsHideTagValuesDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide tag count values in autocomplete suggestions'**
+  String get settingsHideTagValuesDesc;
+
+  /// No description provided for @settingsFontSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Font Size'**
+  String get settingsFontSize;
+
+  /// No description provided for @settingsFontSizeDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Scales all UI text. Default 100%.'**
+  String get settingsFontSizeDesc;
+
+  /// No description provided for @settingsOpenLinkTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Open External Link'**
+  String get settingsOpenLinkTitle;
+
+  /// No description provided for @settingsOpenLinkBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You are about to leave NAIWeaver and open a new window:'**
+  String get settingsOpenLinkBody;
+
+  /// No description provided for @settingsOpenLinkConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Link'**
+  String get settingsOpenLinkConfirm;
+
   /// No description provided for @canvasEditorTitle.
   ///
   /// In en, this message translates to:
@@ -5235,6 +5295,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Browse'**
   String get settingsOutputFolderBrowse;
+
+  /// No description provided for @settingsFolderUseDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Use default folder'**
+  String get settingsFolderUseDefault;
 
   /// No description provided for @settingsOutputFolderClear.
   ///

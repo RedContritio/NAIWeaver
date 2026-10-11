@@ -170,6 +170,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsApiKeyHint => 'pst-xxxx...';
 
   @override
+  String get settingsApiKeyVisibility => '显示或隐藏 API 密钥';
+
+  @override
   String get settingsApiManaged => 'NovelAI API Key 由后端托管';
 
   @override
@@ -2544,6 +2547,33 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsAnlasTrackerDesc => '在顶部栏显示 Anlas 余额';
 
   @override
+  String get settingsCopyButton => '复制到剪贴板';
+
+  @override
+  String get settingsCopyButtonDesc => '在生成的图片上显示复制按钮';
+
+  @override
+  String get settingsHideTagValues => '隐藏标签数值';
+
+  @override
+  String get settingsHideTagValuesDesc => '在自动补全建议中隐藏标签数量';
+
+  @override
+  String get settingsFontSize => '字体大小';
+
+  @override
+  String get settingsFontSizeDesc => '缩放所有界面文字，默认 100%。';
+
+  @override
+  String get settingsOpenLinkTitle => '打开外部链接';
+
+  @override
+  String get settingsOpenLinkBody => '即将离开 NAIWeaver 并打开新窗口：';
+
+  @override
+  String get settingsOpenLinkConfirm => '打开链接';
+
+  @override
   String get canvasEditorTitle => '画布编辑器';
 
   @override
@@ -2740,6 +2770,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsOutputFolderBrowse => '浏览';
+
+  @override
+  String get settingsFolderUseDefault => '使用默认文件夹';
 
   @override
   String get settingsOutputFolderClear => '清空';

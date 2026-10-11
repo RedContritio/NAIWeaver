@@ -170,6 +170,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsApiKeyHint => 'pst-xxxx...';
 
   @override
+  String get settingsApiKeyVisibility => 'API キーの表示/非表示';
+
+  @override
   String get settingsApiManaged => 'NovelAI APIキーはサーバーで管理';
 
   @override
@@ -2563,6 +2566,33 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsAnlasTrackerDesc => 'トップバーにAnlas残高を表示します';
 
   @override
+  String get settingsCopyButton => 'クリップボードにコピー';
+
+  @override
+  String get settingsCopyButtonDesc => '生成画像にコピーボタンを表示';
+
+  @override
+  String get settingsHideTagValues => 'タグ数値を非表示';
+
+  @override
+  String get settingsHideTagValuesDesc => 'オートコンプリート候補のタグ件数を非表示';
+
+  @override
+  String get settingsFontSize => 'フォントサイズ';
+
+  @override
+  String get settingsFontSizeDesc => 'UI の文字をすべて拡大縮小します。既定は 100%。';
+
+  @override
+  String get settingsOpenLinkTitle => '外部リンクを開く';
+
+  @override
+  String get settingsOpenLinkBody => 'NAIWeaver を離れて新しいウィンドウを開きます：';
+
+  @override
+  String get settingsOpenLinkConfirm => 'リンクを開く';
+
+  @override
   String get canvasEditorTitle => 'キャンバスエディタ';
 
   @override
@@ -2759,6 +2789,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsOutputFolderBrowse => '参照';
+
+  @override
+  String get settingsFolderUseDefault => '既定のフォルダーを使う';
 
   @override
   String get settingsOutputFolderClear => 'クリア';
