@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import mimetypes
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request, Response, status
@@ -11,6 +12,51 @@ from .db import db_connect
 from .errors import api_error
 
 router = APIRouter()
+
+# Precompressed siblings written by server/scripts/compress-web.sh, in the
+# order they are preferred.
+PRECOMPRESSED_ENCODINGS = (("br", ".br"), ("gzip", ".gz"))
+
+
+def accepted_encodings(request: Request) -> set[str]:
+    accepted = set()
+    for part in request.headers.get("accept-encoding", "").split(","):
+        name, _, params = part.strip().partition(";")
+        if params.replace(" ", "") in {"q=0", "q=0.0", "q=0.00", "q=0.000"}:
+            continue
+        accepted.add(name.strip().lower())
+    return accepted
+
+
+def static_file_response(request: Request, target: Path) -> Response:
+    """Serve a web build file with a precompressed variant and revalidation.
+
+    Flutter keeps stable filenames (main.dart.js, assets) across builds, so
+    every file is revalidated; an unchanged file costs a 304 instead of the
+    whole bundle, and the bundle itself goes out brotli or gzip compressed.
+    """
+    body = target
+    encoding = None
+    accepted = accepted_encodings(request)
+    for name, suffix in PRECOMPRESSED_ENCODINGS:
+        candidate = target.with_name(target.name + suffix)
+        if name in accepted and candidate.is_file():
+            body, encoding = candidate, name
+            break
+    stat = body.stat()
+    etag = f'"{stat.st_mtime_ns:x}-{stat.st_size:x}{"-" + encoding if encoding else ""}"'
+    headers = {
+        "Cache-Control": "no-cache",
+        "ETag": etag,
+        "Vary": "Accept-Encoding",
+    }
+    if_none_match = request.headers.get("if-none-match", "")
+    if etag in {tag.strip() for tag in if_none_match.split(",")} or if_none_match.strip() == "*":
+        return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
+    if encoding:
+        headers["Content-Encoding"] = encoding
+    media_type = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+    return FileResponse(body, media_type=media_type, headers=headers, stat_result=stat)
 
 
 @router.get("/api/health")
@@ -46,19 +92,10 @@ async def serve_web(path: str, request: Request):
             and target.is_file()
             and (target == web_root or web_root in target.parents)
         ):
-            # Flutter's entry scripts keep stable filenames across builds.
-            # Revalidate them so a deployed UI cannot be held behind a stale
-            # browser or installed-PWA cache.
-            headers = (
-                {"Cache-Control": "no-cache, must-revalidate"}
-                if target.name
-                in {"index.html", "flutter_bootstrap.js", "flutter.js", "main.dart.js"}
-                else None
-            )
-            return FileResponse(target, headers=headers)
+            return static_file_response(request, target)
     index = config.WEB_BUILD_DIR / "index.html"
     if index.exists():
-        return FileResponse(index, headers={"Cache-Control": "no-cache, must-revalidate"})
+        return static_file_response(request, index)
     fallback = config.STATIC_DIR / "index.html"
     if fallback.exists():
         return FileResponse(fallback)

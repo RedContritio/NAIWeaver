@@ -245,9 +245,14 @@ Release a new commit:
 git -C /Users/redcontritio/Projects/NAIWeaver-release checkout --detach <commit>
 (cd /Users/redcontritio/Projects/NAIWeaver-release/server && uv sync --frozen)
 (cd /Users/redcontritio/Projects/NAIWeaver-release && flutter pub get && \
-  flutter build web --release --output server/static/web)
+  flutter build web --release --output server/static/web && \
+  server/scripts/compress-web.sh server/static/web)
 launchctl kickstart -k gui/$(id -u)/com.redcontritio.naiweaver
 ```
+
+`compress-web.sh` writes `.br`/`.gz` siblings; the gateway serves them to
+browsers that accept the encoding and answers unchanged files with 304, so the
+~10 MB `main.dart.js` costs ~2 MB on a first visit and nothing afterwards.
 
 If the commit changes the database schema, stop the service and run the
 one-off upgrade above before starting it again.
