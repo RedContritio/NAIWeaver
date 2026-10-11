@@ -12,15 +12,16 @@ class LocaleNotifier extends ChangeNotifier {
   );
 
   LocaleNotifier(this._prefs) {
-    final saved = _prefs.locale;
-    if (saved.isNotEmpty) {
-      _locale = Locale(saved);
-    } else {
-      _locale = _resolveDefault();
-    }
+    _locale = resolve(_prefs);
   }
 
-  Locale _resolveDefault() {
+  /// The language in effect: the saved choice, else the default.
+  static Locale resolve(PreferencesService prefs) {
+    final saved = prefs.locale;
+    return saved.isNotEmpty ? Locale(saved) : _resolveDefault();
+  }
+
+  static Locale _resolveDefault() {
     // On web, URL param overrides build default
     if (kIsWeb) {
       final lang = Uri.base.queryParameters['lang'];

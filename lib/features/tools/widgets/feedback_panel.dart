@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../../core/gateway/backend_error_messages.dart';
+import '../../../core/gateway/backend_exception.dart';
 import '../../../core/gateway/backend_gateway.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/services/backend_feedback_api.dart';
@@ -9,6 +11,7 @@ import '../../../core/services/client_diagnostics.dart';
 import '../../../core/services/client_diagnostics_platform.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../../core/widgets/browser_native_selectable_text.dart';
+import '../../../l10n/app_localizations.dart';
 
 class FeedbackPanel extends StatefulWidget {
   const FeedbackPanel({
@@ -23,6 +26,9 @@ class FeedbackPanel extends StatefulWidget {
   static const submitKey = ValueKey<String>('feedback-submit');
   static const ticketKey = ValueKey<String>('feedback-ticket');
   static const copyTicketKey = ValueKey<String>('feedback-copy-ticket');
+
+  /// Counted in Unicode code points, as the gateway counts them.
+  static const maxDescriptionLength = 2000;
 
   final FeedbackApi? api;
   final ClientDiagnostics? diagnostics;
@@ -39,7 +45,7 @@ class _FeedbackPanelState extends State<FeedbackPanel> {
   late final ClientDiagnostics _diagnostics;
   bool _submitting = false;
   String? _ticketId;
-  String? _error;
+  Object? _error;
 
   bool get _gatewayAvailable => widget.gatewayAvailable ?? useBackendGateway;
 
@@ -97,7 +103,7 @@ class _FeedbackPanelState extends State<FeedbackPanel> {
       _diagnostics.record('feedback_submission_failed', {
         'error_type': error.runtimeType.toString(),
       });
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) setState(() => _error = error);
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -129,6 +135,14 @@ class _FeedbackPanelState extends State<FeedbackPanel> {
       'device_pixel_ratio': media.devicePixelRatio,
       ...platform,
     };
+  }
+
+  String _errorText(AppLocalizations l, Object error) {
+    if (error is BackendException) {
+      if (error.statusCode == 422) return l.feedbackInvalid;
+      return backendErrorMessage(l, error);
+    }
+    return l.gatewayErrUnknown;
   }
 
   void _copyTicket() {
@@ -212,7 +226,19 @@ class _FeedbackPanelState extends State<FeedbackPanel> {
           controller: _descriptionController,
           minLines: 3,
           maxLines: 6,
-          maxLength: 2000,
+          inputFormatters: [
+            _CodePointLimitFormatter(FeedbackPanel.maxDescriptionLength),
+          ],
+          buildCounter:
+              (
+                context, {
+                required currentLength,
+                required isFocused,
+                required maxLength,
+              }) => Text(
+                '${_descriptionController.text.runes.length}'
+                '/${FeedbackPanel.maxDescriptionLength}',
+              ),
           decoration: InputDecoration(
             labelText: l.feedbackDescriptionLabel,
             hintText: l.feedbackDescriptionHint,
@@ -270,11 +296,35 @@ class _FeedbackPanelState extends State<FeedbackPanel> {
         if (_error != null) ...[
           const SizedBox(height: 16),
           Text(
-            '${l.feedbackSubmitFailed}: $_error',
+            '${l.feedbackSubmitFailed}: ${_errorText(l, _error!)}',
             style: TextStyle(color: t.accentDanger),
           ),
         ],
       ],
+    );
+  }
+}
+
+/// Caps the text at [maxLength] code points. The stock `maxLength` counts
+/// grapheme clusters, so a run of emoji would pass the field but still exceed
+/// the gateway's code-point limit.
+class _CodePointLimitFormatter extends TextInputFormatter {
+  const _CodePointLimitFormatter(this.maxLength);
+
+  final int maxLength;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (newValue.text.runes.length <= maxLength) return newValue;
+    final text = String.fromCharCodes(newValue.text.runes.take(maxLength));
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(
+        offset: newValue.selection.end.clamp(0, text.length),
+      ),
     );
   }
 }

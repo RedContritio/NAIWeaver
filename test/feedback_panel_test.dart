@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:naiweaver/core/gateway/backend_exception.dart';
 import 'package:naiweaver/core/services/backend_feedback_api.dart';
 import 'package:naiweaver/core/services/client_diagnostics.dart';
 import 'package:naiweaver/core/services/preferences_service.dart';
@@ -13,6 +14,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeFeedbackApi implements FeedbackApi {
+  Object? failure;
   String? description;
   Map<String, dynamic>? clientContext;
   List<Map<String, dynamic>>? diagnostics;
@@ -23,6 +25,7 @@ class _FakeFeedbackApi implements FeedbackApi {
     required Map<String, dynamic> clientContext,
     required List<Map<String, dynamic>> diagnostics,
   }) async {
+    if (failure != null) throw failure!;
     this.description = description;
     this.clientContext = clientContext;
     this.diagnostics = diagnostics;
@@ -95,5 +98,68 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Ticket ID copied'), findsOneWidget);
     }
+  });
+
+  Future<void> pumpPanel(WidgetTester tester, _FakeFeedbackApi api) async {
+    SharedPreferences.setMockInitialValues({});
+    final preferences = PreferencesService(
+      await SharedPreferences.getInstance(),
+      const FlutterSecureStorage(),
+    );
+    await tester.pumpWidget(
+      ChangeNotifierProvider(
+        create: (_) => ThemeNotifier(preferences),
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: FeedbackPanel(
+              api: api,
+              diagnostics: ClientDiagnostics(),
+              gatewayAvailable: true,
+              clientContextCollector: () async => {'web': true},
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  testWidgets('the description is capped by code points like the server', (
+    tester,
+  ) async {
+    final api = _FakeFeedbackApi();
+    await pumpPanel(tester, api);
+
+    // 500 grapheme clusters, but 2500 code points.
+    final family = List.filled(500, '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}');
+    await tester.enterText(
+      find.byKey(FeedbackPanel.descriptionKey),
+      family.join(),
+    );
+    await tester.tap(find.byKey(FeedbackPanel.submitKey));
+    await tester.pumpAndSettle();
+
+    expect(api.description!.runes.length, FeedbackPanel.maxDescriptionLength);
+  });
+
+  testWidgets('a validation failure shows a localized message', (tester) async {
+    final api = _FakeFeedbackApi()
+      ..failure = const BackendException(
+        statusCode: 422,
+        code: BackendErrorCode.invalidParameters,
+      );
+    await pumpPanel(tester, api);
+
+    await tester.tap(find.byKey(FeedbackPanel.submitKey));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Shorten the description'), findsOneWidget);
+    expect(find.textContaining('BackendException'), findsNothing);
   });
 }

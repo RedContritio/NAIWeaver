@@ -11,8 +11,12 @@ import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import '../../../core/gateway/backend_error_messages.dart';
+import '../../../core/gateway/backend_exception.dart';
 import '../../../core/gateway/backend_gateway.dart';
 import '../../../core/l10n/l10n_extensions.dart';
+import '../../../core/l10n/locale_notifier.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../core/utils/app_snackbar.dart';
 import '../../../core/utils/filename_pattern.dart';
 import '../../../core/utils/nai_filename.dart';
@@ -375,7 +379,7 @@ class GenerationNotifier extends ChangeNotifier {
   late NovelAIService _service;
   final BackendHistoryApi _historyApi = BackendHistoryApi();
   int? _backendUserId;
-  bool _restoringGatewayWorkspace = false;
+  int? _restoringWorkspaceForUserId;
   NovelAIService get service => _service;
   late final WildcardProcessor _wildcardProcessor;
   final TagService _tagService;
@@ -472,14 +476,28 @@ class GenerationNotifier extends ChangeNotifier {
   void updateBackendUserId(int? userId) {
     if (_backendUserId == userId) return;
     _backendUserId = userId;
+    // The workspace belongs to the previous account: another user must never
+    // see its images, even when their own history is empty.
+    _lastMetadata = null;
+    _imageSaved = false;
+    _state = _state.copyWith(
+      generatedImages: const [],
+      clearGeneratedImage: true,
+      clearSelectedGeneratedImageId: true,
+      autoFollowLatestImage: true,
+      isLoading: false,
+      clearErrorMessage: true,
+      duplicateImageDetected: false,
+    );
+    notifyListeners();
     if (useBackendGateway && userId != null) {
       unawaited(_restoreGatewayWorkspace(userId));
     }
   }
 
   Future<void> _restoreGatewayWorkspace(int userId) async {
-    if (_restoringGatewayWorkspace || _state.isLoading) return;
-    _restoringGatewayWorkspace = true;
+    if (_restoringWorkspaceForUserId == userId || _state.isLoading) return;
+    _restoringWorkspaceForUserId = userId;
     try {
       final currentTask = await _historyApi.fetchCurrentTask();
       var history = currentTask?.items ?? const <ServerHistoryItem>[];
@@ -500,11 +518,11 @@ class GenerationNotifier extends ChangeNotifier {
       final recoverable = currentTask != null
           ? visible
           : (() {
-              final latestBatchId = visible.first.batchId;
-              final sameSubmission = latestBatchId == null
-                  ? <ServerHistoryItem>[visible.first]
+              final latest = visible.first;
+              final sameSubmission = !latest.isBatch
+                  ? <ServerHistoryItem>[latest]
                   : visible
-                        .where((item) => item.batchId == latestBatchId)
+                        .where((item) => item.batchId == latest.batchId)
                         .toList();
               return sameSubmission.reversed.toList(growable: false);
             })();
@@ -522,7 +540,7 @@ class GenerationNotifier extends ChangeNotifier {
           metadata: task.generationMetadata,
           isLoading: task.status == 'queued' || task.status == 'running',
           progress: _progressForGatewayStatus(task.status),
-          errorMessage: task.errorMessage,
+          errorMessage: _itemFailureMessage(task),
         );
       });
       _state = _state.copyWith(
@@ -542,7 +560,9 @@ class GenerationNotifier extends ChangeNotifier {
     } catch (error) {
       debugPrint('Could not restore gateway generation workspace: $error');
     } finally {
-      _restoringGatewayWorkspace = false;
+      if (_restoringWorkspaceForUserId == userId) {
+        _restoringWorkspaceForUserId = null;
+      }
     }
   }
 
@@ -559,7 +579,7 @@ class GenerationNotifier extends ChangeNotifier {
           (item) => item.copyWith(
             isLoading: false,
             progress: GenerationTaskProgress.failed,
-            errorMessage: error.toString().replaceFirst('Exception: ', ''),
+            errorMessage: _formatError(error).message,
           ),
         ),
       );
@@ -622,7 +642,7 @@ class GenerationNotifier extends ChangeNotifier {
           (item) => item.copyWith(
             isLoading: false,
             progress: GenerationTaskProgress.failed,
-            errorMessage: error.toString().replaceFirst('Exception: ', ''),
+            errorMessage: _formatError(error).message,
           ),
         ),
       );
@@ -640,6 +660,9 @@ class GenerationNotifier extends ChangeNotifier {
       await _resumeGatewayTask(task, userId);
     }
   }
+
+  String? _itemFailureMessage(ServerHistoryItem item) =>
+      taskItemFailureMessage(_l10n, item.status, item.errorCode);
 
   Map<String, dynamic> _historyMetadata(ServerHistoryItem task) => {
     ...task.generationMetadata,
@@ -1749,12 +1772,10 @@ class GenerationNotifier extends ChangeNotifier {
             task = await _historyApi.fetchGenerationTask(submission.taskId);
             retryDelay = const Duration(seconds: 1);
             taskFetchFailures = 0;
-          } on DioException catch (error) {
-            if (error.response?.statusCode == 401) {
-              throw UnauthorizedException();
-            }
-            if (error.response?.statusCode == 403 ||
-                error.response?.statusCode == 404) {
+          } on BackendException catch (error) {
+            if (error.isNotAuthenticated ||
+                error.statusCode == 403 ||
+                error.statusCode == 404) {
               rethrow;
             }
             taskFetchFailures++;
@@ -1781,7 +1802,7 @@ class GenerationNotifier extends ChangeNotifier {
                 (item) => item.copyWith(
                   progress: progress,
                   isLoading: loading || serverItem.status == 'success',
-                  errorMessage: serverItem.errorMessage,
+                  errorMessage: _itemFailureMessage(serverItem),
                 ),
               ),
             );
@@ -1812,13 +1833,11 @@ class GenerationNotifier extends ChangeNotifier {
                 index,
                 GenerationResult(imageBytes: bytes, metadata: metadata),
               );
-            } on DioException catch (error) {
-              if (error.response?.statusCode == 401) {
-                throw UnauthorizedException();
-              }
+            } on BackendException catch (error) {
+              if (error.isNotAuthenticated) rethrow;
               final failures = (downloadFailures[serverItem.id] ?? 0) + 1;
               downloadFailures[serverItem.id] = failures;
-              final statusCode = error.response?.statusCode;
+              final statusCode = error.statusCode;
               final permanent =
                   statusCode == 403 ||
                   (statusCode == 404 && failures >= 3) ||
@@ -1833,9 +1852,7 @@ class GenerationNotifier extends ChangeNotifier {
                   (item) => item.copyWith(
                     isLoading: false,
                     progress: GenerationTaskProgress.failed,
-                    errorMessage: statusCode == null
-                        ? 'Could not download the generated image'
-                        : 'Could not download the generated image (HTTP $statusCode)',
+                    errorMessage: _formatError(error).message,
                   ),
                 ),
               );
@@ -2637,68 +2654,26 @@ class GenerationNotifier extends ChangeNotifier {
     }
   }
 
-  GenerationError _formatError(Object e) {
-    if (e is GenerationRequestException) {
-      if (e.code == 'duplicate_generation' ||
-          e.code == 'duplicate_within_batch') {
-        return const GenerationError(
-          '参数没有变化，请检查 Seed。',
-          GenerationErrorTone.general,
-          true,
-        );
-      }
-      if (e.code == 'queue_capacity_reached') {
-        return const GenerationError('当前未完成的生成任务已达上限，请等待部分任务完成后再提交。');
-      }
-      if (e.code == 'points_insufficient') {
-        return GenerationError(
-          '可用点数不足，无法提交本次生成。',
-          e.pointKind == 'red'
-              ? GenerationErrorTone.redPoints
-              : GenerationErrorTone.greenPoints,
-        );
-      }
-      return _messageForGenerationStatus(e.statusCode, e.message);
-    }
-    if (e is DioException) {
-      final status = e.response?.statusCode;
-      if (status != null) {
-        return _messageForGenerationStatus(status, null);
-      }
-      if (e.type == DioExceptionType.connectionTimeout ||
-          e.type == DioExceptionType.receiveTimeout) {
-        return const GenerationError('连接超时，请检查网络后重试。');
-      }
-      if (e.type == DioExceptionType.connectionError) {
-        return const GenerationError('无法连接到生成服务，请检查网络后重试。');
-      }
-      return const GenerationError('网络请求失败，请稍后重试。');
-    }
-    return const GenerationError('生成失败，请稍后重试。');
-  }
+  /// The localized strings for the language the user has chosen.
+  AppLocalizations get _l10n =>
+      lookupAppLocalizations(LocaleNotifier.resolve(_prefs));
 
-  GenerationError _messageForGenerationStatus(int? status, String? detail) {
-    switch (status) {
-      case 400:
-        return const GenerationError('生成参数无效，请检查尺寸、步数或采样器。');
-      case 401:
-        return const GenerationError('登录已失效，请重新登录后再试。');
-      case 403:
-        return const GenerationError('当前账号没有使用此生成选项的权限。');
-      case 409:
-        return const GenerationError('生成请求与当前账户状态冲突。');
-      case 429:
-        return const GenerationError('当前未完成的生成任务已达上限，请等待部分任务完成后再提交。');
-      case 500:
-      case 502:
-      case 503:
-      case 504:
-        return const GenerationError('生成服务暂时不可用，请稍后重试。');
-      default:
-        return GenerationError(
-          detail?.isNotEmpty == true ? '生成请求被拒绝：$detail' : '生成失败，请稍后重试。',
-        );
+  GenerationError _formatError(Object e) {
+    final l = _l10n;
+    if (e is BackendException) {
+      final seedMayHelp =
+          e.code == BackendErrorCode.duplicateGeneration ||
+          e.code == BackendErrorCode.duplicateWithinBatch;
+      final tone = e.code == BackendErrorCode.pointsInsufficient
+          ? (e.pointKind == 'red'
+                ? GenerationErrorTone.redPoints
+                : GenerationErrorTone.greenPoints)
+          : GenerationErrorTone.general;
+      return GenerationError(backendErrorMessage(l, e), tone, seedMayHelp);
     }
+    // Direct NovelAI calls: the statuses are NovelAI's, not the gateway's.
+    if (e is DioException) return GenerationError(directApiErrorMessage(l, e));
+    return GenerationError(l.gatewayErrUnknown);
   }
 
   // — Session snapshot (remember session) —
