@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:gal/gal.dart';
 import 'package:provider/provider.dart';
+import '../../../core/gateway/backend_permissions.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/services/novel_ai_image_action_service.dart';
 import '../../../core/services/preferences_service.dart';
@@ -1443,6 +1444,13 @@ class _GalleryScreenState extends State<GalleryScreen> {
     );
   }
 
+  /// The label of a tool NovelAI charges for, with the most it can cost for
+  /// [count] images.
+  String _withCap(String label, PaidTool tool, int count) {
+    final cap = paidToolCapLabel(context, tool, count: max(1, count));
+    return (cap == null ? label : '$label · $cap').toUpperCase();
+  }
+
   Widget _buildBulkActionBar(List<GalleryItem> items) {
     final t = context.t;
     final mobile = isMobile(context);
@@ -1584,7 +1592,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   if (naiUpscaleAllowed)
                     _ActionButton(
                       icon: Icons.cloud_upload_outlined,
-                      label: context.l.naiUpscale.toUpperCase(),
+                      label: _withCap(context.l.naiUpscale, PaidTool.upscale, count),
                       color: t.accentEdit,
                       mobile: mobile,
                       iconOnly: mobile,
