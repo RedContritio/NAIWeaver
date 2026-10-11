@@ -3035,6 +3035,360 @@ class AppLocalizationsEn extends AppLocalizations {
   String get charEditorMutual => 'MUTUAL';
 
   @override
+  String get charsSelectOrCreate => 'Select or create a character';
+
+  @override
+  String get charsSearchHint => 'Search…';
+
+  @override
+  String get charsGenerateTooltip => 'Generate a character';
+
+  @override
+  String get charsTextGenNeedsKey =>
+      'Requires text generation (set an API key first)';
+
+  @override
+  String get charsTextGenNeedsKeyWardrobe =>
+      'Requires text generation (set an API key in Text Gen settings)';
+
+  @override
+  String get charsTextGenNoPermission =>
+      'Your account does not have the text generation permission';
+
+  @override
+  String get charsNew => 'New character';
+
+  @override
+  String get charsNewDefaultName => 'New Character';
+
+  @override
+  String get charsEmptyList => 'No characters yet';
+
+  @override
+  String get charsUnnamed => '(unnamed)';
+
+  @override
+  String get charsGenerated => 'Character generated';
+
+  @override
+  String get charsAddedToPrompt => 'Added to prompt';
+
+  @override
+  String get charsNamePlaceholder => 'Character name';
+
+  @override
+  String get charsPhotoshoot => 'Photoshoot';
+
+  @override
+  String get charsDelete => 'Delete character';
+
+  @override
+  String charsDeleteMessage(String name) {
+    return 'Delete \"$name\" and its wardrobe?';
+  }
+
+  @override
+  String get charsGender => 'Gender';
+
+  @override
+  String get charsGenderUnspecified => '(unspecified)';
+
+  @override
+  String get charsGenderFemale => 'female';
+
+  @override
+  String get charsGenderMale => 'male';
+
+  @override
+  String get charsGenderNonbinary => 'non-binary';
+
+  @override
+  String get charsTint => 'Tint';
+
+  @override
+  String get charsTintAccent => 'Accent';
+
+  @override
+  String get charsTintAccent2 => 'Accent 2';
+
+  @override
+  String get charsTintBg => 'Background';
+
+  @override
+  String get charsIdentityTags => 'Identity tags — no clothing here';
+
+  @override
+  String get charsBaseLabel =>
+      'base — 1girl/1boy, ethnicity, age, permanent marks';
+
+  @override
+  String get charsFaceLabel => 'face — eye colour/shape, brows, nose, lips';
+
+  @override
+  String get charsHairLabel => 'hair — colour, length, style, texture';
+
+  @override
+  String get charsBodyLabel => 'body — build, proportions, chest';
+
+  @override
+  String get charsNegativeLabel =>
+      'negative — injected into the UC when this character is used';
+
+  @override
+  String get charsNsfwSection => 'NSFW sub-buckets (optional)';
+
+  @override
+  String get charsStyleSection => 'Style identity & description (optional)';
+
+  @override
+  String get charsSoulSection => 'Personality / soul (optional)';
+
+  @override
+  String get charsNsfwTop => 'nsfw top';
+
+  @override
+  String get charsNsfwBottom => 'nsfw bottom';
+
+  @override
+  String get charsNsfwAlways => 'nsfw always';
+
+  @override
+  String get charsArtistTag => 'artist tag';
+
+  @override
+  String get charsStylePrefix => 'style prefix';
+
+  @override
+  String get charsDescriptionLabel =>
+      'character description (natural language; not used by NAI image gen)';
+
+  @override
+  String get charsSoulLabel =>
+      'soul — long-form personality doc (not used by image gen)';
+
+  @override
+  String get charsCombinedTags =>
+      'Combined tags (preview — body + primary outfit)';
+
+  @override
+  String get charsEmptyValue => '(empty)';
+
+  @override
+  String get charsWardrobe => 'Wardrobe';
+
+  @override
+  String get charsGenerateOutfitsTooltip =>
+      'Generate outfits with text generation';
+
+  @override
+  String get charsGenerating => 'Generating…';
+
+  @override
+  String get charsGenerateOutfits => 'Generate outfits';
+
+  @override
+  String get charsNewOutfit => 'New outfit';
+
+  @override
+  String get charsNoOutfits => 'No outfits yet — add one or generate a set.';
+
+  @override
+  String get charsDeleteOutfitTitle => 'Delete outfit';
+
+  @override
+  String charsDeleteOutfitMessage(String name) {
+    return 'Delete \"$name\"?';
+  }
+
+  @override
+  String get charsNewOutfitDefaultName => 'New Outfit';
+
+  @override
+  String get charsTextGenNotConfigured => 'Text generation is not configured';
+
+  @override
+  String get charsNoOutfitsReturned => 'No outfits returned';
+
+  @override
+  String charsOutfitsAdded(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Added $count outfits',
+      one: 'Added 1 outfit',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String charsGenerationFailed(String error) {
+    return 'Generation failed: $error';
+  }
+
+  @override
+  String get charsWear => 'Wear';
+
+  @override
+  String get charsState => 'State';
+
+  @override
+  String get charsSetPrimary => 'Set as primary outfit';
+
+  @override
+  String get charsEditOutfit => 'Edit outfit';
+
+  @override
+  String get charsOutfitName => 'Name';
+
+  @override
+  String get charsOutfitNameHint => 'Rainy Day Chic';
+
+  @override
+  String get charsClothingTags => 'Clothing tags (4–7 garments)';
+
+  @override
+  String get charsNegativeTagsOptional => 'Negative tags (optional)';
+
+  @override
+  String get charsSeasons => 'Seasons';
+
+  @override
+  String get charsWeatherLabel => 'Weather';
+
+  @override
+  String get charsActivities => 'Activities';
+
+  @override
+  String get charsTimeSlots => 'Time slots';
+
+  @override
+  String charsComfortTemp(int start, int end) {
+    return 'Comfortable temperature  $start°C – $end°C';
+  }
+
+  @override
+  String get charsDefaultOutfitName => 'Outfit';
+
+  @override
+  String get charsGenerateOutfitsTitle => 'Generate outfits';
+
+  @override
+  String charsHowMany(int count) {
+    return 'How many: $count';
+  }
+
+  @override
+  String get charsEraHint => 'Era / setting hint (optional)';
+
+  @override
+  String get charsEraHintExample =>
+      'e.g. 1920s Paris, Heian-era Japan, near-future';
+
+  @override
+  String get charsVibeHint => 'Vibe hint (optional)';
+
+  @override
+  String get charsVibeHintExample =>
+      'e.g. cozy academia, gothic, beachy minimalist';
+
+  @override
+  String get charsGenerate => 'Generate';
+
+  @override
+  String get charsStateNoGarments =>
+      'No classifiable garments in this outfit\'s tags.';
+
+  @override
+  String get charsOutfitState => 'Outfit state';
+
+  @override
+  String get charsDishevelled => 'Dishevelled';
+
+  @override
+  String get charsResetIntact => 'Reset to intact';
+
+  @override
+  String get charsReparse => 'Re-parse from tags';
+
+  @override
+  String get charsConcealed => 'concealed';
+
+  @override
+  String get charsRenderedTags => 'Rendered tags';
+
+  @override
+  String get charsApplyToPrompt => 'Apply to prompt';
+
+  @override
+  String get charsUseTheseTags => 'Use these tags';
+
+  @override
+  String get charsTopPrefix => 'Top';
+
+  @override
+  String get charsBottomPrefix => 'Bottom';
+
+  @override
+  String get charsGenTitle => 'Generate character';
+
+  @override
+  String get charsGenVibe => 'Vibe (optional)';
+
+  @override
+  String get charsGenVibeHint =>
+      'describe the vibe — e.g. \"weary war veteran turned baker\" — blank lets the model pick';
+
+  @override
+  String get charsGenGenderAny => 'Any (model picks)';
+
+  @override
+  String get charsGenEra => 'Era / time period';
+
+  @override
+  String get charsGenLocation => 'Location (optional)';
+
+  @override
+  String get charsGenLocationHint =>
+      'e.g. a coastal town in Portugal, Winterfell — blank lets the model pick';
+
+  @override
+  String get charsGenNsfw => 'NSFW tags';
+
+  @override
+  String get charsGenNsfwHint => 'also request the split nsfw_* tag buckets';
+
+  @override
+  String get charsGenStyle => 'Style (optional)';
+
+  @override
+  String get charsGenStyleHint =>
+      'e.g. an artist tag — blank lets the model pick';
+
+  @override
+  String charsGenWardrobe(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count outfits',
+      one: '1 outfit',
+    );
+    return 'Starter wardrobe: $_temp0';
+  }
+
+  @override
+  String get charsGenMeetNote => 'plus the \"meet\" outfit (always generated).';
+
+  @override
+  String get charsGenProgressTitle => 'Generating character';
+
+  @override
+  String get charsGenPreparing => 'Preparing…';
+
+  @override
+  String get charsGenProgressNote =>
+      'This makes several model calls — on a free/Tablet-tier token a long personality may take a few continuation passes.';
+
+  @override
   String get jukeboxTitle => 'JUKEBOX';
 
   @override

@@ -2941,6 +2941,343 @@ class AppLocalizationsZh extends AppLocalizations {
   String get charEditorMutual => '双向';
 
   @override
+  String get charsSelectOrCreate => '选择或新建角色';
+
+  @override
+  String get charsSearchHint => '搜索…';
+
+  @override
+  String get charsGenerateTooltip => '生成角色';
+
+  @override
+  String get charsTextGenNeedsKey => '需要文本生成功能（请先设置 API 密钥）';
+
+  @override
+  String get charsTextGenNeedsKeyWardrobe => '需要文本生成功能（请在文本生成设置中设置 API 密钥）';
+
+  @override
+  String get charsTextGenNoPermission => '当前账号没有文本生成权限';
+
+  @override
+  String get charsNew => '新建角色';
+
+  @override
+  String get charsNewDefaultName => '新角色';
+
+  @override
+  String get charsEmptyList => '还没有角色';
+
+  @override
+  String get charsUnnamed => '（未命名）';
+
+  @override
+  String get charsGenerated => '角色已生成';
+
+  @override
+  String get charsAddedToPrompt => '已加入提示词';
+
+  @override
+  String get charsNamePlaceholder => '角色名称';
+
+  @override
+  String get charsPhotoshoot => '拍摄';
+
+  @override
+  String get charsDelete => '删除角色';
+
+  @override
+  String charsDeleteMessage(String name) {
+    return '删除“$name”及其衣橱？';
+  }
+
+  @override
+  String get charsGender => '性别';
+
+  @override
+  String get charsGenderUnspecified => '（未指定）';
+
+  @override
+  String get charsGenderFemale => '女性';
+
+  @override
+  String get charsGenderMale => '男性';
+
+  @override
+  String get charsGenderNonbinary => '非二元';
+
+  @override
+  String get charsTint => '着色';
+
+  @override
+  String get charsTintAccent => '强调色';
+
+  @override
+  String get charsTintAccent2 => '强调色 2';
+
+  @override
+  String get charsTintBg => '背景';
+
+  @override
+  String get charsIdentityTags => '身份标签——此处不含服装';
+
+  @override
+  String get charsBaseLabel => '基础 — 1girl/1boy、种族、年龄、永久特征';
+
+  @override
+  String get charsFaceLabel => '面部 — 眼睛颜色/形状、眉毛、鼻子、嘴唇';
+
+  @override
+  String get charsHairLabel => '头发 — 颜色、长度、发型、质感';
+
+  @override
+  String get charsBodyLabel => '身体 — 体型、比例、胸部';
+
+  @override
+  String get charsNegativeLabel => '负面 — 使用此角色时注入负面提示词';
+
+  @override
+  String get charsNsfwSection => 'NSFW 子分组（可选）';
+
+  @override
+  String get charsStyleSection => '风格标识与描述（可选）';
+
+  @override
+  String get charsSoulSection => '性格 / 灵魂（可选）';
+
+  @override
+  String get charsNsfwTop => 'nsfw 上身';
+
+  @override
+  String get charsNsfwBottom => 'nsfw 下身';
+
+  @override
+  String get charsNsfwAlways => 'nsfw 常驻';
+
+  @override
+  String get charsArtistTag => '画师标签';
+
+  @override
+  String get charsStylePrefix => '风格前缀';
+
+  @override
+  String get charsDescriptionLabel => '角色描述（自然语言；NAI 生图不使用）';
+
+  @override
+  String get charsSoulLabel => '灵魂 — 长篇性格文档（生图不使用）';
+
+  @override
+  String get charsCombinedTags => '合并标签（预览——身体 + 主服装）';
+
+  @override
+  String get charsEmptyValue => '（空）';
+
+  @override
+  String get charsWardrobe => '衣橱';
+
+  @override
+  String get charsGenerateOutfitsTooltip => '使用文本生成来生成服装';
+
+  @override
+  String get charsGenerating => '生成中…';
+
+  @override
+  String get charsGenerateOutfits => '生成服装';
+
+  @override
+  String get charsNewOutfit => '新建服装';
+
+  @override
+  String get charsNoOutfits => '还没有服装——可以添加或生成一组。';
+
+  @override
+  String get charsDeleteOutfitTitle => '删除服装';
+
+  @override
+  String charsDeleteOutfitMessage(String name) {
+    return '删除“$name”？';
+  }
+
+  @override
+  String get charsNewOutfitDefaultName => '新服装';
+
+  @override
+  String get charsTextGenNotConfigured => '文本生成尚未配置';
+
+  @override
+  String get charsNoOutfitsReturned => '没有返回任何服装';
+
+  @override
+  String charsOutfitsAdded(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '已添加 $count 套服装',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String charsGenerationFailed(String error) {
+    return '生成失败：$error';
+  }
+
+  @override
+  String get charsWear => '穿上';
+
+  @override
+  String get charsState => '状态';
+
+  @override
+  String get charsSetPrimary => '设为主服装';
+
+  @override
+  String get charsEditOutfit => '编辑服装';
+
+  @override
+  String get charsOutfitName => '名称';
+
+  @override
+  String get charsOutfitNameHint => '雨天通勤风';
+
+  @override
+  String get charsClothingTags => '服装标签（4–7 件衣物）';
+
+  @override
+  String get charsNegativeTagsOptional => '负面标签（可选）';
+
+  @override
+  String get charsSeasons => '季节';
+
+  @override
+  String get charsWeatherLabel => '天气';
+
+  @override
+  String get charsActivities => '活动';
+
+  @override
+  String get charsTimeSlots => '时段';
+
+  @override
+  String charsComfortTemp(int start, int end) {
+    return '舒适温度  $start°C – $end°C';
+  }
+
+  @override
+  String get charsDefaultOutfitName => '服装';
+
+  @override
+  String get charsGenerateOutfitsTitle => '生成服装';
+
+  @override
+  String charsHowMany(int count) {
+    return '数量：$count';
+  }
+
+  @override
+  String get charsEraHint => '年代 / 场景提示（可选）';
+
+  @override
+  String get charsEraHintExample => '例如：1920 年代巴黎、平安时代的日本、近未来';
+
+  @override
+  String get charsVibeHint => '氛围提示（可选）';
+
+  @override
+  String get charsVibeHintExample => '例如：温馨学院风、哥特、海滩极简';
+
+  @override
+  String get charsGenerate => '生成';
+
+  @override
+  String get charsStateNoGarments => '此服装的标签中没有可分类的衣物。';
+
+  @override
+  String get charsOutfitState => '服装状态';
+
+  @override
+  String get charsDishevelled => '凌乱';
+
+  @override
+  String get charsResetIntact => '重置为完好';
+
+  @override
+  String get charsReparse => '从标签重新解析';
+
+  @override
+  String get charsConcealed => '被遮挡';
+
+  @override
+  String get charsRenderedTags => '渲染后的标签';
+
+  @override
+  String get charsApplyToPrompt => '应用到提示词';
+
+  @override
+  String get charsUseTheseTags => '使用这些标签';
+
+  @override
+  String get charsTopPrefix => '上';
+
+  @override
+  String get charsBottomPrefix => '下';
+
+  @override
+  String get charsGenTitle => '生成角色';
+
+  @override
+  String get charsGenVibe => '氛围（可选）';
+
+  @override
+  String get charsGenVibeHint => '描述氛围——例如“厌倦战争的老兵转行当面包师”——留空则由模型决定';
+
+  @override
+  String get charsGenGenderAny => '任意（由模型决定）';
+
+  @override
+  String get charsGenEra => '年代 / 时期';
+
+  @override
+  String get charsGenLocation => '地点（可选）';
+
+  @override
+  String get charsGenLocationHint => '例如：葡萄牙的海滨小镇、临冬城——留空则由模型决定';
+
+  @override
+  String get charsGenNsfw => 'NSFW 标签';
+
+  @override
+  String get charsGenNsfwHint => '同时生成拆分的 nsfw_* 标签分组';
+
+  @override
+  String get charsGenStyle => '风格（可选）';
+
+  @override
+  String get charsGenStyleHint => '例如：画师标签——留空则由模型决定';
+
+  @override
+  String charsGenWardrobe(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 套服装',
+    );
+    return '初始衣橱：$_temp0';
+  }
+
+  @override
+  String get charsGenMeetNote => '另外总会生成“初见”服装。';
+
+  @override
+  String get charsGenProgressTitle => '正在生成角色';
+
+  @override
+  String get charsGenPreparing => '准备中…';
+
+  @override
+  String get charsGenProgressNote =>
+      '这会调用模型多次——使用免费/Tablet 档令牌时，较长的性格描述可能需要多轮续写。';
+
+  @override
   String get jukeboxTitle => '点唱机';
 
   @override

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/l10n/l10n_extensions.dart';
 import '../../../../core/theme/theme_extensions.dart';
+import '../../../../core/theme/vision_metrics.dart';
 import '../../../../core/theme/vision_tokens.dart';
 import '../../widgets/tag_text_field.dart';
 import '../character_gen_data.dart';
@@ -41,7 +43,8 @@ class _CharacterGenDialogState extends State<CharacterGenDialog> {
     _gender = 'any';
     _era = widget.eras.firstWhere(
       (e) => e.isModern,
-      orElse: () => widget.eras.isNotEmpty ? widget.eras.last : kFallbackEras.first,
+      orElse: () =>
+          widget.eras.isNotEmpty ? widget.eras.last : kFallbackEras.first,
     );
   }
 
@@ -58,15 +61,19 @@ class _CharacterGenDialogState extends State<CharacterGenDialog> {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
+    final l = context.l;
     return AlertDialog(
       backgroundColor: t.surfaceHigh,
       scrollable: true,
-      title: Text('GENERATE CHARACTER',
-          style: TextStyle(
-              color: t.textSecondary,
-              fontSize: t.titleSize(11),
-              letterSpacing: 3,
-              fontWeight: FontWeight.bold)),
+      title: Text(
+        l.charsGenTitle.toUpperCase(),
+        style: TextStyle(
+          color: t.textSecondary,
+          fontSize: t.titleSize(11),
+          letterSpacing: 3,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 460),
         child: Column(
@@ -74,14 +81,13 @@ class _CharacterGenDialogState extends State<CharacterGenDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // -- Vibe ---------------------------------------------------------
-            _label(t, 'VIBE (optional)'),
+            _label(t, l.charsGenVibe.toUpperCase()),
             TextField(
               controller: _vibe,
               minLines: 1,
               maxLines: 3,
               style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(12)),
-              decoration: _deco(t,
-                  'describe the vibe — e.g. "weary war veteran turned baker" — blank lets the model pick'),
+              decoration: _deco(t, l.charsGenVibeHint),
             ),
             const SizedBox(height: 12),
 
@@ -93,12 +99,12 @@ class _CharacterGenDialogState extends State<CharacterGenDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _label(t, 'GENDER'),
+                      _label(t, l.charsGender.toUpperCase()),
                       _dropdown<String>(
                         t,
                         value: _gender,
                         items: kCharacterGenderOptions,
-                        labelOf: (g) => g == 'any' ? 'Any (model picks)' : g,
+                        labelOf: (g) => g == 'any' ? l.charsGenGenderAny : g,
                         onChanged: (g) => setState(() => _gender = g ?? 'any'),
                       ),
                     ],
@@ -109,13 +115,16 @@ class _CharacterGenDialogState extends State<CharacterGenDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _label(t, 'ERA / TIME PERIOD'),
+                      _label(t, l.charsGenEra.toUpperCase()),
                       _dropdown<CharacterEra>(
                         t,
                         value: _era,
                         items: widget.eras,
-                        labelOf: (e) => e.isModern ? e.label : '${e.label} (${_yearLabel(e.year)})',
-                        onChanged: (e) => setState(() => _era = e ?? widget.eras.first),
+                        labelOf: (e) => e.isModern
+                            ? e.label
+                            : '${e.label} (${_yearLabel(e.year)})',
+                        onChanged: (e) =>
+                            setState(() => _era = e ?? widget.eras.first),
                       ),
                     ],
                   ),
@@ -125,17 +134,23 @@ class _CharacterGenDialogState extends State<CharacterGenDialog> {
             if (!_era.isModern && _era.quote.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Text('“${_era.quote}”',
-                    style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9), fontStyle: FontStyle.italic)),
+                child: Text(
+                  '“${_era.quote}”',
+                  style: TextStyle(
+                    color: t.textMinimal,
+                    fontSize: t.fontSize(9),
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
               ),
             const SizedBox(height: 12),
 
             // -- Location -----------------------------------------------------
-            _label(t, 'LOCATION (optional)'),
+            _label(t, l.charsGenLocation.toUpperCase()),
             TextField(
               controller: _location,
               style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(12)),
-              decoration: _deco(t, 'e.g. a coastal town in Portugal, Winterfell — blank lets the model pick'),
+              decoration: _deco(t, l.charsGenLocationHint),
             ),
             const SizedBox(height: 12),
 
@@ -143,8 +158,13 @@ class _CharacterGenDialogState extends State<CharacterGenDialog> {
             Row(
               children: [
                 Expanded(
-                  child: _toggleRow(t, 'NSFW TAGS', _nsfw, (v) => setState(() => _nsfw = v),
-                      hint: 'also request the split nsfw_* tag buckets'),
+                  child: _toggleRow(
+                    t,
+                    l.charsGenNsfw.toUpperCase(),
+                    _nsfw,
+                    (v) => setState(() => _nsfw = v),
+                    hint: l.charsGenNsfwHint,
+                  ),
                 ),
               ],
             ),
@@ -153,13 +173,13 @@ class _CharacterGenDialogState extends State<CharacterGenDialog> {
             // Labelled "Style" but uses the danbooru artist-tag autosuggest.
             TagTextField(
               controller: _artist,
-              label: 'Style (optional)',
-              hint: 'e.g. an artist tag — blank lets the model pick',
+              label: l.charsGenStyle,
+              hint: l.charsGenStyleHint,
             ),
             const SizedBox(height: 12),
 
             // -- Wardrobe count ----------------------------------------------
-            _label(t, 'STARTER WARDROBE: ${_wardrobeCount.round()} OUTFIT(S)'),
+            _label(t, l.charsGenWardrobe(_wardrobeCount.round()).toUpperCase()),
             Slider(
               value: _wardrobeCount,
               min: 0,
@@ -170,7 +190,7 @@ class _CharacterGenDialogState extends State<CharacterGenDialog> {
               onChanged: (v) => setState(() => _wardrobeCount = v),
             ),
             Text(
-              'plus the "meet" outfit (always generated).',
+              l.charsGenMeetNote,
               style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(8.5)),
             ),
           ],
@@ -179,16 +199,24 @@ class _CharacterGenDialogState extends State<CharacterGenDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text('CANCEL', style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9))),
+          child: Text(
+            l.commonCancel.toUpperCase(),
+            style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9)),
+          ),
         ),
         ElevatedButton(
           onPressed: _valid ? _submit : null,
           style: ElevatedButton.styleFrom(
-            backgroundColor: t.accent.withValues(alpha: 0.2),
+            backgroundColor: t.accent.withValues(
+              alpha: VisionMetrics.opacityPressed,
+            ),
             foregroundColor: t.accent,
             elevation: 0,
           ),
-          child: Text('✨ GENERATE', style: TextStyle(fontSize: t.fontSize(9), letterSpacing: 1)),
+          child: Text(
+            '✨ ${l.charsGenerate.toUpperCase()}',
+            style: TextStyle(fontSize: t.fontSize(9), letterSpacing: 1),
+          ),
         ),
       ],
     );
@@ -198,25 +226,33 @@ class _CharacterGenDialogState extends State<CharacterGenDialog> {
     // The vibe is now a single free-text field. We route it through the
     // built-in `custom` vibe so the form/service contract stays unchanged — a
     // blank box collapses to an empty hint (model picks).
-    Navigator.of(context).pop(CharacterGenForm(
-      gender: _gender,
-      vibe: kCustomCharacterVibe,
-      customVibe: _vibe.text.trim(),
-      era: _era,
-      location: _location.text.trim(),
-      nsfw: _nsfw,
-      artist: _artist.text.trim(),
-      wardrobeCount: _wardrobeCount.round(),
-    ));
+    Navigator.of(context).pop(
+      CharacterGenForm(
+        gender: _gender,
+        vibe: kCustomCharacterVibe,
+        customVibe: _vibe.text.trim(),
+        era: _era,
+        location: _location.text.trim(),
+        nsfw: _nsfw,
+        artist: _artist.text.trim(),
+        wardrobeCount: _wardrobeCount.round(),
+      ),
+    );
   }
 
   // -- small UI helpers ----------------------------------------------------
 
   Widget _label(VisionTokens t, String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 4, top: 2),
-        child: Text(text,
-            style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(8), letterSpacing: 1.5)),
-      );
+    padding: const EdgeInsets.only(bottom: 4, top: 2),
+    child: Text(
+      text,
+      style: TextStyle(
+        color: t.textTertiary,
+        fontSize: t.fontSize(8),
+        letterSpacing: 1.5,
+      ),
+    ),
+  );
 
   Widget _dropdown<T>(
     VisionTokens t, {
@@ -228,7 +264,7 @@ class _CharacterGenDialogState extends State<CharacterGenDialog> {
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: t.borderSubtle),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: VisionMetrics.borderRadius4,
       ),
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: DropdownButtonHideUnderline(
@@ -243,9 +279,11 @@ class _CharacterGenDialogState extends State<CharacterGenDialog> {
             for (final it in items)
               DropdownMenuItem<T>(
                 value: it,
-                child: Text(labelOf(it),
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: t.fontSize(11))),
+                child: Text(
+                  labelOf(it),
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: t.fontSize(11)),
+                ),
               ),
           ],
         ),
@@ -253,8 +291,13 @@ class _CharacterGenDialogState extends State<CharacterGenDialog> {
     );
   }
 
-  Widget _toggleRow(VisionTokens t, String label, bool value, ValueChanged<bool> onChanged,
-      {String? hint}) {
+  Widget _toggleRow(
+    VisionTokens t,
+    String label,
+    bool value,
+    ValueChanged<bool> onChanged, {
+    String? hint,
+  }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -262,33 +305,45 @@ class _CharacterGenDialogState extends State<CharacterGenDialog> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label,
-                  style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(8), letterSpacing: 1.5)),
+              Text(
+                label,
+                style: TextStyle(
+                  color: t.textTertiary,
+                  fontSize: t.fontSize(8),
+                  letterSpacing: 1.5,
+                ),
+              ),
               if (hint != null)
-                Text(hint,
-                    style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(8.5), fontStyle: FontStyle.italic)),
+                Text(
+                  hint,
+                  style: TextStyle(
+                    color: t.textMinimal,
+                    fontSize: t.fontSize(8.5),
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
             ],
           ),
         ),
-        Switch(
-          value: value,
-          onChanged: onChanged,
-          activeThumbColor: t.accent,
-        ),
+        Switch(value: value, onChanged: onChanged, activeThumbColor: t.accent),
       ],
     );
   }
 
   InputDecoration _deco(VisionTokens t, String hint) => InputDecoration(
-        hintText: hint,
-        hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(10)),
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        enabledBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: t.borderSubtle), borderRadius: BorderRadius.circular(4)),
-        focusedBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: t.accent), borderRadius: BorderRadius.circular(4)),
-      );
+    hintText: hint,
+    hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(10)),
+    isDense: true,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+    enabledBorder: OutlineInputBorder(
+      borderSide: BorderSide(color: t.borderSubtle),
+      borderRadius: VisionMetrics.borderRadius4,
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderSide: BorderSide(color: t.accent),
+      borderRadius: VisionMetrics.borderRadius4,
+    ),
+  );
 
   static String _yearLabel(int year) {
     if (year < 0) return '${-year} BC';

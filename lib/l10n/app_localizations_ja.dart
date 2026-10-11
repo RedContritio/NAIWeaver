@@ -2960,6 +2960,344 @@ class AppLocalizationsJa extends AppLocalizations {
   String get charEditorMutual => '相互';
 
   @override
+  String get charsSelectOrCreate => 'キャラクターを選択または作成してください';
+
+  @override
+  String get charsSearchHint => '検索…';
+
+  @override
+  String get charsGenerateTooltip => 'キャラクターを生成';
+
+  @override
+  String get charsTextGenNeedsKey => 'テキスト生成が必要です（先にAPIキーを設定してください）';
+
+  @override
+  String get charsTextGenNeedsKeyWardrobe =>
+      'テキスト生成が必要です（テキスト生成設定でAPIキーを設定してください）';
+
+  @override
+  String get charsTextGenNoPermission => 'このアカウントにはテキスト生成の権限がありません';
+
+  @override
+  String get charsNew => '新規キャラクター';
+
+  @override
+  String get charsNewDefaultName => '新しいキャラクター';
+
+  @override
+  String get charsEmptyList => 'キャラクターはまだありません';
+
+  @override
+  String get charsUnnamed => '（名称未設定）';
+
+  @override
+  String get charsGenerated => 'キャラクターを生成しました';
+
+  @override
+  String get charsAddedToPrompt => 'プロンプトに追加しました';
+
+  @override
+  String get charsNamePlaceholder => 'キャラクター名';
+
+  @override
+  String get charsPhotoshoot => '撮影';
+
+  @override
+  String get charsDelete => 'キャラクターを削除';
+
+  @override
+  String charsDeleteMessage(String name) {
+    return '「$name」とそのワードローブを削除しますか？';
+  }
+
+  @override
+  String get charsGender => '性別';
+
+  @override
+  String get charsGenderUnspecified => '（未指定）';
+
+  @override
+  String get charsGenderFemale => '女性';
+
+  @override
+  String get charsGenderMale => '男性';
+
+  @override
+  String get charsGenderNonbinary => 'ノンバイナリー';
+
+  @override
+  String get charsTint => 'ティント';
+
+  @override
+  String get charsTintAccent => 'アクセント';
+
+  @override
+  String get charsTintAccent2 => 'アクセント2';
+
+  @override
+  String get charsTintBg => '背景';
+
+  @override
+  String get charsIdentityTags => 'アイデンティティタグ — 服装は含めない';
+
+  @override
+  String get charsBaseLabel => 'ベース — 1girl/1boy、民族、年齢、恒久的な特徴';
+
+  @override
+  String get charsFaceLabel => '顔 — 目の色/形、眉、鼻、唇';
+
+  @override
+  String get charsHairLabel => '髪 — 色、長さ、スタイル、質感';
+
+  @override
+  String get charsBodyLabel => '体 — 体格、プロポーション、胸';
+
+  @override
+  String get charsNegativeLabel => 'ネガティブ — このキャラクター使用時にUCへ追加';
+
+  @override
+  String get charsNsfwSection => 'NSFWサブバケット（任意）';
+
+  @override
+  String get charsStyleSection => 'スタイルと説明（任意）';
+
+  @override
+  String get charsSoulSection => '性格 / ソウル（任意）';
+
+  @override
+  String get charsNsfwTop => 'nsfw 上半身';
+
+  @override
+  String get charsNsfwBottom => 'nsfw 下半身';
+
+  @override
+  String get charsNsfwAlways => 'nsfw 常時';
+
+  @override
+  String get charsArtistTag => 'アーティストタグ';
+
+  @override
+  String get charsStylePrefix => 'スタイルプレフィックス';
+
+  @override
+  String get charsDescriptionLabel => 'キャラクター説明（自然言語。NAI画像生成では使用しません）';
+
+  @override
+  String get charsSoulLabel => 'ソウル — 長文の性格ドキュメント（画像生成では使用しません）';
+
+  @override
+  String get charsCombinedTags => '結合タグ（プレビュー — 体 + メイン衣装）';
+
+  @override
+  String get charsEmptyValue => '（空）';
+
+  @override
+  String get charsWardrobe => 'ワードローブ';
+
+  @override
+  String get charsGenerateOutfitsTooltip => 'テキスト生成で衣装を生成';
+
+  @override
+  String get charsGenerating => '生成中…';
+
+  @override
+  String get charsGenerateOutfits => '衣装を生成';
+
+  @override
+  String get charsNewOutfit => '新規衣装';
+
+  @override
+  String get charsNoOutfits => '衣装はまだありません。追加するか、まとめて生成してください。';
+
+  @override
+  String get charsDeleteOutfitTitle => '衣装を削除';
+
+  @override
+  String charsDeleteOutfitMessage(String name) {
+    return '「$name」を削除しますか？';
+  }
+
+  @override
+  String get charsNewOutfitDefaultName => '新しい衣装';
+
+  @override
+  String get charsTextGenNotConfigured => 'テキスト生成が設定されていません';
+
+  @override
+  String get charsNoOutfitsReturned => '衣装が返されませんでした';
+
+  @override
+  String charsOutfitsAdded(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '衣装を$count着追加しました',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String charsGenerationFailed(String error) {
+    return '生成に失敗しました：$error';
+  }
+
+  @override
+  String get charsWear => '着る';
+
+  @override
+  String get charsState => '状態';
+
+  @override
+  String get charsSetPrimary => 'メイン衣装にする';
+
+  @override
+  String get charsEditOutfit => '衣装を編集';
+
+  @override
+  String get charsOutfitName => '名前';
+
+  @override
+  String get charsOutfitNameHint => '雨の日シック';
+
+  @override
+  String get charsClothingTags => '衣装タグ（4〜7点）';
+
+  @override
+  String get charsNegativeTagsOptional => 'ネガティブタグ（任意）';
+
+  @override
+  String get charsSeasons => '季節';
+
+  @override
+  String get charsWeatherLabel => '天気';
+
+  @override
+  String get charsActivities => 'アクティビティ';
+
+  @override
+  String get charsTimeSlots => '時間帯';
+
+  @override
+  String charsComfortTemp(int start, int end) {
+    return '快適な気温  $start°C – $end°C';
+  }
+
+  @override
+  String get charsDefaultOutfitName => '衣装';
+
+  @override
+  String get charsGenerateOutfitsTitle => '衣装を生成';
+
+  @override
+  String charsHowMany(int count) {
+    return '数：$count';
+  }
+
+  @override
+  String get charsEraHint => '時代 / 舞台のヒント（任意）';
+
+  @override
+  String get charsEraHintExample => '例：1920年代のパリ、平安時代の日本、近未来';
+
+  @override
+  String get charsVibeHint => '雰囲気のヒント（任意）';
+
+  @override
+  String get charsVibeHintExample => '例：コージーアカデミア、ゴシック、ビーチ系ミニマル';
+
+  @override
+  String get charsGenerate => '生成';
+
+  @override
+  String get charsStateNoGarments => 'この衣装のタグに分類できる衣類がありません。';
+
+  @override
+  String get charsOutfitState => '衣装の状態';
+
+  @override
+  String get charsDishevelled => '乱れ';
+
+  @override
+  String get charsResetIntact => '完全な状態に戻す';
+
+  @override
+  String get charsReparse => 'タグから再解析';
+
+  @override
+  String get charsConcealed => '隠れている';
+
+  @override
+  String get charsRenderedTags => 'レンダリング後のタグ';
+
+  @override
+  String get charsApplyToPrompt => 'プロンプトに適用';
+
+  @override
+  String get charsUseTheseTags => 'これらのタグを使う';
+
+  @override
+  String get charsTopPrefix => '上';
+
+  @override
+  String get charsBottomPrefix => '下';
+
+  @override
+  String get charsGenTitle => 'キャラクターを生成';
+
+  @override
+  String get charsGenVibe => '雰囲気（任意）';
+
+  @override
+  String get charsGenVibeHint => '雰囲気を記述 — 例：「戦に疲れた退役軍人のパン職人」— 空欄ならモデルが決めます';
+
+  @override
+  String get charsGenGenderAny => '指定なし（モデルが選択）';
+
+  @override
+  String get charsGenEra => '時代 / 期間';
+
+  @override
+  String get charsGenLocation => '場所（任意）';
+
+  @override
+  String get charsGenLocationHint => '例：ポルトガルの海辺の町、ウィンターフェル — 空欄ならモデルが決めます';
+
+  @override
+  String get charsGenNsfw => 'NSFWタグ';
+
+  @override
+  String get charsGenNsfwHint => '分割されたnsfw_*タグバケットも生成する';
+
+  @override
+  String get charsGenStyle => 'スタイル（任意）';
+
+  @override
+  String get charsGenStyleHint => '例：アーティストタグ — 空欄ならモデルが決めます';
+
+  @override
+  String charsGenWardrobe(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '衣装$count着',
+    );
+    return '初期ワードローブ：$_temp0';
+  }
+
+  @override
+  String get charsGenMeetNote => '別途「初対面」の衣装が必ず生成されます。';
+
+  @override
+  String get charsGenProgressTitle => 'キャラクターを生成中';
+
+  @override
+  String get charsGenPreparing => '準備中…';
+
+  @override
+  String get charsGenProgressNote =>
+      'モデルを複数回呼び出します。無料/Tabletティアのトークンでは、長い性格設定に数回の継続生成が必要になる場合があります。';
+
+  @override
   String get jukeboxTitle => 'ジュークボックス';
 
   @override
