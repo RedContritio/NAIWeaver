@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../core/jukebox/services/jukebox_audio_handler.dart';
+import '../core/l10n/locale_notifier.dart';
 import '../core/services/client_diagnostics.dart';
 import '../core/services/client_diagnostics_runtime.dart';
 import '../core/services/path_service.dart';
@@ -77,6 +78,11 @@ class _AppWindowListener extends WindowListener {
 bool get _isDesktop =>
     !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
 
+// A failed start-up can be retried (see runNaiWeaver), so one-time platform
+// registrations remember that they already ran.
+_AppWindowListener? _windowListener;
+Future<JukeboxAudioHandler?>? _audioHandler;
+
 /// Restores the saved window rectangle, or a sane default.
 Future<void> _restoreWindow(PreferencesService prefs) async {
   await windowManager.ensureInitialized();
@@ -111,10 +117,15 @@ Future<void> _restoreWindow(PreferencesService prefs) async {
   await windowManager.show();
   await windowManager.focus();
   windowManager.setPreventClose(true);
-  windowManager.addListener(_AppWindowListener(prefs));
+  if (_windowListener != null) windowManager.removeListener(_windowListener!);
+  _windowListener = _AppWindowListener(prefs);
+  windowManager.addListener(_windowListener!);
 }
 
-Future<JukeboxAudioHandler?> _initAudio() async {
+Future<JukeboxAudioHandler?> _initAudio() =>
+    _audioHandler ??= _startAudioService();
+
+Future<JukeboxAudioHandler?> _startAudioService() async {
   if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return null;
   try {
     return await AudioService.init(
@@ -192,8 +203,8 @@ class _StartupFailureApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      // Preferences may be what failed, so the default locale is used.
-      locale: const Locale('zh'),
+      // Preferences may be what failed, so the build default is used.
+      locale: LocaleNotifier.resolveDefault(),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: Builder(

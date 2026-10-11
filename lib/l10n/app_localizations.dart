@@ -10345,6 +10345,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'NAIWeaver could not start'**
   String get startupFailedTitle;
+
+  /// No description provided for @mlStageUpscalingTile.
+  ///
+  /// In en, this message translates to:
+  /// **'Upscaling tile {current}/{total}...'**
+  String mlStageUpscalingTile(int current, int total);
 }
 
 class _AppLocalizationsDelegate

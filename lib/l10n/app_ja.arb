@@ -1806,5 +1806,6 @@
   "soundfontDescN64Roxie": "ニンテンドー64のゲームサンプル",
   "soundfontDescN64Sdk": "ニンテンドー64 SDK 標準サンプル",
   "mlDownloadHashMismatch": "ハッシュの検証に失敗しました",
-  "startupFailedTitle": "NAIWeaver を起動できませんでした"
+  "startupFailedTitle": "NAIWeaver を起動できませんでした",
+  "mlStageUpscalingTile": "タイルを拡大中 {current}/{total}..."
 }

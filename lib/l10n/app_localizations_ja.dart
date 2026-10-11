@@ -5500,4 +5500,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get startupFailedTitle => 'NAIWeaver を起動できませんでした';
+
+  @override
+  String mlStageUpscalingTile(int current, int total) {
+    return 'タイルを拡大中 $current/$total...';
+  }
 }

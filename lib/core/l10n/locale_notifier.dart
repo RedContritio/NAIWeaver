@@ -21,6 +21,10 @@ class LocaleNotifier extends ChangeNotifier {
     return saved.isNotEmpty ? Locale(saved) : _resolveDefault();
   }
 
+  /// The default without saved preferences: the Web `?lang=` parameter, else
+  /// the build's DEFAULT_LOCALE.
+  static Locale resolveDefault() => _resolveDefault();
+
   static Locale _resolveDefault() {
     // On web, URL param overrides build default
     if (kIsWeb) {

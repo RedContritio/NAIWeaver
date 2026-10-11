@@ -37,7 +37,7 @@ class MLProcessingOverlay extends StatelessWidget {
               ),
               const SizedBox(height: VisionMetrics.space16),
               Text(
-                ml.processingStage.label(context.l).toUpperCase(),
+                ml.processingLabel(context.l).toUpperCase(),
                 style: TextStyle(
                   color: t.textSecondary,
                   fontSize: t.fontSize(mobile ? 11 : 9),

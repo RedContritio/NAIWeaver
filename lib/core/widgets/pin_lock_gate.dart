@@ -59,7 +59,6 @@ class _PinLockGateState extends State<PinLockGate> with WidgetsBindingObserver {
 
   Future<void> _attemptBiometric() async {
     if (!widget.prefs.pinBiometricEnabled) return;
-    final reason = context.l.pinUnlockReason;
     try {
       final auth = LocalAuthentication();
       final canCheck = await auth.canCheckBiometrics || await auth.isDeviceSupported();
@@ -72,8 +71,11 @@ class _PinLockGateState extends State<PinLockGate> with WidgetsBindingObserver {
           available.contains(BiometricType.strong) ||
           available.contains(BiometricType.weak);
 
+      // Read after the awaits: this runs from initState, where inherited
+      // widgets such as Localizations cannot be looked up yet.
+      if (!mounted) return;
       final didAuth = await auth.authenticate(
-        localizedReason: reason,
+        localizedReason: context.l.pinUnlockReason,
         options: AuthenticationOptions(
           stickyAuth: true,
           biometricOnly: hasBiometric,

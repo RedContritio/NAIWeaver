@@ -5664,4 +5664,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get startupFailedTitle => 'NAIWeaver could not start';
+
+  @override
+  String mlStageUpscalingTile(int current, int total) {
+    return 'Upscaling tile $current/$total...';
+  }
 }

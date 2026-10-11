@@ -15,6 +15,7 @@ class MLUpscaleService {
     Uint8List imageBytes,
     String modelId, {
     void Function(MLStage stage, double progress)? onProgress,
+    void Function(int current, int total)? onTile,
     bool tileable = false,
   }) async {
     final config = MLModelRegistry.configFor(modelId);
@@ -33,6 +34,7 @@ class MLUpscaleService {
       modelId,
       config,
       tileable: tileable,
+      onTile: onTile,
       onProgress: (stage, progress) {
         // Scale progress to 0.05–0.85 range
         onProgress?.call(stage, 0.05 + progress * 0.80);
@@ -73,6 +75,7 @@ class MLUpscaleService {
     MLModelConfig config, {
     bool tileable = false,
     void Function(MLStage stage, double progress)? onProgress,
+    void Function(int current, int total)? onTile,
   }) async {
     final tileSize = config.maxTileSize ?? 256;
     final overlap = config.tileOverlap;
@@ -116,6 +119,7 @@ class MLUpscaleService {
     for (int i = 0; i < totalTiles; i++) {
       final tile = tileResult.tiles[i];
       final progress = 0.1 + (0.8 * (i / totalTiles));
+      onTile?.call(i + 1, totalTiles);
       onProgress?.call(MLStage.upscalingTiles, progress);
 
       final result = await _inferenceService.runInference(

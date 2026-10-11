@@ -1879,5 +1879,6 @@
   "soundfontDescN64Roxie": "任天堂 64 游戏采样",
   "soundfontDescN64Sdk": "任天堂 64 SDK 默认采样",
   "mlDownloadHashMismatch": "哈希校验失败",
-  "startupFailedTitle": "NAIWeaver 启动失败"
+  "startupFailedTitle": "NAIWeaver 启动失败",
+  "mlStageUpscalingTile": "正在放大图块 {current}/{total}..."
 }

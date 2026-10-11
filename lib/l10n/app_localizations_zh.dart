@@ -5460,4 +5460,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get startupFailedTitle => 'NAIWeaver 启动失败';
+
+  @override
+  String mlStageUpscalingTile(int current, int total) {
+    return '正在放大图块 $current/$total...';
+  }
 }

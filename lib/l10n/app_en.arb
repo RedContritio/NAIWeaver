@@ -1916,5 +1916,12 @@
   "startupFailedTitle": "NAIWeaver could not start",
   "@startupFailedTitle": {
     "description": "Title of the screen shown when app start-up fails."
+  },
+  "mlStageUpscalingTile": "Upscaling tile {current}/{total}...",
+  "@mlStageUpscalingTile": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "total": {"type": "int"}
+    }
   }
 }
