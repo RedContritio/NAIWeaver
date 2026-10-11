@@ -56,13 +56,29 @@ Future<DirectorRefNotifier> _pumpDirectorManager(
   return notifier;
 }
 
+/// Real file I/O finishes on its own schedule; wait for its outcome instead of
+/// a fixed delay, which flaked under a loaded full-suite run.
+Future<void> _pumpUntilFound(
+  WidgetTester tester,
+  Finder finder, {
+  Duration timeout = const Duration(seconds: 3),
+}) async {
+  final deadline = DateTime.now().add(timeout);
+  while (finder.evaluate().isEmpty && DateTime.now().isBefore(deadline)) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 20)),
+    );
+    await tester.pump();
+  }
+}
+
 Future<void> _saveFirstToLibrary(WidgetTester tester) async {
   await tester.tap(find.byTooltip('SAVE REFERENCE').first);
   await tester.pumpAndSettle();
   await tester.enterText(find.byType(TextField), 'hero');
   await tester.tap(find.text('SAVE'));
   await tester.pump();
-  await _settleIo(tester);
+  await _pumpUntilFound(tester, find.byType(SnackBar));
   // Let the dialog finish closing so only the library lists the name.
   await tester.pump(const Duration(milliseconds: 400));
 }
