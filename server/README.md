@@ -13,8 +13,12 @@ cd server
 uv sync
 NAIWEAVER_DEV_USER=admin \
 NAIWEAVER_FAKE_NOVELAI=1 \
-uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-proxy-headers
 ```
+
+Keep `--no-proxy-headers`: the dev user trusts the loopback `request.client.host`,
+and uvicorn's default (trusting `X-Forwarded-For` from 127.0.0.1) would let a
+forwarded header rewrite that address.
 
 Use `NOVELAI_TOKEN_FILE="$HOME/.config/naiweaver/novelai_token.txt"` instead of
 `NAIWEAVER_FAKE_NOVELAI=1` to talk to the real NovelAI.
@@ -258,7 +262,9 @@ git -C /Users/redcontritio/Projects/NAIWeaver-release checkout --detach <commit>
 launchctl kickstart -k gui/$(id -u)/com.redcontritio.naiweaver
 ```
 
-`compress-web.sh` writes `.br`/`.gz` siblings; the gateway serves them to
+`compress-web.sh` needs `brotli` (`brew install brotli`) and must be re-run
+after every `flutter build web`; the gateway ignores siblings older than the
+source file, so a forgotten run falls back to the uncompressed bundle. It writes `.br`/`.gz` siblings; the gateway serves them to
 browsers that accept the encoding and answers unchanged files with 304, so the
 ~10 MB `main.dart.js` costs ~2 MB on a first visit and nothing afterwards.
 
