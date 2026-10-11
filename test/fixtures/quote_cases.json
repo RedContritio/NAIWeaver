@@ -1,0 +1,277 @@
+{
+  "description": "Golden cases for classify_and_quote (docs/GATEWAY_CONTRACT.md section 3). The gateway runs them in server/tests/test_quote.py; the Flutter estimate must produce the same results. For each case: rules = base_rules with green_point_discount and free_allowance_exhausted replaced by the case values; request = {\"action\": action, \"parameters\": parameters} (action null means the key is absent); images = seeds. 'expected' is the complete quote object. invalid_cases must be rejected with HTTP 400 invalid_parameters naming 'field'.",
+  "base_rules": {
+    "free_sizes": [[832, 1216], [1216, 832], [1024, 1024]],
+    "free_max_steps": 28,
+    "max_steps": 50,
+    "max_dimension": 2048,
+    "allowed_samplers": [
+      "k_dpmpp_2m",
+      "k_dpmpp_2s_ancestral",
+      "k_dpmpp_sde",
+      "k_euler",
+      "k_euler_ancestral"
+    ],
+    "batch_limit": 8,
+    "green_point_discount": 0,
+    "free_allowance_exhausted": false,
+    "pricing": {
+      "area_coefficient": 2.951823174884865e-6,
+      "step_area_coefficient": 5.753298233447344e-7,
+      "smea_multiplier": 1.2,
+      "smea_dyn_multiplier": 1.4,
+      "min_points": 2,
+      "director_reference_points": 5,
+      "free_vibe_count": 4,
+      "extra_vibe_points": 2
+    },
+    "tool_caps": {"upscale": 10, "augment": 80, "encode_vibe": 2}
+  },
+  "cases": [
+    {
+      "name": "standard_portrait_is_free",
+      "action": "generate",
+      "parameters": {"width": 832, "height": 1216, "steps": 28, "scale": 5.0, "sampler": "k_euler_ancestral", "sm": false, "sm_dyn": false},
+      "seeds": 1,
+      "green_point_discount": 0,
+      "free_allowance_exhausted": false,
+      "expected": {"mode": "free", "points": 20, "per_image": 20, "images": 1, "breakdown": {"base": 20, "director_refs": 0, "extra_vibes": 0}, "reasons": []}
+    },
+    {
+      "name": "landscape_23_steps_is_free",
+      "action": "generate",
+      "parameters": {"width": 1216, "height": 832, "steps": 23, "scale": 5.0, "sampler": "k_euler"},
+      "seeds": 1,
+      "green_point_discount": 0,
+      "free_allowance_exhausted": false,
+      "expected": {"mode": "free", "points": 17, "per_image": 17, "images": 1, "breakdown": {"base": 17, "director_refs": 0, "extra_vibes": 0}, "reasons": []}
+    },
+    {
+      "name": "square_is_free_and_action_may_be_absent",
+      "action": null,
+      "parameters": {"width": 1024, "height": 1024, "steps": 28, "scale": 6, "sampler": "k_dpmpp_2m"},
+      "seeds": 1,
+      "green_point_discount": 0,
+      "free_allowance_exhausted": false,
+      "expected": {"mode": "free", "points": 20, "per_image": 20, "images": 1, "breakdown": {"base": 20, "director_refs": 0, "extra_vibes": 0}, "reasons": []}
+    },
+    {
+      "name": "green_discount_is_rounded_up_per_image_then_multiplied",
+      "action": "generate",
+      "parameters": {"width": 832, "height": 1216, "steps": 28, "scale": 5.0, "sampler": "k_euler_ancestral"},
+      "seeds": 4,
+      "green_point_discount": 30,
+      "free_allowance_exhausted": false,
+      "expected": {"mode": "free", "points": 56, "per_image": 14, "images": 4, "breakdown": {"base": 20, "director_refs": 0, "extra_vibes": 0}, "reasons": []}
+    },
+    {
+      "name": "half_discount_rounds_up",
+      "action": "generate",
+      "parameters": {"width": 1216, "height": 832, "steps": 23, "scale": 5.0, "sampler": "k_euler"},
+      "seeds": 3,
+      "green_point_discount": 50,
+      "free_allowance_exhausted": false,
+      "expected": {"mode": "free", "points": 27, "per_image": 9, "images": 3, "breakdown": {"base": 17, "director_refs": 0, "extra_vibes": 0}, "reasons": []}
+    },
+    {
+      "name": "full_discount_admin_is_free_of_charge",
+      "action": "generate",
+      "parameters": {"width": 832, "height": 1216, "steps": 28, "scale": 5.0, "sampler": "k_euler_ancestral"},
+      "seeds": 2,
+      "green_point_discount": 100,
+      "free_allowance_exhausted": false,
+      "expected": {"mode": "free", "points": 0, "per_image": 0, "images": 2, "breakdown": {"base": 20, "director_refs": 0, "extra_vibes": 0}, "reasons": []}
+    },
+    {
+      "name": "empty_paid_only_parameters_do_not_make_it_paid",
+      "action": "generate",
+      "parameters": {"width": 832, "height": 1216, "steps": 28, "scale": 5.0, "sampler": "k_euler_ancestral", "director_reference_images": [], "reference_image_multiple": null, "add_original_image": false, "strength": 0},
+      "seeds": 1,
+      "green_point_discount": 0,
+      "free_allowance_exhausted": false,
+      "expected": {"mode": "free", "points": 20, "per_image": 20, "images": 1, "breakdown": {"base": 20, "director_refs": 0, "extra_vibes": 0}, "reasons": []}
+    },
+    {
+      "name": "steps_over_free_limit_is_paid_without_discount",
+      "action": "generate",
+      "parameters": {"width": 832, "height": 1216, "steps": 50, "scale": 5.0, "sampler": "k_euler_ancestral"},
+      "seeds": 1,
+      "green_point_discount": 30,
+      "free_allowance_exhausted": false,
+      "expected": {"mode": "paid", "points": 33, "per_image": 33, "images": 1, "breakdown": {"base": 33, "director_refs": 0, "extra_vibes": 0}, "reasons": ["steps_over_free_limit"]}
+    },
+    {
+      "name": "size_not_free",
+      "action": "generate",
+      "parameters": {"width": 640, "height": 640, "steps": 28, "scale": 5.0, "sampler": "k_euler_ancestral"},
+      "seeds": 1,
+      "green_point_discount": 0,
+      "free_allowance_exhausted": false,
+      "expected": {"mode": "paid", "points": 8, "per_image": 8, "images": 1, "breakdown": {"base": 8, "director_refs": 0, "extra_vibes": 0}, "reasons": ["size_not_free"]}
+    },
+    {
+      "name": "minimum_price",
+      "action": "generate",
+      "parameters": {"width": 64, "height": 64, "steps": 1, "scale": 5.0, "sampler": "k_euler"},
+      "seeds": 1,
+      "green_point_discount": 0,
+      "free_allowance_exhausted": false,
+      "expected": {"mode": "paid", "points": 2, "per_image": 2, "images": 1, "breakdown": {"base": 2, "director_refs": 0, "extra_vibes": 0}, "reasons": ["size_not_free"]}
+    },
+    {
+      "name": "smea",
+      "action": "generate",
+      "parameters": {"width": 832, "height": 1216, "steps": 28, "scale": 5.0, "sampler": "k_euler_ancestral", "sm": true, "sm_dyn": false},
+      "seeds": 1,
+      "green_point_discount": 0,
+      "free_allowance_exhausted": false,
+      "expected": {"mode": "paid", "points": 24, "per_image": 24, "images": 1, "breakdown": {"base": 24, "director_refs": 0, "extra_vibes": 0}, "reasons": ["smea"]}
+    },
+    {
+      "name": "smea_dyn_uses_the_larger_multiplier",
+      "action": "generate",
+      "parameters": {"width": 832, "height": 1216, "steps": 28, "scale": 5.0, "sampler": "k_euler_ancestral", "sm": true, "sm_dyn": true},
+      "seeds": 1,
+      "green_point_discount": 0,
+      "free_allowance_exhausted": false,
+      "expected": {"mode": "paid", "points": 28, "per_image": 28, "images": 1, "breakdown": {"base": 28, "director_refs": 0, "extra_vibes": 0}, "reasons": ["smea"]}
+    },
+    {
+      "name": "director_references",
+      "action": "generate",
+      "parameters": {"width": 832, "height": 1216, "steps": 28, "scale": 5.0, "sampler": "k_euler_ancestral", "director_reference_images": ["ref-a", "ref-b"], "director_reference_descriptions": [{"caption": "a"}, {"caption": "b"}]},
+      "seeds": 1,
+      "green_point_discount": 0,
+      "free_allowance_exhausted": false,
+      "expected": {"mode": "paid", "points": 30, "per_image": 30, "images": 1, "breakdown": {"base": 20, "director_refs": 10, "extra_vibes": 0}, "reasons": ["director_refs"]}
+    },
+    {
+      "name": "vibes_within_the_free_vibe_count_are_paid_but_not_surcharged",
+      "action": "generate",
+      "parameters": {"width": 832, "height": 1216, "steps": 28, "scale": 5.0, "sampler": "k_euler_ancestral", "reference_image_multiple": ["v1", "v2", "v3"], "reference_strength_multiple": [0.6, 0.6, 0.6]},
+      "seeds": 1,
+      "green_point_discount": 0,
+      "free_allowance_exhausted": false,
+      "expected": {"mode": "paid", "points": 20, "per_image": 20, "images": 1, "breakdown": {"base": 20, "director_refs": 0, "extra_vibes": 0}, "reasons": ["vibes"]}
+    },
+    {
+      "name": "vibes_over_the_free_vibe_count",
+      "action": "generate",
+      "parameters": {"width": 832, "height": 1216, "steps": 28, "scale": 5.0, "sampler": "k_euler_ancestral", "reference_image_multiple": ["v1", "v2", "v3", "v4", "v5", "v6"]},
+      "seeds": 2,
+      "green_point_discount": 0,
+      "free_allowance_exhausted": false,
+      "expected": {"mode": "paid", "points": 48, "per_image": 24, "images": 2, "breakdown": {"base": 20, "director_refs": 0, "extra_vibes": 4}, "reasons": ["vibes"]}
+    },
+    {
+      "name": "img2img",
+      "action": "img2img",
+      "parameters": {"width": 832, "height": 1216, "steps": 28, "scale": 5.0, "sampler": "k_euler_ancestral", "image": "base64-image", "strength": 0.7, "noise": 0.0, "add_original_image": true},
+      "seeds": 1,
+      "green_point_discount": 0,
+      "free_allowance_exhausted": false,
+      "expected": {"mode": "paid", "points": 20, "per_image": 20, "images": 1, "breakdown": {"base": 20, "director_refs": 0, "extra_vibes": 0}, "reasons": ["image_input"]}
+    },
+    {
+      "name": "infill",
+      "action": "infill",
+      "parameters": {"width": 1024, "height": 1024, "steps": 28, "scale": 5.0, "sampler": "k_euler_ancestral", "image": "base64-image", "mask": "base64-mask"},
+      "seeds": 1,
+      "green_point_discount": 0,
+      "free_allowance_exhausted": false,
+      "expected": {"mode": "paid", "points": 20, "per_image": 20, "images": 1, "breakdown": {"base": 20, "director_refs": 0, "extra_vibes": 0}, "reasons": ["image_input"]}
+    },
+    {
+      "name": "reasons_are_listed_in_canonical_order",
+      "action": "generate",
+      "parameters": {"width": 1024, "height": 1536, "steps": 40, "scale": 5.0, "sampler": "k_euler_ancestral", "sm": true, "director_reference_images": ["ref-a"]},
+      "seeds": 2,
+      "green_point_discount": 0,
+      "free_allowance_exhausted": false,
+      "expected": {"mode": "paid", "points": 110, "per_image": 55, "images": 2, "breakdown": {"base": 50, "director_refs": 5, "extra_vibes": 0}, "reasons": ["size_not_free", "steps_over_free_limit", "smea", "director_refs"]}
+    },
+    {
+      "name": "largest_request",
+      "action": "generate",
+      "parameters": {"width": 2048, "height": 2048, "steps": 50, "scale": 5.0, "sampler": "k_euler_ancestral", "sm_dyn": true},
+      "seeds": 1,
+      "green_point_discount": 0,
+      "free_allowance_exhausted": false,
+      "expected": {"mode": "paid", "points": 188, "per_image": 188, "images": 1, "breakdown": {"base": 188, "director_refs": 0, "extra_vibes": 0}, "reasons": ["size_not_free", "steps_over_free_limit", "smea"]}
+    },
+    {
+      "name": "exhausted_allowance_prices_free_work_in_red_without_discount",
+      "action": "generate",
+      "parameters": {"width": 832, "height": 1216, "steps": 28, "scale": 5.0, "sampler": "k_euler_ancestral"},
+      "seeds": 2,
+      "green_point_discount": 30,
+      "free_allowance_exhausted": true,
+      "expected": {"mode": "paid", "points": 40, "per_image": 20, "images": 2, "breakdown": {"base": 20, "director_refs": 0, "extra_vibes": 0}, "reasons": ["allowance_exhausted"]}
+    },
+    {
+      "name": "exhausted_allowance_does_not_change_already_paid_work",
+      "action": "generate",
+      "parameters": {"width": 832, "height": 1216, "steps": 50, "scale": 5.0, "sampler": "k_euler_ancestral"},
+      "seeds": 1,
+      "green_point_discount": 0,
+      "free_allowance_exhausted": true,
+      "expected": {"mode": "paid", "points": 33, "per_image": 33, "images": 1, "breakdown": {"base": 33, "director_refs": 0, "extra_vibes": 0}, "reasons": ["steps_over_free_limit"]}
+    }
+  ],
+  "invalid_cases": [
+    {
+      "name": "float_width",
+      "action": "generate",
+      "parameters": {"width": 832.0, "height": 1216, "steps": 28, "scale": 5.0, "sampler": "k_euler_ancestral"},
+      "expected_error": {"code": "invalid_parameters", "field": "width"}
+    },
+    {
+      "name": "string_height",
+      "action": "generate",
+      "parameters": {"width": 832, "height": "1216", "steps": 28, "scale": 5.0, "sampler": "k_euler_ancestral"},
+      "expected_error": {"code": "invalid_parameters", "field": "height"}
+    },
+    {
+      "name": "boolean_steps",
+      "action": "generate",
+      "parameters": {"width": 832, "height": 1216, "steps": true, "scale": 5.0, "sampler": "k_euler_ancestral"},
+      "expected_error": {"code": "invalid_parameters", "field": "steps"}
+    },
+    {
+      "name": "steps_above_max_steps",
+      "action": "generate",
+      "parameters": {"width": 832, "height": 1216, "steps": 51, "scale": 5.0, "sampler": "k_euler_ancestral"},
+      "expected_error": {"code": "invalid_parameters", "field": "steps"}
+    },
+    {
+      "name": "width_not_a_multiple_of_64",
+      "action": "generate",
+      "parameters": {"width": 840, "height": 1216, "steps": 28, "scale": 5.0, "sampler": "k_euler_ancestral"},
+      "expected_error": {"code": "invalid_parameters", "field": "width"}
+    },
+    {
+      "name": "height_above_max_dimension",
+      "action": "generate",
+      "parameters": {"width": 832, "height": 2112, "steps": 28, "scale": 5.0, "sampler": "k_euler_ancestral"},
+      "expected_error": {"code": "invalid_parameters", "field": "height"}
+    },
+    {
+      "name": "unknown_sampler",
+      "action": "generate",
+      "parameters": {"width": 832, "height": 1216, "steps": 28, "scale": 5.0, "sampler": "ddim"},
+      "expected_error": {"code": "invalid_parameters", "field": "sampler"}
+    },
+    {
+      "name": "string_smea_flag",
+      "action": "generate",
+      "parameters": {"width": 832, "height": 1216, "steps": 28, "scale": 5.0, "sampler": "k_euler_ancestral", "sm": "false"},
+      "expected_error": {"code": "invalid_parameters", "field": "sm"}
+    },
+    {
+      "name": "unsupported_action",
+      "action": "upscale",
+      "parameters": {"width": 832, "height": 1216, "steps": 28, "scale": 5.0, "sampler": "k_euler_ancestral"},
+      "expected_error": {"code": "invalid_parameters", "field": "action"}
+    }
+  ]
+}
