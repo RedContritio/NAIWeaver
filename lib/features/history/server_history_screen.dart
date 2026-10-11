@@ -1035,6 +1035,7 @@ class _HistoryViewerLeading extends StatelessWidget {
     return OverlayActionButton(
       icon: Icons.close,
       tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+      label: MaterialLocalizations.of(context).closeButtonTooltip,
       onPressed: onClose,
     );
   }

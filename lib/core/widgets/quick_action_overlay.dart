@@ -104,11 +104,13 @@ class _QuickActionOverlayState extends State<QuickActionOverlay> {
       required String tooltip,
       required VoidCallback? onPressed,
       Color? color,
+      String? label,
     }) {
       actions.add(
         OverlayActionButton(
           icon: icon,
           tooltip: tooltip,
+          label: label ?? tooltip,
           onPressed: onPressed,
           color: color,
         ),
