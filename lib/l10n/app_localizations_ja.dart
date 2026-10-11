@@ -242,7 +242,8 @@ class AppLocalizationsJa extends AppLocalizations {
       'NovelAI がリクエストを完了できませんでした。しばらくしてから再試行してください。';
 
   @override
-  String get gatewayErrInterrupted => 'サーバーの再起動でタスクが中断され、予約ポイントは解放されました。';
+  String get gatewayErrInterrupted =>
+      'サーバーの再起動でタスクが中断されました。課金されていないので、再試行できます。';
 
   @override
   String get gatewayErrNotFound => 'リクエストされた項目が見つかりません。';
@@ -3846,6 +3847,29 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get serverHistoryBatchDeleteConfirm => 'このバッチのすべての画像を履歴から非表示にしますか？';
+
+  @override
+  String serverHistoryDeleteFailed(String error) {
+    return '削除に失敗しました: $error';
+  }
+
+  @override
+  String get serverHistoryDeleteActive => 'キュー待ちまたは実行中のため、完了後に削除できます。';
+
+  @override
+  String serverHistoryLoadFailed(String error) {
+    return '履歴を読み込めませんでした: $error';
+  }
+
+  @override
+  String get serverHistoryRetry => '再試行';
+
+  @override
+  String get serverHistoryUsersUnavailable =>
+      'ユーザー一覧を読み込めなかったため、ユーザーフィルターは利用できません。';
+
+  @override
+  String get serverHistoryItemCancelled => 'タスクはキャンセルされました。課金されていません。';
 
   @override
   String quotePointsTooltipFree(int points) {

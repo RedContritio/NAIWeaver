@@ -553,7 +553,7 @@ abstract class AppLocalizations {
   /// No description provided for @gatewayErrInterrupted.
   ///
   /// In en, this message translates to:
-  /// **'The task was interrupted by a server restart and its points were released.'**
+  /// **'The task was interrupted by a server restart. You were not charged; you can retry.'**
   String get gatewayErrInterrupted;
 
   /// No description provided for @gatewayErrNotFound.
@@ -7309,6 +7309,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Hide every image in this batch from your history?'**
   String get serverHistoryBatchDeleteConfirm;
+
+  /// No description provided for @serverHistoryDeleteFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete failed: {error}'**
+  String serverHistoryDeleteFailed(String error);
+
+  /// No description provided for @serverHistoryDeleteActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Still queued or running; it can be deleted once it finishes.'**
+  String get serverHistoryDeleteActive;
+
+  /// No description provided for @serverHistoryLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load history: {error}'**
+  String serverHistoryLoadFailed(String error);
+
+  /// No description provided for @serverHistoryRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get serverHistoryRetry;
+
+  /// No description provided for @serverHistoryUsersUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The user list could not be loaded, so the user filter is unavailable.'**
+  String get serverHistoryUsersUnavailable;
+
+  /// No description provided for @serverHistoryItemCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'The task was cancelled. You were not charged.'**
+  String get serverHistoryItemCancelled;
 
   /// No description provided for @quotePointsTooltipFree.
   ///
