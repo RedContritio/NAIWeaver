@@ -9,3 +9,4 @@ secrets/*
 !secrets/novelai_token.txt.placeholder
 static/web/
 .env
+static/web.previous.*/
