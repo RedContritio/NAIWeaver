@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../core/services/client_diagnostics.dart';
@@ -83,20 +85,52 @@ class GenerationMobileSheet extends StatefulWidget {
 class GenerationMobileSheetState extends State<GenerationMobileSheet>
     with SingleTickerProviderStateMixin {
   static const _tabSwitchDuration = Duration(milliseconds: 160);
+  static const _sheetAnimationDuration = Duration(milliseconds: 260);
+  static const _snapAnimationDuration = Duration(milliseconds: 220);
+
+  /// How far past its collapsed size the sheet has to be before it counts as
+  /// open: the scrim appears and the header turns into the tab bar.
+  static const double _expandedThreshold = 0.025;
+  static const double _scrimOpacity = 0.42;
+
+  // The middle stop sits at [_middleFraction] of the height, but must show at
+  // least [_middleMinBodyHeight] of tab content, leave at least
+  // [_middleMinResultsHeight] of the results visible, and stay clear of both
+  // ends. When the viewport is too short for all of that, there is no middle
+  // stop and opening a tab goes straight to full height.
+  static const double _middleFraction = 0.72;
+  static const double _middleMaxExtent = 0.9;
+  static const double _middleMinBodyHeight = 120;
+  static const double _middleMinResultsHeight = 72;
+  static const double _minimumSnapGap = 0.08;
 
   final DraggableScrollableController _sheetController =
       DraggableScrollableController();
   late final TabController _tabController;
 
-  double _extent = 0;
-  double _minimumExtent = 0;
-  double _middleExtent = 0;
-  bool _initialized = false;
+  /// The sheet size as last reported by the sheet. Only the widgets that
+  /// depend on it listen: rebuilding the [DraggableScrollableSheet] itself
+  /// replaces its extent, which is not something to do on every drag frame.
+  final ValueNotifier<double> _extent = ValueNotifier<double>(0);
+  final ValueNotifier<bool> _expanded = ValueNotifier<bool>(false);
+
+  double _minimumExtent = 1;
+  double _middleExtent = 1;
+
+  /// Passed to [DraggableScrollableSheet.snapSizes]. The sheet compares it by
+  /// identity whenever it is rebuilt and, when it differs, snaps after the
+  /// frame, cancelling any drag in progress. It is therefore only replaced
+  /// when the middle stop actually moves.
+  List<double> _snapSizes = const <double>[];
+
   double _lastLoggedExtent = -1;
   double _lastLoggedAvailableHeight = -1;
   double _lastLoggedViewInset = -1;
 
-  bool get isExpanded => _extent > _minimumExtent + 0.025;
+  bool get isExpanded => _expanded.value;
+
+  double get _currentExtent =>
+      _sheetController.isAttached ? _sheetController.size : _minimumExtent;
 
   @override
   void initState() {
@@ -112,14 +146,16 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
   void dispose() {
     _sheetController.dispose();
     _tabController.dispose();
+    _extent.dispose();
+    _expanded.dispose();
     super.dispose();
   }
 
   Future<void> collapse() {
-    final media = mounted ? MediaQuery.maybeOf(context) : null;
+    if (!mounted) return Future<void>.value();
     ClientDiagnostics.instance.record('generation_sheet_collapse_requested', {
-      'extent': _extent,
-      'view_insets_bottom': media?.viewInsets.bottom,
+      'extent': _currentExtent,
+      'view_insets_bottom': MediaQuery.maybeOf(context)?.viewInsets.bottom,
       'primary_focus_present': FocusManager.instance.primaryFocus != null,
     });
     FocusManager.instance.primaryFocus?.unfocus();
@@ -129,34 +165,42 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
   Future<void> expand() => _animateTo(1);
 
   Future<void> openTab(GenerationMobileTab tab, {bool full = false}) async {
+    if (!mounted) return;
     ClientDiagnostics.instance.record('generation_sheet_tab_open_requested', {
       'tab_index': tab.index,
       'full': full,
-      'extent': _extent,
+      'extent': _currentExtent,
     });
     _tabController.animateTo(tab.index);
     await _animateTo(full ? 1 : _middleExtent);
   }
 
   Future<void> _animateTo(double extent) async {
-    if (!_sheetController.isAttached || extent <= 0) return;
+    if (!mounted || !_sheetController.isAttached) return;
     ClientDiagnostics.instance.record('generation_sheet_animation_started', {
-      'from_extent': _extent,
+      'from_extent': _sheetController.size,
       'to_extent': extent,
     });
     await _sheetController.animateTo(
-      extent.clamp(_minimumExtent, 1),
-      duration: const Duration(milliseconds: 260),
+      extent.clamp(_minimumExtent, 1.0),
+      duration: _sheetAnimationDuration,
       curve: Curves.easeOutCubic,
     );
+    // The sheet may have left the tree meanwhile, for example when the window
+    // widens past the mobile layout or cascade playback takes over.
+    if (!mounted || !_sheetController.isAttached) return;
     ClientDiagnostics.instance.record('generation_sheet_animation_finished', {
       'extent': _sheetController.size,
     });
   }
 
-  void _updateExtent(DraggableScrollableNotification notification) {
-    if ((notification.extent - _extent).abs() < 0.002) return;
-    setState(() => _extent = notification.extent);
+  void _setExtent(double extent) {
+    _extent.value = extent;
+    _expanded.value = extent > _minimumExtent + _expandedThreshold;
+  }
+
+  bool _handleSheetNotification(DraggableScrollableNotification notification) {
+    _setExtent(notification.extent);
     if ((notification.extent - _lastLoggedExtent).abs() >= 0.1 ||
         notification.extent == notification.minExtent ||
         notification.extent == notification.maxExtent) {
@@ -167,6 +211,54 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
         'maximum_extent': notification.maxExtent,
       });
     }
+    return false;
+  }
+
+  /// Resolves the collapsed and middle stops for [availableHeight]. Never
+  /// throws: a viewport shorter than [collapsedHeight] (a landscape phone
+  /// with the keyboard up, a split screen) pins the sheet to full height.
+  static ({double minimum, double middle}) _extentsFor(
+    double availableHeight,
+    double collapsedHeight,
+  ) {
+    if (availableHeight <= collapsedHeight) {
+      return (minimum: 1.0, middle: 1.0);
+    }
+    final minimum = collapsedHeight / availableHeight;
+    final lowest = math.max(
+      (collapsedHeight + _middleMinBodyHeight) / availableHeight,
+      minimum + _minimumSnapGap,
+    );
+    final highest = math.min(
+      (availableHeight - _middleMinResultsHeight) / availableHeight,
+      _middleMaxExtent,
+    );
+    final middle = lowest <= highest
+        ? _middleFraction.clamp(lowest, highest)
+        : 1.0;
+    return (minimum: minimum, middle: middle);
+  }
+
+  void _applyExtents(double minimum, double middle) {
+    if (minimum == _minimumExtent && middle == _middleExtent) return;
+    if (middle != _middleExtent) {
+      _snapSizes = middle < 1 ? <double>[middle] : const <double>[];
+    }
+    _minimumExtent = minimum;
+    _middleExtent = middle;
+    // The sheet clamps its size into the new range without notifying; bring
+    // the listeners up to date once it has been laid out with it.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _sheetController.isAttached) {
+        _setExtent(_sheetController.size);
+      }
+    });
+  }
+
+  double _expansionProgress(double extent) {
+    final span = _middleExtent - _minimumExtent;
+    if (span <= 0) return 1;
+    return ((extent - _minimumExtent) / span).clamp(0.0, 1.0);
   }
 
   @override
@@ -174,6 +266,8 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
     final t = context.t;
     final media = MediaQuery.of(context);
     final safeBottom = media.viewPadding.bottom;
+    final collapsedHeight =
+        GenerationMobileSheet.peekContentHeight + safeBottom;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -189,60 +283,41 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
                 'view_padding_bottom': safeBottom,
               });
         }
-        final peekPixels = GenerationMobileSheet.peekContentHeight + safeBottom;
-        final minimumExtent = (peekPixels / availableHeight).clamp(0.08, 0.45);
-        final middlePixels = (availableHeight * 0.72).clamp(
-          peekPixels + 120,
-          availableHeight - 72,
-        );
-        final middleExtent = (middlePixels / availableHeight).clamp(
-          minimumExtent + 0.08,
-          0.9,
-        );
-        _minimumExtent = minimumExtent;
-        _middleExtent = middleExtent;
-
-        if (!_initialized) {
-          _initialized = true;
-          _extent = minimumExtent;
-        } else if (_extent < minimumExtent) {
-          _extent = minimumExtent;
-        }
-
-        final expanded = isExpanded;
-        final expansionProgress =
-            ((_extent - minimumExtent) / (middleExtent - minimumExtent)).clamp(
-              0.0,
-              1.0,
-            );
+        final extents = _extentsFor(availableHeight, collapsedHeight);
+        _applyExtents(extents.minimum, extents.middle);
 
         return Stack(
           children: [
-            if (expanded)
-              Positioned.fill(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: collapse,
-                  child: ColoredBox(
-                    color: Colors.black.withValues(
-                      alpha: 0.42 * expansionProgress,
+            Positioned.fill(
+              child: ValueListenableBuilder<bool>(
+                valueListenable: _expanded,
+                builder: (context, expanded, _) {
+                  if (!expanded) return const SizedBox.shrink();
+                  return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: collapse,
+                    child: ValueListenableBuilder<double>(
+                      valueListenable: _extent,
+                      builder: (context, extent, _) => ColoredBox(
+                        color: Colors.black.withValues(
+                          alpha: _scrimOpacity * _expansionProgress(extent),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
+            ),
             NotificationListener<DraggableScrollableNotification>(
-              onNotification: (notification) {
-                _updateExtent(notification);
-                return false;
-              },
+              onNotification: _handleSheetNotification,
               child: DraggableScrollableSheet(
                 controller: _sheetController,
-                initialChildSize: minimumExtent,
-                minChildSize: minimumExtent,
+                initialChildSize: _minimumExtent,
+                minChildSize: _minimumExtent,
                 maxChildSize: 1,
                 snap: true,
-                snapSizes: [middleExtent],
-                snapAnimationDuration: const Duration(milliseconds: 220),
+                snapSizes: _snapSizes,
+                snapAnimationDuration: _snapAnimationDuration,
                 shouldCloseOnMinExtent: false,
                 builder: (context, scrollController) {
                   return Material(
@@ -264,43 +339,60 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
                           physics: const ClampingScrollPhysics(),
                           children: [
                             SizedBox(
-                              height: sheetConstraints.maxHeight,
+                              // Never shorter than the summary bar: a viewport
+                              // below that height scrolls the sheet content
+                              // instead of overflowing it.
+                              height: math.max(
+                                sheetConstraints.maxHeight,
+                                collapsedHeight,
+                              ),
                               child: Column(
                                 children: [
                                   SizedBox(
                                     height:
                                         GenerationMobileSheet.peekContentHeight,
-                                    child: _buildHeader(t, expanded),
-                                  ),
-                                  if (expanded)
-                                    Expanded(
-                                      child: TabBarView(
-                                        controller: _tabController,
-                                        children: [
-                                          RepaintBoundary(
-                                            child: KeyedSubtree(
-                                              key: GenerationMobileSheet
-                                                  .promptPageKey,
-                                              child: widget.prompt,
-                                            ),
-                                          ),
-                                          RepaintBoundary(
-                                            child: KeyedSubtree(
-                                              key: GenerationMobileSheet
-                                                  .inputsPageKey,
-                                              child: widget.inputs,
-                                            ),
-                                          ),
-                                          RepaintBoundary(
-                                            child: KeyedSubtree(
-                                              key: GenerationMobileSheet
-                                                  .parametersPageKey,
-                                              child: widget.parameters,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                                    child: ValueListenableBuilder<bool>(
+                                      valueListenable: _expanded,
+                                      builder: (context, expanded, _) =>
+                                          _buildHeader(t, expanded),
                                     ),
+                                  ),
+                                  Expanded(
+                                    child: ValueListenableBuilder<bool>(
+                                      valueListenable: _expanded,
+                                      builder: (context, expanded, _) {
+                                        if (!expanded) {
+                                          return const SizedBox.shrink();
+                                        }
+                                        return TabBarView(
+                                          controller: _tabController,
+                                          children: [
+                                            RepaintBoundary(
+                                              child: KeyedSubtree(
+                                                key: GenerationMobileSheet
+                                                    .promptPageKey,
+                                                child: widget.prompt,
+                                              ),
+                                            ),
+                                            RepaintBoundary(
+                                              child: KeyedSubtree(
+                                                key: GenerationMobileSheet
+                                                    .inputsPageKey,
+                                                child: widget.inputs,
+                                              ),
+                                            ),
+                                            RepaintBoundary(
+                                              child: KeyedSubtree(
+                                                key: GenerationMobileSheet
+                                                    .parametersPageKey,
+                                                child: widget.parameters,
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                  ),
                                   SizedBox(height: safeBottom),
                                 ],
                               ),
