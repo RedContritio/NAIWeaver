@@ -325,6 +325,9 @@ class GenerationNotifier extends ChangeNotifier {
   GenerationAccess _access = GenerationAccess.unrestricted;
   int? _backendUserId;
   int? _restoringWorkspaceForUserId;
+  // A restore that found a single-image call in flight; it runs when the call
+  // finishes.
+  int? _deferredRestoreUserId;
   NovelAIService get service => _service;
   late final WildcardProcessor _wildcardProcessor;
   final TagService _tagService;
@@ -785,7 +788,11 @@ class GenerationNotifier extends ChangeNotifier {
   }
 
   Future<void> _restoreGatewayWorkspace(int userId) async {
-    if (_restoringWorkspaceForUserId == userId || _activeRunId != null) return;
+    if (_restoringWorkspaceForUserId == userId) return;
+    if (_busy) {
+      _deferredRestoreUserId = userId;
+      return;
+    }
     _restoringWorkspaceForUserId = userId;
     try {
       final currentTask = await _historyApi.fetchCurrentTask();
@@ -798,7 +805,11 @@ class GenerationNotifier extends ChangeNotifier {
       if (history.isEmpty) {
         history = await _historyApi.fetchHistory(limit: 20);
       }
-      if (_backendUserId != userId || _activeRunId != null || _disposed) return;
+      if (_backendUserId != userId || _disposed) return;
+      if (_busy) {
+        _deferredRestoreUserId = userId;
+        return;
+      }
       final visible = history.toList(growable: false);
       if (visible.isEmpty) return;
       // A browser batch submits all of its tasks together. Restore that most
@@ -1270,7 +1281,11 @@ class GenerationNotifier extends ChangeNotifier {
     if (item == null || bytes == null || metadata == null) {
       return Future.value(null);
     }
-    if (item.saved) return Future.value(item.savedBasename);
+    // On the Web a manual save is a download, which the user may have
+    // cancelled or want again; only native file-system saves are de-duplicated.
+    if (item.saved && (auto || !kIsWeb)) {
+      return Future.value(item.savedBasename);
+    }
     final save = _persistNow(itemId, bytes, metadata, auto: auto);
     _saves[itemId] = save;
     return save.whenComplete(() => _saves.remove(itemId));
@@ -1447,7 +1462,7 @@ class GenerationNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  static int _clampBatchCount(int value, int limit) {
+  static int clampBatchCount(int value, int limit) {
     final max = math.max(1, math.min(limit, 10));
     return math.max(1, math.min(value, max));
   }
@@ -1478,7 +1493,7 @@ class GenerationNotifier extends ChangeNotifier {
       quote = quoteImageRequest(
         rules,
         previewRequest().body,
-        images: _clampBatchCount(_state.batchCount, rules.batchLimit),
+        images: clampBatchCount(_state.batchCount, rules.batchLimit),
       );
     } on InvalidQuoteRequest catch (error) {
       invalidField = error.field;
@@ -1536,13 +1551,24 @@ class GenerationNotifier extends ChangeNotifier {
     required GenerationState state,
     required String prompt,
     required String baseNegative,
+    ({String positive, String negative})? demoPrefixes,
   }) {
     var finalPrompt = prompt;
     var negative = baseNegative;
-    if (_galleryNotifier?.demoMode == true) {
-      final demoPos = _prefs.demoPositivePrefix;
+    // [demoPrefixes] is the demo state captured at click time; null reads the
+    // live one (the quote preview).
+    final demo =
+        demoPrefixes ??
+        (_galleryNotifier?.demoMode == true
+            ? (
+                positive: _prefs.demoPositivePrefix,
+                negative: _prefs.demoNegativePrefix,
+              )
+            : null);
+    if (demo != null) {
+      final demoPos = demo.positive;
       if (demoPos.isNotEmpty) finalPrompt = '$demoPos, $finalPrompt';
-      final demoNeg = _prefs.demoNegativePrefix;
+      final demoNeg = demo.negative;
       if (demoNeg.isNotEmpty) {
         negative = negative.isEmpty ? demoNeg : '$demoNeg, $negative';
       }
@@ -1655,7 +1681,17 @@ class GenerationNotifier extends ChangeNotifier {
     final s = _state;
     final promptText = prompt ?? promptController.text;
     final negativeText = negativePrompt ?? negativePromptController.text;
-    final batchCount = _clampBatchCount(s.batchCount, batchLimit);
+    final batchCount = clampBatchCount(s.batchCount, batchLimit);
+    // Everything the request and its metadata need is read here, before the
+    // first await, so later edits cannot leak into this generation.
+    final dirPayload = _directorRefNotifier?.buildPayload();
+    final vibePayload = _vibeTransferNotifier?.buildPayload();
+    final demoPrefixes = _galleryNotifier?.demoMode == true
+        ? (
+            positive: _prefs.demoPositivePrefix,
+            negative: _prefs.demoNegativePrefix,
+          )
+        : null;
     final List<int> seeds;
     try {
       seeds = resolveSeeds(
@@ -1701,9 +1737,8 @@ class GenerationNotifier extends ChangeNotifier {
         baseNegative: _tagService.resolveAliases(
           await _wildcardProcessor.process(negativeText),
         ),
+        demoPrefixes: demoPrefixes,
       );
-      final dirPayload = _directorRefNotifier?.buildPayload();
-      final vibePayload = _vibeTransferNotifier?.buildPayload();
 
       // Process wildcards in character prompts
       final processedCharacters = await Future.wait(
@@ -1767,8 +1802,17 @@ class GenerationNotifier extends ChangeNotifier {
         if (_activeRunId != runId) return const GenerationOutcome.rejected();
         final submitted = submission.items.toList()
           ..sort((a, b) => a.batchIndex.compareTo(b.batchIndex));
+        if (submitted.isEmpty) {
+          throw const BackendException(
+            statusCode: null,
+            code: BackendErrorCode.internalError,
+          );
+        }
+        // The batch is paid and accepted whatever its size: follow what the
+        // server returned, even if it is fewer than asked for.
+        final acceptedCount = math.min(submitted.length, batchCount);
         final accepted = [
-          for (var index = 0; index < batchCount; index++)
+          for (var index = 0; index < acceptedCount; index++)
             slot(submitted[index].id, index).copyWith(
               progress: progressForGatewayStatus(submitted[index].status),
             ),
@@ -1846,7 +1890,10 @@ class GenerationNotifier extends ChangeNotifier {
       _endRun(runId);
       notifyListeners();
       fetchAnlas();
-      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      // A superseded run must not release the wakelock of a newer one.
+      if (_activeRunId == null &&
+          !kIsWeb &&
+          (Platform.isAndroid || Platform.isIOS)) {
         try {
           WakelockPlus.disable();
         } catch (_) {}
@@ -2268,6 +2315,13 @@ class GenerationNotifier extends ChangeNotifier {
       _syncBusy();
       notifyListeners();
       if (showErrors) fetchAnlas();
+      final deferred = _deferredRestoreUserId;
+      if (deferred != null && !_busy && !_disposed) {
+        _deferredRestoreUserId = null;
+        if (_backendUserId == deferred) {
+          unawaited(_restoreGatewayWorkspace(deferred));
+        }
+      }
     }
   }
 
@@ -2578,7 +2632,7 @@ class GenerationNotifier extends ChangeNotifier {
       smeaDyn: snapshot.smeaDyn,
       decrisper: snapshot.decrisper,
       randomizeSeed: snapshot.randomizeSeed,
-      batchCount: _clampBatchCount(snapshot.batchCount, 10),
+      batchCount: clampBatchCount(snapshot.batchCount, 10),
       autoPositioning: snapshot.autoPositioning,
       activeStyleNames: _migrateRestoredStyleNames(snapshot, _state.styles),
       isStyleEnabled: snapshot.isStyleEnabled,

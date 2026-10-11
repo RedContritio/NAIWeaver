@@ -5046,4 +5046,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get photoshootStyleInk => '墨水';
+
+  @override
+  String get startupFailedTitle => 'NAIWeaver 启动失败';
 }

@@ -1778,5 +1778,9 @@
   "photoshootStylePhotoreal": "Photoreal",
   "photoshootStyleSketch": "Sketch",
   "photoshootStyleWatercolor": "Watercolour",
-  "photoshootStyleInk": "Ink"
+  "photoshootStyleInk": "Ink",
+  "startupFailedTitle": "NAIWeaver could not start",
+  "@startupFailedTitle": {
+    "description": "Title of the screen shown when app start-up fails."
+  }
 }

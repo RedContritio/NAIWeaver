@@ -5081,4 +5081,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get photoshootStyleInk => 'インク';
+
+  @override
+  String get startupFailedTitle => 'NAIWeaver を起動できませんでした';
 }

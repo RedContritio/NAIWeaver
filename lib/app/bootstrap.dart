@@ -20,6 +20,7 @@ import '../core/services/wildcard_service.dart';
 import '../core/utils/wheel_scroll.dart';
 import '../features/characters/services/character_library_service.dart';
 import '../features/characters/services/closet_service.dart';
+import '../l10n/app_localizations.dart';
 import 'app.dart';
 
 /// Everything that has to exist before the first frame.
@@ -180,20 +181,98 @@ Future<AppServices> bootstrap() async {
   );
 }
 
+/// Shown when [bootstrap] throws: without it the app would stay blank.
+class _StartupFailureApp extends StatelessWidget {
+  const _StartupFailureApp({required this.error, required this.onRetry});
+
+  final Object error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      // Preferences may be what failed, so the default locale is used.
+      locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Builder(
+        builder: (context) {
+          final l = AppLocalizations.of(context);
+          final theme = Theme.of(context);
+          return Scaffold(
+            body: SafeArea(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        size: 48,
+                        color: theme.colorScheme.error,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        l.startupFailedTitle,
+                        style: theme.textTheme.titleMedium,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${error.runtimeType}: $error',
+                        maxLines: 6,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+                      FilledButton(
+                        onPressed: onRetry,
+                        child: Text(l.commonRetry),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 /// Starts the app with [home] as the page behind the PIN and sign-in gates.
 void runNaiWeaver({required Widget home}) {
+  // Error reporting first, so start-up failures are recorded too.
+  FlutterError.onError = (details) {
+    ClientDiagnostics.instance.record('flutter_error', {
+      'exception_type': details.exception.runtimeType.toString(),
+      'library': details.library,
+    });
+    FlutterError.presentError(details);
+    debugPrint('FlutterError: ${details.exceptionAsString()}');
+  };
   runZonedGuarded(
     () async {
-      final services = await bootstrap();
-      FlutterError.onError = (details) {
-        ClientDiagnostics.instance.record('flutter_error', {
-          'exception_type': details.exception.runtimeType.toString(),
-          'library': details.library,
-        });
-        FlutterError.presentError(details);
-        debugPrint('FlutterError: ${details.exceptionAsString()}');
-      };
-      runApp(NaiWeaverApp(services: services, home: home));
+      Future<void> start() async {
+        try {
+          final services = await bootstrap();
+          runApp(NaiWeaverApp(services: services, home: home));
+        } catch (error, stack) {
+          ClientDiagnostics.instance.record('bootstrap_failed', {
+            'error_type': error.runtimeType.toString(),
+          });
+          debugPrint('Bootstrap failed: $error');
+          debugPrint('$stack');
+          runApp(
+            _StartupFailureApp(error: error, onRetry: () => unawaited(start())),
+          );
+        }
+      }
+
+      await start();
     },
     (error, stack) {
       ClientDiagnostics.instance.record('uncaught_zone_error', {

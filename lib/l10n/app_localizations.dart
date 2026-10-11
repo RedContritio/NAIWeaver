@@ -9577,6 +9577,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Ink'**
   String get photoshootStyleInk;
+
+  /// Title of the screen shown when app start-up fails.
+  ///
+  /// In en, this message translates to:
+  /// **'NAIWeaver could not start'**
+  String get startupFailedTitle;
 }
 
 class _AppLocalizationsDelegate
