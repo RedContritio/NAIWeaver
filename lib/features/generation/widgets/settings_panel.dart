@@ -34,6 +34,7 @@ import '../providers/generation_notifier.dart';
 import 'billing_text.dart';
 import 'generation_seed_control.dart';
 import 'inline_character_editor.dart';
+import 'prompt_shortcuts.dart';
 import 'vibe_transfer_shelf.dart';
 
 class ResolutionOption {
@@ -1320,53 +1321,61 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
           ),
         ),
         const SizedBox(height: 12),
-        BrowserNativeTextArea(
+        PromptKeyScope(
           controller: notifier.negativePromptController,
-          focusNode: _negativePromptFocus,
-          onBlur: () {
-            if (_negativeSuggestions.isNotEmpty && mounted) {
-              setState(() => _negativeSuggestions = []);
-            }
-          },
-          style: TextStyle(
-            fontSize: nativeFontSize,
-            color: t.textSecondary,
-            height: 1.4,
-          ),
-          // Platform views are DOM layers. Use the pre-composited opaque fill
-          // so translucency is never resolved against the browser's white
-          // page background while the textarea is focused.
-          backgroundColor: nativeBackground,
-          selectionColor: t.accent.withValues(alpha: 0.72),
-          selectionTextColor:
-              ThemeData.estimateBrightnessForColor(t.accent) == Brightness.dark
-              ? Colors.white
-              : Colors.black,
-          padding: const EdgeInsets.all(16),
-          height: nativeFontSize * 1.4 * 3 + 32,
-          onChanged: (_) => _onNegativePromptChanged(),
-          fallback: ScrollConfiguration(
-            behavior: ScrollConfiguration.of(context).copyWith(
-              dragDevices: {PointerDeviceKind.touch, PointerDeviceKind.stylus},
+          builder: (context, onKeyDown) => BrowserNativeTextArea(
+            controller: notifier.negativePromptController,
+            focusNode: _negativePromptFocus,
+            onKeyDown: onKeyDown,
+            onBlur: () {
+              if (_negativeSuggestions.isNotEmpty && mounted) {
+                setState(() => _negativeSuggestions = []);
+              }
+            },
+            style: TextStyle(
+              fontSize: nativeFontSize,
+              color: t.textSecondary,
+              height: 1.4,
             ),
-            child: TextField(
-              focusNode: _negativePromptFocus,
-              controller: notifier.negativePromptController,
-              maxLines: 3,
-              onChanged: (_) => _onNegativePromptChanged(),
-              style: TextStyle(
-                fontSize: t.fontSize(11),
-                color: t.textSecondary,
-                height: 1.4,
+            // Platform views are DOM layers. Use the pre-composited opaque fill
+            // so translucency is never resolved against the browser's white
+            // page background while the textarea is focused.
+            backgroundColor: nativeBackground,
+            selectionColor: t.accent.withValues(alpha: 0.72),
+            selectionTextColor:
+                ThemeData.estimateBrightnessForColor(t.accent) ==
+                    Brightness.dark
+                ? Colors.white
+                : Colors.black,
+            padding: const EdgeInsets.all(16),
+            height: nativeFontSize * 1.4 * 3 + 32,
+            onChanged: (_) => _onNegativePromptChanged(),
+            fallback: ScrollConfiguration(
+              behavior: ScrollConfiguration.of(context).copyWith(
+                dragDevices: {
+                  PointerDeviceKind.touch,
+                  PointerDeviceKind.stylus,
+                },
               ),
-              decoration: InputDecoration(
-                fillColor: t.borderSubtle,
-                filled: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  borderSide: BorderSide.none,
+              child: TextField(
+                focusNode: _negativePromptFocus,
+                controller: notifier.negativePromptController,
+                maxLines: 3,
+                onChanged: (_) => _onNegativePromptChanged(),
+                style: TextStyle(
+                  fontSize: t.fontSize(11),
+                  color: t.textSecondary,
+                  height: 1.4,
                 ),
-                contentPadding: const EdgeInsets.all(16),
+                decoration: InputDecoration(
+                  fillColor: t.borderSubtle,
+                  filled: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.all(16),
+                ),
               ),
             ),
           ),
