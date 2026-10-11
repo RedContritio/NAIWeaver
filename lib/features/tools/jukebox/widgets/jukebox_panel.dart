@@ -17,6 +17,7 @@ import 'jukebox_song_list.dart';
 import 'jukebox_soundfont_picker.dart';
 import 'jukebox_style_section.dart';
 import '../../../../core/l10n/l10n_extensions.dart';
+import '../../../../core/theme/vision_metrics.dart';
 
 class JukeboxPanel extends StatefulWidget {
   const JukeboxPanel({super.key});
@@ -34,11 +35,16 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
   bool _prevKeyboardMode = false;
   bool _prevGameMode = false;
 
-  /// True when the physical device is phone-sized (shortestSide < 600).
-  /// Unlike the global `isMobile()` (width < 600), this remains true in
-  /// landscape so we keep the mobile layout on rotated phones.
-  bool _isPhoneDevice(BuildContext context) =>
-      MediaQuery.of(context).size.shortestSide < 600;
+  /// Material 3 "compact" window height: a rotated phone is wide enough to
+  /// leave the touch-sized classes but still has no room for the desktop
+  /// layout.
+  static const double _compactHeight = 480;
+
+  /// The touch layout is used on touch-sized windows (compact and medium), and
+  /// on short windows such as a phone held in landscape.
+  bool _useTouchLayout(BuildContext context) =>
+      windowSizeClassOf(context).isTouchSized ||
+      MediaQuery.sizeOf(context).height < _compactHeight;
 
   @override
   void didChangeDependencies() {
@@ -72,7 +78,6 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
   @override
   Widget build(BuildContext context) {
     final jukebox = context.watch<JukeboxNotifier>();
-    final mobile = isMobile(context);
     final t = context.t;
     final l = context.l;
 
@@ -80,7 +85,7 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
       return _buildUnavailable(t);
     }
 
-    if (mobile || _isPhoneDevice(context)) {
+    if (_useTouchLayout(context)) {
       return Column(
         children: [
           _buildHeader(context, jukebox, t),
@@ -97,7 +102,12 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
                   else ...[
                     // Instrument picker + game button
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                      padding: const EdgeInsets.fromLTRB(
+                        VisionMetrics.space12,
+                        VisionMetrics.space8,
+                        VisionMetrics.space12,
+                        VisionMetrics.space4,
+                      ),
                       child: Row(
                         children: [
                           Expanded(
@@ -107,14 +117,21 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
                               onChanged: jukebox.setKeyboardInstrument,
                             ),
                           ),
-                          if (jukebox.currentSong != null && !jukebox.gameMode) ...[
-                            const SizedBox(width: 4),
+                          if (jukebox.currentSong != null &&
+                              !jukebox.gameMode) ...[
+                            const SizedBox(width: VisionMetrics.space4),
                             IconButton(
                               onPressed: jukebox.openGameBrowser,
-                              icon: Icon(Icons.sports_esports, size: 18, color: t.accent),
+                              icon: Icon(
+                                Icons.sports_esports,
+                                size: 18,
+                                color: t.accent,
+                              ),
                               tooltip: l.jukeboxGameModeTooltip,
                               constraints: const BoxConstraints(),
-                              padding: const EdgeInsets.all(6),
+                              padding: const EdgeInsets.all(
+                                VisionMetrics.space8,
+                              ),
                             ),
                           ],
                           if (jukebox.gameMode)
@@ -123,12 +140,23 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
                                 final savedScore = jukebox.currentScore;
                                 final songId = jukebox.currentSong?.id;
                                 jukebox.endGame();
-                                _showGameResults(savedScore, songId, jukebox, t);
+                                _showGameResults(
+                                  savedScore,
+                                  songId,
+                                  jukebox,
+                                  t,
+                                );
                               },
-                              icon: Icon(Icons.stop, size: 18, color: t.accentDanger),
+                              icon: Icon(
+                                Icons.stop,
+                                size: 18,
+                                color: t.accentDanger,
+                              ),
                               tooltip: l.jukeboxEndGameTooltip,
                               constraints: const BoxConstraints(),
-                              padding: const EdgeInsets.all(6),
+                              padding: const EdgeInsets.all(
+                                VisionMetrics.space8,
+                              ),
                             ),
                         ],
                       ),
@@ -148,8 +176,12 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
                                 activeKeys: _activeKeys,
                                 onHit: jukebox.onPlayerHit,
                                 onMiss: jukebox.onPlayerMiss,
-                                keyboardNoteMin: jukebox.noteRangeForChannel(jukebox.targetChannel)?.$1,
-                                keyboardNoteMax: jukebox.noteRangeForChannel(jukebox.targetChannel)?.$2,
+                                keyboardNoteMin: jukebox
+                                    .noteRangeForChannel(jukebox.targetChannel)
+                                    ?.$1,
+                                keyboardNoteMax: jukebox
+                                    .noteRangeForChannel(jukebox.targetChannel)
+                                    ?.$2,
                               ),
                             ),
                             if (jukebox.countdown > 0)
@@ -161,46 +193,58 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
                       const Spacer(),
                     SafeArea(
                       top: false,
-                      child: LayoutBuilder(builder: (context, constraints) {
-                        final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
-                        final kbHeight = isLandscape
-                            ? (constraints.maxHeight * 0.35).clamp(80.0, 120.0)
-                            : null;
-                        final range = jukebox.gameMode
-                            ? jukebox.noteRangeForChannel(jukebox.targetChannel)
-                            : null;
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: t.surfaceMid,
-                            border: Border(top: BorderSide(color: t.borderSubtle)),
-                          ),
-                          child: PianoKeyboard(
-                            t: t,
-                            startOctave: 3,
-                            octaveCount: 4,
-                            height: kbHeight,
-                            gameMode: jukebox.gameMode,
-                            gameNoteMin: range?.$1,
-                            gameNoteMax: range?.$2,
-                            highlightedNotes: null,
-                            onNoteOn: (note) {
-                              setState(() => _activeKeys.add(note));
-                              jukebox.playNote(note, 100);
-                              _fallingNotesKey.currentState?.tryHit(note);
-                            },
-                            onNoteOff: (note) {
-                              setState(() => _activeKeys.remove(note));
-                              jukebox.stopNote(note);
-                            },
-                          ),
-                        );
-                      }),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final isLandscape =
+                              MediaQuery.of(context).orientation ==
+                              Orientation.landscape;
+                          final kbHeight = isLandscape
+                              ? (constraints.maxHeight * 0.35).clamp(
+                                  80.0,
+                                  120.0,
+                                )
+                              : null;
+                          final range = jukebox.gameMode
+                              ? jukebox.noteRangeForChannel(
+                                  jukebox.targetChannel,
+                                )
+                              : null;
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: t.surfaceMid,
+                              border: Border(
+                                top: BorderSide(color: t.borderSubtle),
+                              ),
+                            ),
+                            child: PianoKeyboard(
+                              t: t,
+                              startOctave: 3,
+                              octaveCount: 4,
+                              height: kbHeight,
+                              gameMode: jukebox.gameMode,
+                              gameNoteMin: range?.$1,
+                              gameNoteMax: range?.$2,
+                              highlightedNotes: null,
+                              onNoteOn: (note) {
+                                setState(() => _activeKeys.add(note));
+                                jukebox.playNote(note, 100);
+                                _fallingNotesKey.currentState?.tryHit(note);
+                              },
+                              onNoteOff: (note) {
+                                setState(() => _activeKeys.remove(note));
+                                jukebox.stopNote(note);
+                              },
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ],
                 ] else ...[
                   JukeboxCategoryChips(
                     selectedCategory: _selectedCategory,
-                    onCategoryChanged: (cat) => setState(() => _selectedCategory = cat),
+                    onCategoryChanged: (cat) =>
+                        setState(() => _selectedCategory = cat),
                     t: t,
                   ),
                   Expanded(
@@ -216,19 +260,22 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
                     jukebox: jukebox,
                     t: t,
                     expanded: _expandedNowPlaying,
-                    onExpandedChanged: (v) => setState(() => _expandedNowPlaying = v),
+                    onExpandedChanged: (v) =>
+                        setState(() => _expandedNowPlaying = v),
                     expandedBody: _buildMobileExpandedBody(jukebox, t),
                     onGamePressed: () {
                       if (!jukebox.keyboardMode) jukebox.toggleKeyboardMode();
                       jukebox.openGameBrowser();
                     },
                   )
-                else if (MediaQuery.of(context).orientation != Orientation.landscape)
+                else if (MediaQuery.of(context).orientation !=
+                    Orientation.landscape)
                   JukeboxMobileNowPlaying(
                     jukebox: jukebox,
                     t: t,
                     expanded: _expandedNowPlaying,
-                    onExpandedChanged: (v) => setState(() => _expandedNowPlaying = v),
+                    onExpandedChanged: (v) =>
+                        setState(() => _expandedNowPlaying = v),
                     expandedBody: _buildMobileExpandedBody(jukebox, t),
                   ),
               ],
@@ -252,7 +299,8 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
                   children: [
                     JukeboxCategoryChips(
                       selectedCategory: _selectedCategory,
-                      onCategoryChanged: (cat) => setState(() => _selectedCategory = cat),
+                      onCategoryChanged: (cat) =>
+                          setState(() => _selectedCategory = cat),
                       t: t,
                     ),
                     Expanded(
@@ -285,7 +333,7 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.music_off, color: t.textMinimal, size: 48),
-          const SizedBox(height: 16),
+          const SizedBox(height: VisionMetrics.space16),
           Text(
             context.l.jukeboxMusicUnavailable,
             style: TextStyle(
@@ -294,7 +342,7 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
               letterSpacing: 2,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: VisionMetrics.space8),
           Text(
             isDesktopPlatform()
                 ? context.l.jukeboxDllMissing
@@ -314,30 +362,41 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
   // Header bar
   // ─────────────────────────────────────────
 
-  Widget _buildHeader(BuildContext context, JukeboxNotifier jukebox, VisionTokens t) {
+  Widget _buildHeader(
+    BuildContext context,
+    JukeboxNotifier jukebox,
+    VisionTokens t,
+  ) {
     final l = context.l;
-    final mobile = isMobile(context);
+    final mobile = _useTouchLayout(context);
     return SafeArea(
       bottom: false,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        padding: const EdgeInsets.symmetric(
+          horizontal: VisionMetrics.space8,
+          vertical: VisionMetrics.space8,
+        ),
         width: double.infinity,
         color: t.surfaceHigh,
         child: Row(
           children: [
             IconButton(
               icon: Icon(Icons.close, size: 20, color: t.textSecondary),
+              tooltip: context.l.commonClose,
               onPressed: () => Navigator.of(context).pop(),
               constraints: const BoxConstraints(),
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(VisionMetrics.space8),
             ),
-            const SizedBox(width: 4),
-            Text(l.jukeboxTitle,
-                style: TextStyle(
-                    color: t.textPrimary,
-                    fontSize: t.fontSize(12),
-                    letterSpacing: 4,
-                    fontWeight: FontWeight.w900)),
+            const SizedBox(width: VisionMetrics.space4),
+            Text(
+              l.jukeboxTitle,
+              style: TextStyle(
+                color: t.textPrimary,
+                fontSize: t.fontSize(12),
+                letterSpacing: 4,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
             const Spacer(),
             if (mobile)
               _buildMobileHeaderActions(jukebox, t)
@@ -358,9 +417,9 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
           icon: Icon(Icons.file_open, size: 20, color: t.accent),
           tooltip: l.jukeboxImportTooltip,
           constraints: const BoxConstraints(),
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(VisionMetrics.space8),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: VisionMetrics.space4),
         IconButton(
           onPressed: () {
             final songs = filteredSongs(jukebox, _selectedCategory);
@@ -369,9 +428,9 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
           icon: Icon(Icons.shuffle, size: 20, color: t.accent),
           tooltip: l.jukeboxShuffleAllTooltip,
           constraints: const BoxConstraints(),
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(VisionMetrics.space8),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: VisionMetrics.space4),
         IconButton(
           onPressed: () {
             final songs = filteredSongs(jukebox, _selectedCategory);
@@ -380,16 +439,19 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
           icon: Icon(Icons.play_arrow, size: 20, color: t.accent),
           tooltip: l.jukeboxPlayAllTooltip,
           constraints: const BoxConstraints(),
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(VisionMetrics.space8),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: VisionMetrics.space4),
         IconButton(
           onPressed: jukebox.toggleKeyboardMode,
-          icon: Icon(Icons.piano, size: 20,
-              color: jukebox.keyboardMode ? t.accentEdit : t.accent),
+          icon: Icon(
+            Icons.piano,
+            size: 20,
+            color: jukebox.keyboardMode ? t.accentEdit : t.accent,
+          ),
           tooltip: l.jukeboxKeyboardTooltip,
           constraints: const BoxConstraints(),
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(VisionMetrics.space8),
         ),
       ],
     );
@@ -401,52 +463,83 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
       return TextButton.icon(
         onPressed: onPressed,
         icon: Icon(icon, size: 16, color: t.accent),
-        label: Text(label,
-            style: TextStyle(
-                color: t.accent,
-                fontSize: t.fontSize(9),
-                letterSpacing: 1,
-                fontWeight: FontWeight.bold)),
+        label: Text(
+          label,
+          style: TextStyle(
+            color: t.accent,
+            fontSize: t.fontSize(9),
+            letterSpacing: 1,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         style: TextButton.styleFrom(
-          backgroundColor: t.accent.withValues(alpha: 0.1),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          backgroundColor: t.accent.withValues(
+            alpha: VisionMetrics.opacityHover,
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: VisionMetrics.space12,
+            vertical: VisionMetrics.space8,
+          ),
         ),
       );
     }
 
-    Widget toggleButton(VoidCallback onPressed, IconData icon, String label, bool active) {
+    Widget toggleButton(
+      VoidCallback onPressed,
+      IconData icon,
+      String label,
+      bool active,
+    ) {
       return TextButton.icon(
         onPressed: onPressed,
         icon: Icon(icon, size: 16, color: active ? t.accentEdit : t.accent),
-        label: Text(label,
-            style: TextStyle(
-                color: active ? t.accentEdit : t.accent,
-                fontSize: t.fontSize(9),
-                letterSpacing: 1,
-                fontWeight: FontWeight.bold)),
+        label: Text(
+          label,
+          style: TextStyle(
+            color: active ? t.accentEdit : t.accent,
+            fontSize: t.fontSize(9),
+            letterSpacing: 1,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         style: TextButton.styleFrom(
           backgroundColor: active
-              ? t.accentEdit.withValues(alpha: 0.15)
-              : t.accent.withValues(alpha: 0.1),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ? t.accentEdit.withValues(alpha: VisionMetrics.opacityPressed)
+              : t.accent.withValues(alpha: VisionMetrics.opacityHover),
+          padding: const EdgeInsets.symmetric(
+            horizontal: VisionMetrics.space12,
+            vertical: VisionMetrics.space8,
+          ),
         ),
       );
     }
 
     return Row(
       children: [
-        actionButton(() => _importSong(jukebox), Icons.file_open, l.jukeboxImport),
-        const SizedBox(width: 8),
-        actionButton(() {
-          final songs = filteredSongs(jukebox, _selectedCategory);
-          jukebox.playQueue(songs, shuffleQueue: true);
-        }, Icons.shuffle, l.jukeboxShuffleAll),
-        const SizedBox(width: 8),
-        actionButton(() {
-          final songs = filteredSongs(jukebox, _selectedCategory);
-          jukebox.playQueue(songs);
-        }, Icons.play_arrow, l.jukeboxPlayAll),
-        const SizedBox(width: 8),
+        actionButton(
+          () => _importSong(jukebox),
+          Icons.file_open,
+          l.jukeboxImport,
+        ),
+        const SizedBox(width: VisionMetrics.space8),
+        actionButton(
+          () {
+            final songs = filteredSongs(jukebox, _selectedCategory);
+            jukebox.playQueue(songs, shuffleQueue: true);
+          },
+          Icons.shuffle,
+          l.jukeboxShuffleAll,
+        ),
+        const SizedBox(width: VisionMetrics.space8),
+        actionButton(
+          () {
+            final songs = filteredSongs(jukebox, _selectedCategory);
+            jukebox.playQueue(songs);
+          },
+          Icons.play_arrow,
+          l.jukeboxPlayAll,
+        ),
+        const SizedBox(width: VisionMetrics.space8),
         toggleButton(
           jukebox.toggleKeyboardMode,
           Icons.piano,
@@ -471,21 +564,21 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
       children: [
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(VisionMetrics.space24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 JukeboxNowPlaying(jukebox: jukebox, t: t),
-                const SizedBox(height: 24),
+                const SizedBox(height: VisionMetrics.space24),
                 SectionTitle(l.jukeboxStyle, t: t),
                 JukeboxStyleSection(jukebox: jukebox, t: t),
-                const SizedBox(height: 24),
+                const SizedBox(height: VisionMetrics.space24),
                 SectionTitle(l.jukeboxSoundFont, t: t),
                 JukeboxSoundFontPicker(jukebox: jukebox, t: t),
-                const SizedBox(height: 24),
+                const SizedBox(height: VisionMetrics.space24),
                 SectionTitle(l.jukeboxSettings, t: t),
                 JukeboxSettingsSection(jukebox: jukebox, t: t),
-                const SizedBox(height: 24),
+                const SizedBox(height: VisionMetrics.space24),
                 SectionTitle(l.jukeboxQueueCount(jukebox.queue.length), t: t),
                 JukeboxQueue(jukebox: jukebox, t: t),
               ],
@@ -515,7 +608,12 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
       children: [
         // Top bar: instrument picker + game controls
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          padding: const EdgeInsets.fromLTRB(
+            VisionMetrics.space16,
+            VisionMetrics.space12,
+            VisionMetrics.space16,
+            VisionMetrics.space4,
+          ),
           child: Row(
             children: [
               Expanded(
@@ -525,7 +623,7 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
                   onChanged: jukebox.setKeyboardInstrument,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: VisionMetrics.space8),
               if (jukebox.currentSong != null && !jukebox.gameMode)
                 _buildSmallButton(t, l.jukeboxGame, Icons.sports_esports, () {
                   jukebox.openGameBrowser();
@@ -543,15 +641,19 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
         // Tempo slider
         if (jukebox.currentSong != null)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(
+              horizontal: VisionMetrics.space16,
+            ),
             child: Row(
               children: [
-                Text(l.jukeboxTempo,
-                    style: TextStyle(
-                      color: t.textMinimal,
-                      fontSize: t.fontSize(8),
-                      letterSpacing: 1,
-                    )),
+                Text(
+                  l.jukeboxTempo,
+                  style: TextStyle(
+                    color: t.textMinimal,
+                    fontSize: t.fontSize(8),
+                    letterSpacing: 1,
+                  ),
+                ),
                 Expanded(
                   child: Slider(
                     value: jukebox.tempo,
@@ -564,17 +666,21 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
                     onChanged: jukebox.setTempo,
                   ),
                 ),
-                Text('${jukebox.tempo.toStringAsFixed(2)}x',
-                    style: TextStyle(
-                      color: t.textSecondary,
-                      fontSize: t.fontSize(9),
-                    )),
+                Text(
+                  '${jukebox.tempo.toStringAsFixed(2)}x',
+                  style: TextStyle(
+                    color: t.textSecondary,
+                    fontSize: t.fontSize(9),
+                  ),
+                ),
               ],
             ),
           ),
         if (!hasGame)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(
+              horizontal: VisionMetrics.space16,
+            ),
             child: Row(
               children: [
                 Text(
@@ -615,55 +721,68 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
         else
           const Spacer(),
         // Piano keyboard at bottom
-        LayoutBuilder(builder: (context, constraints) {
-          final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
-          final kbHeight = isLandscape
-              ? (constraints.maxHeight * 0.35).clamp(80.0, 120.0)
-              : null;
-          return Container(
-            decoration: BoxDecoration(
-              color: t.surfaceMid,
-              border: Border(top: BorderSide(color: t.borderSubtle)),
-            ),
-            child: PianoKeyboard(
-              t: t,
-              height: kbHeight,
-              gameMode: jukebox.gameMode,
-              gameNoteMin: range?.$1,
-              gameNoteMax: range?.$2,
-              highlightedNotes: null,
-              onNoteOn: (note) {
-                setState(() => _activeKeys.add(note));
-                jukebox.playNote(note, 100);
-                _fallingNotesKey.currentState?.tryHit(note);
-              },
-              onNoteOff: (note) {
-                setState(() => _activeKeys.remove(note));
-                jukebox.stopNote(note);
-              },
-            ),
-          );
-        }),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isLandscape =
+                MediaQuery.of(context).orientation == Orientation.landscape;
+            final kbHeight = isLandscape
+                ? (constraints.maxHeight * 0.35).clamp(80.0, 120.0)
+                : null;
+            return Container(
+              decoration: BoxDecoration(
+                color: t.surfaceMid,
+                border: Border(top: BorderSide(color: t.borderSubtle)),
+              ),
+              child: PianoKeyboard(
+                t: t,
+                height: kbHeight,
+                gameMode: jukebox.gameMode,
+                gameNoteMin: range?.$1,
+                gameNoteMax: range?.$2,
+                highlightedNotes: null,
+                onNoteOn: (note) {
+                  setState(() => _activeKeys.add(note));
+                  jukebox.playNote(note, 100);
+                  _fallingNotesKey.currentState?.tryHit(note);
+                },
+                onNoteOff: (note) {
+                  setState(() => _activeKeys.remove(note));
+                  jukebox.stopNote(note);
+                },
+              ),
+            );
+          },
+        ),
       ],
     );
   }
 
-  Widget _buildSmallButton(VisionTokens t, String label, IconData icon,
-      VoidCallback onPressed, {Color? color}) {
+  Widget _buildSmallButton(
+    VisionTokens t,
+    String label,
+    IconData icon,
+    VoidCallback onPressed, {
+    Color? color,
+  }) {
     final c = color ?? t.accent;
     return TextButton.icon(
       onPressed: onPressed,
       icon: Icon(icon, size: 14, color: c),
-      label: Text(label,
-          style: TextStyle(
-            color: c,
-            fontSize: t.fontSize(8),
-            letterSpacing: 1,
-            fontWeight: FontWeight.bold,
-          )),
+      label: Text(
+        label,
+        style: TextStyle(
+          color: c,
+          fontSize: t.fontSize(8),
+          letterSpacing: 1,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
       style: TextButton.styleFrom(
-        backgroundColor: c.withValues(alpha: 0.1),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        backgroundColor: c.withValues(alpha: VisionMetrics.opacityHover),
+        padding: const EdgeInsets.symmetric(
+          horizontal: VisionMetrics.space12,
+          vertical: VisionMetrics.space8,
+        ),
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
@@ -683,7 +802,10 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
             fontWeight: FontWeight.w900,
             letterSpacing: 4,
             shadows: [
-              Shadow(color: t.accent.withValues(alpha: 0.5), blurRadius: 20),
+              Shadow(
+                color: t.accent.withValues(alpha: VisionMetrics.opacityScrim),
+                blurRadius: 20,
+              ),
             ],
           ),
         ),
@@ -691,10 +813,17 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
     );
   }
 
-  void _showGameResults(GameScore? score, String? songId, JukeboxNotifier jukebox, VisionTokens t) {
+  void _showGameResults(
+    GameScore? score,
+    String? songId,
+    JukeboxNotifier jukebox,
+    VisionTokens t,
+  ) {
     if (score == null) return;
 
-    final highScores = songId != null ? jukebox.highScoresForSong(songId) : <HighScoreEntry>[];
+    final highScores = songId != null
+        ? jukebox.highScoresForSong(songId)
+        : <HighScoreEntry>[];
 
     showDialog(
       context: context,
@@ -717,30 +846,50 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
               child: Text(
                 score.rank,
                 style: TextStyle(
-                  color: score.rank == 'S'
-                      ? const Color(0xFFFFD700)
-                      : score.rank == 'A'
-                          ? const Color(0xFF22C55E)
-                          : t.textPrimary,
+                  color: rankColor(t, score.rank, fallback: t.textPrimary),
                   fontSize: t.fontSize(36),
                   fontWeight: FontWeight.w900,
                   letterSpacing: 4,
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: VisionMetrics.space16),
             _resultRow(t, context.l.jukeboxGameScore, '${score.score}'),
             _resultRow(t, context.l.jukeboxGameMaxCombo, '${score.maxCombo}'),
-            _resultRow(t, context.l.jukeboxGameAccuracy, '${(score.accuracy * 100).toStringAsFixed(1)}%'),
-            const SizedBox(height: 8),
-            _resultRow(t, context.l.jukeboxGamePerfect, '${score.perfects}', color: const Color(0xFFFFD700)),
-            _resultRow(t, context.l.jukeboxGameGreat, '${score.greats}', color: const Color(0xFF22C55E)),
-            _resultRow(t, context.l.jukeboxGameGood, '${score.goods}', color: const Color(0xFF3B82F6)),
-            _resultRow(t, context.l.jukeboxGameMiss, '${score.misses}', color: const Color(0xFFEF4444)),
+            _resultRow(
+              t,
+              context.l.jukeboxGameAccuracy,
+              '${(score.accuracy * 100).toStringAsFixed(1)}%',
+            ),
+            const SizedBox(height: VisionMetrics.space8),
+            _resultRow(
+              t,
+              context.l.jukeboxGamePerfect,
+              '${score.perfects}',
+              color: t.accentFavorite,
+            ),
+            _resultRow(
+              t,
+              context.l.jukeboxGameGreat,
+              '${score.greats}',
+              color: t.accentSuccess,
+            ),
+            _resultRow(
+              t,
+              context.l.jukeboxGameGood,
+              '${score.goods}',
+              color: t.accent,
+            ),
+            _resultRow(
+              t,
+              context.l.jukeboxGameMiss,
+              '${score.misses}',
+              color: t.accentDanger,
+            ),
             if (highScores.isNotEmpty) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: VisionMetrics.space16),
               Divider(color: t.borderSubtle),
-              const SizedBox(height: 8),
+              const SizedBox(height: VisionMetrics.space8),
               Text(
                 context.l.jukeboxHighScores,
                 style: TextStyle(
@@ -750,44 +899,48 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: VisionMetrics.space8),
               ...highScores.take(3).toList().asMap().entries.map((entry) {
                 final i = entry.key;
                 final s = entry.value;
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
+                  padding: const EdgeInsets.only(bottom: VisionMetrics.space4),
                   child: Row(
                     children: [
-                      Text('#${i + 1}',
-                          style: TextStyle(
-                            color: t.textMinimal,
-                            fontSize: t.fontSize(9),
-                            fontWeight: FontWeight.bold,
-                          )),
-                      const SizedBox(width: 8),
-                      Text(s.rank,
-                          style: TextStyle(
-                            color: s.rank == 'S'
-                                ? const Color(0xFFFFD700)
-                                : s.rank == 'A'
-                                    ? const Color(0xFF22C55E)
-                                    : t.textPrimary,
-                            fontSize: t.fontSize(10),
-                            fontWeight: FontWeight.w900,
-                          )),
-                      const SizedBox(width: 8),
-                      Text('${s.score}',
-                          style: TextStyle(
-                            color: t.textPrimary,
-                            fontSize: t.fontSize(9),
-                            fontWeight: FontWeight.bold,
-                          )),
+                      Text(
+                        '#${i + 1}',
+                        style: TextStyle(
+                          color: t.textMinimal,
+                          fontSize: t.fontSize(9),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: VisionMetrics.space8),
+                      Text(
+                        s.rank,
+                        style: TextStyle(
+                          color: rankColor(t, s.rank, fallback: t.textPrimary),
+                          fontSize: t.fontSize(10),
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(width: VisionMetrics.space8),
+                      Text(
+                        '${s.score}',
+                        style: TextStyle(
+                          color: t.textPrimary,
+                          fontSize: t.fontSize(9),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const Spacer(),
-                      Text('${(s.accuracy * 100).toStringAsFixed(1)}%',
-                          style: TextStyle(
-                            color: t.textSecondary,
-                            fontSize: t.fontSize(9),
-                          )),
+                      Text(
+                        '${(s.accuracy * 100).toStringAsFixed(1)}%',
+                        style: TextStyle(
+                          color: t.textSecondary,
+                          fontSize: t.fontSize(9),
+                        ),
+                      ),
                     ],
                   ),
                 );
@@ -804,32 +957,43 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
                 jukebox.returnToSongDetail();
               }
             },
-            child: Text('CLOSE',
-                style: TextStyle(color: t.accent, letterSpacing: 1)),
+            child: Text(
+              context.l.commonClose.toUpperCase(),
+              style: TextStyle(color: t.accent, letterSpacing: 1),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _resultRow(VisionTokens t, String label, String value, {Color? color}) {
+  Widget _resultRow(
+    VisionTokens t,
+    String label,
+    String value, {
+    Color? color,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style: TextStyle(
-                color: color ?? t.textSecondary,
-                fontSize: t.fontSize(10),
-                letterSpacing: 1,
-              )),
-          Text(value,
-              style: TextStyle(
-                color: color ?? t.textPrimary,
-                fontSize: t.fontSize(10),
-                fontWeight: FontWeight.bold,
-              )),
+          Text(
+            label,
+            style: TextStyle(
+              color: color ?? t.textSecondary,
+              fontSize: t.fontSize(10),
+              letterSpacing: 1,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              color: color ?? t.textPrimary,
+              fontSize: t.fontSize(10),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ],
       ),
     );
@@ -844,38 +1008,43 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
     if (song == null) return const SizedBox.shrink();
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: VisionMetrics.space16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Song info
           JukeboxNowPlaying.buildSongTitle(song, t),
           if (song.artist != null) JukeboxNowPlaying.buildSongArtist(song, t),
-          JukeboxNowPlaying.buildSongBadges(song, t),
-          const SizedBox(height: 16),
+          JukeboxNowPlaying.buildSongBadges(context, song, t),
+          const SizedBox(height: VisionMetrics.space16),
 
           // Transport controls
-          JukeboxNowPlaying.buildTransportControls(jukebox, t),
+          JukeboxNowPlaying.buildTransportControls(context, jukebox, t),
 
           // Visualizer
           if (jukebox.showKaraokeInPanel) ...[
-            const SizedBox(height: 16),
-            JukeboxNowPlaying.buildVisualizerPreview(context, jukebox, t, height: 120),
+            const SizedBox(height: VisionMetrics.space16),
+            JukeboxNowPlaying.buildVisualizerPreview(
+              context,
+              jukebox,
+              t,
+              height: 120,
+            ),
           ],
 
-          const SizedBox(height: 16),
+          const SizedBox(height: VisionMetrics.space16),
           SectionTitle(context.l.jukeboxStyle, t: t),
           JukeboxStyleSection(jukebox: jukebox, t: t),
-          const SizedBox(height: 16),
+          const SizedBox(height: VisionMetrics.space16),
           SectionTitle(context.l.jukeboxSoundFont, t: t),
           JukeboxSoundFontPicker(jukebox: jukebox, t: t),
-          const SizedBox(height: 16),
+          const SizedBox(height: VisionMetrics.space16),
           SectionTitle(context.l.jukeboxSettings, t: t),
           JukeboxMobileSettingsRow(jukebox: jukebox, t: t),
-          const SizedBox(height: 16),
+          const SizedBox(height: VisionMetrics.space16),
           SectionTitle(context.l.jukeboxQueueCount(jukebox.queue.length), t: t),
           JukeboxQueue(jukebox: jukebox, t: t),
-          const SizedBox(height: 16),
+          const SizedBox(height: VisionMetrics.space16),
         ],
       ),
     );

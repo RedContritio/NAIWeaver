@@ -21,6 +21,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get commonClose => '閉じる';
 
   @override
+  String get commonBack => '戻る';
+
+  @override
+  String get commonHelp => 'ヘルプ';
+
+  @override
   String get commonCreate => '作成';
 
   @override
@@ -294,6 +300,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get gatewayErrDirectForbidden => 'NovelAI がこのアカウントのリクエストを拒否しました。';
+
+  @override
+  String get toolErrApiKeyRejected => 'NovelAI が API キーを拒否しました。設定で確認してください。';
 
   @override
   String get gatewaySessionExpiredTitle => 'セッションの期限切れ';
@@ -2306,6 +2315,54 @@ class AppLocalizationsJa extends AppLocalizations {
   String get img2imgClearMaskConfirm => '消去';
 
   @override
+  String get img2imgMaskUndoStroke => 'ストロークを元に戻す';
+
+  @override
+  String get img2imgMaskClearTooltip => 'マスクをクリア';
+
+  @override
+  String get img2imgBrushRound => '丸ブラシ';
+
+  @override
+  String get img2imgBrushSquare => '角ブラシ';
+
+  @override
+  String get img2imgBrushSize => 'サイズ';
+
+  @override
+  String get img2imgMaskDisplay => 'マスク表示設定';
+
+  @override
+  String get img2imgMaskSave => 'マスクを保存';
+
+  @override
+  String get img2imgMaskLoad => 'マスクを読み込む';
+
+  @override
+  String get img2imgMaskSaved => 'マスクを保存しました';
+
+  @override
+  String get img2imgMaskColor => '色';
+
+  @override
+  String get img2imgMaskOpacity => '不透明度';
+
+  @override
+  String get img2imgMaskPatternSolid => 'ベタ';
+
+  @override
+  String get img2imgMaskPatternStripe => 'ストライプ';
+
+  @override
+  String get img2imgMaskPatternCross => 'クロス';
+
+  @override
+  String get img2imgMaskBorder => '枠線';
+
+  @override
+  String get img2imgMaskBorderTooltip => 'マスクの枠線を表示';
+
+  @override
   String get img2imgNoMask => 'マスクなし（全体IMG2IMG）';
 
   @override
@@ -2328,6 +2385,18 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get img2imgBlankCanvasSize => 'キャンバスサイズ';
+
+  @override
+  String get img2imgPickerTitle => '元画像を選択';
+
+  @override
+  String get img2imgPickerDesc => 'img2img またはインペイントのベースにする画像を選択';
+
+  @override
+  String get img2imgUseCurrent => '現在の生成画像を使用';
+
+  @override
+  String get img2imgUseCurrentDesc => '最後に生成した画像を元画像にする';
 
   @override
   String get slideshowTitle => 'スライドショー';
@@ -2554,6 +2623,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get cascadeRemoveBeat => 'ビートを削除';
+
+  @override
+  String get cascadeRemoveBeatMessage => 'このビートとそのプロンプトはシーケンスから削除されます。';
+
+  @override
+  String get cascadeRemoveActionTag => 'アクションタグを削除';
 
   @override
   String get settingsCheckForUpdates => 'アップデートを確認';
@@ -2815,6 +2890,33 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get canvasTextDefault => 'デフォルト';
+
+  @override
+  String get canvasSelectTool => '選択';
+
+  @override
+  String get canvasLassoTool => '投げ縄';
+
+  @override
+  String get canvasBlurTool => 'ぼかし';
+
+  @override
+  String get canvasCloneTool => 'コピー';
+
+  @override
+  String get canvasResize => 'キャンバスサイズを変更';
+
+  @override
+  String get canvasApply => '適用';
+
+  @override
+  String get canvasDeleteSelection => '選択範囲の内容を削除';
+
+  @override
+  String get canvasPaletteTapHint => 'タップ：選択  •  長押し：現在の色に置換';
+
+  @override
+  String get canvasPaletteHoldHint => '長押しで置換';
 
   @override
   String get canvasBlendNormal => '通常';
@@ -3530,6 +3632,52 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mlRemovePoint => '除去';
 
   @override
+  String get mlBack => '戻る';
+
+  @override
+  String get mlEncodingImage => '画像をエンコード中…';
+
+  @override
+  String get mlTapToSelect => '画像をタップして領域を選択';
+
+  @override
+  String get mlUndoPoint => '最後の点を取り消す';
+
+  @override
+  String get mlClearPoints => 'すべての点をクリア';
+
+  @override
+  String mlPointCount(int count) {
+    return '$count 点';
+  }
+
+  @override
+  String get mlOpacity => '不透明度';
+
+  @override
+  String get mlEdgeRefine => 'エッジ補正';
+
+  @override
+  String get mlThreshold => 'しきい値';
+
+  @override
+  String get mlFeather => 'ぼかし';
+
+  @override
+  String get mlDone => '完了';
+
+  @override
+  String get mlUpscaleCompare => 'アップスケール比較';
+
+  @override
+  String get mlSaved => '保存済み';
+
+  @override
+  String mlSavedFile(String name) {
+    return '保存しました: $name';
+  }
+
+  @override
   String get mlTierFast => '高速';
 
   @override
@@ -3567,6 +3715,86 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get mlLowRamWarning => 'メモリ不足 — クラッシュの恐れ';
+
+  @override
+  String get mlDesktopOnlyMayCrash => 'デスクトップ専用 — クラッシュの可能性';
+
+  @override
+  String get mlDownloadFailed => 'ダウンロードに失敗しました';
+
+  @override
+  String get mlManagerSubtitle => '背景除去とアップスケール用のオンデバイス ML モデルをダウンロード・管理します。';
+
+  @override
+  String get mlNoModelsDownloaded => 'ダウンロード済みのモデルはありません';
+
+  @override
+  String mlModelsDownloaded(int count, String size) {
+    return 'ダウンロード済みモデル: $count 個 · $size';
+  }
+
+  @override
+  String get mlMobileApiNote =>
+      'モバイルでは、アップスケールと背景除去に NovelAI API を使用します。ローカル ML モデルはデスクトップのみ対応です。';
+
+  @override
+  String get mlSegmentationNote =>
+      'SAM によるインタラクティブな物体選択。エンコーダーとデコーダーの両方をダウンロードします。';
+
+  @override
+  String get mlUnknownModels => '不明なモデル';
+
+  @override
+  String get mlUnknownModelsNote =>
+      '旧形式または認識できない .onnx/.ort ファイルです。削除するとディスク容量を空けられます。';
+
+  @override
+  String mlDeleteModelTitle(String name) {
+    return '$name を削除しますか？';
+  }
+
+  @override
+  String mlDeleteModelMessage(String size) {
+    return '$size のディスク容量を空けます。';
+  }
+
+  @override
+  String get mlRecommendedForDevice => 'お使いのデバイスにおすすめ';
+
+  @override
+  String get mlSlowOnDevice => 'このデバイスでは遅い可能性があります';
+
+  @override
+  String get mlNaiApiUpscale => 'NOVELAI API アップスケール';
+
+  @override
+  String get mlNaiApiUpscaleDesc =>
+      'NovelAI API によるサーバー側の最大 4 倍アップスケール。API キーが必要で、ダウンロードは不要です。';
+
+  @override
+  String get mlNaiApiBgRemoval => 'NOVELAI API 背景除去';
+
+  @override
+  String get mlNaiApiBgRemovalDesc =>
+      'NovelAI API によるサーバー側の背景除去。API キーが必要で、ダウンロードは不要です。';
+
+  @override
+  String get mlCloud => 'クラウド';
+
+  @override
+  String get mlNoApiKey => 'API キー未設定';
+
+  @override
+  String get mlTierQualityShort => '高品質';
+
+  @override
+  String get mlDeviceMobile => 'モバイル';
+
+  @override
+  String get mlDeviceDesktop => 'デスクトップ';
+
+  @override
+  String get mlDeviceBoth => '両対応';
 
   @override
   String get mlBgRemovedAndSaved => '背景除去して保存しました';
@@ -3629,6 +3857,96 @@ class AppLocalizationsJa extends AppLocalizations {
   String get directorToolsMood => 'ムード';
 
   @override
+  String get directorToolBgRemoval => '背景除去';
+
+  @override
+  String get directorToolLineart => '線画';
+
+  @override
+  String get directorToolSketch => 'スケッチ';
+
+  @override
+  String get directorToolColorize => 'カラー化';
+
+  @override
+  String get directorToolEmotion => '感情';
+
+  @override
+  String get directorToolDeclutter => '不要物除去';
+
+  @override
+  String get moodNeutral => 'ニュートラル';
+
+  @override
+  String get moodHappy => 'うれしい';
+
+  @override
+  String get moodSad => '悲しい';
+
+  @override
+  String get moodAngry => '怒り';
+
+  @override
+  String get moodScared => '怖い';
+
+  @override
+  String get moodSurprised => '驚き';
+
+  @override
+  String get moodTired => '疲れ';
+
+  @override
+  String get moodExcited => 'ワクワク';
+
+  @override
+  String get moodNervous => '緊張';
+
+  @override
+  String get moodThinking => '考え中';
+
+  @override
+  String get moodConfused => '困惑';
+
+  @override
+  String get moodShy => '恥ずかしい';
+
+  @override
+  String get moodDisgusted => '嫌悪';
+
+  @override
+  String get moodSmug => 'ドヤ顔';
+
+  @override
+  String get moodBored => '退屈';
+
+  @override
+  String get moodLaughing => '笑い';
+
+  @override
+  String get moodIrritated => 'イライラ';
+
+  @override
+  String get moodAroused => '興奮';
+
+  @override
+  String get moodEmbarrassed => '照れ';
+
+  @override
+  String get moodWorried => '心配';
+
+  @override
+  String get moodLove => '愛';
+
+  @override
+  String get moodDetermined => '決意';
+
+  @override
+  String get moodHurt => '傷心';
+
+  @override
+  String get moodPlayful => 'いたずら';
+
+  @override
   String get directorToolsPrompt => 'プロンプト';
 
   @override
@@ -3666,6 +3984,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get enhanceNoise => 'ノイズ';
+
+  @override
+  String get enhanceResolutionScale => '解像度スケール';
 
   @override
   String get enhanceSaved => 'エンハンス画像をギャラリーに保存しました';
@@ -4058,6 +4379,53 @@ class AppLocalizationsJa extends AppLocalizations {
   String get jukeboxVisualizer => 'ビジュアライザー';
 
   @override
+  String get jukeboxToggleVisualizer => 'ビジュアライザー表示を切り替え';
+
+  @override
+  String get jukeboxPrevious => '前へ';
+
+  @override
+  String get jukeboxNext => '次へ';
+
+  @override
+  String get jukeboxPlay => '再生';
+
+  @override
+  String get jukeboxPause => '一時停止';
+
+  @override
+  String get jukeboxMute => 'ミュート';
+
+  @override
+  String get jukeboxUnmute => 'ミュート解除';
+
+  @override
+  String get jukeboxRemoveFromQueue => 'キューから削除';
+
+  @override
+  String get jukeboxFullscreen => '全画面';
+
+  @override
+  String get jukeboxKaraokeLabel => 'カラオケ';
+
+  @override
+  String get jukeboxBundled => '内蔵';
+
+  @override
+  String get jukeboxSoundfontDownload => 'ダウンロード';
+
+  @override
+  String get jukeboxSoundfontDelete => 'サウンドフォントを削除';
+
+  @override
+  String get jukeboxSoundfontDeleteTitle => 'サウンドフォントを削除';
+
+  @override
+  String jukeboxSoundfontDeleteMessage(String name) {
+    return '$name を削除しますか？後で再ダウンロードできます。';
+  }
+
+  @override
   String get jukeboxVizIntensity => '強度';
 
   @override
@@ -4309,6 +4677,19 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get textGenOutputEmpty => '生成されたテキストがここに表示されます。';
+
+  @override
+  String get textGenErrNoToken => 'NovelAI トークンが設定されていません。設定で追加してください。';
+
+  @override
+  String get textGenErrEmptyInput => '続きを生成する元のテキストを入力してください。';
+
+  @override
+  String get textGenClearConfirmTitle => '出力をクリアしますか？';
+
+  @override
+  String get textGenClearConfirmMessage =>
+      '生成したテキストと推論内容が削除されます。必要なら先にコピーしてください。';
 
   @override
   String get textGenHistory => '履歴';

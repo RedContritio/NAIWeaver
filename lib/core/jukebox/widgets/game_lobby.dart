@@ -8,6 +8,9 @@ import '../providers/jukebox_notifier.dart';
 import '../../theme/theme_extensions.dart';
 import '../../theme/vision_tokens.dart';
 import '../../l10n/l10n_extensions.dart';
+import '../../widgets/ui/app_pill.dart';
+import '../../widgets/ui/app_tone.dart';
+import '../../theme/vision_metrics.dart';
 
 /// Two-screen game lobby: song browser + song detail with channel select.
 
@@ -22,14 +25,14 @@ String _difficultyLabel(BuildContext context, Difficulty d) {
   };
 }
 
-/// Shared rank color mapping.
-Color rankColor(String rank) {
+/// Shared rank color mapping. Ranks below A use [fallback] when given.
+Color rankColor(VisionTokens t, String rank, {Color? fallback}) {
   return switch (rank) {
-    'S' => const Color(0xFFFFD700),
-    'A' => const Color(0xFF22C55E),
-    'B' => const Color(0xFF3B82F6),
-    'C' => const Color(0xFFF97316),
-    _ => const Color(0xFFEF4444),
+    'S' => t.accentFavorite,
+    'A' => t.accentSuccess,
+    'B' => fallback ?? t.accent,
+    'C' => fallback ?? t.accentEdit,
+    _ => fallback ?? t.accentDanger,
   };
 }
 
@@ -66,7 +69,12 @@ class _GameSongBrowserState extends State<GameSongBrowser> {
       children: [
         // Header
         Container(
-          padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+          padding: const EdgeInsets.fromLTRB(
+            VisionMetrics.space16,
+            VisionMetrics.space12,
+            VisionMetrics.space8,
+            VisionMetrics.space8,
+          ),
           child: Row(
             children: [
               Text(
@@ -80,10 +88,11 @@ class _GameSongBrowserState extends State<GameSongBrowser> {
               ),
               const Spacer(),
               IconButton(
+                tooltip: context.l.commonClose,
                 onPressed: jukebox.closeGameBrowser,
                 icon: Icon(Icons.close, size: 20, color: t.textSecondary),
                 constraints: const BoxConstraints(),
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(VisionMetrics.space8),
               ),
             ],
           ),
@@ -93,9 +102,7 @@ class _GameSongBrowserState extends State<GameSongBrowser> {
         _buildCategoryChips(t),
         Divider(height: 1, color: t.borderSubtle),
         // Song list
-        Expanded(
-          child: _buildSongList(jukebox, t),
-        ),
+        Expanded(child: _buildSongList(jukebox, t)),
       ],
     );
   }
@@ -104,32 +111,40 @@ class _GameSongBrowserState extends State<GameSongBrowser> {
     final categories = [null, ...SongCategory.values];
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: VisionMetrics.space12,
+        vertical: VisionMetrics.space8,
+      ),
       child: Row(
         children: categories.map((cat) {
           final selected = cat == _selectedCategory;
           final label = cat?.name.toUpperCase() ?? context.l.jukeboxCategoryAll;
           return Padding(
-            padding: const EdgeInsets.only(right: 6),
+            padding: const EdgeInsets.only(right: VisionMetrics.space8),
             child: FilterChip(
               label: Text(label),
               selected: selected,
               onSelected: (_) => setState(() => _selectedCategory = cat),
               labelStyle: TextStyle(
-                color: selected ? Colors.white : t.textSecondary,
+                color: selected ? t.textPrimary : t.textSecondary,
                 fontSize: t.fontSize(8),
                 letterSpacing: 1,
                 fontWeight: FontWeight.bold,
               ),
               backgroundColor: t.surfaceMid,
-              selectedColor: t.accent.withValues(alpha: 0.3),
+              selectedColor: t.accent.withValues(
+                alpha: VisionMetrics.opacityDisabled,
+              ),
               side: BorderSide(
                 color: selected
-                    ? t.accent.withValues(alpha: 0.5)
+                    ? t.accent.withValues(alpha: VisionMetrics.opacityScrim)
                     : t.borderSubtle,
               ),
               showCheckmark: false,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              padding: const EdgeInsets.symmetric(
+                horizontal: VisionMetrics.space8,
+                vertical: 2,
+              ),
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               visualDensity: VisualDensity.compact,
             ),
@@ -156,7 +171,7 @@ class _GameSongBrowserState extends State<GameSongBrowser> {
 
     return ListView.builder(
       itemCount: songs.length,
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: VisionMetrics.space4),
       itemBuilder: (context, index) {
         final song = songs[index];
         final scores = jukebox.highScoresForSong(song.id);
@@ -165,7 +180,10 @@ class _GameSongBrowserState extends State<GameSongBrowser> {
         return InkWell(
           onTap: () => jukebox.selectGameSong(song),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(
+              horizontal: VisionMetrics.space16,
+              vertical: VisionMetrics.space12,
+            ),
             child: Row(
               children: [
                 Expanded(
@@ -197,13 +215,20 @@ class _GameSongBrowserState extends State<GameSongBrowser> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                          if (song.artist != null) const SizedBox(width: 8),
+                          if (song.artist != null)
+                            const SizedBox(width: VisionMetrics.space8),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 1),
+                              horizontal: VisionMetrics.space8,
+                              vertical: 1,
+                            ),
                             decoration: BoxDecoration(
-                              color: t.accent.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(3),
+                              color: t.accent.withValues(
+                                alpha: VisionMetrics.opacityHover,
+                              ),
+                              borderRadius: BorderRadius.circular(
+                                VisionMetrics.radius4,
+                              ),
                             ),
                             child: Text(
                               song.categoryLabel,
@@ -216,23 +241,11 @@ class _GameSongBrowserState extends State<GameSongBrowser> {
                             ),
                           ),
                           if (song.isRecommended) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 1),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFD700).withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                              child: Text(
-                                context.l.jukeboxRecommendedBadge,
-                                style: TextStyle(
-                                  color: const Color(0xFFFFD700),
-                                  fontSize: t.fontSize(7),
-                                  letterSpacing: 1,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                            const SizedBox(width: VisionMetrics.space8),
+                            AppPill(
+                              text: context.l.jukeboxRecommendedBadge,
+                              tone: AppTone.warning,
+                              dense: true,
                             ),
                           ],
                         ],
@@ -246,16 +259,22 @@ class _GameSongBrowserState extends State<GameSongBrowser> {
                     height: 28,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: rankColor(bestRank).withValues(alpha: 0.2),
+                      color: rankColor(
+                        t,
+                        bestRank,
+                      ).withValues(alpha: VisionMetrics.opacityPressed),
                       border: Border.all(
-                        color: rankColor(bestRank).withValues(alpha: 0.5),
+                        color: rankColor(
+                          t,
+                          bestRank,
+                        ).withValues(alpha: VisionMetrics.opacityScrim),
                       ),
                     ),
                     alignment: Alignment.center,
                     child: Text(
                       bestRank,
                       style: TextStyle(
-                        color: rankColor(bestRank),
+                        color: rankColor(t, bestRank),
                         fontSize: t.fontSize(11),
                         fontWeight: FontWeight.w900,
                       ),
@@ -268,7 +287,6 @@ class _GameSongBrowserState extends State<GameSongBrowser> {
       },
     );
   }
-
 }
 
 // ─────────────────────────────────────────
@@ -296,11 +314,17 @@ class _GameSongDetailState extends State<GameSongDetail> {
       _autoSelectedForSongId = songId;
     }
     if (_selectedChannel == null && jukebox.channelAnalysis != null) {
-      _autoSelectChannel(jukebox.channelAnalysis!, recommendedProgram: jukebox.lobbySong?.recommendedProgram);
+      _autoSelectChannel(
+        jukebox.channelAnalysis!,
+        recommendedProgram: jukebox.lobbySong?.recommendedProgram,
+      );
     }
   }
 
-  void _autoSelectChannel(List<ChannelInfo> channels, {int? recommendedProgram}) {
+  void _autoSelectChannel(
+    List<ChannelInfo> channels, {
+    int? recommendedProgram,
+  }) {
     // Prefer channel matching the song's recommended program (e.g. alto sax)
     if (recommendedProgram != null) {
       for (final ch in channels) {
@@ -337,16 +361,22 @@ class _GameSongDetailState extends State<GameSongDetail> {
       children: [
         // Header with back button
         Container(
-          padding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
+          padding: const EdgeInsets.fromLTRB(
+            VisionMetrics.space4,
+            VisionMetrics.space8,
+            VisionMetrics.space16,
+            VisionMetrics.space8,
+          ),
           child: Row(
             children: [
               IconButton(
+                tooltip: context.l.commonBack,
                 onPressed: jukebox.backToSongBrowser,
                 icon: Icon(Icons.arrow_back, size: 20, color: t.textSecondary),
                 constraints: const BoxConstraints(),
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(VisionMetrics.space8),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: VisionMetrics.space4),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -393,7 +423,7 @@ class _GameSongDetailState extends State<GameSongDetail> {
                           color: t.accent,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: VisionMetrics.space12),
                       Text(
                         context.l.jukeboxAnalyzing,
                         style: TextStyle(
@@ -423,7 +453,7 @@ class _GameSongDetailState extends State<GameSongDetail> {
       children: [
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(VisionMetrics.space16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -437,10 +467,12 @@ class _GameSongDetailState extends State<GameSongDetail> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: VisionMetrics.space8),
                 if (scores.isEmpty)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(
+                      bottom: VisionMetrics.space12,
+                    ),
                     child: Text(
                       context.l.jukeboxNoScoresYet,
                       style: TextStyle(
@@ -455,9 +487,9 @@ class _GameSongDetailState extends State<GameSongDetail> {
                     final s = entry.value;
                     return _buildScoreRow(t, i + 1, s);
                   }),
-                const SizedBox(height: 16),
+                const SizedBox(height: VisionMetrics.space16),
                 Divider(color: t.borderSubtle),
-                const SizedBox(height: 12),
+                const SizedBox(height: VisionMetrics.space12),
                 // Channel selection
                 Text(
                   context.l.jukeboxSelectInstrument,
@@ -468,12 +500,12 @@ class _GameSongDetailState extends State<GameSongDetail> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: VisionMetrics.space8),
                 ...channels.map((ch) => _buildChannelRow(t, ch)),
                 if (_selectedChannel != null) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: VisionMetrics.space16),
                   Divider(color: t.borderSubtle),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: VisionMetrics.space12),
                   Text(
                     'PLAYER VOLUME',
                     style: TextStyle(
@@ -483,7 +515,7 @@ class _GameSongDetailState extends State<GameSongDetail> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: VisionMetrics.space4),
                   Slider(
                     value: jukebox.keyboardVolume,
                     onChanged: jukebox.setKeyboardVolume,
@@ -497,7 +529,12 @@ class _GameSongDetailState extends State<GameSongDetail> {
         ),
         // Bottom action buttons
         Container(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          padding: const EdgeInsets.fromLTRB(
+            VisionMetrics.space16,
+            VisionMetrics.space8,
+            VisionMetrics.space16,
+            VisionMetrics.space16,
+          ),
           decoration: BoxDecoration(
             border: Border(top: BorderSide(color: t.borderSubtle)),
           ),
@@ -507,8 +544,8 @@ class _GameSongDetailState extends State<GameSongDetail> {
             Icons.sports_esports,
             t.accentEdit,
             _selectedChannel != null
-                ? () => jukebox.startGameWithCountdown(
-                    channel: _selectedChannel!)
+                ? () =>
+                      jukebox.startGameWithCountdown(channel: _selectedChannel!)
                 : null,
           ),
         ),
@@ -518,7 +555,7 @@ class _GameSongDetailState extends State<GameSongDetail> {
 
   Widget _buildScoreRow(VisionTokens t, int position, HighScoreEntry score) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(bottom: VisionMetrics.space8),
       child: Row(
         children: [
           SizedBox(
@@ -537,19 +574,22 @@ class _GameSongDetailState extends State<GameSongDetail> {
             height: 22,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: rankColor(score.rank).withValues(alpha: 0.2),
+              color: rankColor(
+                t,
+                score.rank,
+              ).withValues(alpha: VisionMetrics.opacityPressed),
             ),
             alignment: Alignment.center,
             child: Text(
               score.rank,
               style: TextStyle(
-                color: rankColor(score.rank),
+                color: rankColor(t, score.rank),
                 fontSize: t.fontSize(9),
                 fontWeight: FontWeight.w900,
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: VisionMetrics.space12),
           Text(
             '${score.score}',
             style: TextStyle(
@@ -561,10 +601,7 @@ class _GameSongDetailState extends State<GameSongDetail> {
           const Spacer(),
           Text(
             '${(score.accuracy * 100).toStringAsFixed(1)}%',
-            style: TextStyle(
-              color: t.textSecondary,
-              fontSize: t.fontSize(9),
-            ),
+            style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(9)),
           ),
         ],
       ),
@@ -580,16 +617,19 @@ class _GameSongDetailState extends State<GameSongDetail> {
           ? null
           : () => setState(() => _selectedChannel = ch.channel),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        margin: const EdgeInsets.only(bottom: 4),
+        padding: const EdgeInsets.symmetric(
+          horizontal: VisionMetrics.space12,
+          vertical: VisionMetrics.space8,
+        ),
+        margin: const EdgeInsets.only(bottom: VisionMetrics.space4),
         decoration: BoxDecoration(
           color: selected
-              ? t.accent.withValues(alpha: 0.1)
+              ? t.accent.withValues(alpha: VisionMetrics.opacityHover)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(VisionMetrics.radius4),
           border: Border.all(
             color: selected
-                ? t.accent.withValues(alpha: 0.3)
+                ? t.accent.withValues(alpha: VisionMetrics.opacityDisabled)
                 : t.borderSubtle,
           ),
         ),
@@ -605,8 +645,8 @@ class _GameSongDetailState extends State<GameSongDetail> {
                   color: disabled
                       ? t.textMinimal
                       : selected
-                          ? t.accent
-                          : t.textSecondary,
+                      ? t.accent
+                      : t.textSecondary,
                   width: 1.5,
                 ),
               ),
@@ -623,7 +663,7 @@ class _GameSongDetailState extends State<GameSongDetail> {
                     )
                   : null,
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: VisionMetrics.space12),
             // Channel + instrument name
             Text(
               context.l.jukeboxChannelLabel(ch.channel),
@@ -634,7 +674,7 @@ class _GameSongDetailState extends State<GameSongDetail> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: VisionMetrics.space8),
             Expanded(
               child: Text(
                 ch.instrumentName,
@@ -646,24 +686,25 @@ class _GameSongDetailState extends State<GameSongDetail> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: VisionMetrics.space8),
             // Note count
             Text(
               '${ch.noteCount}',
-              style: TextStyle(
-                color: t.textMinimal,
-                fontSize: t.fontSize(9),
-              ),
+              style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9)),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: VisionMetrics.space8),
             // Difficulty badge
             if (!ch.isDrums)
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: VisionMetrics.space8,
+                  vertical: 2,
+                ),
                 decoration: BoxDecoration(
-                  color: ch.difficultyColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(3),
+                  color: ch.difficultyColor.withValues(
+                    alpha: VisionMetrics.opacityPressed,
+                  ),
+                  borderRadius: BorderRadius.circular(VisionMetrics.radius4),
                 ),
                 child: Text(
                   _difficultyLabel(context, ch.difficulty),
@@ -678,10 +719,7 @@ class _GameSongDetailState extends State<GameSongDetail> {
             else
               Text(
                 '---',
-                style: TextStyle(
-                  color: t.textMinimal,
-                  fontSize: t.fontSize(8),
-                ),
+                style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(8)),
               ),
           ],
         ),
@@ -698,7 +736,11 @@ class _GameSongDetailState extends State<GameSongDetail> {
   ) {
     return TextButton.icon(
       onPressed: onPressed,
-      icon: Icon(icon, size: 16, color: onPressed != null ? color : t.textMinimal),
+      icon: Icon(
+        icon,
+        size: 16,
+        color: onPressed != null ? color : t.textMinimal,
+      ),
       label: Text(
         label,
         style: TextStyle(
@@ -710,11 +752,13 @@ class _GameSongDetailState extends State<GameSongDetail> {
       ),
       style: TextButton.styleFrom(
         backgroundColor: onPressed != null
-            ? color.withValues(alpha: 0.1)
+            ? color.withValues(alpha: VisionMetrics.opacityHover)
             : t.surfaceMid,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(
+          horizontal: VisionMetrics.space16,
+          vertical: VisionMetrics.space12,
+        ),
       ),
     );
   }
-
 }

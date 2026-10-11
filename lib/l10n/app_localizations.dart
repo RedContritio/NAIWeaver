@@ -124,6 +124,18 @@ abstract class AppLocalizations {
   /// **'Close'**
   String get commonClose;
 
+  /// No description provided for @commonBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get commonBack;
+
+  /// No description provided for @commonHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Help'**
+  String get commonHelp;
+
   /// No description provided for @commonCreate.
   ///
   /// In en, this message translates to:
@@ -651,6 +663,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'NovelAI refused this request for your account.'**
   String get gatewayErrDirectForbidden;
+
+  /// No description provided for @toolErrApiKeyRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'NovelAI rejected the API key. Check it in Settings.'**
+  String get toolErrApiKeyRejected;
 
   /// No description provided for @gatewaySessionExpiredTitle.
   ///
@@ -4366,6 +4384,102 @@ abstract class AppLocalizations {
   /// **'Clear'**
   String get img2imgClearMaskConfirm;
 
+  /// No description provided for @img2imgMaskUndoStroke.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo stroke'**
+  String get img2imgMaskUndoStroke;
+
+  /// No description provided for @img2imgMaskClearTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear mask'**
+  String get img2imgMaskClearTooltip;
+
+  /// No description provided for @img2imgBrushRound.
+  ///
+  /// In en, this message translates to:
+  /// **'Round brush'**
+  String get img2imgBrushRound;
+
+  /// No description provided for @img2imgBrushSquare.
+  ///
+  /// In en, this message translates to:
+  /// **'Square brush'**
+  String get img2imgBrushSquare;
+
+  /// No description provided for @img2imgBrushSize.
+  ///
+  /// In en, this message translates to:
+  /// **'SIZE'**
+  String get img2imgBrushSize;
+
+  /// No description provided for @img2imgMaskDisplay.
+  ///
+  /// In en, this message translates to:
+  /// **'Mask display settings'**
+  String get img2imgMaskDisplay;
+
+  /// No description provided for @img2imgMaskSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save mask'**
+  String get img2imgMaskSave;
+
+  /// No description provided for @img2imgMaskLoad.
+  ///
+  /// In en, this message translates to:
+  /// **'Load mask'**
+  String get img2imgMaskLoad;
+
+  /// No description provided for @img2imgMaskSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Mask saved'**
+  String get img2imgMaskSaved;
+
+  /// No description provided for @img2imgMaskColor.
+  ///
+  /// In en, this message translates to:
+  /// **'COLOR'**
+  String get img2imgMaskColor;
+
+  /// No description provided for @img2imgMaskOpacity.
+  ///
+  /// In en, this message translates to:
+  /// **'OPACITY'**
+  String get img2imgMaskOpacity;
+
+  /// No description provided for @img2imgMaskPatternSolid.
+  ///
+  /// In en, this message translates to:
+  /// **'Solid'**
+  String get img2imgMaskPatternSolid;
+
+  /// No description provided for @img2imgMaskPatternStripe.
+  ///
+  /// In en, this message translates to:
+  /// **'Stripe'**
+  String get img2imgMaskPatternStripe;
+
+  /// No description provided for @img2imgMaskPatternCross.
+  ///
+  /// In en, this message translates to:
+  /// **'Cross'**
+  String get img2imgMaskPatternCross;
+
+  /// No description provided for @img2imgMaskBorder.
+  ///
+  /// In en, this message translates to:
+  /// **'BORDER'**
+  String get img2imgMaskBorder;
+
+  /// No description provided for @img2imgMaskBorderTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Show mask border'**
+  String get img2imgMaskBorderTooltip;
+
   /// No description provided for @img2imgNoMask.
   ///
   /// In en, this message translates to:
@@ -4413,6 +4527,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'CANVAS SIZE'**
   String get img2imgBlankCanvasSize;
+
+  /// No description provided for @img2imgPickerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'SELECT SOURCE IMAGE'**
+  String get img2imgPickerTitle;
+
+  /// No description provided for @img2imgPickerDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose an image to use as the base for img2img or inpainting'**
+  String get img2imgPickerDesc;
+
+  /// No description provided for @img2imgUseCurrent.
+  ///
+  /// In en, this message translates to:
+  /// **'USE CURRENT GENERATION'**
+  String get img2imgUseCurrent;
+
+  /// No description provided for @img2imgUseCurrentDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the last generated image as source'**
+  String get img2imgUseCurrentDesc;
 
   /// No description provided for @slideshowTitle.
   ///
@@ -4833,6 +4971,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Remove Beat'**
   String get cascadeRemoveBeat;
+
+  /// No description provided for @cascadeRemoveBeatMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This beat and its prompts will be removed from the sequence.'**
+  String get cascadeRemoveBeatMessage;
+
+  /// No description provided for @cascadeRemoveActionTag.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove action tag'**
+  String get cascadeRemoveActionTag;
 
   /// No description provided for @settingsCheckForUpdates.
   ///
@@ -5337,6 +5487,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Default'**
   String get canvasTextDefault;
+
+  /// No description provided for @canvasSelectTool.
+  ///
+  /// In en, this message translates to:
+  /// **'SELECT'**
+  String get canvasSelectTool;
+
+  /// No description provided for @canvasLassoTool.
+  ///
+  /// In en, this message translates to:
+  /// **'LASSO'**
+  String get canvasLassoTool;
+
+  /// No description provided for @canvasBlurTool.
+  ///
+  /// In en, this message translates to:
+  /// **'BLUR'**
+  String get canvasBlurTool;
+
+  /// No description provided for @canvasCloneTool.
+  ///
+  /// In en, this message translates to:
+  /// **'CLONE'**
+  String get canvasCloneTool;
+
+  /// No description provided for @canvasResize.
+  ///
+  /// In en, this message translates to:
+  /// **'Resize canvas'**
+  String get canvasResize;
+
+  /// No description provided for @canvasApply.
+  ///
+  /// In en, this message translates to:
+  /// **'APPLY'**
+  String get canvasApply;
+
+  /// No description provided for @canvasDeleteSelection.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete selection contents'**
+  String get canvasDeleteSelection;
+
+  /// No description provided for @canvasPaletteTapHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap: select  •  Hold: replace with current'**
+  String get canvasPaletteTapHint;
+
+  /// No description provided for @canvasPaletteHoldHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold to replace'**
+  String get canvasPaletteHoldHint;
 
   /// No description provided for @canvasBlendNormal.
   ///
@@ -6662,6 +6866,90 @@ abstract class AppLocalizations {
   /// **'REMOVE'**
   String get mlRemovePoint;
 
+  /// No description provided for @mlBack.
+  ///
+  /// In en, this message translates to:
+  /// **'BACK'**
+  String get mlBack;
+
+  /// No description provided for @mlEncodingImage.
+  ///
+  /// In en, this message translates to:
+  /// **'Encoding image...'**
+  String get mlEncodingImage;
+
+  /// No description provided for @mlTapToSelect.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap on the image to select a region'**
+  String get mlTapToSelect;
+
+  /// No description provided for @mlUndoPoint.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo last point'**
+  String get mlUndoPoint;
+
+  /// No description provided for @mlClearPoints.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all points'**
+  String get mlClearPoints;
+
+  /// No description provided for @mlPointCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} points'**
+  String mlPointCount(int count);
+
+  /// No description provided for @mlOpacity.
+  ///
+  /// In en, this message translates to:
+  /// **'OPACITY'**
+  String get mlOpacity;
+
+  /// No description provided for @mlEdgeRefine.
+  ///
+  /// In en, this message translates to:
+  /// **'EDGE REFINE'**
+  String get mlEdgeRefine;
+
+  /// No description provided for @mlThreshold.
+  ///
+  /// In en, this message translates to:
+  /// **'THRESHOLD'**
+  String get mlThreshold;
+
+  /// No description provided for @mlFeather.
+  ///
+  /// In en, this message translates to:
+  /// **'FEATHER'**
+  String get mlFeather;
+
+  /// No description provided for @mlDone.
+  ///
+  /// In en, this message translates to:
+  /// **'DONE'**
+  String get mlDone;
+
+  /// No description provided for @mlUpscaleCompare.
+  ///
+  /// In en, this message translates to:
+  /// **'UPSCALE COMPARE'**
+  String get mlUpscaleCompare;
+
+  /// No description provided for @mlSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'SAVED'**
+  String get mlSaved;
+
+  /// No description provided for @mlSavedFile.
+  ///
+  /// In en, this message translates to:
+  /// **'SAVED: {name}'**
+  String mlSavedFile(String name);
+
   /// No description provided for @mlTierFast.
   ///
   /// In en, this message translates to:
@@ -6739,6 +7027,144 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'LOW RAM — MAY CRASH'**
   String get mlLowRamWarning;
+
+  /// No description provided for @mlDesktopOnlyMayCrash.
+  ///
+  /// In en, this message translates to:
+  /// **'DESKTOP ONLY — MAY CRASH'**
+  String get mlDesktopOnlyMayCrash;
+
+  /// No description provided for @mlDownloadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Download failed'**
+  String get mlDownloadFailed;
+
+  /// No description provided for @mlManagerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Download and manage on-device ML models for background removal and upscaling.'**
+  String get mlManagerSubtitle;
+
+  /// No description provided for @mlNoModelsDownloaded.
+  ///
+  /// In en, this message translates to:
+  /// **'No models downloaded'**
+  String get mlNoModelsDownloaded;
+
+  /// No description provided for @mlModelsDownloaded.
+  ///
+  /// In en, this message translates to:
+  /// **'Models downloaded: {count} · {size}'**
+  String mlModelsDownloaded(int count, String size);
+
+  /// No description provided for @mlMobileApiNote.
+  ///
+  /// In en, this message translates to:
+  /// **'On mobile devices, upscaling and background removal use the NovelAI API. Local ML models are only available on desktop.'**
+  String get mlMobileApiNote;
+
+  /// No description provided for @mlSegmentationNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Interactive object selection using SAM. Downloads both encoder and decoder.'**
+  String get mlSegmentationNote;
+
+  /// No description provided for @mlUnknownModels.
+  ///
+  /// In en, this message translates to:
+  /// **'UNKNOWN MODELS'**
+  String get mlUnknownModels;
+
+  /// No description provided for @mlUnknownModelsNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Legacy or unrecognized .onnx/.ort files. Delete to free disk space.'**
+  String get mlUnknownModelsNote;
+
+  /// No description provided for @mlDeleteModelTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {name}?'**
+  String mlDeleteModelTitle(String name);
+
+  /// No description provided for @mlDeleteModelMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This will free {size} of disk space.'**
+  String mlDeleteModelMessage(String size);
+
+  /// No description provided for @mlRecommendedForDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'RECOMMENDED FOR YOUR DEVICE'**
+  String get mlRecommendedForDevice;
+
+  /// No description provided for @mlSlowOnDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'MAY BE SLOW ON THIS DEVICE'**
+  String get mlSlowOnDevice;
+
+  /// No description provided for @mlNaiApiUpscale.
+  ///
+  /// In en, this message translates to:
+  /// **'NOVELAI API UPSCALE'**
+  String get mlNaiApiUpscale;
+
+  /// No description provided for @mlNaiApiUpscaleDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Up to 4x server-side upscaling via NovelAI API. Requires API key. No download needed.'**
+  String get mlNaiApiUpscaleDesc;
+
+  /// No description provided for @mlNaiApiBgRemoval.
+  ///
+  /// In en, this message translates to:
+  /// **'NOVELAI API BG REMOVAL'**
+  String get mlNaiApiBgRemoval;
+
+  /// No description provided for @mlNaiApiBgRemovalDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Server-side background removal via NovelAI API. Requires API key. No download needed.'**
+  String get mlNaiApiBgRemovalDesc;
+
+  /// No description provided for @mlCloud.
+  ///
+  /// In en, this message translates to:
+  /// **'CLOUD'**
+  String get mlCloud;
+
+  /// No description provided for @mlNoApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'NO API KEY SET'**
+  String get mlNoApiKey;
+
+  /// No description provided for @mlTierQualityShort.
+  ///
+  /// In en, this message translates to:
+  /// **'HQ'**
+  String get mlTierQualityShort;
+
+  /// No description provided for @mlDeviceMobile.
+  ///
+  /// In en, this message translates to:
+  /// **'MOBILE'**
+  String get mlDeviceMobile;
+
+  /// No description provided for @mlDeviceDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'DESKTOP'**
+  String get mlDeviceDesktop;
+
+  /// No description provided for @mlDeviceBoth.
+  ///
+  /// In en, this message translates to:
+  /// **'BOTH'**
+  String get mlDeviceBoth;
 
   /// No description provided for @mlBgRemovedAndSaved.
   ///
@@ -6848,6 +7274,186 @@ abstract class AppLocalizations {
   /// **'MOOD'**
   String get directorToolsMood;
 
+  /// No description provided for @directorToolBgRemoval.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove BG'**
+  String get directorToolBgRemoval;
+
+  /// No description provided for @directorToolLineart.
+  ///
+  /// In en, this message translates to:
+  /// **'Line Art'**
+  String get directorToolLineart;
+
+  /// No description provided for @directorToolSketch.
+  ///
+  /// In en, this message translates to:
+  /// **'Sketch'**
+  String get directorToolSketch;
+
+  /// No description provided for @directorToolColorize.
+  ///
+  /// In en, this message translates to:
+  /// **'Colorize'**
+  String get directorToolColorize;
+
+  /// No description provided for @directorToolEmotion.
+  ///
+  /// In en, this message translates to:
+  /// **'Emotion'**
+  String get directorToolEmotion;
+
+  /// No description provided for @directorToolDeclutter.
+  ///
+  /// In en, this message translates to:
+  /// **'Declutter'**
+  String get directorToolDeclutter;
+
+  /// No description provided for @moodNeutral.
+  ///
+  /// In en, this message translates to:
+  /// **'Neutral'**
+  String get moodNeutral;
+
+  /// No description provided for @moodHappy.
+  ///
+  /// In en, this message translates to:
+  /// **'Happy'**
+  String get moodHappy;
+
+  /// No description provided for @moodSad.
+  ///
+  /// In en, this message translates to:
+  /// **'Sad'**
+  String get moodSad;
+
+  /// No description provided for @moodAngry.
+  ///
+  /// In en, this message translates to:
+  /// **'Angry'**
+  String get moodAngry;
+
+  /// No description provided for @moodScared.
+  ///
+  /// In en, this message translates to:
+  /// **'Scared'**
+  String get moodScared;
+
+  /// No description provided for @moodSurprised.
+  ///
+  /// In en, this message translates to:
+  /// **'Surprised'**
+  String get moodSurprised;
+
+  /// No description provided for @moodTired.
+  ///
+  /// In en, this message translates to:
+  /// **'Tired'**
+  String get moodTired;
+
+  /// No description provided for @moodExcited.
+  ///
+  /// In en, this message translates to:
+  /// **'Excited'**
+  String get moodExcited;
+
+  /// No description provided for @moodNervous.
+  ///
+  /// In en, this message translates to:
+  /// **'Nervous'**
+  String get moodNervous;
+
+  /// No description provided for @moodThinking.
+  ///
+  /// In en, this message translates to:
+  /// **'Thinking'**
+  String get moodThinking;
+
+  /// No description provided for @moodConfused.
+  ///
+  /// In en, this message translates to:
+  /// **'Confused'**
+  String get moodConfused;
+
+  /// No description provided for @moodShy.
+  ///
+  /// In en, this message translates to:
+  /// **'Shy'**
+  String get moodShy;
+
+  /// No description provided for @moodDisgusted.
+  ///
+  /// In en, this message translates to:
+  /// **'Disgusted'**
+  String get moodDisgusted;
+
+  /// No description provided for @moodSmug.
+  ///
+  /// In en, this message translates to:
+  /// **'Smug'**
+  String get moodSmug;
+
+  /// No description provided for @moodBored.
+  ///
+  /// In en, this message translates to:
+  /// **'Bored'**
+  String get moodBored;
+
+  /// No description provided for @moodLaughing.
+  ///
+  /// In en, this message translates to:
+  /// **'Laughing'**
+  String get moodLaughing;
+
+  /// No description provided for @moodIrritated.
+  ///
+  /// In en, this message translates to:
+  /// **'Irritated'**
+  String get moodIrritated;
+
+  /// No description provided for @moodAroused.
+  ///
+  /// In en, this message translates to:
+  /// **'Aroused'**
+  String get moodAroused;
+
+  /// No description provided for @moodEmbarrassed.
+  ///
+  /// In en, this message translates to:
+  /// **'Embarrassed'**
+  String get moodEmbarrassed;
+
+  /// No description provided for @moodWorried.
+  ///
+  /// In en, this message translates to:
+  /// **'Worried'**
+  String get moodWorried;
+
+  /// No description provided for @moodLove.
+  ///
+  /// In en, this message translates to:
+  /// **'Love'**
+  String get moodLove;
+
+  /// No description provided for @moodDetermined.
+  ///
+  /// In en, this message translates to:
+  /// **'Determined'**
+  String get moodDetermined;
+
+  /// No description provided for @moodHurt.
+  ///
+  /// In en, this message translates to:
+  /// **'Hurt'**
+  String get moodHurt;
+
+  /// No description provided for @moodPlayful.
+  ///
+  /// In en, this message translates to:
+  /// **'Playful'**
+  String get moodPlayful;
+
   /// No description provided for @directorToolsPrompt.
   ///
   /// In en, this message translates to:
@@ -6925,6 +7531,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'NOISE'**
   String get enhanceNoise;
+
+  /// No description provided for @enhanceResolutionScale.
+  ///
+  /// In en, this message translates to:
+  /// **'RESOLUTION SCALE'**
+  String get enhanceResolutionScale;
 
   /// No description provided for @enhanceSaved.
   ///
@@ -7682,6 +8294,96 @@ abstract class AppLocalizations {
   /// **'VISUALIZER'**
   String get jukeboxVisualizer;
 
+  /// No description provided for @jukeboxToggleVisualizer.
+  ///
+  /// In en, this message translates to:
+  /// **'Toggle visualizer display'**
+  String get jukeboxToggleVisualizer;
+
+  /// No description provided for @jukeboxPrevious.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous'**
+  String get jukeboxPrevious;
+
+  /// No description provided for @jukeboxNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get jukeboxNext;
+
+  /// No description provided for @jukeboxPlay.
+  ///
+  /// In en, this message translates to:
+  /// **'Play'**
+  String get jukeboxPlay;
+
+  /// No description provided for @jukeboxPause.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get jukeboxPause;
+
+  /// No description provided for @jukeboxMute.
+  ///
+  /// In en, this message translates to:
+  /// **'Mute'**
+  String get jukeboxMute;
+
+  /// No description provided for @jukeboxUnmute.
+  ///
+  /// In en, this message translates to:
+  /// **'Unmute'**
+  String get jukeboxUnmute;
+
+  /// No description provided for @jukeboxRemoveFromQueue.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from queue'**
+  String get jukeboxRemoveFromQueue;
+
+  /// No description provided for @jukeboxFullscreen.
+  ///
+  /// In en, this message translates to:
+  /// **'Fullscreen'**
+  String get jukeboxFullscreen;
+
+  /// No description provided for @jukeboxKaraokeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'KARAOKE'**
+  String get jukeboxKaraokeLabel;
+
+  /// No description provided for @jukeboxBundled.
+  ///
+  /// In en, this message translates to:
+  /// **'BUNDLED'**
+  String get jukeboxBundled;
+
+  /// No description provided for @jukeboxSoundfontDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'DOWNLOAD'**
+  String get jukeboxSoundfontDownload;
+
+  /// No description provided for @jukeboxSoundfontDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete soundfont'**
+  String get jukeboxSoundfontDelete;
+
+  /// No description provided for @jukeboxSoundfontDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'DELETE SOUNDFONT'**
+  String get jukeboxSoundfontDeleteTitle;
+
+  /// No description provided for @jukeboxSoundfontDeleteMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {name}? You can re-download it later.'**
+  String jukeboxSoundfontDeleteMessage(String name);
+
   /// No description provided for @jukeboxVizIntensity.
   ///
   /// In en, this message translates to:
@@ -8167,6 +8869,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Generated text will appear here.'**
   String get textGenOutputEmpty;
+
+  /// No description provided for @textGenErrNoToken.
+  ///
+  /// In en, this message translates to:
+  /// **'No NovelAI token is set. Add it in Settings.'**
+  String get textGenErrNoToken;
+
+  /// No description provided for @textGenErrEmptyInput.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter some text to continue from.'**
+  String get textGenErrEmptyInput;
+
+  /// No description provided for @textGenClearConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear output?'**
+  String get textGenClearConfirmTitle;
+
+  /// No description provided for @textGenClearConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The generated text and its reasoning will be removed. Copy it first if you need it.'**
+  String get textGenClearConfirmMessage;
 
   /// No description provided for @textGenHistory.
   ///

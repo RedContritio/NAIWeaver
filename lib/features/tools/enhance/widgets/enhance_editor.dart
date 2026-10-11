@@ -4,17 +4,24 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/l10n/l10n_extensions.dart';
 import '../../../../core/theme/theme_extensions.dart';
-import '../../../../core/utils/responsive.dart';
+import '../../../../core/theme/vision_metrics.dart';
+import '../../../../core/theme/vision_tokens.dart';
 import '../../../../core/utils/timestamp_utils.dart';
 import '../../../../core/widgets/comparison_slider.dart';
+import '../../../../core/widgets/section_title.dart';
+import '../../../../core/widgets/ui/app_panel.dart';
+import '../../../../core/widgets/ui/app_tabs.dart';
 import '../../../../core/widgets/vision_slider.dart';
-import '../../../../l10n/app_localizations.dart';
 import '../../../gallery/services/tool_result_saver.dart';
 import '../../../generation/providers/generation_notifier.dart';
 import '../../../generation/widgets/quote_confirm_dialog.dart';
 import '../../widgets/tool_config_bottom_sheet.dart';
 import '../../widgets/tool_source_picker.dart';
+import '../../widgets/tool_workspace.dart';
 import '../providers/enhance_notifier.dart';
+
+/// Resolution scales the enhance request supports.
+const _scales = [1.0, 1.5];
 
 class EnhanceEditor extends StatefulWidget {
   const EnhanceEditor({super.key});
@@ -94,172 +101,35 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
   }
 
   Widget _buildWorkspace(BuildContext context, EnhanceNotifier notifier) {
-    final mobile = isMobile(context);
-
-    Widget imageArea = _buildImageArea(context, notifier);
-
-    return Column(
-      children: [
-        _buildHeader(context, notifier),
-        Expanded(
-          child: mobile
-              ? imageArea
-              : Row(
-                  children: [
-                    Expanded(flex: 3, child: imageArea),
-                    SizedBox(
-                      width: 300,
-                      child: SingleChildScrollView(
-                        child: _buildConfigPanel(context, notifier),
-                      ),
-                    ),
-                  ],
-                ),
-        ),
-        if (mobile)
-          ToolSettingsDock(
-            tooltip: context.l.enhanceSettingsTooltip,
-            onPressed: () => showToolConfigBottomSheet(
-              context: context,
-              contentBuilder: (sheetContext) => _buildConfigPanel(
-                sheetContext,
-                sheetContext.watch<EnhanceNotifier>(),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildHeader(BuildContext context, EnhanceNotifier notifier) {
-    final t = context.t;
     final l = context.l;
-    final mobile = isMobile(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: t.surfaceHigh,
-        border: Border(bottom: BorderSide(color: t.borderSubtle)),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: Icon(Icons.arrow_back, size: 16, color: t.textDisabled),
-            onPressed: () => _backToPicker(notifier),
-            tooltip: l.img2imgBackToPicker,
-          ),
-          const Spacer(),
-          if (_hasUnsavedResult(notifier)) ...[
-            if (mobile)
-              SizedBox(
-                height: 36,
-                child: IconButton(
-                  onPressed: _saving ? null : () => _saveResult(notifier),
-                  icon: const Icon(Icons.save_alt, size: 14),
-                  tooltip: l.commonSave,
-                  style: IconButton.styleFrom(
-                    backgroundColor: t.accentSuccess,
-                    foregroundColor: t.background,
-                  ),
-                ),
-              )
-            else
-              SizedBox(
-                height: 36,
-                child: ElevatedButton.icon(
-                  onPressed: _saving ? null : () => _saveResult(notifier),
-                  icon: const Icon(Icons.save_alt, size: 14),
-                  label: Text(l.commonSave),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: t.accentSuccess,
-                    foregroundColor: t.background,
-                    textStyle: TextStyle(
-                      fontSize: t.fontSize(10),
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    elevation: 0,
-                  ),
-                ),
-              ),
-            const SizedBox(width: 8),
-          ],
-          if (mobile && notifier.hasResult)
-            SizedBox(
-              height: 36,
-              child: IconButton(
-                onPressed: notifier.isProcessing
-                    ? null
-                    : () => _process(notifier),
-                icon: notifier.isProcessing
-                    ? SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: t.background,
-                        ),
-                      )
-                    : const Icon(Icons.auto_awesome, size: 14),
-                style: IconButton.styleFrom(
-                  backgroundColor: t.accent,
-                  foregroundColor: t.background,
-                ),
-              ),
-            )
-          else
-            SizedBox(
-              height: 36,
-              child: ElevatedButton.icon(
-                onPressed: notifier.isProcessing
-                    ? null
-                    : () => _process(notifier),
-                icon: notifier.isProcessing
-                    ? SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: t.background,
-                        ),
-                      )
-                    : const Icon(Icons.auto_awesome, size: 14),
-                label: Text(
-                  notifier.isProcessing
-                      ? (notifier.status.isNotEmpty
-                            ? notifier.status.toUpperCase()
-                            : l.enhanceProcessing)
-                      : l.enhanceProcess,
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: t.accent,
-                  foregroundColor: t.background,
-                  textStyle: TextStyle(
-                    fontSize: t.fontSize(10),
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  elevation: 0,
-                ),
-              ),
-            ),
-        ],
+    return ToolRunShortcut(
+      onRun: notifier.isProcessing ? null : () => _process(notifier),
+      child: ToolSettingsLayout(
+        header: ToolWorkspaceHeader(
+          onBack: () => _backToPicker(notifier),
+          processIcon: Icons.auto_awesome,
+          processLabel: l.enhanceProcess,
+          processingLabel: l.enhanceProcessing,
+          isProcessing: notifier.isProcessing,
+          onProcess: () => _process(notifier),
+          hasResult: notifier.hasResult,
+          showSave: _hasUnsavedResult(notifier),
+          onSave: _saving ? null : () => _saveResult(notifier),
+        ),
+        body: _buildImageArea(context, notifier),
+        settingsTooltip: l.enhanceSettingsTooltip,
+        settingsBuilder: (settingsContext) => _buildConfigPanel(
+          settingsContext,
+          settingsContext.watch<EnhanceNotifier>(),
+        ),
       ),
     );
   }
 
   Widget _buildImageArea(BuildContext context, EnhanceNotifier notifier) {
     final t = context.t;
-    final loc = AppLocalizations.of(context);
+    final l = context.l;
+    final error = notifier.error;
 
     return Stack(
       children: [
@@ -267,8 +137,8 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
           ComparisonSlider(
             beforeBytes: notifier.sourceImageBytes!,
             afterBytes: notifier.resultBytes!,
-            beforeLabel: loc.comparisonBefore.toUpperCase(),
-            afterLabel: loc.comparisonAfter.toUpperCase(),
+            beforeLabel: l.comparisonBefore.toUpperCase(),
+            afterLabel: l.comparisonAfter.toUpperCase(),
           )
         else
           Container(
@@ -284,200 +154,109 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
               ),
             ),
           ),
-        if (notifier.error != null)
+        if (error != null)
           Positioned(
-            bottom: 8,
-            left: 8,
-            right: 8,
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: t.accentDanger.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(
-                  color: t.accentDanger.withValues(alpha: 0.4),
-                ),
-              ),
-              child: Text(
-                notifier.error!,
-                style: TextStyle(
-                  color: t.accentDanger,
-                  fontSize: t.fontSize(9),
-                ),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
+            bottom: VisionMetrics.space8,
+            left: VisionMetrics.space8,
+            right: VisionMetrics.space8,
+            child: ErrorBanner(message: toolErrorMessage(l, error)),
           ),
       ],
+    );
+  }
+
+  Widget _promptField({
+    required VisionTokens t,
+    required TextEditingController controller,
+    required String hint,
+  }) {
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+      borderSide: BorderSide(color: t.borderMedium),
+    );
+    return TextField(
+      controller: controller,
+      maxLines: 2,
+      style: TextStyle(fontSize: t.fontSize(10), color: t.textPrimary),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(color: t.hintText, fontSize: t.fontSize(9)),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: VisionMetrics.space12,
+          vertical: VisionMetrics.space8,
+        ),
+        filled: true,
+        fillColor: t.borderSubtle,
+        border: border,
+        enabledBorder: border,
+      ),
     );
   }
 
   Widget _buildConfigPanel(BuildContext context, EnhanceNotifier notifier) {
     final t = context.t;
     final l = context.l;
-    final labelSize = responsiveFont(context, 9, 11);
+    const compact = SectionTitleVariant.compact;
+    final config = notifier.config;
+    final scaledWidth =
+        ((notifier.sourceWidth * config.scale) / 64).round() * 64;
+    final scaledHeight =
+        ((notifier.sourceHeight * config.scale) / 64).round() * 64;
 
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(VisionMetrics.space16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Prompt
-          Text(
-            l.enhancePrompt,
-            style: TextStyle(
-              color: t.secondaryText,
-              fontSize: t.fontSize(labelSize),
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
+          SectionTitle(l.enhancePrompt, t: t, variant: compact),
+          _promptField(
+            t: t,
             controller: _promptController,
-            maxLines: 2,
-            style: TextStyle(fontSize: t.fontSize(10), color: t.textPrimary),
-            decoration: InputDecoration(
-              hintText: l.img2imgPromptHint,
-              hintStyle: TextStyle(color: t.hintText, fontSize: t.fontSize(9)),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
-              filled: true,
-              fillColor: t.borderSubtle,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-                borderSide: BorderSide(color: t.borderMedium),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-                borderSide: BorderSide(color: t.borderMedium),
-              ),
-            ),
+            hint: l.img2imgPromptHint,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: VisionMetrics.space12),
 
-          // Negative prompt
-          Text(
-            l.enhanceNegative,
-            style: TextStyle(
-              color: t.secondaryText,
-              fontSize: t.fontSize(labelSize),
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
+          SectionTitle(l.enhanceNegative, t: t, variant: compact),
+          _promptField(
+            t: t,
             controller: _negativePromptController,
-            maxLines: 2,
-            style: TextStyle(fontSize: t.fontSize(10), color: t.textPrimary),
-            decoration: InputDecoration(
-              hintText: l.img2imgNegativeHint,
-              hintStyle: TextStyle(color: t.hintText, fontSize: t.fontSize(9)),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
-              filled: true,
-              fillColor: t.borderSubtle,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-                borderSide: BorderSide(color: t.borderMedium),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-                borderSide: BorderSide(color: t.borderMedium),
-              ),
-            ),
+            hint: l.img2imgNegativeHint,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: VisionMetrics.space16),
 
-          // Resolution scale
-          Text(
-            'RESOLUTION SCALE',
-            style: TextStyle(
-              color: t.secondaryText,
-              fontSize: t.fontSize(labelSize),
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              for (final scale in [1.0, 1.5])
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(
-                      '${scale}x',
-                      style: TextStyle(
-                        fontSize: t.fontSize(9),
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                    selected: notifier.config.scale == scale,
-                    onSelected: (_) => notifier.setScale(scale),
-                    backgroundColor: t.borderSubtle,
-                    selectedColor: t.accent,
-                    checkmarkColor: t.background,
-                    labelStyle: TextStyle(
-                      color: notifier.config.scale == scale
-                          ? t.background
-                          : t.textTertiary,
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 2,
-                    ),
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                    side: BorderSide(
-                      color: notifier.config.scale == scale
-                          ? t.accent
-                          : t.textMinimal,
-                      width: 0.5,
-                    ),
-                  ),
-                ),
+          SectionTitle(l.enhanceResolutionScale, t: t, variant: compact),
+          AppSegmented<double>(
+            options: [
+              for (final scale in _scales)
+                AppOption(value: scale, label: '${scale}x'),
             ],
+            selected: config.scale,
+            onChanged: notifier.setScale,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: VisionMetrics.space16),
 
-          // Strength slider
           _SliderRow(
             label: l.enhanceStrength,
-            value: notifier.config.strength,
+            value: config.strength,
             onChanged: notifier.setStrength,
             t: t,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: VisionMetrics.space8),
 
-          // Noise slider
           _SliderRow(
             label: l.enhanceNoise,
-            value: notifier.config.noise,
+            value: config.noise,
             onChanged: notifier.setNoise,
             t: t,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: VisionMetrics.space16),
 
-          // Resolution display
           Text(
-            notifier.config.scale > 1.0
-                ? '${notifier.sourceWidth}x${notifier.sourceHeight} → ${((notifier.sourceWidth * notifier.config.scale) / 64).round() * 64}x${((notifier.sourceHeight * notifier.config.scale) / 64).round() * 64}'
+            config.scale > 1.0
+                ? '${notifier.sourceWidth}x${notifier.sourceHeight} → ${scaledWidth}x$scaledHeight'
                 : '${notifier.sourceWidth}x${notifier.sourceHeight}',
-            style: TextStyle(
-              color: t.textMinimal,
-              fontSize: t.fontSize(labelSize),
-            ),
+            style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(10)),
           ),
         ],
       ),
@@ -556,7 +335,7 @@ class _SliderRow extends StatelessWidget {
   final String label;
   final double value;
   final ValueChanged<double> onChanged;
-  final dynamic t;
+  final VisionTokens t;
 
   const _SliderRow({
     required this.label,
@@ -570,23 +349,14 @@ class _SliderRow extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                color: t.secondaryText,
-                fontSize: t.fontSize(responsiveFont(context, 9, 11)),
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2,
-              ),
-            ),
-            Text(
-              value.toStringAsFixed(2),
-              style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(10)),
-            ),
-          ],
+        SectionTitle(
+          label,
+          t: t,
+          variant: SectionTitleVariant.compact,
+          trailing: Text(
+            value.toStringAsFixed(2),
+            style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(10)),
+          ),
         ),
         VisionSlider.subtle(
           value: value,

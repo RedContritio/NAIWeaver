@@ -6,6 +6,7 @@ import '../../utils/responsive.dart';
 import '../../widgets/comparison_slider.dart';
 import '../../widgets/side_by_side_comparison.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../theme/vision_metrics.dart';
 
 class UpscaleComparisonView extends StatefulWidget {
   final Uint8List originalBytes;
@@ -55,14 +56,19 @@ class _UpscaleComparisonViewState extends State<UpscaleComparisonView> {
       _saved = saved;
       _saveFailed = !saved;
     });
-    if (saved) showAppSnackBar(context, 'SAVED: ${widget.outputName}');
+    if (saved) {
+      showAppSnackBar(
+        context,
+        AppLocalizations.of(context).mlSavedFile(widget.outputName),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final t = context.t;
     final l = AppLocalizations.of(context);
-    final mobile = isMobile(context);
+    final mobile = isTouchSized(context);
 
     return Scaffold(
       backgroundColor: t.background,
@@ -71,12 +77,16 @@ class _UpscaleComparisonViewState extends State<UpscaleComparisonView> {
         elevation: 0,
         toolbarHeight: mobile ? 48 : 32,
         leading: IconButton(
-          icon: Icon(Icons.close,
-              size: mobile ? 22 : 16, color: t.textSecondary),
+          icon: Icon(
+            Icons.close,
+            size: mobile ? 22 : 16,
+            color: t.textSecondary,
+          ),
+          tooltip: l.commonClose,
           onPressed: () => Navigator.pop(context, _saved),
         ),
         title: Text(
-          'UPSCALE COMPARE',
+          l.mlUpscaleCompare,
           style: TextStyle(
             letterSpacing: 4,
             fontSize: t.fontSize(mobile ? 14 : 10),
@@ -102,7 +112,7 @@ class _UpscaleComparisonViewState extends State<UpscaleComparisonView> {
             TextButton(
               onPressed: _saved || _saving ? null : _handleSave,
               child: Text(
-                _saved ? 'SAVED' : 'SAVE',
+                _saved ? l.mlSaved : l.mlSave,
                 style: TextStyle(
                   color: _saved ? t.textDisabled : t.accentSuccess,
                   fontSize: t.fontSize(mobile ? 12 : 9),
@@ -111,7 +121,7 @@ class _UpscaleComparisonViewState extends State<UpscaleComparisonView> {
                 ),
               ),
             ),
-          const SizedBox(width: 4),
+          const SizedBox(width: VisionMetrics.space4),
         ],
       ),
       body: _sideBySide

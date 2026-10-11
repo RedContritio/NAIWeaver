@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../theme/vision_tokens.dart';
 import '../../l10n/l10n_extensions.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../theme/vision_metrics.dart';
 
 /// General MIDI instrument selector with ~20 popular instruments.
 class InstrumentPicker extends StatelessWidget {
@@ -16,7 +17,30 @@ class InstrumentPicker extends StatelessWidget {
     required this.onChanged,
   });
 
-  static const programNumbers = [0, 4, 6, 11, 13, 19, 24, 25, 27, 30, 32, 33, 40, 42, 46, 48, 56, 61, 65, 73, 80, 85];
+  static const programNumbers = [
+    0,
+    4,
+    6,
+    11,
+    13,
+    19,
+    24,
+    25,
+    27,
+    30,
+    32,
+    33,
+    40,
+    42,
+    46,
+    48,
+    56,
+    61,
+    65,
+    73,
+    80,
+    85,
+  ];
 
   static String _instrumentName(AppLocalizations l, int program) {
     return switch (program) {
@@ -50,10 +74,13 @@ class InstrumentPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = context.l;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: VisionMetrics.space12,
+        vertical: VisionMetrics.space4,
+      ),
       decoration: BoxDecoration(
         color: t.surfaceMid,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(VisionMetrics.radius4),
         border: Border.all(color: t.borderSubtle),
       ),
       child: DropdownButton<int>(

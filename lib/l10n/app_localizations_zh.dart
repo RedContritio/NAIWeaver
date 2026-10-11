@@ -21,6 +21,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get commonClose => '关闭';
 
   @override
+  String get commonBack => '返回';
+
+  @override
+  String get commonHelp => '帮助';
+
+  @override
   String get commonCreate => '创建';
 
   @override
@@ -286,6 +292,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get gatewayErrDirectForbidden => 'NovelAI 拒绝了当前账号的此次请求。';
+
+  @override
+  String get toolErrApiKeyRejected => 'NovelAI 拒绝了该 API 密钥，请在设置中检查。';
 
   @override
   String get gatewaySessionExpiredTitle => '登录已失效';
@@ -2287,6 +2296,54 @@ class AppLocalizationsZh extends AppLocalizations {
   String get img2imgClearMaskConfirm => '清除';
 
   @override
+  String get img2imgMaskUndoStroke => '撤销笔画';
+
+  @override
+  String get img2imgMaskClearTooltip => '清除遮罩';
+
+  @override
+  String get img2imgBrushRound => '圆形笔刷';
+
+  @override
+  String get img2imgBrushSquare => '方形笔刷';
+
+  @override
+  String get img2imgBrushSize => '大小';
+
+  @override
+  String get img2imgMaskDisplay => '遮罩显示设置';
+
+  @override
+  String get img2imgMaskSave => '保存遮罩';
+
+  @override
+  String get img2imgMaskLoad => '加载遮罩';
+
+  @override
+  String get img2imgMaskSaved => '遮罩已保存';
+
+  @override
+  String get img2imgMaskColor => '颜色';
+
+  @override
+  String get img2imgMaskOpacity => '不透明度';
+
+  @override
+  String get img2imgMaskPatternSolid => '实心';
+
+  @override
+  String get img2imgMaskPatternStripe => '条纹';
+
+  @override
+  String get img2imgMaskPatternCross => '网格';
+
+  @override
+  String get img2imgMaskBorder => '边框';
+
+  @override
+  String get img2imgMaskBorderTooltip => '显示遮罩边框';
+
+  @override
   String get img2imgNoMask => '无蒙版（全图生图）';
 
   @override
@@ -2309,6 +2366,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get img2imgBlankCanvasSize => '画布尺寸';
+
+  @override
+  String get img2imgPickerTitle => '选择源图像';
+
+  @override
+  String get img2imgPickerDesc => '选择一张图像作为图生图或局部重绘的基础';
+
+  @override
+  String get img2imgUseCurrent => '使用当前生成图';
+
+  @override
+  String get img2imgUseCurrentDesc => '将最近生成的图像作为源图像';
 
   @override
   String get slideshowTitle => '幻灯片';
@@ -2535,6 +2604,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get cascadeRemoveBeat => '移除镜头';
+
+  @override
+  String get cascadeRemoveBeatMessage => '此节拍及其提示词将从序列中移除。';
+
+  @override
+  String get cascadeRemoveActionTag => '移除动作标签';
 
   @override
   String get settingsCheckForUpdates => '检查更新';
@@ -2795,6 +2870,33 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get canvasTextDefault => '默认';
+
+  @override
+  String get canvasSelectTool => '选区';
+
+  @override
+  String get canvasLassoTool => '套索';
+
+  @override
+  String get canvasBlurTool => '模糊';
+
+  @override
+  String get canvasCloneTool => '仿制';
+
+  @override
+  String get canvasResize => '调整画布大小';
+
+  @override
+  String get canvasApply => '应用';
+
+  @override
+  String get canvasDeleteSelection => '删除选区内容';
+
+  @override
+  String get canvasPaletteTapHint => '点按：选择  •  长按：替换为当前颜色';
+
+  @override
+  String get canvasPaletteHoldHint => '长按替换';
 
   @override
   String get canvasBlendNormal => '正常';
@@ -3509,6 +3611,52 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mlRemovePoint => '移除';
 
   @override
+  String get mlBack => '返回';
+
+  @override
+  String get mlEncodingImage => '正在编码图像…';
+
+  @override
+  String get mlTapToSelect => '点按图像以选择区域';
+
+  @override
+  String get mlUndoPoint => '撤销上一个点';
+
+  @override
+  String get mlClearPoints => '清除所有点';
+
+  @override
+  String mlPointCount(int count) {
+    return '$count 个点';
+  }
+
+  @override
+  String get mlOpacity => '不透明度';
+
+  @override
+  String get mlEdgeRefine => '边缘优化';
+
+  @override
+  String get mlThreshold => '阈值';
+
+  @override
+  String get mlFeather => '羽化';
+
+  @override
+  String get mlDone => '完成';
+
+  @override
+  String get mlUpscaleCompare => '放大对比';
+
+  @override
+  String get mlSaved => '已保存';
+
+  @override
+  String mlSavedFile(String name) {
+    return '已保存：$name';
+  }
+
+  @override
   String get mlTierFast => '快速';
 
   @override
@@ -3546,6 +3694,83 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get mlLowRamWarning => '内存不足 — 可能崩溃';
+
+  @override
+  String get mlDesktopOnlyMayCrash => '仅限桌面端——可能崩溃';
+
+  @override
+  String get mlDownloadFailed => '下载失败';
+
+  @override
+  String get mlManagerSubtitle => '下载并管理用于背景移除和放大的本地 ML 模型。';
+
+  @override
+  String get mlNoModelsDownloaded => '尚未下载任何模型';
+
+  @override
+  String mlModelsDownloaded(int count, String size) {
+    return '已下载 $count 个模型 · $size';
+  }
+
+  @override
+  String get mlMobileApiNote => '在移动设备上，放大和背景移除使用 NovelAI API。本地 ML 模型仅适用于桌面端。';
+
+  @override
+  String get mlSegmentationNote => '使用 SAM 的交互式对象选择。会同时下载编码器和解码器。';
+
+  @override
+  String get mlUnknownModels => '未知模型';
+
+  @override
+  String get mlUnknownModelsNote => '旧版或无法识别的 .onnx/.ort 文件。删除可释放磁盘空间。';
+
+  @override
+  String mlDeleteModelTitle(String name) {
+    return '删除 $name？';
+  }
+
+  @override
+  String mlDeleteModelMessage(String size) {
+    return '这将释放 $size 磁盘空间。';
+  }
+
+  @override
+  String get mlRecommendedForDevice => '适合你的设备';
+
+  @override
+  String get mlSlowOnDevice => '在此设备上可能较慢';
+
+  @override
+  String get mlNaiApiUpscale => 'NOVELAI API 放大';
+
+  @override
+  String get mlNaiApiUpscaleDesc =>
+      '通过 NovelAI API 在服务器端放大至 4 倍。需要 API 密钥，无需下载。';
+
+  @override
+  String get mlNaiApiBgRemoval => 'NOVELAI API 背景移除';
+
+  @override
+  String get mlNaiApiBgRemovalDesc =>
+      '通过 NovelAI API 在服务器端移除背景。需要 API 密钥，无需下载。';
+
+  @override
+  String get mlCloud => '云端';
+
+  @override
+  String get mlNoApiKey => '未设置 API 密钥';
+
+  @override
+  String get mlTierQualityShort => '高质';
+
+  @override
+  String get mlDeviceMobile => '移动端';
+
+  @override
+  String get mlDeviceDesktop => '桌面端';
+
+  @override
+  String get mlDeviceBoth => '通用';
 
   @override
   String get mlBgRemovedAndSaved => '背景已移除并保存';
@@ -3608,6 +3833,96 @@ class AppLocalizationsZh extends AppLocalizations {
   String get directorToolsMood => '氛围';
 
   @override
+  String get directorToolBgRemoval => '移除背景';
+
+  @override
+  String get directorToolLineart => '线稿';
+
+  @override
+  String get directorToolSketch => '草图';
+
+  @override
+  String get directorToolColorize => '上色';
+
+  @override
+  String get directorToolEmotion => '表情';
+
+  @override
+  String get directorToolDeclutter => '清理杂物';
+
+  @override
+  String get moodNeutral => '平静';
+
+  @override
+  String get moodHappy => '开心';
+
+  @override
+  String get moodSad => '悲伤';
+
+  @override
+  String get moodAngry => '愤怒';
+
+  @override
+  String get moodScared => '害怕';
+
+  @override
+  String get moodSurprised => '惊讶';
+
+  @override
+  String get moodTired => '疲倦';
+
+  @override
+  String get moodExcited => '激动';
+
+  @override
+  String get moodNervous => '紧张';
+
+  @override
+  String get moodThinking => '思考';
+
+  @override
+  String get moodConfused => '困惑';
+
+  @override
+  String get moodShy => '害羞';
+
+  @override
+  String get moodDisgusted => '厌恶';
+
+  @override
+  String get moodSmug => '得意';
+
+  @override
+  String get moodBored => '无聊';
+
+  @override
+  String get moodLaughing => '大笑';
+
+  @override
+  String get moodIrritated => '烦躁';
+
+  @override
+  String get moodAroused => '动情';
+
+  @override
+  String get moodEmbarrassed => '尴尬';
+
+  @override
+  String get moodWorried => '担忧';
+
+  @override
+  String get moodLove => '爱意';
+
+  @override
+  String get moodDetermined => '坚定';
+
+  @override
+  String get moodHurt => '受伤';
+
+  @override
+  String get moodPlayful => '俏皮';
+
+  @override
   String get directorToolsPrompt => '提示词';
 
   @override
@@ -3645,6 +3960,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get enhanceNoise => '噪声';
+
+  @override
+  String get enhanceResolutionScale => '分辨率缩放';
 
   @override
   String get enhanceSaved => '增强图像已保存到图库';
@@ -4035,6 +4353,53 @@ class AppLocalizationsZh extends AppLocalizations {
   String get jukeboxVisualizer => '频谱可视化';
 
   @override
+  String get jukeboxToggleVisualizer => '切换可视化显示';
+
+  @override
+  String get jukeboxPrevious => '上一首';
+
+  @override
+  String get jukeboxNext => '下一首';
+
+  @override
+  String get jukeboxPlay => '播放';
+
+  @override
+  String get jukeboxPause => '暂停';
+
+  @override
+  String get jukeboxMute => '静音';
+
+  @override
+  String get jukeboxUnmute => '取消静音';
+
+  @override
+  String get jukeboxRemoveFromQueue => '从队列移除';
+
+  @override
+  String get jukeboxFullscreen => '全屏';
+
+  @override
+  String get jukeboxKaraokeLabel => '卡拉 OK';
+
+  @override
+  String get jukeboxBundled => '内置';
+
+  @override
+  String get jukeboxSoundfontDownload => '下载';
+
+  @override
+  String get jukeboxSoundfontDelete => '删除音色库';
+
+  @override
+  String get jukeboxSoundfontDeleteTitle => '删除音色库';
+
+  @override
+  String jukeboxSoundfontDeleteMessage(String name) {
+    return '删除 $name？之后可以重新下载。';
+  }
+
+  @override
   String get jukeboxVizIntensity => '强度';
 
   @override
@@ -4284,6 +4649,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get textGenOutputEmpty => '生成的文本将显示在这里。';
+
+  @override
+  String get textGenErrNoToken => '尚未设置 NovelAI 令牌，请在设置中添加。';
+
+  @override
+  String get textGenErrEmptyInput => '请输入要续写的文本。';
+
+  @override
+  String get textGenClearConfirmTitle => '清除输出？';
+
+  @override
+  String get textGenClearConfirmMessage => '生成的文本及其推理内容将被移除。如需保留，请先复制。';
 
   @override
   String get textGenHistory => '历史';

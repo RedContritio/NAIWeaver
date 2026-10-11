@@ -3,9 +3,14 @@ import 'package:provider/provider.dart';
 import '../../../../core/l10n/l10n_extensions.dart';
 import '../../../../core/services/preferences_service.dart';
 import '../../../../core/theme/theme_extensions.dart';
+import '../../../../core/theme/vision_metrics.dart';
 import '../../../../core/theme/vision_tokens.dart';
+import '../../../../core/widgets/section_title.dart';
+import '../../../../core/widgets/confirm_dialog.dart';
 import '../../../../core/widgets/custom_resolution_dialog.dart';
+import '../../../../core/widgets/ui/app_panel.dart';
 import '../../../../core/widgets/vision_slider.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../../../generation/widgets/settings_panel.dart';
 import '../models/img2img_session.dart';
 import '../providers/img2img_notifier.dart';
@@ -35,7 +40,7 @@ class _Img2ImgSettingsPanelState extends State<Img2ImgSettingsPanel> {
     final l = context.l;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(VisionMetrics.space16),
       decoration: BoxDecoration(
         color: t.surfaceMid,
         border: Border(left: BorderSide(color: t.borderSubtle)),
@@ -44,20 +49,14 @@ class _Img2ImgSettingsPanelState extends State<Img2ImgSettingsPanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              l.img2imgSettings,
-              style: TextStyle(
-                color: t.textTertiary,
-                fontSize: t.fontSize(9),
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2,
-              ),
-            ),
-            const SizedBox(height: 16),
+            SectionTitle(l.img2imgSettings, t: t),
 
             // Prompt field
-            Text(l.img2imgPrompt, style: _labelStyle(t)),
-            const SizedBox(height: 4),
+            SectionTitle(
+              l.img2imgPrompt,
+              t: t,
+              variant: SectionTitleVariant.compact,
+            ),
             TextField(
               controller: widget.promptController,
               maxLines: 3,
@@ -65,11 +64,14 @@ class _Img2ImgSettingsPanelState extends State<Img2ImgSettingsPanel> {
               style: TextStyle(fontSize: t.fontSize(12), color: t.textPrimary),
               decoration: _inputDecoration(l.img2imgPromptHint, t),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: VisionMetrics.space12),
 
             // Negative prompt field
-            Text(l.img2imgNegative, style: _labelStyle(t)),
-            const SizedBox(height: 4),
+            SectionTitle(
+              l.img2imgNegative,
+              t: t,
+              variant: SectionTitleVariant.compact,
+            ),
             TextField(
               controller: widget.negativePromptController,
               maxLines: 2,
@@ -77,7 +79,7 @@ class _Img2ImgSettingsPanelState extends State<Img2ImgSettingsPanel> {
               style: TextStyle(fontSize: t.fontSize(12), color: t.textPrimary),
               decoration: _inputDecoration(l.img2imgNegativeHint, t),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: VisionMetrics.space16),
 
             // Strength slider
             _buildSlider(
@@ -88,7 +90,7 @@ class _Img2ImgSettingsPanelState extends State<Img2ImgSettingsPanel> {
               onChanged: notifier.setStrength,
               t: t,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: VisionMetrics.space8),
 
             // Noise slider
             _buildSlider(
@@ -101,7 +103,7 @@ class _Img2ImgSettingsPanelState extends State<Img2ImgSettingsPanel> {
             ),
             // Mask blur slider (only when mask is active)
             if (session.hasMask) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: VisionMetrics.space8),
               _buildSlider(
                 label: l.img2imgMaskBlur,
                 value: settings.maskBlur.toDouble(),
@@ -113,7 +115,7 @@ class _Img2ImgSettingsPanelState extends State<Img2ImgSettingsPanel> {
               ),
             ],
 
-            const SizedBox(height: 12),
+            const SizedBox(height: VisionMetrics.space12),
 
             // Color correct toggle
             Row(
@@ -131,7 +133,7 @@ class _Img2ImgSettingsPanelState extends State<Img2ImgSettingsPanel> {
               ],
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: VisionMetrics.space8),
 
             // Import prompt toggle
             StatefulBuilder(
@@ -143,10 +145,16 @@ class _Img2ImgSettingsPanelState extends State<Img2ImgSettingsPanel> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(l.img2imgImportPrompt.toUpperCase(), style: _labelStyle(t)),
+                          Text(
+                            l.img2imgImportPrompt.toUpperCase(),
+                            style: _labelStyle(t),
+                          ),
                           Text(
                             l.img2imgImportPromptDesc,
-                            style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(8)),
+                            style: TextStyle(
+                              color: t.textMinimal,
+                              fontSize: t.fontSize(8),
+                            ),
                           ),
                         ],
                       ),
@@ -167,26 +175,30 @@ class _Img2ImgSettingsPanelState extends State<Img2ImgSettingsPanel> {
               },
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: VisionMetrics.space16),
 
             // Source info
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: t.textPrimary.withValues(alpha: 0.02),
-                borderRadius: BorderRadius.circular(4),
-              ),
+            AppPanel(
+              padding: const EdgeInsets.all(VisionMetrics.space8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(l.img2imgSourceInfo, style: _labelStyle(t)),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${session.sourceWidth} x ${session.sourceHeight}',
-                    style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(11)),
+                  SectionTitle(
+                    l.img2imgSourceInfo,
+                    t: t,
+                    variant: SectionTitleVariant.compact,
                   ),
                   Text(
-                    session.hasMask ? l.img2imgMaskStrokes(session.maskStrokes.length) : l.img2imgNoMask,
+                    '${session.sourceWidth} x ${session.sourceHeight}',
+                    style: TextStyle(
+                      color: t.textSecondary,
+                      fontSize: t.fontSize(11),
+                    ),
+                  ),
+                  Text(
+                    session.hasMask
+                        ? l.img2imgMaskStrokes(session.maskStrokes.length)
+                        : l.img2imgNoMask,
                     style: TextStyle(
                       color: session.hasMask ? t.accentEdit : t.textDisabled,
                       fontSize: t.fontSize(10),
@@ -196,20 +208,19 @@ class _Img2ImgSettingsPanelState extends State<Img2ImgSettingsPanel> {
               ),
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: VisionMetrics.space12),
 
             // Output resolution
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: t.textPrimary.withValues(alpha: 0.02),
-                borderRadius: BorderRadius.circular(4),
-              ),
+            AppPanel(
+              padding: const EdgeInsets.all(VisionMetrics.space8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(l.img2imgOutputRes, style: _labelStyle(t)),
-                  const SizedBox(height: 4),
+                  SectionTitle(
+                    l.img2imgOutputRes,
+                    t: t,
+                    variant: SectionTitleVariant.compact,
+                  ),
                   _buildResolutionDropdown(session, notifier, t, l),
                 ],
               ),
@@ -220,11 +231,29 @@ class _Img2ImgSettingsPanelState extends State<Img2ImgSettingsPanel> {
     );
   }
 
+  /// Deleting a saved resolution cannot be undone, so ask first.
+  Future<void> _confirmDeleteResolution(String label, int index) async {
+    final l = context.l;
+    final confirmed = await showConfirmDialog(
+      context,
+      title: l.commonDelete,
+      message: label,
+      confirmLabel: l.commonDelete,
+      cancelLabel: l.commonCancel,
+    );
+    if (confirmed != true || !mounted) return;
+    AdvancedSettingsPanel.deleteCustomResolution(
+      context.read<PreferencesService>(),
+      index,
+    );
+    setState(() {});
+  }
+
   Widget _buildResolutionDropdown(
     Img2ImgSession session,
     Img2ImgNotifier notifier,
     VisionTokens t,
-    dynamic l,
+    AppLocalizations l,
   ) {
     final sourceValue = '__source__';
     final options = AdvancedSettingsPanel.resolutionOptions(context);
@@ -251,13 +280,26 @@ class _Img2ImgSettingsPanelState extends State<Img2ImgSettingsPanel> {
               style: TextStyle(color: t.accent, fontSize: t.fontSize(10)),
             )
           : null,
-      style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(10), letterSpacing: 1),
+      style: TextStyle(
+        color: t.textPrimary,
+        fontSize: t.fontSize(10),
+        letterSpacing: 1,
+      ),
       decoration: InputDecoration(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: VisionMetrics.space12,
+          vertical: VisionMetrics.space8,
+        ),
         fillColor: t.background,
         filled: true,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.borderMedium)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.borderMedium)),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+          borderSide: BorderSide(color: t.borderMedium),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+          borderSide: BorderSide(color: t.borderMedium),
+        ),
       ),
       onChanged: (String? newValue) async {
         if (newValue == sourceValue) {
@@ -274,7 +316,10 @@ class _Img2ImgSettingsPanelState extends State<Img2ImgSettingsPanel> {
         }
         if (newValue != null) {
           final parts = newValue.split('x');
-          notifier.setOutputResolution(int.parse(parts[0]), int.parse(parts[1]));
+          notifier.setOutputResolution(
+            int.parse(parts[0]),
+            int.parse(parts[1]),
+          );
         }
       },
       items: [
@@ -282,7 +327,7 @@ class _Img2ImgSettingsPanelState extends State<Img2ImgSettingsPanel> {
         DropdownMenuItem<String>(
           value: sourceValue,
           child: Text(
-            'SOURCE ${session.sourceWidth}x${session.sourceHeight}',
+            '${l.img2imgSource} ${session.sourceWidth}x${session.sourceHeight}',
             style: TextStyle(fontSize: t.fontSize(10), color: t.textSecondary),
           ),
         ),
@@ -294,17 +339,29 @@ class _Img2ImgSettingsPanelState extends State<Img2ImgSettingsPanel> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Flexible(child: Text(opt.displayLabel, style: TextStyle(fontSize: t.fontSize(10)), overflow: TextOverflow.ellipsis)),
+                Flexible(
+                  child: Text(
+                    opt.displayLabel,
+                    style: TextStyle(fontSize: t.fontSize(10)),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
                 if (opt.isCustom)
-                  GestureDetector(
-                    onTap: () {
-                      final prefs = context.read<PreferencesService>();
-                      AdvancedSettingsPanel.deleteCustomResolution(prefs, entry.key - builtInCount);
-                      setState(() {});
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 8),
-                      child: Icon(Icons.close, size: 14, color: t.textMinimal),
+                  Tooltip(
+                    message: l.commonDelete,
+                    child: InkWell(
+                      onTap: () => _confirmDeleteResolution(
+                        opt.displayLabel,
+                        entry.key - builtInCount,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(VisionMetrics.space8),
+                        child: Icon(
+                          Icons.close,
+                          size: VisionMetrics.iconSmall,
+                          color: t.textMinimal,
+                        ),
+                      ),
                     ),
                   ),
               ],
@@ -318,8 +375,11 @@ class _Img2ImgSettingsPanelState extends State<Img2ImgSettingsPanel> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.add, size: 14, color: t.accent),
-              const SizedBox(width: 8),
-              Text(context.l.resCustomEntry.toUpperCase(), style: TextStyle(fontSize: t.fontSize(10), color: t.accent)),
+              const SizedBox(width: VisionMetrics.space8),
+              Text(
+                context.l.resCustomEntry.toUpperCase(),
+                style: TextStyle(fontSize: t.fontSize(10), color: t.accent),
+              ),
             ],
           ),
         ),
@@ -345,7 +405,10 @@ class _Img2ImgSettingsPanelState extends State<Img2ImgSettingsPanel> {
             const Spacer(),
             Text(
               asInteger ? value.round().toString() : value.toStringAsFixed(2),
-              style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(10)),
+              style: TextStyle(
+                color: t.textSecondary,
+                fontSize: t.fontSize(10),
+              ),
             ),
           ],
         ),
@@ -364,19 +427,22 @@ class _Img2ImgSettingsPanelState extends State<Img2ImgSettingsPanel> {
     return InputDecoration(
       hintText: hint,
       hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(10)),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: VisionMetrics.space12,
+        vertical: VisionMetrics.space8,
+      ),
       fillColor: t.background,
       filled: true,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(VisionMetrics.radius4),
         borderSide: BorderSide(color: t.borderMedium),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(VisionMetrics.radius4),
         borderSide: BorderSide(color: t.borderMedium),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(VisionMetrics.radius4),
         borderSide: BorderSide(color: t.borderStrong),
       ),
     );

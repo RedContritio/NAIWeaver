@@ -9,6 +9,7 @@ import '../../../../core/widgets/confirm_dialog.dart';
 import '../../../../core/widgets/vision_slider.dart';
 import '../models/canvas_layer.dart';
 import '../providers/canvas_notifier.dart';
+import '../../../../core/theme/vision_metrics.dart';
 
 /// Layer management panel — used as desktop sidebar and mobile bottom sheet content.
 class LayerPanel extends StatelessWidget {
@@ -33,7 +34,10 @@ class LayerPanel extends StatelessWidget {
         children: [
           // Header
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(
+              horizontal: VisionMetrics.space12,
+              vertical: VisionMetrics.space8,
+            ),
             decoration: BoxDecoration(
               border: Border(bottom: BorderSide(color: t.borderSubtle)),
             ),
@@ -99,7 +103,10 @@ class LayerPanel extends StatelessWidget {
           // Bottom controls for active layer
           if (activeLayer != null) ...[
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(
+                horizontal: VisionMetrics.space12,
+                vertical: VisionMetrics.space8,
+              ),
               decoration: BoxDecoration(
                 border: Border(top: BorderSide(color: t.borderSubtle)),
               ),
@@ -117,7 +124,7 @@ class LayerPanel extends StatelessWidget {
                           letterSpacing: 1,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: VisionMetrics.space8),
                       Expanded(
                         child: DropdownButton<CanvasBlendMode>(
                           value: activeLayer.blendMode,
@@ -137,15 +144,14 @@ class LayerPanel extends StatelessWidget {
                           }).toList(),
                           onChanged: (mode) {
                             if (mode != null) {
-                              notifier.setLayerBlendMode(
-                                  activeLayer.id, mode);
+                              notifier.setLayerBlendMode(activeLayer.id, mode);
                             }
                           },
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: VisionMetrics.space4),
                   // Opacity slider
                   Row(
                     children: [
@@ -180,36 +186,45 @@ class LayerPanel extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: VisionMetrics.space4),
                   // Action buttons
                   Row(
                     children: [
                       Expanded(
                         child: _PanelButton(
                           label: l.canvasLayerDuplicate,
-                          onTap: () =>
-                              notifier.duplicateLayer(activeLayer.id),
+                          onTap: () => notifier.duplicateLayer(activeLayer.id),
                           t: t,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: VisionMetrics.space8),
                       Expanded(
                         child: _PanelButton(
                           label: l.canvasLayerClear,
                           onTap: activeLayer.strokes.isNotEmpty
                               ? () => _confirmClearLayer(
-                                  context, notifier, activeLayer, l, t)
+                                  context,
+                                  notifier,
+                                  activeLayer,
+                                  l,
+                                  t,
+                                )
                               : null,
                           t: t,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: VisionMetrics.space8),
                       Expanded(
                         child: _PanelButton(
                           label: l.canvasLayerDelete,
                           onTap: session.layers.length > 1
                               ? () => _confirmDeleteLayer(
-                                  context, notifier, activeLayer, l, t)
+                                  context,
+                                  notifier,
+                                  activeLayer,
+                                  l,
+                                  t,
+                                )
                               : null,
                           t: t,
                           danger: true,
@@ -226,8 +241,13 @@ class LayerPanel extends StatelessWidget {
     );
   }
 
-  Future<void> _confirmDeleteLayer(BuildContext context, CanvasNotifier notifier,
-      CanvasLayer layer, AppLocalizations l, VisionTokens t) async {
+  Future<void> _confirmDeleteLayer(
+    BuildContext context,
+    CanvasNotifier notifier,
+    CanvasLayer layer,
+    AppLocalizations l,
+    VisionTokens t,
+  ) async {
     if (layer.strokes.isEmpty && !layer.isImageLayer) {
       notifier.removeLayer(layer.id);
       return;
@@ -244,8 +264,13 @@ class LayerPanel extends StatelessWidget {
     }
   }
 
-  Future<void> _confirmClearLayer(BuildContext context, CanvasNotifier notifier,
-      CanvasLayer layer, AppLocalizations l, VisionTokens t) async {
+  Future<void> _confirmClearLayer(
+    BuildContext context,
+    CanvasNotifier notifier,
+    CanvasLayer layer,
+    AppLocalizations l,
+    VisionTokens t,
+  ) async {
     final confirm = await showConfirmDialog(
       context,
       title: l.canvasLayerClear,
@@ -334,12 +359,14 @@ class _LayerRowState extends State<_LayerRow> {
     final layer = widget.layer;
 
     // Determine dominant stroke color for the color dot
-    Color dotColor = Colors.grey;
+    Color dotColor = t.textMinimal;
     if (layer.isImageLayer) {
-      dotColor = Colors.teal;
+      dotColor = t.accentEdit;
     } else if (layer.strokes.isNotEmpty) {
-      final lastPaint =
-          layer.strokes.lastWhere((s) => !s.isErase, orElse: () => layer.strokes.last);
+      final lastPaint = layer.strokes.lastWhere(
+        (s) => !s.isErase,
+        orElse: () => layer.strokes.last,
+      );
       if (!lastPaint.isErase) {
         dotColor = Color(lastPaint.colorValue);
       }
@@ -351,10 +378,13 @@ class _LayerRowState extends State<_LayerRow> {
         onTap: widget.onTap,
         onDoubleTap: _startEditing,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          padding: const EdgeInsets.symmetric(
+            horizontal: VisionMetrics.space8,
+            vertical: VisionMetrics.space8,
+          ),
           decoration: BoxDecoration(
             color: widget.isActive
-                ? t.accentEdit.withValues(alpha: 0.15)
+                ? t.accentEdit.withValues(alpha: VisionMetrics.opacityPressed)
                 : Colors.transparent,
             border: Border(
               left: BorderSide(
@@ -378,7 +408,7 @@ class _LayerRowState extends State<_LayerRow> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: VisionMetrics.space8),
               // Color dot or image icon
               if (layer.isImageLayer)
                 Icon(Icons.image, size: 12, color: dotColor)
@@ -392,7 +422,7 @@ class _LayerRowState extends State<_LayerRow> {
                     border: Border.all(color: t.borderSubtle, width: 0.5),
                   ),
                 ),
-              const SizedBox(width: 8),
+              const SizedBox(width: VisionMetrics.space8),
               // Layer name (or inline edit)
               Expanded(
                 child: _isEditing
@@ -426,7 +456,7 @@ class _LayerRowState extends State<_LayerRow> {
               // Blend mode label (compact)
               if (layer.blendMode != CanvasBlendMode.normal)
                 Padding(
-                  padding: const EdgeInsets.only(left: 4),
+                  padding: const EdgeInsets.only(left: VisionMetrics.space4),
                   child: Text(
                     layer.blendMode.label().substring(0, 3),
                     style: TextStyle(
@@ -463,9 +493,9 @@ class _SmallIconButton extends StatelessWidget {
       message: tooltip,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(VisionMetrics.radius4),
         child: Padding(
-          padding: const EdgeInsets.all(4),
+          padding: const EdgeInsets.all(VisionMetrics.space4),
           child: Icon(icon, size: 16, color: t.textTertiary),
         ),
       ),
@@ -492,14 +522,20 @@ class _PanelButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(vertical: VisionMetrics.space8),
         decoration: BoxDecoration(
           border: Border.all(
             color: enabled
-                ? (danger ? t.accentDanger.withValues(alpha: 0.5) : t.borderSubtle)
-                : t.borderSubtle.withValues(alpha: 0.3),
+                ? (danger
+                      ? t.accentDanger.withValues(
+                          alpha: VisionMetrics.opacityScrim,
+                        )
+                      : t.borderSubtle)
+                : t.borderSubtle.withValues(
+                    alpha: VisionMetrics.opacityDisabled,
+                  ),
           ),
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(VisionMetrics.radius4),
         ),
         alignment: Alignment.center,
         child: Text(

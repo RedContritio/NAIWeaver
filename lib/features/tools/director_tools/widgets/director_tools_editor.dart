@@ -4,15 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/l10n/l10n_extensions.dart';
 import '../../../../core/theme/theme_extensions.dart';
+import '../../../../core/theme/vision_metrics.dart';
+import '../../../../core/widgets/section_title.dart';
+import '../../../../core/widgets/ui/app_panel.dart';
 import '../../../../core/widgets/vision_slider.dart';
-import '../../../../core/utils/responsive.dart';
 import '../../../../core/utils/timestamp_utils.dart';
 import '../../../../core/widgets/comparison_slider.dart';
-import '../../../../l10n/app_localizations.dart';
 import '../../../gallery/services/tool_result_saver.dart';
 import '../../../generation/providers/generation_notifier.dart';
 import '../../widgets/tool_config_bottom_sheet.dart';
 import '../../widgets/tool_source_picker.dart';
+import '../../widgets/tool_workspace.dart';
 import '../models/augment_tool.dart';
 import '../providers/director_tools_notifier.dart';
 import 'tool_selector.dart';
@@ -92,170 +94,35 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
   }
 
   Widget _buildWorkspace(BuildContext context, DirectorToolsNotifier notifier) {
-    final mobile = isMobile(context);
-
-    Widget imageArea = _buildImageArea(context, notifier);
-
-    return Column(
-      children: [
-        _buildHeader(context, notifier),
-        Expanded(
-          child: mobile
-              ? imageArea
-              : Row(
-                  children: [
-                    Expanded(flex: 3, child: imageArea),
-                    SizedBox(
-                      width: 300,
-                      child: SingleChildScrollView(
-                        child: _buildConfigPanel(context, notifier),
-                      ),
-                    ),
-                  ],
-                ),
-        ),
-        if (mobile)
-          ToolSettingsDock(
-            tooltip: context.l.directorToolsSettingsTooltip,
-            onPressed: () => showToolConfigBottomSheet(
-              context: context,
-              contentBuilder: (sheetContext) => _buildConfigPanel(
-                sheetContext,
-                sheetContext.watch<DirectorToolsNotifier>(),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildHeader(BuildContext context, DirectorToolsNotifier notifier) {
-    final t = context.t;
     final l = context.l;
-    final mobile = isMobile(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: t.surfaceHigh,
-        border: Border(bottom: BorderSide(color: t.borderSubtle)),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: Icon(Icons.arrow_back, size: 16, color: t.textDisabled),
-            onPressed: () => _backToPicker(notifier),
-            tooltip: l.img2imgBackToPicker,
-          ),
-          const Spacer(),
-          if (_hasUnsavedResult(notifier)) ...[
-            if (mobile)
-              SizedBox(
-                height: 36,
-                child: IconButton(
-                  onPressed: _saving ? null : () => _saveResult(notifier),
-                  icon: const Icon(Icons.save_alt, size: 14),
-                  tooltip: l.commonSave,
-                  style: IconButton.styleFrom(
-                    backgroundColor: t.accentSuccess,
-                    foregroundColor: t.background,
-                  ),
-                ),
-              )
-            else
-              SizedBox(
-                height: 36,
-                child: ElevatedButton.icon(
-                  onPressed: _saving ? null : () => _saveResult(notifier),
-                  icon: const Icon(Icons.save_alt, size: 14),
-                  label: Text(l.commonSave),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: t.accentSuccess,
-                    foregroundColor: t.background,
-                    textStyle: TextStyle(
-                      fontSize: t.fontSize(10),
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    elevation: 0,
-                  ),
-                ),
-              ),
-            const SizedBox(width: 8),
-          ],
-          if (mobile && notifier.hasResult)
-            SizedBox(
-              height: 36,
-              child: IconButton(
-                onPressed: notifier.isProcessing
-                    ? null
-                    : () => _process(notifier),
-                icon: notifier.isProcessing
-                    ? SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: t.background,
-                        ),
-                      )
-                    : const Icon(Icons.auto_fix_high, size: 14),
-                style: IconButton.styleFrom(
-                  backgroundColor: t.accent,
-                  foregroundColor: t.background,
-                ),
-              ),
-            )
-          else
-            SizedBox(
-              height: 36,
-              child: ElevatedButton.icon(
-                onPressed: notifier.isProcessing
-                    ? null
-                    : () => _process(notifier),
-                icon: notifier.isProcessing
-                    ? SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: t.background,
-                        ),
-                      )
-                    : const Icon(Icons.auto_fix_high, size: 14),
-                label: Text(
-                  notifier.isProcessing
-                      ? l.directorToolsProcessing
-                      : l.directorToolsProcess,
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: t.accent,
-                  foregroundColor: t.background,
-                  textStyle: TextStyle(
-                    fontSize: t.fontSize(10),
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  elevation: 0,
-                ),
-              ),
-            ),
-        ],
+    return ToolRunShortcut(
+      onRun: notifier.isProcessing ? null : () => _process(notifier),
+      child: ToolSettingsLayout(
+        header: ToolWorkspaceHeader(
+          onBack: () => _backToPicker(notifier),
+          processIcon: Icons.auto_fix_high,
+          processLabel: l.directorToolsProcess,
+          processingLabel: l.directorToolsProcessing,
+          isProcessing: notifier.isProcessing,
+          onProcess: () => _process(notifier),
+          hasResult: notifier.hasResult,
+          showSave: _hasUnsavedResult(notifier),
+          onSave: _saving ? null : () => _saveResult(notifier),
+        ),
+        body: _buildImageArea(context, notifier),
+        settingsTooltip: l.directorToolsSettingsTooltip,
+        settingsBuilder: (settingsContext) => _buildConfigPanel(
+          settingsContext,
+          settingsContext.watch<DirectorToolsNotifier>(),
+        ),
       ),
     );
   }
 
   Widget _buildImageArea(BuildContext context, DirectorToolsNotifier notifier) {
     final t = context.t;
-    final l = AppLocalizations.of(context);
+    final l = context.l;
+    final error = notifier.error;
 
     return Stack(
       children: [
@@ -280,31 +147,12 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
               ),
             ),
           ),
-        // Error overlay
-        if (notifier.error != null)
+        if (error != null)
           Positioned(
-            bottom: 8,
-            left: 8,
-            right: 8,
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: t.accentDanger.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(
-                  color: t.accentDanger.withValues(alpha: 0.4),
-                ),
-              ),
-              child: Text(
-                notifier.error!,
-                style: TextStyle(
-                  color: t.accentDanger,
-                  fontSize: t.fontSize(9),
-                ),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
+            bottom: VisionMetrics.space8,
+            left: VisionMetrics.space8,
+            right: VisionMetrics.space8,
+            child: ErrorBanner(message: toolErrorMessage(l, error)),
           ),
       ],
     );
@@ -316,51 +164,35 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
   ) {
     final t = context.t;
     final l = context.l;
-    final labelSize = responsiveFont(context, 9, 11);
+    const compact = SectionTitleVariant.compact;
+    final fieldBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+      borderSide: BorderSide(color: t.borderMedium),
+    );
 
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(VisionMetrics.space16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            l.directorToolsSelectTool,
-            style: TextStyle(
-              color: t.secondaryText,
-              fontSize: t.fontSize(labelSize),
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 8),
+          SectionTitle(l.directorToolsSelectTool, t: t, variant: compact),
           ToolSelector(
             selected: notifier.selectedTool,
             onSelected: notifier.selectTool,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: VisionMetrics.space16),
 
           // Info text about current tool
           Text(
             '${notifier.sourceWidth} x ${notifier.sourceHeight}',
-            style: TextStyle(
-              color: t.textMinimal,
-              fontSize: t.fontSize(labelSize),
-            ),
+            style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(10)),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: VisionMetrics.space12),
 
           // Defry slider
           if (notifier.selectedTool.hasDefry) ...[
-            Text(
-              l.directorToolsDefry,
-              style: TextStyle(
-                color: t.secondaryText,
-                fontSize: t.fontSize(labelSize),
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2,
-              ),
-            ),
+            SectionTitle(l.directorToolsDefry, t: t, variant: compact),
             Row(
               children: [
                 Expanded(
@@ -374,7 +206,7 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
                   ),
                 ),
                 SizedBox(
-                  width: 30,
+                  width: VisionMetrics.space24 + VisionMetrics.space8,
                   child: Text(
                     '${notifier.defry}',
                     style: TextStyle(
@@ -386,40 +218,22 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: VisionMetrics.space8),
           ],
 
           // Mood picker (emotion only)
           if (notifier.selectedTool == AugmentTool.emotion) ...[
-            Text(
-              l.directorToolsMood,
-              style: TextStyle(
-                color: t.secondaryText,
-                fontSize: t.fontSize(labelSize),
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2,
-              ),
-            ),
-            const SizedBox(height: 8),
+            SectionTitle(l.directorToolsMood, t: t, variant: compact),
             EmotionMoodPicker(
               selected: notifier.selectedMood,
               onSelected: notifier.setMood,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: VisionMetrics.space12),
           ],
 
           // Prompt field (colorize/emotion)
           if (notifier.selectedTool.hasPrompt) ...[
-            Text(
-              l.directorToolsPrompt,
-              style: TextStyle(
-                color: t.secondaryText,
-                fontSize: t.fontSize(labelSize),
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2,
-              ),
-            ),
-            const SizedBox(height: 8),
+            SectionTitle(l.directorToolsPrompt, t: t, variant: compact),
             TextField(
               key: _promptKey,
               focusNode: _promptFocus,
@@ -434,19 +248,13 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
                   fontSize: t.fontSize(9),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
+                  horizontal: VisionMetrics.space12,
+                  vertical: VisionMetrics.space8,
                 ),
                 filled: true,
                 fillColor: t.borderSubtle,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  borderSide: BorderSide(color: t.borderMedium),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  borderSide: BorderSide(color: t.borderMedium),
-                ),
+                border: fieldBorder,
+                enabledBorder: fieldBorder,
               ),
             ),
           ],

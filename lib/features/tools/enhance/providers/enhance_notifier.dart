@@ -9,7 +9,8 @@ import '../models/enhance_config.dart';
 class EnhanceNotifier extends ChangeNotifier {
   NovelAIService? _service;
 
-  static const String defaultNegativePrompt = 'lowres, {bad}, error, fewer, extra, missing, worst quality, jpeg artifacts, bad quality, watermark, unfinished, displeasing, chromatic aberration, signature, extra digits, artistic error, username, scan, [abstract]';
+  static const String defaultNegativePrompt =
+      'lowres, {bad}, error, fewer, extra, missing, worst quality, jpeg artifacts, bad quality, watermark, unfinished, displeasing, chromatic aberration, signature, extra digits, artistic error, username, scan, [abstract]';
 
   Uint8List? _sourceImageBytes;
   int _sourceWidth = 0;
@@ -19,8 +20,7 @@ class EnhanceNotifier extends ChangeNotifier {
   EnhanceConfig _config = const EnhanceConfig();
   Uint8List? _resultBytes;
   bool _isProcessing = false;
-  String? _error;
-  String _status = '';
+  Object? _error;
 
   String? _promptPrefix;
   String? _promptSuffix;
@@ -37,8 +37,10 @@ class EnhanceNotifier extends ChangeNotifier {
   EnhanceConfig get config => _config;
   Uint8List? get resultBytes => _resultBytes;
   bool get isProcessing => _isProcessing;
-  String? get error => _error;
-  String get status => _status;
+
+  /// The raw failure of the last run; the UI localizes it (see
+  /// `toolErrorMessage`) so no exception text reaches the user.
+  Object? get error => _error;
   bool get hasSource => _sourceImageBytes != null;
   bool get hasResult => _resultBytes != null;
 
@@ -107,23 +109,26 @@ class EnhanceNotifier extends ChangeNotifier {
     _isProcessing = true;
     _error = null;
     _resultBytes = null;
-    _status = 'Enhancing...';
     notifyListeners();
 
     try {
       // Step 1: Resize and encode source for img2img
-      final sourceBase64 = await compute(_resizeAndEncode, _ResizeParams(
-        bytes: _sourceImageBytes!,
-        width: _sourceWidth,
-        height: _sourceHeight,
-      ));
+      final sourceBase64 = await compute(
+        _resizeAndEncode,
+        _ResizeParams(
+          bytes: _sourceImageBytes!,
+          width: _sourceWidth,
+          height: _sourceHeight,
+        ),
+      );
 
       // Step 2: Generate enhanced image via img2img
       // Apply resolution scale and round to nearest multiple of 64
       final outWidth = ((_sourceWidth * _config.scale) / 64).round() * 64;
       final outHeight = ((_sourceHeight * _config.scale) / 64).round() * 64;
 
-      final effectiveNegative = _styleNegativeContent != null && _styleNegativeContent!.isNotEmpty
+      final effectiveNegative =
+          _styleNegativeContent != null && _styleNegativeContent!.isNotEmpty
           ? '$_negativePrompt, $_styleNegativeContent'
           : _negativePrompt;
 
@@ -146,16 +151,12 @@ class EnhanceNotifier extends ChangeNotifier {
       );
 
       _resultBytes = result.imageBytes;
-      _status = '';
-    } on UnauthorizedException {
-      _error = 'Authentication error: check API key';
     } on QuoteDeclinedException {
       // The user chose not to pay the gateway's price: nothing was sent.
     } catch (e) {
-      _error = e.toString();
+      _error = e;
     } finally {
       _isProcessing = false;
-      _status = '';
       notifyListeners();
     }
   }
@@ -173,7 +174,6 @@ class EnhanceNotifier extends ChangeNotifier {
     _resultBytes = null;
     _error = null;
     _isProcessing = false;
-    _status = '';
     _prompt = '';
     _negativePrompt = defaultNegativePrompt;
     _config = const EnhanceConfig();
@@ -197,13 +197,21 @@ class _ResizeParams {
   final Uint8List bytes;
   final int width;
   final int height;
-  _ResizeParams({required this.bytes, required this.width, required this.height});
+  _ResizeParams({
+    required this.bytes,
+    required this.width,
+    required this.height,
+  });
 }
 
 String _resizeAndEncode(_ResizeParams params) {
   final decoded = img.decodeImage(params.bytes);
   if (decoded == null) throw Exception('Failed to decode source image');
-  final resized = img.copyResize(decoded, width: params.width, height: params.height);
+  final resized = img.copyResize(
+    decoded,
+    width: params.width,
+    height: params.height,
+  );
   final rgb = resized.convert(numChannels: 3);
   final pngBytes = img.encodePng(rgb);
   return base64Encode(pngBytes);

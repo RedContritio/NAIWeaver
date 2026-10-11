@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme/theme_extensions.dart';
+import '../../theme/vision_metrics.dart';
 import '../../utils/responsive.dart';
 import '../ml_notifier.dart';
 
@@ -13,11 +14,11 @@ class MLProcessingOverlay extends StatelessWidget {
     if (!ml.isProcessing) return const SizedBox.shrink();
 
     final t = context.t;
-    final mobile = isMobile(context);
+    final mobile = isTouchSized(context);
 
     return Positioned.fill(
       child: Container(
-        color: t.background.withValues(alpha: 0.85),
+        color: t.background.withValues(alpha: VisionMetrics.opacityOverlay),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -26,12 +27,14 @@ class MLProcessingOverlay extends StatelessWidget {
                 width: mobile ? 40 : 32,
                 height: mobile ? 40 : 32,
                 child: CircularProgressIndicator(
-                  value: ml.processingProgress > 0 ? ml.processingProgress : null,
+                  value: ml.processingProgress > 0
+                      ? ml.processingProgress
+                      : null,
                   strokeWidth: 2.5,
                   color: t.accent,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: VisionMetrics.space16),
               Text(
                 ml.processingStage.toUpperCase(),
                 style: TextStyle(
@@ -42,7 +45,7 @@ class MLProcessingOverlay extends StatelessWidget {
                 ),
               ),
               if (ml.processingProgress > 0) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: VisionMetrics.space8),
                 Text(
                   '${(ml.processingProgress * 100).toStringAsFixed(0)}%',
                   style: TextStyle(

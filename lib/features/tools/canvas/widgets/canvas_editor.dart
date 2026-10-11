@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/l10n/l10n_extensions.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../core/theme/theme_extensions.dart';
+import '../../../../core/widgets/ui/app_sheet.dart';
 import '../../../../core/theme/vision_tokens.dart';
 import '../../../../core/utils/app_snackbar.dart';
 import '../../../../core/widgets/confirm_dialog.dart';
@@ -25,6 +26,7 @@ import '../services/canvas_gallery_service.dart';
 import 'canvas_paint_surface.dart';
 import 'canvas_toolbar.dart';
 import 'layer_panel.dart';
+import '../../../../core/theme/vision_metrics.dart';
 
 /// Full-screen canvas editor page.
 /// Header + paint surface + toolbar + layer panel sidebar (desktop) / FAB (mobile).
@@ -53,7 +55,8 @@ class _CanvasEditorState extends State<CanvasEditor> {
     // Don't intercept shortcuts when text tool editor is active
     if (notifier.hasPendingText) return KeyEventResult.ignored;
 
-    final ctrl = HardwareKeyboard.instance.isControlPressed ||
+    final ctrl =
+        HardwareKeyboard.instance.isControlPressed ||
         HardwareKeyboard.instance.isMetaPressed;
     final shift = HardwareKeyboard.instance.isShiftPressed;
 
@@ -127,11 +130,13 @@ class _CanvasEditorState extends State<CanvasEditor> {
       // Brush size (pixel steps)
       case LogicalKeyboardKey.bracketLeft:
         notifier.setBrushDiameterPx(
-            notifier.brushDiameterPx - notifier.brushStepPx);
+          notifier.brushDiameterPx - notifier.brushStepPx,
+        );
         return KeyEventResult.handled;
       case LogicalKeyboardKey.bracketRight:
         notifier.setBrushDiameterPx(
-            notifier.brushDiameterPx + notifier.brushStepPx);
+          notifier.brushDiameterPx + notifier.brushStepPx,
+        );
         return KeyEventResult.handled;
       default:
         return KeyEventResult.ignored;
@@ -143,36 +148,38 @@ class _CanvasEditorState extends State<CanvasEditor> {
     final notifier = context.watch<CanvasNotifier>();
     final t = context.t;
     final l = context.l;
-    final mobile = isMobile(context);
+    final mobile = isTouchSized(context);
 
     return Focus(
       focusNode: _editorFocusNode,
       autofocus: true,
       onKeyEvent: _handleKeyEvent,
       child: Scaffold(
-      resizeToAvoidBottomInset: false,
-      backgroundColor: t.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(context, t, l, notifier),
-            Expanded(
-              child: mobile
-                  ? _buildMobileBody(t)
-                  : _buildDesktopBody(t),
-            ),
-            Padding(
-              padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-              child: CanvasToolbar(
-                onFlatten: _flatten,
-                onShowLayers: mobile ? () => _showLayerSheet(context, t) : null,
+        resizeToAvoidBottomInset: false,
+        backgroundColor: t.background,
+        body: SafeArea(
+          child: Column(
+            children: [
+              _buildHeader(context, t, l, notifier),
+              Expanded(
+                child: mobile ? _buildMobileBody(t) : _buildDesktopBody(t),
               ),
-            ),
-          ],
+              Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom,
+                ),
+                child: CanvasToolbar(
+                  onFlatten: _flatten,
+                  onShowLayers: mobile
+                      ? () => _showLayerSheet(context, t)
+                      : null,
+                ),
+              ),
+            ],
+          ),
         ),
+        floatingActionButton: null,
       ),
-      floatingActionButton: null,
-    ),
     );
   }
 
@@ -185,53 +192,45 @@ class _CanvasEditorState extends State<CanvasEditor> {
             child: const CanvasPaintSurface(),
           ),
         ),
-        SizedBox(
-          width: 200,
-          child: const RepaintBoundary(child: LayerPanel()),
-        ),
+        SizedBox(width: 200, child: const RepaintBoundary(child: LayerPanel())),
       ],
     );
   }
 
   Widget _buildMobileBody(VisionTokens t) {
-    return Container(
-      color: t.background,
-      child: const CanvasPaintSurface(),
-    );
+    return Container(color: t.background, child: const CanvasPaintSurface());
   }
 
   void _showLayerSheet(BuildContext context, VisionTokens t) {
-    showModalBottomSheet(
+    showAppSheet<void>(
       context: context,
-      backgroundColor: t.surfaceMid,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-      ),
       builder: (ctx) {
-        // Re-provide the notifier to the bottom sheet context
+        // Re-provide the notifier to the bottom sheet context. The layer
+        // list expands to fill its parent, so the sheet gives it a height.
         return ChangeNotifierProvider.value(
           value: context.read<CanvasNotifier>(),
-          child: DraggableScrollableSheet(
-            expand: false,
-            initialChildSize: 0.45,
-            minChildSize: 0.3,
-            maxChildSize: 0.7,
-            builder: (_, controller) {
-              return const LayerPanel();
-            },
+          child: SizedBox(
+            height: MediaQuery.sizeOf(ctx).height * 0.5,
+            child: const LayerPanel(),
           ),
         );
       },
     );
   }
 
-  Widget _buildHeader(BuildContext context, VisionTokens t, AppLocalizations l,
-      CanvasNotifier notifier) {
+  Widget _buildHeader(
+    BuildContext context,
+    VisionTokens t,
+    AppLocalizations l,
+    CanvasNotifier notifier,
+  ) {
     final session = notifier.session;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: VisionMetrics.space16,
+        vertical: VisionMetrics.space8,
+      ),
       decoration: BoxDecoration(
         color: t.surfaceHigh,
         border: Border(bottom: BorderSide(color: t.borderSubtle)),
@@ -243,8 +242,8 @@ class _CanvasEditorState extends State<CanvasEditor> {
             onPressed: () => _handleBack(context, notifier, l),
             tooltip: l.canvasBack,
           ),
-          if (!isMobile(context)) ...[
-            const SizedBox(width: 8),
+          if (!isTouchSized(context)) ...[
+            const SizedBox(width: VisionMetrics.space8),
             Flexible(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -274,51 +273,58 @@ class _CanvasEditorState extends State<CanvasEditor> {
             ),
           ],
           const Spacer(),
-          if (session != null && isMobile(context))
+          if (session != null && isTouchSized(context))
             Padding(
-              padding: const EdgeInsets.only(right: 4),
+              padding: const EdgeInsets.only(right: VisionMetrics.space4),
               child: Tooltip(
                 message: context.l.canvasLayers,
                 child: InkWell(
-                onTap: () => _showLayerSheet(context, t),
-                borderRadius: BorderRadius.circular(6),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: t.accentEdit.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: t.borderSubtle),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.layers, size: 16, color: t.accentEdit),
-                      const SizedBox(width: 6),
-                      if (session.activeLayer != null)
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 80),
-                          child: Text(
-                            session.activeLayer!.name,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: t.textDisabled,
-                              fontSize: t.fontSize(9),
-                              letterSpacing: 0.5,
+                  onTap: () => _showLayerSheet(context, t),
+                  borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: VisionMetrics.space12,
+                      vertical: VisionMetrics.space8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: t.accentEdit.withValues(
+                        alpha: VisionMetrics.opacityHover,
+                      ),
+                      borderRadius: BorderRadius.circular(
+                        VisionMetrics.radius4,
+                      ),
+                      border: Border.all(color: t.borderSubtle),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.layers, size: 16, color: t.accentEdit),
+                        const SizedBox(width: VisionMetrics.space8),
+                        if (session.activeLayer != null)
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 80),
+                            child: Text(
+                              session.activeLayer!.name,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: t.textDisabled,
+                                fontSize: t.fontSize(9),
+                                letterSpacing: 0.5,
+                              ),
                             ),
                           ),
+                        const SizedBox(width: VisionMetrics.space4),
+                        Text(
+                          '(${session.layers.length})',
+                          style: TextStyle(
+                            color: t.textMinimal,
+                            fontSize: t.fontSize(9),
+                          ),
                         ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '(${session.layers.length})',
-                        style: TextStyle(
-                          color: t.textMinimal,
-                          fontSize: t.fontSize(9),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
               ),
             ),
           // Help
@@ -332,13 +338,16 @@ class _CanvasEditorState extends State<CanvasEditor> {
             IconButton(
               icon: Icon(Icons.aspect_ratio, size: 16, color: t.textTertiary),
               onPressed: () => _showResizeDialog(context, notifier, t),
-              tooltip: 'Resize Canvas',
+              tooltip: l.canvasResize,
             ),
           // Import image as layer
           if (session != null)
             IconButton(
-              icon: Icon(Icons.add_photo_alternate_outlined,
-                  size: 16, color: t.textTertiary),
+              icon: Icon(
+                Icons.add_photo_alternate_outlined,
+                size: 16,
+                color: t.textTertiary,
+              ),
               onPressed: _importImage,
               tooltip: l.canvasImportImage,
             ),
@@ -347,7 +356,9 @@ class _CanvasEditorState extends State<CanvasEditor> {
               width: 20,
               height: 20,
               child: CircularProgressIndicator(
-                  strokeWidth: 2, color: t.accentEdit),
+                strokeWidth: 2,
+                color: t.accentEdit,
+              ),
             ),
         ],
       ),
@@ -355,7 +366,10 @@ class _CanvasEditorState extends State<CanvasEditor> {
   }
 
   Future<void> _handleBack(
-      BuildContext context, CanvasNotifier notifier, AppLocalizations l) async {
+    BuildContext context,
+    CanvasNotifier notifier,
+    AppLocalizations l,
+  ) async {
     final session = notifier.session;
     if (session != null && session.hasStrokes) {
       final t = context.tRead;
@@ -376,7 +390,11 @@ class _CanvasEditorState extends State<CanvasEditor> {
     }
   }
 
-  void _showResizeDialog(BuildContext context, CanvasNotifier notifier, VisionTokens t) {
+  void _showResizeDialog(
+    BuildContext context,
+    CanvasNotifier notifier,
+    VisionTokens t,
+  ) {
     final session = notifier.session;
     if (session == null) return;
     showDialog(
@@ -425,7 +443,10 @@ class _CanvasEditorState extends State<CanvasEditor> {
       if (textStrokes.isEmpty) continue;
 
       final recorder = ui.PictureRecorder();
-      final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()));
+      final canvas = Canvas(
+        recorder,
+        Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()),
+      );
 
       for (final stroke in textStrokes) {
         final pos = Offset(
@@ -434,8 +455,9 @@ class _CanvasEditorState extends State<CanvasEditor> {
         );
         final fontSize = (stroke.fontSize ?? 0.05) * height;
         final letterSpacing = (stroke.letterSpacing ?? 0.0) * height;
-        final color = Color(stroke.colorValue)
-            .withValues(alpha: stroke.opacity);
+        final color = Color(
+          stroke.colorValue,
+        ).withValues(alpha: stroke.opacity);
         TextStyle style = TextStyle(
           color: color,
           fontSize: fontSize,
@@ -523,7 +545,8 @@ class _CanvasEditorState extends State<CanvasEditor> {
 class _CanvasResizeDialog extends StatefulWidget {
   final int currentWidth;
   final int currentHeight;
-  final void Function(int newWidth, int newHeight, int anchorX, int anchorY) onApply;
+  final void Function(int newWidth, int newHeight, int anchorX, int anchorY)
+  onApply;
 
   const _CanvasResizeDialog({
     required this.currentWidth,
@@ -544,8 +567,12 @@ class _CanvasResizeDialogState extends State<_CanvasResizeDialog> {
   @override
   void initState() {
     super.initState();
-    _widthController = TextEditingController(text: widget.currentWidth.toString());
-    _heightController = TextEditingController(text: widget.currentHeight.toString());
+    _widthController = TextEditingController(
+      text: widget.currentWidth.toString(),
+    );
+    _heightController = TextEditingController(
+      text: widget.currentHeight.toString(),
+    );
   }
 
   @override
@@ -561,7 +588,8 @@ class _CanvasResizeDialogState extends State<_CanvasResizeDialog> {
   }
 
   void _addToHeight(int amount) {
-    final current = int.tryParse(_heightController.text) ?? widget.currentHeight;
+    final current =
+        int.tryParse(_heightController.text) ?? widget.currentHeight;
     _heightController.text = (current + amount).clamp(64, 9999).toString();
   }
 
@@ -604,11 +632,11 @@ class _CanvasResizeDialogState extends State<_CanvasResizeDialog> {
           Row(
             children: [
               Expanded(child: _buildDimInput('WIDTH', _widthController, t)),
-              const SizedBox(width: 16),
+              const SizedBox(width: VisionMetrics.space16),
               Expanded(child: _buildDimInput('HEIGHT', _heightController, t)),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: VisionMetrics.space12),
           // Quick-add buttons
           Wrap(
             spacing: 6,
@@ -620,7 +648,7 @@ class _CanvasResizeDialogState extends State<_CanvasResizeDialog> {
               _quickButton('+256 H', () => _addToHeight(256), t),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: VisionMetrics.space16),
           // Anchor label
           Text(
             'ANCHOR',
@@ -631,7 +659,7 @@ class _CanvasResizeDialogState extends State<_CanvasResizeDialog> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: VisionMetrics.space8),
           // 3x3 anchor grid
           _buildAnchorGrid(t),
         ],
@@ -639,31 +667,57 @@ class _CanvasResizeDialogState extends State<_CanvasResizeDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text('CANCEL', style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9))),
+          child: Text(
+            context.l.commonCancel.toUpperCase(),
+            style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9)),
+          ),
         ),
         TextButton(
           onPressed: _apply,
-          child: Text('APPLY', style: TextStyle(color: t.accentEdit, fontSize: t.fontSize(9))),
+          child: Text(
+            context.l.canvasApply,
+            style: TextStyle(color: t.accentEdit, fontSize: t.fontSize(9)),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildDimInput(String label, TextEditingController controller, VisionTokens t) {
+  Widget _buildDimInput(
+    String label,
+    TextEditingController controller,
+    VisionTokens t,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: t.fontSize(8), letterSpacing: 1, color: t.textDisabled, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: t.fontSize(8),
+            letterSpacing: 1,
+            color: t.textDisabled,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: VisionMetrics.space4),
         TextField(
           controller: controller,
           keyboardType: TextInputType.number,
           style: TextStyle(fontSize: t.fontSize(11), color: t.textPrimary),
           decoration: InputDecoration(
-            fillColor: t.borderSubtle.withValues(alpha: 0.5),
+            fillColor: t.borderSubtle.withValues(
+              alpha: VisionMetrics.opacityScrim,
+            ),
             filled: true,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: VisionMetrics.space12,
+              vertical: VisionMetrics.space8,
+            ),
           ),
         ),
       ],
@@ -673,14 +727,24 @@ class _CanvasResizeDialogState extends State<_CanvasResizeDialog> {
   Widget _quickButton(String label, VoidCallback onTap, VisionTokens t) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(4),
+      borderRadius: BorderRadius.circular(VisionMetrics.radius4),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(
+          horizontal: VisionMetrics.space12,
+          vertical: VisionMetrics.space8,
+        ),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(VisionMetrics.radius4),
           border: Border.all(color: t.borderMedium),
         ),
-        child: Text(label, style: TextStyle(fontSize: t.fontSize(8), color: t.textSecondary, letterSpacing: 1)),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: t.fontSize(8),
+            color: t.textSecondary,
+            letterSpacing: 1,
+          ),
+        ),
       ),
     );
   }
@@ -707,7 +771,7 @@ class _CanvasResizeDialogState extends State<_CanvasResizeDialog> {
             child: Container(
               decoration: BoxDecoration(
                 color: isSelected ? t.accentEdit : t.borderSubtle,
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(VisionMetrics.radius4),
                 border: Border.all(
                   color: isSelected ? t.accentEdit : t.borderMedium,
                   width: isSelected ? 2 : 1,

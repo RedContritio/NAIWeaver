@@ -21,6 +21,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonClose => 'Close';
 
   @override
+  String get commonBack => 'Back';
+
+  @override
+  String get commonHelp => 'Help';
+
+  @override
   String get commonCreate => 'Create';
 
   @override
@@ -308,6 +314,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get gatewayErrDirectForbidden =>
       'NovelAI refused this request for your account.';
+
+  @override
+  String get toolErrApiKeyRejected =>
+      'NovelAI rejected the API key. Check it in Settings.';
 
   @override
   String get gatewaySessionExpiredTitle => 'Session expired';
@@ -2371,6 +2381,54 @@ class AppLocalizationsEn extends AppLocalizations {
   String get img2imgClearMaskConfirm => 'Clear';
 
   @override
+  String get img2imgMaskUndoStroke => 'Undo stroke';
+
+  @override
+  String get img2imgMaskClearTooltip => 'Clear mask';
+
+  @override
+  String get img2imgBrushRound => 'Round brush';
+
+  @override
+  String get img2imgBrushSquare => 'Square brush';
+
+  @override
+  String get img2imgBrushSize => 'SIZE';
+
+  @override
+  String get img2imgMaskDisplay => 'Mask display settings';
+
+  @override
+  String get img2imgMaskSave => 'Save mask';
+
+  @override
+  String get img2imgMaskLoad => 'Load mask';
+
+  @override
+  String get img2imgMaskSaved => 'Mask saved';
+
+  @override
+  String get img2imgMaskColor => 'COLOR';
+
+  @override
+  String get img2imgMaskOpacity => 'OPACITY';
+
+  @override
+  String get img2imgMaskPatternSolid => 'Solid';
+
+  @override
+  String get img2imgMaskPatternStripe => 'Stripe';
+
+  @override
+  String get img2imgMaskPatternCross => 'Cross';
+
+  @override
+  String get img2imgMaskBorder => 'BORDER';
+
+  @override
+  String get img2imgMaskBorderTooltip => 'Show mask border';
+
+  @override
   String get img2imgNoMask => 'NO MASK (full img2img)';
 
   @override
@@ -2395,6 +2453,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get img2imgBlankCanvasSize => 'CANVAS SIZE';
+
+  @override
+  String get img2imgPickerTitle => 'SELECT SOURCE IMAGE';
+
+  @override
+  String get img2imgPickerDesc =>
+      'Choose an image to use as the base for img2img or inpainting';
+
+  @override
+  String get img2imgUseCurrent => 'USE CURRENT GENERATION';
+
+  @override
+  String get img2imgUseCurrentDesc => 'Use the last generated image as source';
 
   @override
   String get slideshowTitle => 'SLIDESHOW';
@@ -2622,6 +2693,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cascadeRemoveBeat => 'Remove Beat';
+
+  @override
+  String get cascadeRemoveBeatMessage =>
+      'This beat and its prompts will be removed from the sequence.';
+
+  @override
+  String get cascadeRemoveActionTag => 'Remove action tag';
 
   @override
   String get settingsCheckForUpdates => 'Check for Updates';
@@ -2891,6 +2969,34 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get canvasTextDefault => 'Default';
+
+  @override
+  String get canvasSelectTool => 'SELECT';
+
+  @override
+  String get canvasLassoTool => 'LASSO';
+
+  @override
+  String get canvasBlurTool => 'BLUR';
+
+  @override
+  String get canvasCloneTool => 'CLONE';
+
+  @override
+  String get canvasResize => 'Resize canvas';
+
+  @override
+  String get canvasApply => 'APPLY';
+
+  @override
+  String get canvasDeleteSelection => 'Delete selection contents';
+
+  @override
+  String get canvasPaletteTapHint =>
+      'Tap: select  •  Hold: replace with current';
+
+  @override
+  String get canvasPaletteHoldHint => 'Hold to replace';
 
   @override
   String get canvasBlendNormal => 'Normal';
@@ -3624,6 +3730,52 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mlRemovePoint => 'REMOVE';
 
   @override
+  String get mlBack => 'BACK';
+
+  @override
+  String get mlEncodingImage => 'Encoding image...';
+
+  @override
+  String get mlTapToSelect => 'Tap on the image to select a region';
+
+  @override
+  String get mlUndoPoint => 'Undo last point';
+
+  @override
+  String get mlClearPoints => 'Clear all points';
+
+  @override
+  String mlPointCount(int count) {
+    return '$count points';
+  }
+
+  @override
+  String get mlOpacity => 'OPACITY';
+
+  @override
+  String get mlEdgeRefine => 'EDGE REFINE';
+
+  @override
+  String get mlThreshold => 'THRESHOLD';
+
+  @override
+  String get mlFeather => 'FEATHER';
+
+  @override
+  String get mlDone => 'DONE';
+
+  @override
+  String get mlUpscaleCompare => 'UPSCALE COMPARE';
+
+  @override
+  String get mlSaved => 'SAVED';
+
+  @override
+  String mlSavedFile(String name) {
+    return 'SAVED: $name';
+  }
+
+  @override
   String get mlTierFast => 'FAST';
 
   @override
@@ -3661,6 +3813,87 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mlLowRamWarning => 'LOW RAM — MAY CRASH';
+
+  @override
+  String get mlDesktopOnlyMayCrash => 'DESKTOP ONLY — MAY CRASH';
+
+  @override
+  String get mlDownloadFailed => 'Download failed';
+
+  @override
+  String get mlManagerSubtitle =>
+      'Download and manage on-device ML models for background removal and upscaling.';
+
+  @override
+  String get mlNoModelsDownloaded => 'No models downloaded';
+
+  @override
+  String mlModelsDownloaded(int count, String size) {
+    return 'Models downloaded: $count · $size';
+  }
+
+  @override
+  String get mlMobileApiNote =>
+      'On mobile devices, upscaling and background removal use the NovelAI API. Local ML models are only available on desktop.';
+
+  @override
+  String get mlSegmentationNote =>
+      'Interactive object selection using SAM. Downloads both encoder and decoder.';
+
+  @override
+  String get mlUnknownModels => 'UNKNOWN MODELS';
+
+  @override
+  String get mlUnknownModelsNote =>
+      'Legacy or unrecognized .onnx/.ort files. Delete to free disk space.';
+
+  @override
+  String mlDeleteModelTitle(String name) {
+    return 'Delete $name?';
+  }
+
+  @override
+  String mlDeleteModelMessage(String size) {
+    return 'This will free $size of disk space.';
+  }
+
+  @override
+  String get mlRecommendedForDevice => 'RECOMMENDED FOR YOUR DEVICE';
+
+  @override
+  String get mlSlowOnDevice => 'MAY BE SLOW ON THIS DEVICE';
+
+  @override
+  String get mlNaiApiUpscale => 'NOVELAI API UPSCALE';
+
+  @override
+  String get mlNaiApiUpscaleDesc =>
+      'Up to 4x server-side upscaling via NovelAI API. Requires API key. No download needed.';
+
+  @override
+  String get mlNaiApiBgRemoval => 'NOVELAI API BG REMOVAL';
+
+  @override
+  String get mlNaiApiBgRemovalDesc =>
+      'Server-side background removal via NovelAI API. Requires API key. No download needed.';
+
+  @override
+  String get mlCloud => 'CLOUD';
+
+  @override
+  String get mlNoApiKey => 'NO API KEY SET';
+
+  @override
+  String get mlTierQualityShort => 'HQ';
+
+  @override
+  String get mlDeviceMobile => 'MOBILE';
+
+  @override
+  String get mlDeviceDesktop => 'DESKTOP';
+
+  @override
+  String get mlDeviceBoth => 'BOTH';
 
   @override
   String get mlBgRemovedAndSaved => 'BG REMOVED & SAVED';
@@ -3726,6 +3959,96 @@ class AppLocalizationsEn extends AppLocalizations {
   String get directorToolsMood => 'MOOD';
 
   @override
+  String get directorToolBgRemoval => 'Remove BG';
+
+  @override
+  String get directorToolLineart => 'Line Art';
+
+  @override
+  String get directorToolSketch => 'Sketch';
+
+  @override
+  String get directorToolColorize => 'Colorize';
+
+  @override
+  String get directorToolEmotion => 'Emotion';
+
+  @override
+  String get directorToolDeclutter => 'Declutter';
+
+  @override
+  String get moodNeutral => 'Neutral';
+
+  @override
+  String get moodHappy => 'Happy';
+
+  @override
+  String get moodSad => 'Sad';
+
+  @override
+  String get moodAngry => 'Angry';
+
+  @override
+  String get moodScared => 'Scared';
+
+  @override
+  String get moodSurprised => 'Surprised';
+
+  @override
+  String get moodTired => 'Tired';
+
+  @override
+  String get moodExcited => 'Excited';
+
+  @override
+  String get moodNervous => 'Nervous';
+
+  @override
+  String get moodThinking => 'Thinking';
+
+  @override
+  String get moodConfused => 'Confused';
+
+  @override
+  String get moodShy => 'Shy';
+
+  @override
+  String get moodDisgusted => 'Disgusted';
+
+  @override
+  String get moodSmug => 'Smug';
+
+  @override
+  String get moodBored => 'Bored';
+
+  @override
+  String get moodLaughing => 'Laughing';
+
+  @override
+  String get moodIrritated => 'Irritated';
+
+  @override
+  String get moodAroused => 'Aroused';
+
+  @override
+  String get moodEmbarrassed => 'Embarrassed';
+
+  @override
+  String get moodWorried => 'Worried';
+
+  @override
+  String get moodLove => 'Love';
+
+  @override
+  String get moodDetermined => 'Determined';
+
+  @override
+  String get moodHurt => 'Hurt';
+
+  @override
+  String get moodPlayful => 'Playful';
+
+  @override
   String get directorToolsPrompt => 'PROMPT';
 
   @override
@@ -3764,6 +4087,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get enhanceNoise => 'NOISE';
+
+  @override
+  String get enhanceResolutionScale => 'RESOLUTION SCALE';
 
   @override
   String get enhanceSaved => 'ENHANCED IMAGE SAVED TO GALLERY';
@@ -4167,6 +4493,53 @@ class AppLocalizationsEn extends AppLocalizations {
   String get jukeboxVisualizer => 'VISUALIZER';
 
   @override
+  String get jukeboxToggleVisualizer => 'Toggle visualizer display';
+
+  @override
+  String get jukeboxPrevious => 'Previous';
+
+  @override
+  String get jukeboxNext => 'Next';
+
+  @override
+  String get jukeboxPlay => 'Play';
+
+  @override
+  String get jukeboxPause => 'Pause';
+
+  @override
+  String get jukeboxMute => 'Mute';
+
+  @override
+  String get jukeboxUnmute => 'Unmute';
+
+  @override
+  String get jukeboxRemoveFromQueue => 'Remove from queue';
+
+  @override
+  String get jukeboxFullscreen => 'Fullscreen';
+
+  @override
+  String get jukeboxKaraokeLabel => 'KARAOKE';
+
+  @override
+  String get jukeboxBundled => 'BUNDLED';
+
+  @override
+  String get jukeboxSoundfontDownload => 'DOWNLOAD';
+
+  @override
+  String get jukeboxSoundfontDelete => 'Delete soundfont';
+
+  @override
+  String get jukeboxSoundfontDeleteTitle => 'DELETE SOUNDFONT';
+
+  @override
+  String jukeboxSoundfontDeleteMessage(String name) {
+    return 'Delete $name? You can re-download it later.';
+  }
+
+  @override
   String get jukeboxVizIntensity => 'INTENSITY';
 
   @override
@@ -4424,6 +4797,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get textGenOutputEmpty => 'Generated text will appear here.';
+
+  @override
+  String get textGenErrNoToken =>
+      'No NovelAI token is set. Add it in Settings.';
+
+  @override
+  String get textGenErrEmptyInput => 'Enter some text to continue from.';
+
+  @override
+  String get textGenClearConfirmTitle => 'Clear output?';
+
+  @override
+  String get textGenClearConfirmMessage =>
+      'The generated text and its reasoning will be removed. Copy it first if you need it.';
 
   @override
   String get textGenHistory => 'History';

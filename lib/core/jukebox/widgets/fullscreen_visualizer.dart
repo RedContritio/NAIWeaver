@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/jukebox_notifier.dart';
+import '../../l10n/l10n_extensions.dart';
 import '../../theme/theme_extensions.dart';
 import 'karaoke_overlay.dart';
 import 'karaoke_visualizer.dart';
+import '../../theme/vision_metrics.dart';
 
 class FullscreenVisualizer extends StatelessWidget {
   const FullscreenVisualizer({super.key});
@@ -19,15 +21,14 @@ class FullscreenVisualizer extends StatelessWidget {
       body: Stack(
         children: [
           const Positioned.fill(child: KaraokeVisualizer()),
-          const Positioned.fill(
-            child: Center(child: KaraokeOverlay()),
-          ),
+          const Positioned.fill(child: Center(child: KaraokeOverlay())),
           // Close button
           Positioned(
             top: MediaQuery.of(context).padding.top + 8,
             left: 8,
             child: IconButton(
               icon: const Icon(Icons.close, color: Colors.white70, size: 28),
+              tooltip: context.l.commonClose,
               onPressed: () => Navigator.of(context).pop(),
             ),
           ),
@@ -65,26 +66,43 @@ class FullscreenVisualizer extends StatelessWidget {
                         ),
                       ),
                     ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: VisionMetrics.space8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.skip_previous, color: Colors.white70, size: 28),
+                        icon: const Icon(
+                          Icons.skip_previous,
+                          color: Colors.white70,
+                          size: 28,
+                        ),
+                        tooltip: context.l.jukeboxPrevious,
                         onPressed: jukebox.previous,
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: VisionMetrics.space16),
                       IconButton(
                         icon: Icon(
-                          jukebox.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                          jukebox.isPlaying
+                              ? Icons.pause_circle_filled
+                              : Icons.play_circle_filled,
                           color: Colors.white,
                           size: 48,
                         ),
-                        onPressed: jukebox.isPlaying ? jukebox.pause : jukebox.resume,
+                        tooltip: jukebox.isPlaying
+                            ? context.l.jukeboxPause
+                            : context.l.jukeboxPlay,
+                        onPressed: jukebox.isPlaying
+                            ? jukebox.pause
+                            : jukebox.resume,
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: VisionMetrics.space16),
                       IconButton(
-                        icon: const Icon(Icons.skip_next, color: Colors.white70, size: 28),
+                        icon: const Icon(
+                          Icons.skip_next,
+                          color: Colors.white70,
+                          size: 28,
+                        ),
+                        tooltip: context.l.jukeboxNext,
                         onPressed: jukebox.next,
                       ),
                     ],
