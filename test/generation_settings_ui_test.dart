@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:naiweaver/features/characters/widgets/characters_page.dart';
 import 'package:naiweaver/core/widgets/text_input_dialog.dart';
 import 'package:naiweaver/features/gallery/providers/gallery_notifier.dart';
 import 'package:naiweaver/features/generation/providers/generation_notifier.dart';
@@ -236,6 +237,38 @@ void main() {
         expect(negative.text, 'c, ');
         expect(g.state.characters, isEmpty);
         expect(g.promptController.text, isEmpty);
+      },
+    );
+
+    test(
+      'the characters page apply honours charInsertTarget and negatives',
+      () async {
+        final editor = (await rigWith('editor')).generation;
+        expect(
+          applyCharacterToPrompt(
+            editor,
+            name: 'Ann',
+            tags: '1girl, red hair, ',
+            negativeTags: 'bad hands',
+            dishevelled: true,
+          ),
+          ApplyTagResult.addedCharacterCard,
+        );
+        expect(editor.state.characters.single.name, 'Ann');
+        expect(editor.state.characters.single.prompt, '1girl, red hair, nsfw');
+        expect(editor.state.characters.single.uc, 'bad hands');
+        expect(editor.promptController.text, isEmpty);
+
+        final main = (await rigWith('main')).generation;
+        applyCharacterToPrompt(
+          main,
+          name: 'Ann',
+          tags: '1girl',
+          negativeTags: 'bad hands',
+        );
+        expect(main.promptController.text, '1girl, ');
+        expect(main.negativePromptController.text, 'bad hands, ');
+        expect(main.state.characters, isEmpty);
       },
     );
   });
