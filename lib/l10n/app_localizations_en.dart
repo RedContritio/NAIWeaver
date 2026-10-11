@@ -60,6 +60,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonRemoveFavorite => 'Remove from favorites';
 
   @override
+  String get commonRetry => 'Retry';
+
+  @override
+  String get commonLoading => 'Loading';
+
+  @override
   String get commonUnsavedTitle => 'Unsaved changes';
 
   @override

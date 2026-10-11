@@ -60,6 +60,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get commonRemoveFavorite => 'お気に入りから削除';
 
   @override
+  String get commonRetry => '再試行';
+
+  @override
+  String get commonLoading => '読み込み中';
+
+  @override
   String get commonUnsavedTitle => '未保存の変更';
 
   @override

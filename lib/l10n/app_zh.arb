@@ -18,6 +18,8 @@
   "commonDiscard": "放弃",
   "commonAddFavorite": "加入收藏",
   "commonRemoveFavorite": "取消收藏",
+  "commonRetry": "重试",
+  "commonLoading": "加载中",
   "commonUnsavedTitle": "未保存的修改",
   "commonUnsavedMessage": "有尚未保存的修改，继续之前要保存吗？",
 
