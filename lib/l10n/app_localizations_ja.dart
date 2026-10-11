@@ -2728,6 +2728,33 @@ class AppLocalizationsJa extends AppLocalizations {
   String get canvasTextDefault => 'デフォルト';
 
   @override
+  String get canvasSelectTool => '選択';
+
+  @override
+  String get canvasLassoTool => '投げ縄';
+
+  @override
+  String get canvasBlurTool => 'ぼかし';
+
+  @override
+  String get canvasCloneTool => 'コピー';
+
+  @override
+  String get canvasResize => 'キャンバスサイズを変更';
+
+  @override
+  String get canvasApply => '適用';
+
+  @override
+  String get canvasDeleteSelection => '選択範囲の内容を削除';
+
+  @override
+  String get canvasPaletteTapHint => 'タップ：選択  •  長押し：現在の色に置換';
+
+  @override
+  String get canvasPaletteHoldHint => '長押しで置換';
+
+  @override
   String get canvasBlendNormal => '通常';
 
   @override
@@ -3842,6 +3869,32 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get jukeboxVisualizer => 'ビジュアライザー';
+
+  @override
+  String get jukeboxToggleVisualizer => 'ビジュアライザー表示を切り替え';
+
+  @override
+  String get jukeboxFullscreen => '全画面';
+
+  @override
+  String get jukeboxKaraokeLabel => 'カラオケ';
+
+  @override
+  String get jukeboxBundled => '内蔵';
+
+  @override
+  String get jukeboxSoundfontDownload => 'ダウンロード';
+
+  @override
+  String get jukeboxSoundfontDelete => 'サウンドフォントを削除';
+
+  @override
+  String get jukeboxSoundfontDeleteTitle => 'サウンドフォントを削除';
+
+  @override
+  String jukeboxSoundfontDeleteMessage(String name) {
+    return '$name を削除しますか？後で再ダウンロードできます。';
+  }
 
   @override
   String get jukeboxVizIntensity => '強度';

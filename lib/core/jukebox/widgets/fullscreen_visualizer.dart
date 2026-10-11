@@ -4,6 +4,7 @@ import '../providers/jukebox_notifier.dart';
 import '../../theme/theme_extensions.dart';
 import 'karaoke_overlay.dart';
 import 'karaoke_visualizer.dart';
+import '../../theme/vision_metrics.dart';
 
 class FullscreenVisualizer extends StatelessWidget {
   const FullscreenVisualizer({super.key});
@@ -19,9 +20,7 @@ class FullscreenVisualizer extends StatelessWidget {
       body: Stack(
         children: [
           const Positioned.fill(child: KaraokeVisualizer()),
-          const Positioned.fill(
-            child: Center(child: KaraokeOverlay()),
-          ),
+          const Positioned.fill(child: Center(child: KaraokeOverlay())),
           // Close button
           Positioned(
             top: MediaQuery.of(context).padding.top + 8,
@@ -65,26 +64,38 @@ class FullscreenVisualizer extends StatelessWidget {
                         ),
                       ),
                     ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: VisionMetrics.space8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.skip_previous, color: Colors.white70, size: 28),
+                        icon: const Icon(
+                          Icons.skip_previous,
+                          color: Colors.white70,
+                          size: 28,
+                        ),
                         onPressed: jukebox.previous,
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: VisionMetrics.space16),
                       IconButton(
                         icon: Icon(
-                          jukebox.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                          jukebox.isPlaying
+                              ? Icons.pause_circle_filled
+                              : Icons.play_circle_filled,
                           color: Colors.white,
                           size: 48,
                         ),
-                        onPressed: jukebox.isPlaying ? jukebox.pause : jukebox.resume,
+                        onPressed: jukebox.isPlaying
+                            ? jukebox.pause
+                            : jukebox.resume,
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: VisionMetrics.space16),
                       IconButton(
-                        icon: const Icon(Icons.skip_next, color: Colors.white70, size: 28),
+                        icon: const Icon(
+                          Icons.skip_next,
+                          color: Colors.white70,
+                          size: 28,
+                        ),
                         onPressed: jukebox.next,
                       ),
                     ],

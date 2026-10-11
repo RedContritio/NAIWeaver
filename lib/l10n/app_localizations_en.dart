@@ -2804,6 +2804,34 @@ class AppLocalizationsEn extends AppLocalizations {
   String get canvasTextDefault => 'Default';
 
   @override
+  String get canvasSelectTool => 'SELECT';
+
+  @override
+  String get canvasLassoTool => 'LASSO';
+
+  @override
+  String get canvasBlurTool => 'BLUR';
+
+  @override
+  String get canvasCloneTool => 'CLONE';
+
+  @override
+  String get canvasResize => 'Resize canvas';
+
+  @override
+  String get canvasApply => 'APPLY';
+
+  @override
+  String get canvasDeleteSelection => 'Delete selection contents';
+
+  @override
+  String get canvasPaletteTapHint =>
+      'Tap: select  •  Hold: replace with current';
+
+  @override
+  String get canvasPaletteHoldHint => 'Hold to replace';
+
+  @override
   String get canvasBlendNormal => 'Normal';
 
   @override
@@ -3936,6 +3964,32 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get jukeboxVisualizer => 'VISUALIZER';
+
+  @override
+  String get jukeboxToggleVisualizer => 'Toggle visualizer display';
+
+  @override
+  String get jukeboxFullscreen => 'Fullscreen';
+
+  @override
+  String get jukeboxKaraokeLabel => 'KARAOKE';
+
+  @override
+  String get jukeboxBundled => 'BUNDLED';
+
+  @override
+  String get jukeboxSoundfontDownload => 'DOWNLOAD';
+
+  @override
+  String get jukeboxSoundfontDelete => 'Delete soundfont';
+
+  @override
+  String get jukeboxSoundfontDeleteTitle => 'DELETE SOUNDFONT';
+
+  @override
+  String jukeboxSoundfontDeleteMessage(String name) {
+    return 'Delete $name? You can re-download it later.';
+  }
 
   @override
   String get jukeboxVizIntensity => 'INTENSITY';

@@ -5176,6 +5176,60 @@ abstract class AppLocalizations {
   /// **'Default'**
   String get canvasTextDefault;
 
+  /// No description provided for @canvasSelectTool.
+  ///
+  /// In en, this message translates to:
+  /// **'SELECT'**
+  String get canvasSelectTool;
+
+  /// No description provided for @canvasLassoTool.
+  ///
+  /// In en, this message translates to:
+  /// **'LASSO'**
+  String get canvasLassoTool;
+
+  /// No description provided for @canvasBlurTool.
+  ///
+  /// In en, this message translates to:
+  /// **'BLUR'**
+  String get canvasBlurTool;
+
+  /// No description provided for @canvasCloneTool.
+  ///
+  /// In en, this message translates to:
+  /// **'CLONE'**
+  String get canvasCloneTool;
+
+  /// No description provided for @canvasResize.
+  ///
+  /// In en, this message translates to:
+  /// **'Resize canvas'**
+  String get canvasResize;
+
+  /// No description provided for @canvasApply.
+  ///
+  /// In en, this message translates to:
+  /// **'APPLY'**
+  String get canvasApply;
+
+  /// No description provided for @canvasDeleteSelection.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete selection contents'**
+  String get canvasDeleteSelection;
+
+  /// No description provided for @canvasPaletteTapHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap: select  •  Hold: replace with current'**
+  String get canvasPaletteTapHint;
+
+  /// No description provided for @canvasPaletteHoldHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold to replace'**
+  String get canvasPaletteHoldHint;
+
   /// No description provided for @canvasBlendNormal.
   ///
   /// In en, this message translates to:
@@ -7291,6 +7345,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'VISUALIZER'**
   String get jukeboxVisualizer;
+
+  /// No description provided for @jukeboxToggleVisualizer.
+  ///
+  /// In en, this message translates to:
+  /// **'Toggle visualizer display'**
+  String get jukeboxToggleVisualizer;
+
+  /// No description provided for @jukeboxFullscreen.
+  ///
+  /// In en, this message translates to:
+  /// **'Fullscreen'**
+  String get jukeboxFullscreen;
+
+  /// No description provided for @jukeboxKaraokeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'KARAOKE'**
+  String get jukeboxKaraokeLabel;
+
+  /// No description provided for @jukeboxBundled.
+  ///
+  /// In en, this message translates to:
+  /// **'BUNDLED'**
+  String get jukeboxBundled;
+
+  /// No description provided for @jukeboxSoundfontDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'DOWNLOAD'**
+  String get jukeboxSoundfontDownload;
+
+  /// No description provided for @jukeboxSoundfontDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete soundfont'**
+  String get jukeboxSoundfontDelete;
+
+  /// No description provided for @jukeboxSoundfontDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'DELETE SOUNDFONT'**
+  String get jukeboxSoundfontDeleteTitle;
+
+  /// No description provided for @jukeboxSoundfontDeleteMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {name}? You can re-download it later.'**
+  String jukeboxSoundfontDeleteMessage(String name);
 
   /// No description provided for @jukeboxVizIntensity.
   ///

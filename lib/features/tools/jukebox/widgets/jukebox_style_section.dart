@@ -11,6 +11,7 @@ import '../../../../core/theme/vision_tokens.dart';
 import '../../../../core/widgets/color_swatch_row.dart';
 import '../../../../core/widgets/vision_slider.dart';
 import '../../../../core/l10n/l10n_extensions.dart';
+import '../../../../core/theme/vision_metrics.dart';
 
 /// Karaoke style customization: colors, visualizer style, intensity sliders,
 /// font scale, and a reset button.
@@ -18,7 +19,11 @@ class JukeboxStyleSection extends StatelessWidget {
   final JukeboxNotifier jukebox;
   final VisionTokens t;
 
-  const JukeboxStyleSection({super.key, required this.jukebox, required this.t});
+  const JukeboxStyleSection({
+    super.key,
+    required this.jukebox,
+    required this.t,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +39,7 @@ class JukeboxStyleSection extends StatelessWidget {
           onChanged: (c) => jukebox.setKaraokeHighlightColor(c),
           t: t,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: VisionMetrics.space12),
         // Upcoming color
         ColorSwatchRow(
           label: l.jukeboxStyleUpcoming,
@@ -43,7 +48,7 @@ class JukeboxStyleSection extends StatelessWidget {
           onChanged: (c) => jukebox.setKaraokeUpcomingColor(c),
           t: t,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: VisionMetrics.space12),
         // Next line color
         ColorSwatchRow(
           label: l.jukeboxStyleNextLine,
@@ -52,7 +57,7 @@ class JukeboxStyleSection extends StatelessWidget {
           onChanged: (c) => jukebox.setKaraokeNextLineColor(c),
           t: t,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: VisionMetrics.space12),
         // Glow color
         ColorSwatchRow(
           label: l.jukeboxStyleGlow,
@@ -61,41 +66,58 @@ class JukeboxStyleSection extends StatelessWidget {
           onChanged: (c) => jukebox.setVisualizerColor(c),
           t: t,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: VisionMetrics.space16),
 
         // Visualizer style chips
-        Text(l.jukeboxVisualizer,
-            style: TextStyle(
-                color: t.textDisabled,
-                fontSize: t.fontSize(7),
-                letterSpacing: 1)),
-        const SizedBox(height: 8),
+        Text(
+          l.jukeboxVisualizer,
+          style: TextStyle(
+            color: t.textDisabled,
+            fontSize: t.fontSize(7),
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: VisionMetrics.space8),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
             children: VisualizerStyle.values.map((style) {
               final selected = jukebox.visualizerStyle == style;
               return Padding(
-                padding: const EdgeInsets.only(right: 6),
+                padding: const EdgeInsets.only(right: VisionMetrics.space8),
                 child: InkWell(
                   onTap: () => jukebox.setVisualizerStyle(style),
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(VisionMetrics.radius4),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: VisionMetrics.space12,
+                      vertical: VisionMetrics.space8,
+                    ),
                     decoration: BoxDecoration(
-                      color: selected ? t.accent.withValues(alpha: 0.15) : t.borderSubtle,
-                      borderRadius: BorderRadius.circular(4),
+                      color: selected
+                          ? t.accent.withValues(
+                              alpha: VisionMetrics.opacityPressed,
+                            )
+                          : t.borderSubtle,
+                      borderRadius: BorderRadius.circular(
+                        VisionMetrics.radius4,
+                      ),
                       border: Border.all(
                         color: selected ? t.accent : Colors.transparent,
                         width: 1,
                       ),
                     ),
-                    child: Text(style.name.toUpperCase(),
-                        style: TextStyle(
-                            color: selected ? t.accent : t.textSecondary,
-                            fontSize: t.fontSize(7),
-                            letterSpacing: 1,
-                            fontWeight: selected ? FontWeight.bold : FontWeight.normal)),
+                    child: Text(
+                      style.name.toUpperCase(),
+                      style: TextStyle(
+                        color: selected ? t.accent : t.textSecondary,
+                        fontSize: t.fontSize(7),
+                        letterSpacing: 1,
+                        fontWeight: selected
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                      ),
+                    ),
                   ),
                 ),
               );
@@ -103,25 +125,40 @@ class JukeboxStyleSection extends StatelessWidget {
           ),
         ),
 
-        const SizedBox(height: 12),
+        const SizedBox(height: VisionMetrics.space12),
 
         // Intensity / Speed / Density sliders
-        _buildVizSlider(l.jukeboxVizIntensity, jukebox.vizIntensity, (v) => jukebox.setVizIntensity(v)),
-        const SizedBox(height: 4),
-        _buildVizSlider(l.jukeboxVizSpeed, jukebox.vizSpeed, (v) => jukebox.setVizSpeed(v)),
-        const SizedBox(height: 4),
-        _buildVizSlider(l.jukeboxVizDensity, jukebox.vizDensity, (v) => jukebox.setVizDensity(v)),
+        _buildVizSlider(
+          l.jukeboxVizIntensity,
+          jukebox.vizIntensity,
+          (v) => jukebox.setVizIntensity(v),
+        ),
+        const SizedBox(height: VisionMetrics.space4),
+        _buildVizSlider(
+          l.jukeboxVizSpeed,
+          jukebox.vizSpeed,
+          (v) => jukebox.setVizSpeed(v),
+        ),
+        const SizedBox(height: VisionMetrics.space4),
+        _buildVizSlider(
+          l.jukeboxVizDensity,
+          jukebox.vizDensity,
+          (v) => jukebox.setVizDensity(v),
+        ),
 
-        const SizedBox(height: 16),
+        const SizedBox(height: VisionMetrics.space16),
 
         // Font scale slider
         Row(
           children: [
-            Text(l.jukeboxFontSize,
-                style: TextStyle(
-                    color: t.textDisabled,
-                    fontSize: t.fontSize(7),
-                    letterSpacing: 1)),
+            Text(
+              l.jukeboxFontSize,
+              style: TextStyle(
+                color: t.textDisabled,
+                fontSize: t.fontSize(7),
+                letterSpacing: 1,
+              ),
+            ),
             Expanded(
               child: VisionSlider.accent(
                 value: jukebox.karaokeFontScale,
@@ -131,15 +168,18 @@ class JukeboxStyleSection extends StatelessWidget {
                 t: t,
               ),
             ),
-            Text('${(jukebox.karaokeFontScale * 100).round()}%',
-                style: TextStyle(
-                    color: t.textDisabled,
-                    fontSize: t.fontSize(7),
-                    letterSpacing: 1)),
+            Text(
+              '${(jukebox.karaokeFontScale * 100).round()}%',
+              style: TextStyle(
+                color: t.textDisabled,
+                fontSize: t.fontSize(7),
+                letterSpacing: 1,
+              ),
+            ),
           ],
         ),
 
-        const SizedBox(height: 12),
+        const SizedBox(height: VisionMetrics.space12),
 
         // Reset button
         Align(
@@ -147,42 +187,54 @@ class JukeboxStyleSection extends StatelessWidget {
           child: TextButton(
             onPressed: jukebox.resetKaraokeStyle,
             style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(
+                horizontal: VisionMetrics.space12,
+                vertical: VisionMetrics.space8,
+              ),
             ),
-            child: Text(l.jukeboxResetToDefaults,
-                style: TextStyle(
-                    color: t.textDisabled,
-                    fontSize: t.fontSize(7),
-                    letterSpacing: 1)),
+            child: Text(
+              l.jukeboxResetToDefaults,
+              style: TextStyle(
+                color: t.textDisabled,
+                fontSize: t.fontSize(7),
+                letterSpacing: 1,
+              ),
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildVizSlider(String label, double value, void Function(double) onChanged) {
+  Widget _buildVizSlider(
+    String label,
+    double value,
+    void Function(double) onChanged,
+  ) {
     return Row(
       children: [
         SizedBox(
           width: 70,
-          child: Text(label,
-              style: TextStyle(
-                  color: t.textDisabled,
-                  fontSize: t.fontSize(7),
-                  letterSpacing: 1)),
-        ),
-        Expanded(
-          child: VisionSlider.accent(
-            value: value,
-            onChanged: onChanged,
-            t: t,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: t.textDisabled,
+              fontSize: t.fontSize(7),
+              letterSpacing: 1,
+            ),
           ),
         ),
-        Text('${(value * 100).round()}%',
-            style: TextStyle(
-                color: t.textDisabled,
-                fontSize: t.fontSize(7),
-                letterSpacing: 1)),
+        Expanded(
+          child: VisionSlider.accent(value: value, onChanged: onChanged, t: t),
+        ),
+        Text(
+          '${(value * 100).round()}%',
+          style: TextStyle(
+            color: t.textDisabled,
+            fontSize: t.fontSize(7),
+            letterSpacing: 1,
+          ),
+        ),
       ],
     );
   }
@@ -193,7 +245,11 @@ class JukeboxSettingsSection extends StatelessWidget {
   final JukeboxNotifier jukebox;
   final VisionTokens t;
 
-  const JukeboxSettingsSection({super.key, required this.jukebox, required this.t});
+  const JukeboxSettingsSection({
+    super.key,
+    required this.jukebox,
+    required this.t,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -205,25 +261,30 @@ class JukeboxSettingsSection extends StatelessWidget {
           children: [
             IconButton(
               icon: Icon(
-                jukebox.repeatMode == RepeatMode.one ? Icons.repeat_one : Icons.repeat,
+                jukebox.repeatMode == RepeatMode.one
+                    ? Icons.repeat_one
+                    : Icons.repeat,
                 size: 16,
-                color: jukebox.repeatMode != RepeatMode.off ? t.accent : t.textDisabled,
+                color: jukebox.repeatMode != RepeatMode.off
+                    ? t.accent
+                    : t.textDisabled,
               ),
               onPressed: jukebox.cycleRepeatMode,
               constraints: const BoxConstraints(),
-              padding: const EdgeInsets.all(4),
+              padding: const EdgeInsets.all(VisionMetrics.space4),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: VisionMetrics.space8),
             Text(
               l.jukeboxRepeatMode(jukebox.repeatMode.name.toUpperCase()),
               style: TextStyle(
-                  color: t.textDisabled,
-                  fontSize: t.fontSize(8),
-                  letterSpacing: 1),
+                color: t.textDisabled,
+                fontSize: t.fontSize(8),
+                letterSpacing: 1,
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: VisionMetrics.space8),
         // Shuffle
         Row(
           children: [
@@ -235,15 +296,18 @@ class JukeboxSettingsSection extends StatelessWidget {
               ),
               onPressed: jukebox.toggleShuffle,
               constraints: const BoxConstraints(),
-              padding: const EdgeInsets.all(4),
+              padding: const EdgeInsets.all(VisionMetrics.space4),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: VisionMetrics.space8),
             Text(
-              l.jukeboxShuffleStatus(jukebox.shuffle ? l.jukeboxOn : l.jukeboxOff),
+              l.jukeboxShuffleStatus(
+                jukebox.shuffle ? l.jukeboxOn : l.jukeboxOff,
+              ),
               style: TextStyle(
-                  color: t.textDisabled,
-                  fontSize: t.fontSize(8),
-                  letterSpacing: 1),
+                color: t.textDisabled,
+                fontSize: t.fontSize(8),
+                letterSpacing: 1,
+              ),
             ),
           ],
         ),
@@ -258,7 +322,11 @@ class JukeboxMobileSettingsRow extends StatelessWidget {
   final JukeboxNotifier jukebox;
   final VisionTokens t;
 
-  const JukeboxMobileSettingsRow({super.key, required this.jukebox, required this.t});
+  const JukeboxMobileSettingsRow({
+    super.key,
+    required this.jukebox,
+    required this.t,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -267,23 +335,28 @@ class JukeboxMobileSettingsRow extends StatelessWidget {
       children: [
         IconButton(
           icon: Icon(
-            jukebox.repeatMode == RepeatMode.one ? Icons.repeat_one : Icons.repeat,
+            jukebox.repeatMode == RepeatMode.one
+                ? Icons.repeat_one
+                : Icons.repeat,
             size: 16,
-            color: jukebox.repeatMode != RepeatMode.off ? t.accent : t.textDisabled,
+            color: jukebox.repeatMode != RepeatMode.off
+                ? t.accent
+                : t.textDisabled,
           ),
           onPressed: jukebox.cycleRepeatMode,
           constraints: const BoxConstraints(),
-          padding: const EdgeInsets.all(4),
+          padding: const EdgeInsets.all(VisionMetrics.space4),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: VisionMetrics.space4),
         Text(
           jukebox.repeatMode.name.toUpperCase(),
           style: TextStyle(
-              color: t.textDisabled,
-              fontSize: t.fontSize(7),
-              letterSpacing: 1),
+            color: t.textDisabled,
+            fontSize: t.fontSize(7),
+            letterSpacing: 1,
+          ),
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: VisionMetrics.space16),
         IconButton(
           icon: Icon(
             Icons.shuffle,
@@ -292,26 +365,29 @@ class JukeboxMobileSettingsRow extends StatelessWidget {
           ),
           onPressed: jukebox.toggleShuffle,
           constraints: const BoxConstraints(),
-          padding: const EdgeInsets.all(4),
+          padding: const EdgeInsets.all(VisionMetrics.space4),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: VisionMetrics.space4),
         Text(
           jukebox.shuffle ? l.jukeboxOn : l.jukeboxOff,
           style: TextStyle(
-              color: t.textDisabled,
-              fontSize: t.fontSize(7),
-              letterSpacing: 1),
+            color: t.textDisabled,
+            fontSize: t.fontSize(7),
+            letterSpacing: 1,
+          ),
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: VisionMetrics.space16),
         IconButton(
           icon: Icon(
-            jukebox.showKaraokeInPanel ? Icons.visibility : Icons.visibility_off,
+            jukebox.showKaraokeInPanel
+                ? Icons.visibility
+                : Icons.visibility_off,
             size: 16,
             color: jukebox.showKaraokeInPanel ? t.accent : t.textDisabled,
           ),
           onPressed: jukebox.toggleKaraokeInPanel,
           constraints: const BoxConstraints(),
-          padding: const EdgeInsets.all(4),
+          padding: const EdgeInsets.all(VisionMetrics.space4),
         ),
       ],
     );

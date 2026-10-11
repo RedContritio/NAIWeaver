@@ -2710,6 +2710,33 @@ class AppLocalizationsZh extends AppLocalizations {
   String get canvasTextDefault => '默认';
 
   @override
+  String get canvasSelectTool => '选区';
+
+  @override
+  String get canvasLassoTool => '套索';
+
+  @override
+  String get canvasBlurTool => '模糊';
+
+  @override
+  String get canvasCloneTool => '仿制';
+
+  @override
+  String get canvasResize => '调整画布大小';
+
+  @override
+  String get canvasApply => '应用';
+
+  @override
+  String get canvasDeleteSelection => '删除选区内容';
+
+  @override
+  String get canvasPaletteTapHint => '点按：选择  •  长按：替换为当前颜色';
+
+  @override
+  String get canvasPaletteHoldHint => '长按替换';
+
+  @override
   String get canvasBlendNormal => '正常';
 
   @override
@@ -3819,6 +3846,32 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get jukeboxVisualizer => '频谱可视化';
+
+  @override
+  String get jukeboxToggleVisualizer => '切换可视化显示';
+
+  @override
+  String get jukeboxFullscreen => '全屏';
+
+  @override
+  String get jukeboxKaraokeLabel => '卡拉 OK';
+
+  @override
+  String get jukeboxBundled => '内置';
+
+  @override
+  String get jukeboxSoundfontDownload => '下载';
+
+  @override
+  String get jukeboxSoundfontDelete => '删除音色库';
+
+  @override
+  String get jukeboxSoundfontDeleteTitle => '删除音色库';
+
+  @override
+  String jukeboxSoundfontDeleteMessage(String name) {
+    return '删除 $name？之后可以重新下载。';
+  }
 
   @override
   String get jukeboxVizIntensity => '强度';

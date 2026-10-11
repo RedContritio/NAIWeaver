@@ -4,9 +4,13 @@ import '../../../../core/jukebox/providers/jukebox_notifier.dart';
 import '../../../../core/jukebox/widgets/fullscreen_visualizer.dart';
 import '../../../../core/jukebox/widgets/karaoke_overlay.dart';
 import '../../../../core/jukebox/widgets/karaoke_visualizer.dart';
+import '../../../../core/l10n/l10n_extensions.dart';
 import '../../../../core/theme/vision_tokens.dart';
+import '../../../../core/widgets/ui/app_pill.dart';
+import '../../../../core/widgets/ui/app_tone.dart';
 import '../../../../core/widgets/section_title.dart';
 import '../../../../core/widgets/vision_slider.dart';
+import '../../../../core/theme/vision_metrics.dart';
 
 // ─────────────────────────────────────────
 // Desktop Now Playing section
@@ -25,48 +29,53 @@ class JukeboxNowPlaying extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildHeader(),
-        _buildBody(),
+        _buildHeader(context),
+        _buildBody(context),
         if (jukebox.showKaraokeInPanel && jukebox.currentSong != null) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: VisionMetrics.space16),
           buildVisualizerPreview(context, jukebox, t, height: 160),
         ],
       ],
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
     final song = jukebox.currentSong;
     return Row(
       children: [
-        Expanded(child: SectionTitle('NOW PLAYING', t: t)),
+        Expanded(child: SectionTitle(context.l.jukeboxNowPlaying, t: t)),
         if (song != null)
           IconButton(
             icon: Icon(
-              jukebox.showKaraokeInPanel ? Icons.visibility : Icons.visibility_off,
+              jukebox.showKaraokeInPanel
+                  ? Icons.visibility
+                  : Icons.visibility_off,
               size: 16,
               color: jukebox.showKaraokeInPanel ? t.accent : t.textDisabled,
             ),
             onPressed: jukebox.toggleKaraokeInPanel,
             constraints: const BoxConstraints(),
-            padding: const EdgeInsets.all(4),
-            tooltip: 'Toggle visualizer display',
+            padding: const EdgeInsets.all(VisionMetrics.space4),
+            tooltip: context.l.jukeboxToggleVisualizer,
           ),
       ],
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(BuildContext context) {
     final song = jukebox.currentSong;
     if (song == null) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text('NO SONG PLAYING',
-              style: TextStyle(
-                  color: t.textMinimal,
-                  fontSize: t.fontSize(9),
-                  letterSpacing: 2)),
+          padding: const EdgeInsets.all(VisionMetrics.space24),
+          child: Text(
+            context.l.jukeboxNoSongPlaying,
+            style: TextStyle(
+              color: t.textMinimal,
+              fontSize: t.fontSize(9),
+              letterSpacing: 2,
+            ),
+          ),
         ),
       );
     }
@@ -76,8 +85,8 @@ class JukeboxNowPlaying extends StatelessWidget {
       children: [
         buildSongTitle(song, t),
         if (song.artist != null) buildSongArtist(song, t),
-        buildSongBadges(song, t),
-        const SizedBox(height: 16),
+        buildSongBadges(context, song, t),
+        const SizedBox(height: VisionMetrics.space16),
         buildTransportControls(jukebox, t),
       ],
     );
@@ -103,7 +112,7 @@ class JukeboxNowPlaying extends StatelessWidget {
   /// Song artist display.
   static Widget buildSongArtist(JukeboxSong song, VisionTokens t) {
     return Padding(
-      padding: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.only(top: VisionMetrics.space4),
       child: Text(
         song.artist!.toUpperCase(),
         style: TextStyle(
@@ -116,36 +125,39 @@ class JukeboxNowPlaying extends StatelessWidget {
   }
 
   /// Category & karaoke badges.
-  static Widget buildSongBadges(JukeboxSong song, VisionTokens t) {
+  static Widget buildSongBadges(
+    BuildContext context,
+    JukeboxSong song,
+    VisionTokens t,
+  ) {
     return Padding(
-      padding: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.only(top: VisionMetrics.space4),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            padding: const EdgeInsets.symmetric(
+              horizontal: VisionMetrics.space8,
+              vertical: 2,
+            ),
             decoration: BoxDecoration(
               color: t.borderSubtle,
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: BorderRadius.circular(VisionMetrics.radius2),
             ),
-            child: Text(song.categoryLabel,
-                style: TextStyle(
-                    color: t.textDisabled,
-                    fontSize: t.fontSize(7),
-                    letterSpacing: 1)),
+            child: Text(
+              song.categoryLabel,
+              style: TextStyle(
+                color: t.textDisabled,
+                fontSize: t.fontSize(7),
+                letterSpacing: 1,
+              ),
+            ),
           ),
           if (song.isKaraoke) ...[
-            const SizedBox(width: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: t.accent.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(2),
-              ),
-              child: Text('KARAOKE',
-                  style: TextStyle(
-                      color: t.accent,
-                      fontSize: t.fontSize(7),
-                      fontWeight: FontWeight.bold)),
+            const SizedBox(width: VisionMetrics.space8),
+            AppPill(
+              text: context.l.jukeboxKaraokeLabel,
+              tone: AppTone.info,
+              dense: true,
             ),
           ],
         ],
@@ -154,7 +166,10 @@ class JukeboxNowPlaying extends StatelessWidget {
   }
 
   /// Seek bar + play/pause/skip + volume slider.
-  static Widget buildTransportControls(JukeboxNotifier jukebox, VisionTokens t) {
+  static Widget buildTransportControls(
+    JukeboxNotifier jukebox,
+    VisionTokens t,
+  ) {
     return Column(
       children: [
         // Seek bar
@@ -167,10 +182,14 @@ class JukeboxNowPlaying extends StatelessWidget {
             Expanded(
               child: VisionSlider.accent(
                 value: jukebox.duration.inMilliseconds > 0
-                    ? (jukebox.position.inMilliseconds / jukebox.duration.inMilliseconds).clamp(0.0, 1.0)
+                    ? (jukebox.position.inMilliseconds /
+                              jukebox.duration.inMilliseconds)
+                          .clamp(0.0, 1.0)
                     : 0.0,
                 onChanged: (v) {
-                  final target = Duration(milliseconds: (v * jukebox.duration.inMilliseconds).round());
+                  final target = Duration(
+                    milliseconds: (v * jukebox.duration.inMilliseconds).round(),
+                  );
                   jukebox.seek(target);
                 },
                 t: t,
@@ -190,23 +209,25 @@ class JukeboxNowPlaying extends StatelessWidget {
               icon: Icon(Icons.skip_previous, color: t.textSecondary, size: 28),
               onPressed: jukebox.previous,
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: VisionMetrics.space16),
             IconButton(
               icon: Icon(
-                jukebox.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                jukebox.isPlaying
+                    ? Icons.pause_circle_filled
+                    : Icons.play_circle_filled,
                 color: t.accent,
                 size: 44,
               ),
               onPressed: jukebox.isPlaying ? jukebox.pause : jukebox.resume,
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: VisionMetrics.space16),
             IconButton(
               icon: Icon(Icons.skip_next, color: t.textSecondary, size: 28),
               onPressed: jukebox.next,
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: VisionMetrics.space8),
         // Volume
         Row(
           children: [
@@ -218,13 +239,15 @@ class JukeboxNowPlaying extends StatelessWidget {
               ),
               onPressed: jukebox.toggleMute,
               constraints: const BoxConstraints(),
-              padding: const EdgeInsets.all(4),
+              padding: const EdgeInsets.all(VisionMetrics.space4),
             ),
             Expanded(
               child: VisionSlider(
                 value: jukebox.isMuted ? 0.0 : jukebox.volume,
                 onChanged: (v) => jukebox.setVolume(v),
-                activeColor: t.textPrimary.withValues(alpha: 0.3),
+                activeColor: t.textPrimary.withValues(
+                  alpha: VisionMetrics.opacityDisabled,
+                ),
                 inactiveColor: t.borderSubtle,
                 thumbColor: t.textPrimary,
                 thumbRadius: 4,
@@ -249,11 +272,11 @@ class JukeboxNowPlaying extends StatelessWidget {
       height: height,
       decoration: BoxDecoration(
         color: t.background,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(VisionMetrics.radius4),
         border: Border.all(color: t.borderSubtle),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(VisionMetrics.radius4),
         child: Stack(
           alignment: Alignment.center,
           children: [
@@ -264,10 +287,17 @@ class JukeboxNowPlaying extends StatelessWidget {
               top: 4,
               right: 4,
               child: IconButton(
-                icon: Icon(Icons.fullscreen, size: 20, color: Colors.white.withValues(alpha: 0.5)),
+                icon: Icon(
+                  Icons.fullscreen,
+                  size: 20,
+                  color: Colors.white.withValues(
+                    alpha: VisionMetrics.opacityScrim,
+                  ),
+                ),
+                tooltip: context.l.jukeboxFullscreen,
                 onPressed: () => openFullscreenVisualizer(context),
                 constraints: const BoxConstraints(),
-                padding: const EdgeInsets.all(4),
+                padding: const EdgeInsets.all(VisionMetrics.space4),
               ),
             ),
           ],
@@ -348,10 +378,9 @@ class JukeboxMobileNowPlaying extends StatelessWidget {
               _buildDragHandle(),
               if (!expanded) ...[
                 _buildCompactBar(context, song),
-                const SizedBox(height: 4),
+                const SizedBox(height: VisionMetrics.space4),
               ],
-              if (expanded)
-                Flexible(child: expandedBody),
+              if (expanded) Flexible(child: expandedBody),
             ],
           ),
         ),
@@ -370,7 +399,7 @@ class JukeboxMobileNowPlaying extends StatelessWidget {
       onTap: () => onExpandedChanged(!expanded),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: VisionMetrics.space12),
         color: Colors.transparent,
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -411,7 +440,7 @@ class JukeboxMobileNowPlaying extends StatelessWidget {
 
   Widget _buildCompactBar(BuildContext context, JukeboxSong song) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: VisionMetrics.space12),
       child: Row(
         children: [
           Expanded(
@@ -431,7 +460,7 @@ class JukeboxMobileNowPlaying extends StatelessWidget {
             icon: Icon(Icons.skip_previous, size: 20, color: t.textSecondary),
             onPressed: jukebox.previous,
             constraints: const BoxConstraints(),
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.all(VisionMetrics.space4),
           ),
           IconButton(
             icon: Icon(
@@ -441,33 +470,30 @@ class JukeboxMobileNowPlaying extends StatelessWidget {
             ),
             onPressed: jukebox.isPlaying ? jukebox.pause : jukebox.resume,
             constraints: const BoxConstraints(),
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.all(VisionMetrics.space4),
           ),
           IconButton(
             icon: Icon(Icons.skip_next, size: 20, color: t.textSecondary),
             onPressed: jukebox.next,
             constraints: const BoxConstraints(),
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.all(VisionMetrics.space4),
           ),
           if (onGamePressed != null && jukebox.currentSong != null)
             IconButton(
               icon: Icon(Icons.sports_esports, size: 20, color: t.accent),
               onPressed: onGamePressed,
               constraints: const BoxConstraints(),
-              padding: const EdgeInsets.all(4),
+              padding: const EdgeInsets.all(VisionMetrics.space4),
             ),
           if (jukebox.isPlaying)
             IconButton(
               icon: Icon(Icons.fullscreen, size: 20, color: t.accent),
-              onPressed: () => JukeboxNowPlaying.openFullscreenVisualizer(context),
+              onPressed: () =>
+                  JukeboxNowPlaying.openFullscreenVisualizer(context),
               constraints: const BoxConstraints(),
-              padding: const EdgeInsets.all(4),
+              padding: const EdgeInsets.all(VisionMetrics.space4),
             ),
-          Icon(
-            Icons.expand_less,
-            size: 16,
-            color: t.textMinimal,
-          ),
+          Icon(Icons.expand_less, size: 16, color: t.textMinimal),
         ],
       ),
     );

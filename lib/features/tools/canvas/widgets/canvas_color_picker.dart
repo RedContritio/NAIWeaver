@@ -5,13 +5,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 
+import '../../../../core/l10n/l10n_extensions.dart';
 import '../../../../core/theme/theme_extensions.dart';
+import '../../../../core/theme/vision_metrics.dart';
 import '../../../../core/theme/vision_tokens.dart';
 import '../../../../core/widgets/vision_slider.dart';
 
+/// ARGB values of the fallback paint colors.
+const int _black = 0xFF000000;
+const int _white = 0xFFFFFFFF;
+
 /// Extract dominant colors from an image by sampling and clustering.
 /// Runs in an isolate via [compute] to avoid blocking the UI.
-Future<List<Color>> extractDominantColors(Uint8List imageBytes, {int count = 8}) async {
+Future<List<Color>> extractDominantColors(
+  Uint8List imageBytes, {
+  int count = 8,
+}) async {
   return compute(_extractColorsIsolate, _ExtractParams(imageBytes, count));
 }
 
@@ -47,14 +56,15 @@ List<Color> _extractColorsIsolate(_ExtractParams params) {
   }
 
   if (samples.isEmpty) {
-    return [const Color(0xFF000000), const Color(0xFFFFFFFF)];
+    return [const Color(_black), const Color(_white)];
   }
 
   // Simple k-means clustering in Lab color space
   final k = math.min(params.count, samples.length);
   // Initialize centroids from evenly spaced samples
   final centroids = List<_LabColor>.generate(
-    k, (i) => samples[(i * samples.length ~/ k).clamp(0, samples.length - 1)],
+    k,
+    (i) => samples[(i * samples.length ~/ k).clamp(0, samples.length - 1)],
   );
 
   for (int iter = 0; iter < 10; iter++) {
@@ -104,8 +114,10 @@ List<Color> _extractColorsIsolate(_ExtractParams params) {
     centroidCounts[bestIdx] = (centroidCounts[bestIdx] ?? 0) + 1;
   }
 
-  final sortedIndices = List<int>.generate(k, (i) => i)
-    ..sort((a, b) => (centroidCounts[b] ?? 0).compareTo(centroidCounts[a] ?? 0));
+  final sortedIndices = List<int>.generate(
+    k,
+    (i) => i,
+  )..sort((a, b) => (centroidCounts[b] ?? 0).compareTo(centroidCounts[a] ?? 0));
 
   // Deduplicate colors that are too close together
   final results = <Color>[];
@@ -138,15 +150,27 @@ class _LabColor {
   factory _LabColor.fromRGB(int r, int g, int b) {
     // sRGB to XYZ
     double rl = r / 255.0, gl = g / 255.0, bl = b / 255.0;
-    rl = rl > 0.04045 ? math.pow((rl + 0.055) / 1.055, 2.4).toDouble() : rl / 12.92;
-    gl = gl > 0.04045 ? math.pow((gl + 0.055) / 1.055, 2.4).toDouble() : gl / 12.92;
-    bl = bl > 0.04045 ? math.pow((bl + 0.055) / 1.055, 2.4).toDouble() : bl / 12.92;
+    rl = rl > 0.04045
+        ? math.pow((rl + 0.055) / 1.055, 2.4).toDouble()
+        : rl / 12.92;
+    gl = gl > 0.04045
+        ? math.pow((gl + 0.055) / 1.055, 2.4).toDouble()
+        : gl / 12.92;
+    bl = bl > 0.04045
+        ? math.pow((bl + 0.055) / 1.055, 2.4).toDouble()
+        : bl / 12.92;
     double x = (rl * 0.4124 + gl * 0.3576 + bl * 0.1805) / 0.95047;
     double y = (rl * 0.2126 + gl * 0.7152 + bl * 0.0722) / 1.00000;
     double z = (rl * 0.0193 + gl * 0.1192 + bl * 0.9505) / 1.08883;
-    x = x > 0.008856 ? math.pow(x, 1.0 / 3.0).toDouble() : (7.787 * x) + 16.0 / 116.0;
-    y = y > 0.008856 ? math.pow(y, 1.0 / 3.0).toDouble() : (7.787 * y) + 16.0 / 116.0;
-    z = z > 0.008856 ? math.pow(z, 1.0 / 3.0).toDouble() : (7.787 * z) + 16.0 / 116.0;
+    x = x > 0.008856
+        ? math.pow(x, 1.0 / 3.0).toDouble()
+        : (7.787 * x) + 16.0 / 116.0;
+    y = y > 0.008856
+        ? math.pow(y, 1.0 / 3.0).toDouble()
+        : (7.787 * y) + 16.0 / 116.0;
+    z = z > 0.008856
+        ? math.pow(z, 1.0 / 3.0).toDouble()
+        : (7.787 * z) + 16.0 / 116.0;
     return _LabColor((116.0 * y) - 16.0, 500.0 * (x - y), 200.0 * (y - z));
   }
 
@@ -164,7 +188,9 @@ class _LabColor {
     x = x * x * x > 0.008856 ? x * x * x : (x - 16.0 / 116.0) / 7.787;
     y = y * y * y > 0.008856 ? y * y * y : (y - 16.0 / 116.0) / 7.787;
     z = z * z * z > 0.008856 ? z * z * z : (z - 16.0 / 116.0) / 7.787;
-    x *= 0.95047; y *= 1.00000; z *= 1.08883;
+    x *= 0.95047;
+    y *= 1.00000;
+    z *= 1.08883;
     double r = x * 3.2406 + y * -1.5372 + z * -0.4986;
     double g = x * -0.9689 + y * 1.8758 + z * 0.0415;
     double bl = x * 0.0557 + y * -0.2040 + z * 1.0570;
@@ -213,14 +239,29 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
   late TextEditingController _hexController;
   final List<Color> _recentColors = [];
 
-  /// The default built-in palette colors.
-  static const List<Color> _defaultPalette = [
-    Color(0xFF000000), Color(0xFF1E1E1E), Color(0xFF555555),
-    Color(0xFFAAAAAA), Color(0xFFFFFFFF), Color(0xFFFF0066),
-    Color(0xFFFF5252), Color(0xFFE91E63), Color(0xFFFF6F00),
-    Color(0xFFFFD600), Color(0xFF4CAF50), Color(0xFF00BCD4),
-    Color(0xFF3F51B5), Color(0xFF7C4DFF), Color(0xFF1A237E),
-    Color(0xFF69F0AE),
+  /// The default built-in palette: paint colors (artwork data, not UI
+  /// colors), as ARGB values.
+  static const List<int> _defaultPaletteValues = [
+    0xFF000000,
+    0xFF1E1E1E,
+    0xFF555555,
+    0xFFAAAAAA,
+    0xFFFFFFFF,
+    0xFFFF0066,
+    0xFFFF5252,
+    0xFFE91E63,
+    0xFFFF6F00,
+    0xFFFFD600,
+    0xFF4CAF50,
+    0xFF00BCD4,
+    0xFF3F51B5,
+    0xFF7C4DFF,
+    0xFF1A237E,
+    0xFF69F0AE,
+  ];
+
+  static final List<Color> _defaultPalette = [
+    for (final v in _defaultPaletteValues) Color(v),
   ];
 
   /// The user-customizable quick palette (shown collapsed + in expanded grid).
@@ -256,7 +297,9 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
   void initState() {
     super.initState();
     _hsv = HSVColor.fromColor(widget.currentColor);
-    _hexController = TextEditingController(text: _colorToHex(widget.currentColor));
+    _hexController = TextEditingController(
+      text: _colorToHex(widget.currentColor),
+    );
     _quickPalette = _buildQuickPalette();
     _quickPaletteInitialized = widget.sourceImageColors.isNotEmpty;
   }
@@ -282,7 +325,12 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
   }
 
   String _colorToHex(Color c) {
-    return c.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase();
+    return c
+        .toARGB32()
+        .toRadixString(16)
+        .padLeft(8, '0')
+        .substring(2)
+        .toUpperCase();
   }
 
   Color? _hexToColor(String hex) {
@@ -326,9 +374,7 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
   /// faint outline that separates dark colors from the dark panel.
   Border _swatchBorder(Color swatch, bool isSelected, VisionTokens t) {
     return Border.all(
-      color: isSelected
-          ? (swatch.computeLuminance() > 0.5 ? Colors.black : Colors.white)
-          : t.borderMedium,
+      color: isSelected ? t.textPrimary : t.borderMedium,
       width: isSelected ? 2 : 1,
     );
   }
@@ -345,12 +391,12 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
             height: 28,
             decoration: BoxDecoration(
               color: currentColor,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(VisionMetrics.radius4),
               border: Border.all(color: t.borderMedium, width: 1.5),
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: VisionMetrics.space8),
         // Quick palette row — tap to select, long-press to replace with current color
         Expanded(
           child: SingleChildScrollView(
@@ -359,9 +405,9 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
               children: List.generate(
                 _quickPalette.length,
                 (i) => Padding(
-                  padding: const EdgeInsets.only(right: 4),
+                  padding: const EdgeInsets.only(right: VisionMetrics.space4),
                   child: Tooltip(
-                    message: 'Tap: select  •  Hold: replace with current',
+                    message: context.l.canvasPaletteTapHint,
                     waitDuration: const Duration(milliseconds: 600),
                     child: GestureDetector(
                       onTap: () => _selectColor(_quickPalette[i]),
@@ -375,10 +421,13 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
                         height: 20,
                         decoration: BoxDecoration(
                           color: _quickPalette[i],
-                          borderRadius: BorderRadius.circular(3),
+                          borderRadius: BorderRadius.circular(
+                            VisionMetrics.radius4,
+                          ),
                           border: _swatchBorder(
                             _quickPalette[i],
-                            _quickPalette[i].toARGB32() == currentColor.toARGB32(),
+                            _quickPalette[i].toARGB32() ==
+                                currentColor.toARGB32(),
                             t,
                           ),
                         ),
@@ -401,14 +450,14 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
 
     return Container(
       width: 280,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(VisionMetrics.space12),
       decoration: BoxDecoration(
         color: t.surfaceHigh,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(VisionMetrics.radius8),
         border: Border.all(color: t.borderMedium),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
+            color: t.background.withValues(alpha: VisionMetrics.opacityScrim),
             blurRadius: 12,
             offset: const Offset(0, -4),
           ),
@@ -437,7 +486,7 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: VisionMetrics.space8),
 
           // SV Rectangle
           SizedBox(
@@ -445,17 +494,23 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 return GestureDetector(
-                  onPanStart: (d) => _updateSV(d.localPosition, constraints, svHeight),
-                  onPanUpdate: (d) => _updateSV(d.localPosition, constraints, svHeight),
+                  onPanStart: (d) =>
+                      _updateSV(d.localPosition, constraints, svHeight),
+                  onPanUpdate: (d) =>
+                      _updateSV(d.localPosition, constraints, svHeight),
                   child: CustomPaint(
                     size: Size(constraints.maxWidth, svHeight),
-                    painter: _SVRectPainter(hue: _hsv.hue, saturation: _hsv.saturation, value: _hsv.value),
+                    painter: _SVRectPainter(
+                      hue: _hsv.hue,
+                      saturation: _hsv.saturation,
+                      value: _hsv.value,
+                    ),
                   ),
                 );
               },
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: VisionMetrics.space8),
 
           // Hue slider
           SizedBox(
@@ -463,26 +518,35 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 return GestureDetector(
-                  onPanStart: (d) => _updateHue(d.localPosition.dx, constraints.maxWidth),
-                  onPanUpdate: (d) => _updateHue(d.localPosition.dx, constraints.maxWidth),
+                  onPanStart: (d) =>
+                      _updateHue(d.localPosition.dx, constraints.maxWidth),
+                  onPanUpdate: (d) =>
+                      _updateHue(d.localPosition.dx, constraints.maxWidth),
                   child: CustomPaint(
                     size: Size(constraints.maxWidth, hueHeight),
-                    painter: _HueBarPainter(hue: _hsv.hue, barHeight: hueHeight),
+                    painter: _HueBarPainter(
+                      hue: _hsv.hue,
+                      barHeight: hueHeight,
+                    ),
                   ),
                 );
               },
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: VisionMetrics.space8),
 
           // Opacity slider
           Row(
             children: [
               Text(
                 'OPACITY',
-                style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(7), letterSpacing: 1),
+                style: TextStyle(
+                  color: t.textDisabled,
+                  fontSize: t.fontSize(7),
+                  letterSpacing: 1,
+                ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: VisionMetrics.space8),
               Expanded(
                 child: VisionSlider(
                   value: widget.opacity,
@@ -499,13 +563,16 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
                 width: 36,
                 child: Text(
                   '${(widget.opacity * 100).round()}%',
-                  style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(8)),
+                  style: TextStyle(
+                    color: t.textTertiary,
+                    fontSize: t.fontSize(8),
+                  ),
                   textAlign: TextAlign.right,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: VisionMetrics.space8),
 
           // Quick palette (customizable, from source image)
           if (_quickPalette.isNotEmpty) ...[
@@ -513,7 +580,11 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
               children: [
                 Text(
                   'QUICK',
-                  style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(7), letterSpacing: 1),
+                  style: TextStyle(
+                    color: t.textDisabled,
+                    fontSize: t.fontSize(7),
+                    letterSpacing: 1,
+                  ),
                 ),
                 const Spacer(),
                 GestureDetector(
@@ -523,14 +594,15 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
                   child: Text(
                     'RESET',
                     style: TextStyle(
-                      color: t.textMinimal, fontSize: t.fontSize(6),
+                      color: t.textMinimal,
+                      fontSize: t.fontSize(6),
                       letterSpacing: 0.5,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: VisionMetrics.space4),
             Wrap(
               spacing: 4,
               runSpacing: 4,
@@ -538,7 +610,7 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
                 final c = _quickPalette[i];
                 final isSelected = c.toARGB32() == currentColor.toARGB32();
                 return Tooltip(
-                  message: 'Hold to replace',
+                  message: context.l.canvasPaletteHoldHint,
                   waitDuration: const Duration(milliseconds: 600),
                   child: GestureDetector(
                     onTap: () => _selectColor(c),
@@ -550,7 +622,9 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
                       height: swatchSize,
                       decoration: BoxDecoration(
                         color: c,
-                        borderRadius: BorderRadius.circular(3),
+                        borderRadius: BorderRadius.circular(
+                          VisionMetrics.radius4,
+                        ),
                         border: _swatchBorder(c, isSelected, t),
                       ),
                     ),
@@ -558,15 +632,19 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
                 );
               }),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: VisionMetrics.space8),
           ],
 
           // Default palette grid
           Text(
             'PALETTE',
-            style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(7), letterSpacing: 1),
+            style: TextStyle(
+              color: t.textDisabled,
+              fontSize: t.fontSize(7),
+              letterSpacing: 1,
+            ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: VisionMetrics.space4),
           Wrap(
             spacing: 4,
             runSpacing: 4,
@@ -579,14 +657,14 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
                   height: swatchSize,
                   decoration: BoxDecoration(
                     color: c,
-                    borderRadius: BorderRadius.circular(3),
+                    borderRadius: BorderRadius.circular(VisionMetrics.radius4),
                     border: _swatchBorder(c, isSelected, t),
                   ),
                 ),
               );
             }).toList(),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: VisionMetrics.space8),
 
           // Recent colors
           if (_recentColors.isNotEmpty) ...[
@@ -594,34 +672,48 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
               children: [
                 Text(
                   'RECENT',
-                  style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(7), letterSpacing: 1),
+                  style: TextStyle(
+                    color: t.textDisabled,
+                    fontSize: t.fontSize(7),
+                    letterSpacing: 1,
+                  ),
                 ),
-                const SizedBox(width: 8),
-                ..._recentColors.map((c) => Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: GestureDetector(
-                    onTap: () => _selectColor(c),
-                    child: Container(
-                      width: 20,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        color: c,
-                        borderRadius: BorderRadius.circular(3),
-                        border: Border.all(color: t.borderSubtle, width: 0.5),
+                const SizedBox(width: VisionMetrics.space8),
+                ..._recentColors.map(
+                  (c) => Padding(
+                    padding: const EdgeInsets.only(right: VisionMetrics.space4),
+                    child: GestureDetector(
+                      onTap: () => _selectColor(c),
+                      child: Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          color: c,
+                          borderRadius: BorderRadius.circular(
+                            VisionMetrics.radius4,
+                          ),
+                          border: Border.all(color: t.borderSubtle, width: 0.5),
+                        ),
                       ),
                     ),
                   ),
-                )),
+                ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: VisionMetrics.space8),
           ],
 
           // Hex input
           Row(
             children: [
-              Text('#', style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(12))),
-              const SizedBox(width: 4),
+              Text(
+                '#',
+                style: TextStyle(
+                  color: t.textSecondary,
+                  fontSize: t.fontSize(12),
+                ),
+              ),
+              const SizedBox(width: VisionMetrics.space4),
               Expanded(
                 child: TextField(
                   controller: _hexController,
@@ -637,14 +729,21 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
                   decoration: InputDecoration(
                     hintText: 'FFFFFF',
                     hintStyle: TextStyle(color: t.textMinimal),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: VisionMetrics.space8,
+                      vertical: VisionMetrics.space4,
+                    ),
                     isDense: true,
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(
+                        VisionMetrics.radius4,
+                      ),
                       borderSide: BorderSide(color: t.borderMedium),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(
+                        VisionMetrics.radius4,
+                      ),
                       borderSide: BorderSide(color: t.accent),
                     ),
                   ),
@@ -659,14 +758,14 @@ class _CanvasColorPickerState extends State<CanvasColorPicker> {
                   },
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: VisionMetrics.space8),
               // Preview swatch
               Container(
                 width: 28,
                 height: 28,
                 decoration: BoxDecoration(
                   color: currentColor.withValues(alpha: widget.opacity),
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(VisionMetrics.radius4),
                   border: Border.all(color: t.borderMedium),
                 ),
               ),
@@ -701,7 +800,11 @@ class _SVRectPainter extends CustomPainter {
   final double saturation;
   final double value;
 
-  _SVRectPainter({required this.hue, required this.saturation, required this.value});
+  _SVRectPainter({
+    required this.hue,
+    required this.saturation,
+    required this.value,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -710,7 +813,10 @@ class _SVRectPainter extends CustomPainter {
     final rectGradientH = LinearGradient(
       colors: [Colors.white, hueColor],
     ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), Paint()..shader = rectGradientH);
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Paint()..shader = rectGradientH,
+    );
 
     // Value gradient (top to bottom: transparent to black)
     final rectGradientV = const LinearGradient(
@@ -718,7 +824,10 @@ class _SVRectPainter extends CustomPainter {
       end: Alignment.bottomCenter,
       colors: [Colors.transparent, Colors.black],
     ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), Paint()..shader = rectGradientV);
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Paint()..shader = rectGradientV,
+    );
 
     // Position indicator
     final cx = saturation * size.width;
@@ -762,7 +871,10 @@ class _HueBarPainter extends CustomPainter {
     });
     final shader = LinearGradient(colors: colors).createShader(rect);
     canvas.drawRRect(
-      RRect.fromRectAndRadius(rect, const Radius.circular(4)),
+      RRect.fromRectAndRadius(
+        rect,
+        const Radius.circular(VisionMetrics.radius4),
+      ),
       Paint()..shader = shader,
     );
 
@@ -770,8 +882,12 @@ class _HueBarPainter extends CustomPainter {
     final x = (hue / 360.0) * size.width;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset(x, size.height / 2), width: 6, height: size.height),
-        const Radius.circular(2),
+        Rect.fromCenter(
+          center: Offset(x, size.height / 2),
+          width: 6,
+          height: size.height,
+        ),
+        const Radius.circular(VisionMetrics.radius2),
       ),
       Paint()
         ..style = PaintingStyle.stroke

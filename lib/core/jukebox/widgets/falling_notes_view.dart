@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../../theme/vision_tokens.dart';
 import 'package:provider/provider.dart';
 import '../models/game_score.dart';
 import '../models/note_block.dart';
@@ -7,6 +8,7 @@ import '../providers/jukebox_notifier.dart';
 import '../../theme/theme_extensions.dart';
 import 'piano_layout.dart';
 import '../../l10n/l10n_extensions.dart';
+import '../../theme/vision_metrics.dart';
 
 /// Falling notes game view — renders note rectangles falling toward a hit line.
 ///
@@ -143,11 +145,13 @@ class FallingNotesViewState extends State<FallingNotesView>
       if (deltaMs > GameScore.goodWindow) {
         _judgedNotes.add(i);
         widget.onMiss?.call();
-        _hitFeedbacks.add(_HitFeedback(
-          grade: HitGrade.miss,
-          x: _noteToX(block.note, 1.0),
-          time: DateTime.now(),
-        ));
+        _hitFeedbacks.add(
+          _HitFeedback(
+            grade: HitGrade.miss,
+            x: _noteToX(block.note, 1.0),
+            time: DateTime.now(),
+          ),
+        );
         stateChanged = true;
       }
     }
@@ -166,7 +170,8 @@ class FallingNotesViewState extends State<FallingNotesView>
 
     final feedbacksBefore = _hitFeedbacks.length;
     _hitFeedbacks.removeWhere(
-        (f) => DateTime.now().difference(f.time).inMilliseconds > 600);
+      (f) => DateTime.now().difference(f.time).inMilliseconds > 600,
+    );
     if (_hitFeedbacks.length != feedbacksBefore) stateChanged = true;
 
     if (stateChanged || _hitFeedbacks.isNotEmpty) {
@@ -201,11 +206,13 @@ class FallingNotesViewState extends State<FallingNotesView>
       _judgedNotes.add(bestIdx);
       widget.onHit?.call(note, bestDelta);
       final grade = GameScore.judge(bestDelta);
-      _hitFeedbacks.add(_HitFeedback(
-        grade: grade,
-        x: _noteToX(note, 1.0),
-        time: DateTime.now(),
-      ));
+      _hitFeedbacks.add(
+        _HitFeedback(
+          grade: grade,
+          x: _noteToX(note, 1.0),
+          time: DateTime.now(),
+        ),
+      );
     }
   }
 
@@ -227,172 +234,177 @@ class FallingNotesViewState extends State<FallingNotesView>
     final t = context.t;
     final score = jukebox.currentScore;
 
-    return LayoutBuilder(builder: (context, constraints) {
-      final viewWidth = constraints.maxWidth;
-      _viewWidth = viewWidth;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final viewWidth = constraints.maxWidth;
+        _viewWidth = viewWidth;
 
-      // Compute piano layout when keyboard range is available
-      if (widget.keyboardNoteMin != null && widget.keyboardNoteMax != null) {
-        _pianoLayout = PianoLayout.fromRange(
-          gameNoteMin: widget.keyboardNoteMin!,
-          gameNoteMax: widget.keyboardNoteMax!,
-          availableWidth: viewWidth,
-        );
-      } else {
-        _pianoLayout = null;
-      }
+        // Compute piano layout when keyboard range is available
+        if (widget.keyboardNoteMin != null && widget.keyboardNoteMax != null) {
+          _pianoLayout = PianoLayout.fromRange(
+            gameNoteMin: widget.keyboardNoteMin!,
+            gameNoteMax: widget.keyboardNoteMax!,
+            availableWidth: viewWidth,
+          );
+        } else {
+          _pianoLayout = null;
+        }
 
-      return Stack(
-        children: [
-          // Falling notes canvas
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _FallingNotesPainter(
-                noteBlocks: widget.noteBlocks,
-                positionMicros: jukebox.position.inMicroseconds,
-                tempo: jukebox.tempo,
-                activeKeys: widget.activeKeys ?? {},
-                gameMode: widget.gameMode,
-                judgedNotes: _judgedNotes,
-                accentColor: t.accent,
-                noteMin: _noteMin,
-                noteRange: _noteRange,
-                pianoLayout: _pianoLayout,
-                centeringOffset: _pianoLayout?.centeringOffset(viewWidth) ?? 0,
+        return Stack(
+          children: [
+            // Falling notes canvas
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _FallingNotesPainter(
+                  noteBlocks: widget.noteBlocks,
+                  positionMicros: jukebox.position.inMicroseconds,
+                  tempo: jukebox.tempo,
+                  activeKeys: widget.activeKeys ?? {},
+                  gameMode: widget.gameMode,
+                  judgedNotes: _judgedNotes,
+                  accentColor: t.accent,
+                  noteMin: _noteMin,
+                  noteRange: _noteRange,
+                  pianoLayout: _pianoLayout,
+                  centeringOffset:
+                      _pianoLayout?.centeringOffset(viewWidth) ?? 0,
+                ),
               ),
             ),
-          ),
-          // Score overlay (game mode only)
-          if (widget.gameMode && score != null) ...[
-            Positioned(
-              top: 8,
-              right: 12,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '${score.score}',
+            // Score overlay (game mode only)
+            if (widget.gameMode && score != null) ...[
+              Positioned(
+                top: 8,
+                right: 12,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '${score.score}',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: t.fontSize(18),
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2,
+                        shadows: const [
+                          Shadow(color: Colors.black54, blurRadius: 4),
+                        ],
+                      ),
+                    ),
+                    if (score.comboMultiplier > 1)
+                      Text(
+                        '${score.comboMultiplier}x',
+                        style: TextStyle(
+                          color: t.accentEdit,
+                          fontSize: t.fontSize(11),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (score.combo > 0)
+                Positioned(
+                  top: 8,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Text(
+                      context.l.jukeboxCombo(score.combo),
+                      style: TextStyle(
+                        color: score.combo >= 30
+                            ? t.accentEdit
+                            : score.combo >= 10
+                            ? t.accent
+                            : Colors.white70,
+                        fontSize: t.fontSize(score.combo >= 30 ? 16 : 12),
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 3,
+                        shadows: const [
+                          Shadow(color: Colors.black54, blurRadius: 4),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              Positioned(
+                bottom: 8,
+                right: 12,
+                child: Text(
+                  '${(score.accuracy * 100).toStringAsFixed(1)}%',
+                  style: TextStyle(
+                    color: Colors.white54,
+                    fontSize: t.fontSize(10),
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+            ],
+            // "PRESS ON THE LINE" timing hint
+            if (widget.gameMode &&
+                _gameStartTime != null &&
+                DateTime.now().difference(_gameStartTime!).inMilliseconds <=
+                    5000)
+              Positioned(
+                bottom: constraints.maxHeight * 0.18 + 8,
+                left: 12,
+                child: Opacity(
+                  opacity: () {
+                    final elapsed = DateTime.now()
+                        .difference(_gameStartTime!)
+                        .inMilliseconds;
+                    return elapsed < 4000
+                        ? 0.5
+                        : (0.5 * (1 - (elapsed - 4000) / 1000)).clamp(0.0, 0.5);
+                  }(),
+                  child: Text(
+                    context.l.jukeboxPressOnTheLine,
                     style: TextStyle(
-                      color: Colors.white,
-                      fontSize: t.fontSize(18),
+                      color: t.textMinimal,
+                      fontSize: t.fontSize(10),
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ),
+              ),
+            // Hit grade feedback — positioned at the note's X column
+            ..._hitFeedbacks.map((f) {
+              final age =
+                  DateTime.now().difference(f.time).inMilliseconds / 600;
+              final opacity = (1 - age).clamp(0.0, 1.0);
+              final xPos = f.x * viewWidth;
+              final fontSize = switch (f.grade) {
+                HitGrade.perfect => t.fontSize(16),
+                HitGrade.great => t.fontSize(14),
+                _ => t.fontSize(12),
+              };
+              return Positioned(
+                left: (xPos - 30).clamp(0.0, viewWidth - 60),
+                width: 60,
+                bottom: 40 + age * 30,
+                child: Opacity(
+                  opacity: opacity,
+                  child: Text(
+                    _gradeText(f.grade, context),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: _gradeColor(f.grade, context.tRead),
+                      fontSize: fontSize,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 2,
                       shadows: const [
-                        Shadow(color: Colors.black54, blurRadius: 4)
-                      ],
-                    ),
-                  ),
-                  if (score.comboMultiplier > 1)
-                    Text(
-                      '${score.comboMultiplier}x',
-                      style: TextStyle(
-                        color: t.accentEdit,
-                        fontSize: t.fontSize(11),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            if (score.combo > 0)
-              Positioned(
-                top: 8,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Text(
-                    context.l.jukeboxCombo(score.combo),
-                    style: TextStyle(
-                      color: score.combo >= 30
-                          ? t.accentEdit
-                          : score.combo >= 10
-                              ? t.accent
-                              : Colors.white70,
-                      fontSize: t.fontSize(score.combo >= 30 ? 16 : 12),
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 3,
-                      shadows: const [
-                        Shadow(color: Colors.black54, blurRadius: 4)
+                        Shadow(color: Colors.black87, blurRadius: 6),
                       ],
                     ),
                   ),
                 ),
-              ),
-            Positioned(
-              bottom: 8,
-              right: 12,
-              child: Text(
-                '${(score.accuracy * 100).toStringAsFixed(1)}%',
-                style: TextStyle(
-                  color: Colors.white54,
-                  fontSize: t.fontSize(10),
-                  letterSpacing: 1,
-                ),
-              ),
-            ),
+              );
+            }),
           ],
-          // "PRESS ON THE LINE" timing hint
-          if (widget.gameMode && _gameStartTime != null &&
-              DateTime.now().difference(_gameStartTime!).inMilliseconds <= 5000)
-            Positioned(
-              bottom: constraints.maxHeight * 0.18 + 8,
-              left: 12,
-              child: Opacity(
-                opacity: () {
-                  final elapsed = DateTime.now()
-                      .difference(_gameStartTime!).inMilliseconds;
-                  return elapsed < 4000
-                      ? 0.5
-                      : (0.5 * (1 - (elapsed - 4000) / 1000))
-                          .clamp(0.0, 0.5);
-                }(),
-                child: Text(
-                  context.l.jukeboxPressOnTheLine,
-                  style: TextStyle(
-                    color: t.textMinimal,
-                    fontSize: t.fontSize(10),
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.5,
-                  ),
-                ),
-              ),
-            ),
-          // Hit grade feedback — positioned at the note's X column
-          ..._hitFeedbacks.map((f) {
-            final age =
-                DateTime.now().difference(f.time).inMilliseconds / 600;
-            final opacity = (1 - age).clamp(0.0, 1.0);
-            final xPos = f.x * viewWidth;
-            final fontSize = switch (f.grade) {
-              HitGrade.perfect => t.fontSize(16),
-              HitGrade.great => t.fontSize(14),
-              _ => t.fontSize(12),
-            };
-            return Positioned(
-              left: (xPos - 30).clamp(0.0, viewWidth - 60),
-              width: 60,
-              bottom: 40 + age * 30,
-              child: Opacity(
-                opacity: opacity,
-                child: Text(
-                  _gradeText(f.grade, context),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: _gradeColor(f.grade),
-                    fontSize: fontSize,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 2,
-                    shadows: const [
-                      Shadow(color: Colors.black87, blurRadius: 6)
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }),
-        ],
-      );
-    });
+        );
+      },
+    );
   }
 
   String _gradeText(HitGrade grade, BuildContext context) {
@@ -409,16 +421,16 @@ class FallingNotesViewState extends State<FallingNotesView>
     }
   }
 
-  Color _gradeColor(HitGrade grade) {
+  Color _gradeColor(HitGrade grade, VisionTokens t) {
     switch (grade) {
       case HitGrade.perfect:
-        return const Color(0xFFFFD700);
+        return t.accentFavorite;
       case HitGrade.great:
-        return const Color(0xFF22C55E);
+        return t.accentSuccess;
       case HitGrade.good:
-        return const Color(0xFF3B82F6);
+        return t.accent;
       case HitGrade.miss:
-        return const Color(0xFFEF4444);
+        return t.accentDanger;
     }
   }
 }
@@ -447,8 +459,18 @@ class _FallingNotesPainter extends CustomPainter {
   static const _lookAheadMicros = 4000000;
   static const _lookBehindMicros = 500000;
   static const _isBlackKey = [
-    false, true, false, true, false, false,
-    true, false, true, false, true, false,
+    false,
+    true,
+    false,
+    true,
+    false,
+    false,
+    true,
+    false,
+    true,
+    false,
+    true,
+    false,
   ];
 
   _FallingNotesPainter({
@@ -494,10 +516,8 @@ class _FallingNotesPainter extends CustomPainter {
           accentColor.withValues(alpha: 0),
         ],
         stops: const [0.0, 0.5, 1.0],
-      ).createShader(
-          Rect.fromLTWH(0, hitLineY - 10, size.width, 20));
-    canvas.drawRect(
-        Rect.fromLTWH(0, hitLineY - 10, size.width, 20), glowPaint);
+      ).createShader(Rect.fromLTWH(0, hitLineY - 10, size.width, 20));
+    canvas.drawRect(Rect.fromLTWH(0, hitLineY - 10, size.width, 20), glowPaint);
 
     // Fallback note width for linear mode
     final linearNoteWidth = (size.width / noteRange).clamp(6.0, 28.0);
@@ -526,8 +546,7 @@ class _FallingNotesPainter extends CustomPainter {
         if (pos != null) {
           final x = pos.centerX + centeringOffset;
           canvas.drawRect(
-            Rect.fromLTWH(
-                x - pos.width / 2, 0, pos.width, size.height),
+            Rect.fromLTWH(x - pos.width / 2, 0, pos.width, size.height),
             blackLanePaint,
           );
         }
@@ -552,7 +571,11 @@ class _FallingNotesPainter extends CustomPainter {
           final x = (n - noteMin) / noteRange * size.width;
           canvas.drawRect(
             Rect.fromLTWH(
-                x - linearNoteWidth / 2, 0, linearNoteWidth, size.height),
+              x - linearNoteWidth / 2,
+              0,
+              linearNoteWidth,
+              size.height,
+            ),
             blackLanePaint,
           );
         }
@@ -588,7 +611,7 @@ class _FallingNotesPainter extends CustomPainter {
 
       final rect = RRect.fromRectAndRadius(
         Rect.fromLTWH(x - noteWidth / 2, yTop, noteWidth, height),
-        const Radius.circular(3),
+        const Radius.circular(VisionMetrics.radius4),
       );
 
       final bool isJudged = judgedNotes.contains(i);
@@ -607,13 +630,16 @@ class _FallingNotesPainter extends CustomPainter {
             : 0.3;
       } else if (isPast && gameMode) {
         noteColor = Colors.grey;
-        alpha = (0.4 - (startDelta.abs() / _lookBehindMicros) * 0.4)
-            .clamp(0.0, 0.4);
+        alpha = (0.4 - (startDelta.abs() / _lookBehindMicros) * 0.4).clamp(
+          0.0,
+          0.4,
+        );
       } else if (isPast) {
         noteColor = block.color;
-        alpha = (velocityAlpha -
-                (startDelta.abs() / _lookBehindMicros) * velocityAlpha)
-            .clamp(0.0, velocityAlpha);
+        alpha =
+            (velocityAlpha -
+                    (startDelta.abs() / _lookBehindMicros) * velocityAlpha)
+                .clamp(0.0, velocityAlpha);
       } else {
         // Approach glow: lerp toward white as note enters bottom half
         if (proximity > 0.5) {
@@ -661,9 +687,10 @@ class _FallingNotesPainter extends CustomPainter {
         canvas.rotate(pi / 4);
         canvas.drawRect(
           Rect.fromCenter(
-              center: Offset.zero,
-              width: diamondSize,
-              height: diamondSize),
+            center: Offset.zero,
+            width: diamondSize,
+            height: diamondSize,
+          ),
           diamondPaint,
         );
         canvas.restore();
