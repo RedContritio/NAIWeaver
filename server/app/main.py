@@ -1651,6 +1651,8 @@ def admin_create_user(
     _: sqlite3.Row = Depends(require_admin),
     db: sqlite3.Connection = Depends(get_db),
 ):
+    if payload.role == "admin" and payload.is_admin is False:
+        raise invalid_parameters("is_admin", "role admin contradicts is_admin=false")
     values = role_defaults(payload.role)
     values.update(
         (name, value)
@@ -1746,7 +1748,6 @@ def admin_config(
     exhausted_until = free_allowance_exhausted_until(db)
     return {
         "green_point_limit": DEFAULT_GREEN_POINT_LIMIT,
-        "green_point_discount": 0,
         "red_points": DEFAULT_RED_POINTS,
         "admin_red_points": DEFAULT_ADMIN_RED_POINTS,
         "free_max_steps": MAX_STEPS_FREE,
@@ -2070,17 +2071,24 @@ async def forward_text_to_novelai_queued(
     audit_id: str | None = None,
 ) -> tuple[int, dict[str, str], bytes] | StreamingResponse:
     ticket = await acquire_text_slot(user)
+    # Anything that ends the request before a stream takes over the slot
+    # (an error, or cancellation) frees it here.
+    handed_over = False
     try:
         result = await forward_to_novelai(
             service, path, method=method, body=body, stream=stream
         )
+        if isinstance(result, StreamingResponse):
+            handed_over = True
     except Exception:
         with db_session() as db:
             complete_audit_log(
                 db, audit_id, status_code=500, error_message="Text proxy failed"
             )
-        await release_text_slot(ticket)
         raise
+    finally:
+        if not handed_over:
+            await release_text_slot(ticket)
     if isinstance(result, StreamingResponse):
         body_iterator = result.body_iterator
 
@@ -2102,7 +2110,6 @@ async def forward_text_to_novelai_queued(
             headers=dict(result.headers),
             media_type=result.media_type,
         )
-    await release_text_slot(ticket)
     with db_session() as db:
         complete_audit_log(db, audit_id, status_code=result[0])
     return result
@@ -2585,9 +2592,10 @@ def visible_history_task(
     task = db.execute(f"{GENERATION_ITEM_SELECT} WHERE t.id = ?", (task_id,)).fetchone()
     if not task:
         raise api_error(status.HTTP_404_NOT_FOUND, "not_found", "Task not found")
+    # Hidden by the viewer or by the owner: never returned, even to admins.
     hidden = db.execute(
-        "SELECT 1 FROM history_hidden WHERE user_id = ? AND task_id = ?",
-        (user["id"], task_id),
+        "SELECT 1 FROM history_hidden WHERE user_id IN (?, ?) AND task_id = ?",
+        (user["id"], task["user_id"], task_id),
     ).fetchone()
     if hidden:
         raise api_error(status.HTTP_404_NOT_FOUND, "not_found", "Task not found")
@@ -3660,7 +3668,7 @@ def submission_task_payload(
     items = db.execute(
         f"""
         {GENERATION_ITEM_SELECT}
-        LEFT JOIN history_hidden h ON h.task_id = t.id AND h.user_id = ?
+        LEFT JOIN history_hidden h ON h.task_id = t.id AND h.user_id IN (?, t.user_id)
         WHERE t.batch_id = ? AND h.task_id IS NULL
         ORDER BY t.batch_index, t.created_at, t.id
         """,
@@ -3719,7 +3727,7 @@ def current_generation_task(
         WHERE s.user_id = ?
           AND EXISTS (
             SELECT 1 FROM generation_tasks t
-            LEFT JOIN history_hidden h ON h.task_id = t.id AND h.user_id = ?
+            LEFT JOIN history_hidden h ON h.task_id = t.id AND h.user_id IN (?, t.user_id)
             WHERE t.batch_id = s.id AND h.task_id IS NULL
           )
         ORDER BY CASE WHEN s.status IN ('queued', 'running') THEN 0 ELSE 1 END,
@@ -3765,7 +3773,7 @@ def history(
         SELECT COUNT(DISTINCT COALESCE(t.batch_id, t.id))
         FROM generation_tasks t
         JOIN users u ON u.id = t.user_id
-        LEFT JOIN history_hidden h ON h.task_id = t.id AND h.user_id = ?
+        LEFT JOIN history_hidden h ON h.task_id = t.id AND h.user_id IN (?, t.user_id)
         {where_sql}
         """,
         params,
@@ -3777,7 +3785,7 @@ def history(
                MAX(t.created_at) AS latest_created_at
         FROM generation_tasks t
         JOIN users u ON u.id = t.user_id
-        LEFT JOIN history_hidden h ON h.task_id = t.id AND h.user_id = ?
+        LEFT JOIN history_hidden h ON h.task_id = t.id AND h.user_id IN (?, t.user_id)
         {where_sql}
         GROUP BY COALESCE(t.batch_id, t.id)
         ORDER BY latest_created_at DESC, batch_key DESC
@@ -3792,7 +3800,7 @@ def history(
         rows = db.execute(
             f"""
             {GENERATION_ITEM_SELECT}
-            LEFT JOIN history_hidden h ON h.task_id = t.id AND h.user_id = ?
+            LEFT JOIN history_hidden h ON h.task_id = t.id AND h.user_id IN (?, t.user_id)
             {where_sql}
               AND COALESCE(t.batch_id, t.id) IN ({placeholders})
             """,

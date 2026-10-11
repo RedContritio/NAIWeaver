@@ -118,11 +118,10 @@ def cmd_points_grant(args: argparse.Namespace) -> None:
         raise SystemExit("Specify a positive --red amount")
     init_db()
     with closing(db_connect()) as db:
-        user = user_row_or_exit(db, args.username)
-        red_limit = int(user["red_points"] or 0)
+        user_row_or_exit(db, args.username)
         db.execute(
-            "UPDATE users SET red_points = ? WHERE id = ?",
-            (red_limit + red, user["id"]),
+            "UPDATE users SET red_points = COALESCE(red_points, 0) + ? WHERE username = ?",
+            (red, args.username),
         )
         db.commit()
     print(f"granted to {args.username}: red +{red}")

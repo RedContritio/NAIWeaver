@@ -88,6 +88,8 @@ overrides the green total.
 The admin API (`POST /api/admin/users`) takes the same `role`; fields left out
 take the role's values and explicit fields override them. Administrators always
 get a `100%` green discount, on creation and when promoted by `PATCH`.
+`role: "admin"` together with `is_admin: false` is a contradiction and is
+rejected with 400 `invalid_parameters` (`field: "is_admin"`).
 
 `agent_test` is the canonical account for live browser, smoke, and end-to-end
 tests against the deployed service. Keep credentials and WebAuthn enrollment
