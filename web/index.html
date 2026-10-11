@@ -112,9 +112,15 @@
   </script>
   <script>
     (() => {
+      // Calls made before the bridge module has loaded are queued on `ready`.
+      // If the module fails to load, every call rejects and the Flutter side
+      // falls back to its own image viewer.
       const ready = import('./photoswipe_bridge.js').then(
         () => window.naiweaverPhotoSwipe,
       );
+      // Callers observe the rejection; this only keeps it from also being
+      // reported as unhandled.
+      ready.catch(() => {});
       window.naiweaverPhotoSwipe = {
         mount: (...args) => ready.then((api) => api.mount(...args)),
         update: (...args) => ready.then((api) => api.update(...args)),

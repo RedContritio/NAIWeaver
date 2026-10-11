@@ -1,24 +1,8 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 
-class BrowserPhotoSwipeItem {
-  const BrowserPhotoSwipeItem({
-    required this.id,
-    this.imageProvider,
-    this.bytes,
-    this.url,
-    this.width,
-    this.height,
-  });
+import 'browser_photo_swipe_viewer_config.dart';
 
-  final String id;
-  final ImageProvider? imageProvider;
-  final Uint8List? bytes;
-  final String? url;
-  final int? width;
-  final int? height;
-}
+export 'browser_photo_swipe_viewer_config.dart' show BrowserPhotoSwipeItem;
 
 class BrowserPhotoSwipeViewer extends StatelessWidget {
   const BrowserPhotoSwipeViewer({
