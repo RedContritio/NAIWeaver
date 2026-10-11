@@ -789,7 +789,10 @@ class GenerationNotifier extends ChangeNotifier {
 
   Future<void> _restoreGatewayWorkspace(int userId) async {
     if (_restoringWorkspaceForUserId == userId) return;
-    if (_busy) {
+    // A generate run owns the workspace; a single-image call only delays the
+    // restore until it finishes.
+    if (_activeRunId != null) return;
+    if (_singleImageCalls > 0) {
       _deferredRestoreUserId = userId;
       return;
     }
@@ -805,8 +808,10 @@ class GenerationNotifier extends ChangeNotifier {
       if (history.isEmpty) {
         history = await _historyApi.fetchHistory(limit: 20);
       }
-      if (_backendUserId != userId || _disposed) return;
-      if (_busy) {
+      if (_backendUserId != userId || _activeRunId != null || _disposed) {
+        return;
+      }
+      if (_singleImageCalls > 0) {
         _deferredRestoreUserId = userId;
         return;
       }

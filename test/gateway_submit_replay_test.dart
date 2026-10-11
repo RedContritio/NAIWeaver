@@ -78,18 +78,21 @@ void main() {
     expect((bodies[1] as Map)['client_request_id'], 'request-id-1');
   });
 
-  test('a response that never arrives resumes the task on the server', () async {
-    final adapter = FakeGatewayAdapter((options) {
-      if (options.method == 'POST') throw connectionFailure(options);
-      return jsonResponse(currentTaskJson());
-    });
+  test(
+    'a response that never arrives resumes the task on the server',
+    () async {
+      final adapter = FakeGatewayAdapter((options) {
+        if (options.method == 'POST') throw connectionFailure(options);
+        return jsonResponse(currentTaskJson());
+      });
 
-    final submission = await submit(service(adapter));
+      final submission = await submit(service(adapter));
 
-    expect(adapter.count('POST', '/api/generation-tasks'), 3);
-    expect(submission.taskId, 'task-1');
-    expect(submission.items.map((i) => i.id), ['item-0', 'item-1']);
-  });
+      expect(adapter.count('POST', '/api/generation-tasks'), 3);
+      expect(submission.taskId, 'task-1');
+      expect(submission.items.map((i) => i.id), ['item-0', 'item-1']);
+    },
+  );
 
   test('no matching task surfaces the network error', () async {
     final adapter = FakeGatewayAdapter((options) {
@@ -105,9 +108,26 @@ void main() {
     );
   });
 
+  test('a reverse-proxy 504 counts as a lost response', () async {
+    var posts = 0;
+    final adapter = FakeGatewayAdapter((options) {
+      if (options.method == 'POST') {
+        if (posts++ == 0) return jsonResponse('Gateway Timeout', status: 504);
+        return jsonResponse(acceptedJson(), status: 202);
+      }
+      fail('unexpected ${options.method} ${options.uri.path}');
+    });
+
+    final submission = await submit(service(adapter));
+
+    expect(submission.taskId, 'task-1');
+    expect(adapter.count('POST', '/api/generation-tasks'), 2);
+  });
+
   test('an answer from the gateway is never resent', () async {
     final adapter = FakeGatewayAdapter(
-      (options) => jsonResponse(gatewayError('upstream_error'), status: 502),
+      (options) =>
+          jsonResponse(gatewayError('points_insufficient'), status: 409),
     );
 
     await expectLater(

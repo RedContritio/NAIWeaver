@@ -466,8 +466,10 @@ class NovelAIService {
     // The POST may have reached the gateway (points reserved, task queued)
     // with only the response lost. The gateway answers a repeated
     // `client_request_id` with the original submission, so the same body is
-    // resent a bounded number of times; it can not be charged twice. Any
-    // answer from the gateway (4xx/5xx) is final and never resent.
+    // resent a bounded number of times; it can not be charged twice. A 502 or
+    // 504 comes from the reverse proxy (this endpoint only queues, it never
+    // calls NovelAI), so it counts as a lost response too. Any other answer
+    // from the gateway is final and never resent.
     BackendException? lost;
     Response<dynamic>? response;
     for (var attempt = 0; response == null; attempt++) {
@@ -477,7 +479,10 @@ class NovelAIService {
           data: body,
         );
       } on BackendException catch (error) {
-        if (error.statusCode != null || !error.isNetworkError) rethrow;
+        final lostResponse = error.statusCode == null
+            ? error.isNetworkError
+            : error.statusCode == 502 || error.statusCode == 504;
+        if (!lostResponse) rethrow;
         lost = error;
         if (attempt >= submitRetryDelays.length) break;
         await Future<void>.delayed(submitRetryDelays[attempt]);
