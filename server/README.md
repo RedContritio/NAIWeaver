@@ -239,8 +239,8 @@ Once production is at version 1, `app/db_upgrade.py`, its CLI command and
 The production service is installed as a user LaunchAgent:
 
 - plist: `~/Library/LaunchAgents/com.redcontritio.naiweaver.plist`
-- release checkout: `/Users/redcontritio/Projects/NAIWeaver-release`, a detached
-  `git worktree` pinned to the deployed commit. Production never runs from the
+- release checkout: `/Users/redcontritio/Projects/NAIWeaver-release`, a
+  `git worktree` whose local branch `production` is the deployed commit. Production never runs from the
   development tree, so merging or switching branches there cannot change what
   a restart loads.
 - runner: `<release>/server/scripts/run-production.sh` (requires
@@ -251,16 +251,25 @@ The production service is installed as a user LaunchAgent:
 - logs: `~/.config/naiweaver/stdout.log` and `~/.config/naiweaver/stderr.log`
 - local listen: `127.0.0.1:62279`
 
-Release a new commit:
+Release a new commit. The running gateway serves `static/web` straight from
+disk, so the bundle is built next to it and swapped in only right before the
+restart; building in place would hand browsers the new client while the old
+gateway is still running.
 
 ```bash
-git -C /Users/redcontritio/Projects/NAIWeaver-release checkout --detach <commit>
-(cd /Users/redcontritio/Projects/NAIWeaver-release/server && uv sync --frozen)
-(cd /Users/redcontritio/Projects/NAIWeaver-release && flutter pub get && \
-  flutter build web --release --output server/static/web && \
-  server/scripts/compress-web.sh server/static/web)
-launchctl kickstart -k gui/$(id -u)/com.redcontritio.naiweaver
+R=/Users/redcontritio/Projects/NAIWeaver-release
+git -C $R checkout -B production <commit>
+(cd $R/server && uv sync --frozen)
+(cd $R && flutter pub get && rm -rf server/static/web.next && \
+  flutter build web --release --output server/static/web.next && \
+  server/scripts/compress-web.sh server/static/web.next)
+mv $R/server/static/web $R/server/static/web.previous.$(date +%Y%m%d-%H%M%S) && \
+  mv $R/server/static/web.next $R/server/static/web && \
+  launchctl kickstart -k gui/$(id -u)/com.redcontritio.naiweaver
 ```
+
+Roll back the web bundle by moving the newest `web.previous.*` back to `web`
+(and the checkout to the previous commit) before another kickstart.
 
 `compress-web.sh` needs `brotli` (`brew install brotli`) and must be re-run
 after every `flutter build web`; the gateway ignores siblings older than the

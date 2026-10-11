@@ -10,3 +10,4 @@ secrets/*
 static/web/
 .env
 static/web.previous.*/
+static/web.next/
