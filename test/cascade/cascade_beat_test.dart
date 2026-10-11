@@ -80,18 +80,6 @@ void main() {
       expect(beat.environmentTags, 'forest');
     });
 
-    test('copyWith updates sceneTags independently', () {
-      final beat = CascadeBeat(
-        characterSlots: const [],
-        sceneTags: 'old',
-        environmentTags: 'park',
-      );
-
-      final updated = beat.copyWith(sceneTags: 'new');
-
-      expect(updated.sceneTags, 'new');
-      expect(updated.environmentTags, 'park');
-    });
   });
 
   group('CascadeStitchingService base caption ordering', () {

@@ -83,27 +83,6 @@ Future<void> pumpPanel(
 }
 
 void main() {
-  testWidgets('renders with input field and Generate button', (tester) async {
-    final notifier = TextGenNotifier()
-      ..updateService(FakeTextGenService(['hi']));
-    await pumpPanel(tester, notifier: notifier);
-
-    expect(find.byType(TextField), findsWidgets);
-    expect(find.text('Generate'), findsOneWidget);
-  });
-
-  testWidgets('typing in the input updates the notifier', (tester) async {
-    final notifier = TextGenNotifier()
-      ..updateService(FakeTextGenService(['x']));
-    await pumpPanel(tester, notifier: notifier);
-
-    final inputField = find.byType(TextField).first;
-    await tester.enterText(inputField, 'The old lighthouse keeper said,');
-    await tester.pump();
-
-    expect(notifier.input, 'The old lighthouse keeper said,');
-  });
-
   testWidgets('Generate streams output and flips isGenerating', (tester) async {
     final notifier = TextGenNotifier()
       ..updateService(

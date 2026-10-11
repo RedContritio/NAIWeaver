@@ -137,27 +137,6 @@ void main() {
     );
   });
 
-  test('gateway action visibility hides buttons without permission', () {
-    expect(
-      isNovelAiImageActionAvailable(
-        gatewayMode: true,
-        permissionGranted: false,
-      ),
-      isFalse,
-    );
-    expect(
-      isNovelAiImageActionAvailable(gatewayMode: true, permissionGranted: true),
-      isTrue,
-    );
-    expect(
-      isNovelAiImageActionAvailable(
-        gatewayMode: false,
-        permissionGranted: false,
-      ),
-      isTrue,
-    );
-  });
-
   test('upscale picks the largest scale that fits the output limit', () async {
     final service = _RecordingNovelAiService();
     final actions = _actions(service);

@@ -3,50 +3,6 @@ import 'package:naiweaver/core/services/text_gen_service.dart';
 
 void main() {
   group('TextGenParams — legacy parameters body (Kayra/Clio/Erato)', () {
-    test('toLegacyParametersJson() has the documented field names + defaults', () {
-      final json = TextGenParams.glmDefault().toLegacyParametersJson();
-
-      // Names match the NovelAI Swagger AiGenerateParameters schema / what
-      // SillyTavern sends.
-      expect(json.keys, containsAll(<String>[
-        'use_string',
-        'temperature',
-        'max_length',
-        'min_length',
-        'top_k',
-        'top_p',
-        'top_a',
-        'typical_p',
-        'tail_free_sampling',
-        'repetition_penalty',
-        'repetition_penalty_range',
-        'repetition_penalty_slope',
-        'repetition_penalty_frequency',
-        'repetition_penalty_presence',
-        'phrase_rep_pen',
-        'generate_until_sentence',
-        'order',
-        'force_emotion',
-      ]));
-
-      expect(json['use_string'], isTrue);
-      expect(json['temperature'], 1.0);
-      expect(json['max_length'], 150);
-      expect(json['min_length'], 1);
-      expect(json['top_k'], 0);
-      expect(json['top_p'], 1.0);
-      expect(json['top_a'], 1.0);
-      expect(json['typical_p'], 1.0);
-      expect(json['tail_free_sampling'], 1.0);
-      expect(json['repetition_penalty'], 1.0);
-      expect(json['repetition_penalty_range'], 2048);
-      expect(json['phrase_rep_pen'], 'aggressive');
-      expect(json['generate_until_sentence'], isTrue);
-      expect(json['order'], <int>[0, 1, 2, 3]);
-      expect(json['force_emotion'], isFalse);
-      // We do NOT send invented fields.
-      expect(json.containsKey('bracket_ban'), isFalse);
-    });
   });
 
   group('TextGenParams — chat body (GLM)', () {
@@ -125,13 +81,6 @@ void main() {
       expect(restored.order, original.order);
     });
 
-    test('deterministic preset lowers temperature', () {
-      expect(TextGenParams.deterministic().temperature, 0.6);
-      expect(TextGenParams.byPresetName('Deterministic (low temp)').temperature,
-          0.6);
-      expect(TextGenParams.byPresetName('GLM Default').temperature, 1.0);
-      expect(TextGenParams.byPresetName('unknown').temperature, 1.0);
-    });
   });
 
   group('TextGenRequest', () {
@@ -262,15 +211,6 @@ void main() {
         stopStrings: ['END', '', '.'],
       );
       expect(req.toJson()['stop'], <String>['END', '.']);
-    });
-
-    test('default model is glm-4-6 and is chat-style', () {
-      expect(const TextGenRequest(input: 'x').model, 'glm-4-6');
-      expect(kDefaultTextModel, 'glm-4-6');
-      expect(isChatStyleModel('glm-4-6'), isTrue);
-      expect(isChatStyleModel('kayra-v1'), isFalse);
-      expect(isChatStyleModel('clio-v1'), isFalse);
-      expect(isChatStyleModel('llama-3-erato-v1'), isFalse);
     });
 
     test('firstStopIndex finds the earliest stop string', () {

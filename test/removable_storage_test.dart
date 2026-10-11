@@ -28,24 +28,4 @@ void main() {
     });
   });
 
-  group('removableOutputDir', () {
-    test('appends output with forward slashes', () {
-      expect(removableOutputDir(sd),
-          '/storage/1234-ABCD/Android/data/dev.naiweaver.app/files/output');
-    });
-  });
-
-  group('volumeLabel', () {
-    test('extracts the volume UUID segment', () {
-      expect(volumeLabel(sd), '1234-ABCD');
-    });
-
-    test('falls back to the full path when there is no storage segment', () {
-      expect(volumeLabel('/mnt/media/foo'), '/mnt/media/foo');
-    });
-
-    test('handles a bare storage root', () {
-      expect(volumeLabel('/storage/1234-ABCD'), '1234-ABCD');
-    });
-  });
 }

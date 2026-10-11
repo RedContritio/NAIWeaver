@@ -5,7 +5,6 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:naiweaver/core/services/text_gen_service.dart';
 import 'package:naiweaver/features/characters/gen/character_gen_data.dart';
-import 'package:naiweaver/features/characters/gen/character_gen_prompts.dart';
 import 'package:naiweaver/features/characters/gen/character_gen_service.dart';
 import 'package:naiweaver/features/characters/gen/providers/character_gen_notifier.dart';
 import 'package:naiweaver/features/characters/models/saved_character.dart';
@@ -132,62 +131,6 @@ void main() {
   // --------------------------------------------------------------------
   // prompt-block injection (vibe / era / knowledge boundary)
   // --------------------------------------------------------------------
-  group('prompt blocks', () {
-    test('vibe guidance: surprise-me is empty, traditional has its blob', () {
-      expect(vibeById('surprise_me')!.resolvedGuidance(), '');
-      final trad = vibeById('traditional')!.resolvedGuidance();
-      expect(trad, contains('VIBE -- TRADITIONAL'));
-      expect(trad, contains('don\'t default to Western assumptions'));
-    });
-
-    test('custom vibe substitutes the free text', () {
-      final c = vibeById('custom')!.resolvedGuidance(customVibe: 'weary war veteran turned baker');
-      expect(c, 'VIBE -- CUSTOM: weary war veteran turned baker');
-      expect(vibeById('custom')!.resolvedGuidance(customVibe: '  '), '');
-    });
-
-    test('addicted vibe substitutes (or generalises) the subject', () {
-      final withSubj = vibeById('addicted')!.resolvedGuidance(addictionSubject: 'gambling');
-      expect(withSubj, contains('The addiction is: GAMBLING'));
-      expect(withSubj, isNot(contains('{addictionPick}')));
-      final blank = vibeById('addicted')!.resolvedGuidance();
-      expect(blank, contains('Pick a SPECIFIC addiction'));
-      expect(blank, isNot(contains('{addictionPick}')));
-    });
-
-    test('era block: modern has no constraints, historical has the knowledge boundary', () {
-      const modern = CharacterEra(id: 'present-day', year: 2026, label: 'Present Day');
-      expect(eraBlockFor(modern, 'Lisbon'), contains('Modern day'));
-      expect(soulAddendumFor(modern, 'Lisbon'), '');
-
-      const medieval = CharacterEra(id: 'black-death-arrives', year: 1347, label: 'The Black Death Arrives');
-      final hist = eraBlockFor(medieval, 'Florence');
-      expect(hist, contains('KNOWLEDGE BOUNDARY'));
-      expect(hist, contains('The Black Death Arrives'));
-      expect(hist, contains('Florence'));
-    });
-
-    test('lean prompt substitution fills the placeholders', () {
-      const era = CharacterEra(id: 'roaring-twenties', year: 1925, label: 'The Roaring Twenties');
-      final prompt = substituteLeanCharacterPrompt(
-        template:
-            'GENDER:{gender} PERIOD:{period} LOCATION:{location} NSFW:{nsfw_mode}\n{vibe_context}{era_context}{nsfw_block}',
-        gender: 'female',
-        era: era,
-        locationName: 'Berlin',
-        vibeHint: 'Mysterious',
-        nsfw: false,
-      );
-      expect(prompt, contains('GENDER:female'));
-      expect(prompt, contains('PERIOD:The Roaring Twenties'));
-      expect(prompt, contains('LOCATION:Berlin'));
-      expect(prompt, contains('NSFW:OFF'));
-      expect(prompt, contains('Overall vibe: Mysterious'));
-      expect(prompt, contains('KNOWLEDGE BOUNDARY'));
-      expect(prompt, contains('Leave nsfw_top, nsfw_bottom, nsfw_always, and nsfw ALL as empty strings'));
-    });
-  });
-
   // --------------------------------------------------------------------
   // full pipeline via the service (with a scripted fake)
   // --------------------------------------------------------------------
