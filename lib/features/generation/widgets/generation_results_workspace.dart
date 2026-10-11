@@ -38,12 +38,10 @@ class ResultSetGridSpec {
   }
 }
 
-ResultSetViewItem _viewItemFor(GeneratedImageItem item) {
+ResultSetViewItem _viewItemFor(BuildContext context, GeneratedImageItem item) {
   final bytes = item.bytes;
-  final failed =
-      item.progress == GenerationTaskProgress.failed ||
-      item.progress == GenerationTaskProgress.rejected ||
-      item.progress == GenerationTaskProgress.cancelled;
+  // An item the client stopped following shows why, like a failed one.
+  final failed = item.isFailed || item.retryable;
   return ResultSetViewItem(
     id: item.id,
     position: item.batchIndex,
@@ -54,7 +52,9 @@ ResultSetViewItem _viewItemFor(GeneratedImageItem item) {
     seed: item.seed,
     isLoading: item.isLoading,
     isGenerating: item.progress == GenerationTaskProgress.generating,
-    errorMessage: failed ? item.errorMessage ?? 'Generation failed' : null,
+    errorMessage: failed
+        ? item.errorMessage ?? context.l.generationFailedFallback
+        : null,
   );
 }
 
@@ -88,7 +88,7 @@ class _GenerationResultsWorkspaceState
     final images = widget.state.generatedImages;
     final onSelect =
         widget.onSelectImage ?? widget.notifier.selectGeneratedImage;
-    final viewItems = images.map(_viewItemFor).toList();
+    final viewItems = [for (final item in images) _viewItemFor(context, item)];
     if (viewItems.isEmpty && widget.state.generatedImage != null) {
       viewItems.add(
         ResultSetViewItem(
@@ -109,10 +109,47 @@ class _GenerationResultsWorkspaceState
       mobile: widget.mobile,
       pulseAnimation: widget.pulseAnimation,
       isDragging: widget.state.isDragging,
+      headerTrailingBuilder: (context, _) => _batchActions(context),
       previewOverlay:
           widget.showQuickActions && widget.state.generatedImage != null
           ? const QuickActionOverlay()
           : null,
+    );
+  }
+
+  /// Cancelling what is still queued, and following again what the client
+  /// stopped following; null when neither applies.
+  Widget? _batchActions(BuildContext context) {
+    final notifier = widget.notifier;
+    final cancel = notifier.canCancelQueued;
+    final resume = notifier.canResumeWatching;
+    if (!cancel && !resume) return null;
+    final t = context.t;
+    final l = context.l;
+    Widget action(String label, VoidCallback onTap, Color color) => TextButton(
+      onPressed: onTap,
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: t.fontSize(10),
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1,
+        ),
+      ),
+    );
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (resume)
+          action(l.generationResumeWatching, notifier.resumeWatching, t.accent),
+        if (cancel)
+          action(
+            l.generationCancelQueued,
+            notifier.cancelQueued,
+            t.accentDanger,
+          ),
+      ],
     );
   }
 }
@@ -145,8 +182,9 @@ class ResultSetWorkspace extends StatefulWidget {
   final bool isDragging;
   final Widget? previewOverlay;
   final Widget? headerLeading;
-  final Widget Function(BuildContext, ResultSetWorkspaceMode)?
+  final Widget? Function(BuildContext, ResultSetWorkspaceMode)?
   headerTrailingBuilder;
+
   /// Builds the action itself; [CardActionLayout] supplies its frame and position.
   final Widget Function(BuildContext, ResultSetViewItem)?
   gridItemTrailingBuilder;

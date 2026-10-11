@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import '../../../../core/services/novel_ai_service.dart';
+import '../../../generation/models/generation_quote.dart';
 import '../../../generation/models/nai_character.dart';
 import '../models/enhance_config.dart';
 
@@ -99,7 +100,9 @@ class EnhanceNotifier extends ChangeNotifier {
     _useCoords = useCoords;
   }
 
-  Future<void> enhance() async {
+  /// Enhances the source image. When the gateway prices the call differently
+  /// from what was shown, [confirmQuote] asks the user whether to go on.
+  Future<void> enhance({QuoteConfirmer? confirmQuote}) async {
     if (_service == null || _sourceImageBytes == null) return;
     _isProcessing = true;
     _error = null;
@@ -139,12 +142,15 @@ class EnhanceNotifier extends ChangeNotifier {
         characters: _characters,
         interactions: _interactions,
         useCoords: _useCoords,
+        confirmQuote: confirmQuote,
       );
 
       _resultBytes = result.imageBytes;
       _status = '';
     } on UnauthorizedException {
       _error = 'Authentication error: check API key';
+    } on QuoteDeclinedException {
+      // The user chose not to pay the gateway's price: nothing was sent.
     } catch (e) {
       _error = e.toString();
     } finally {

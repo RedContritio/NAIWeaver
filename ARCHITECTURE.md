@@ -112,12 +112,16 @@ lib/
 └── features/
     ├── generation/                        # Main generation feature
     │   ├── models/
+    │   │   ├── generated_image_item.dart   # One result slot: bytes, frozen metadata, seed, saved flag, run id
     │   │   ├── nai_character.dart          # NaiCharacter, NaiInteraction (multi-participant), NaiCoordinate models
     │   │   └── character_preset.dart       # CharacterPreset model for save/load character configurations
     │   ├── providers/
-    │   │   └── generation_notifier.dart    # Central business logic (~1400 lines)
+    │   │   └── generation_notifier.dart    # Central business logic: runs, result set, form state
     │   ├── services/
-    │   │   ├── session_snapshot_service.dart   # Generation session state snapshots
+    │   │   ├── gateway_task_watcher.dart       # The one poller of a gateway submission (timeout, cancel, image fetch)
+    │   │   ├── generation_image_persistence.dart # Save / export / auto save / clipboard of one image's bytes + metadata
+    │   │   ├── seed_policy.dart               # Seed box validation (0..4294967295) and batch seeds
+    │   │   ├── session_snapshot_service.dart   # Generation session state snapshots (versioned)
     │   │   ├── reference_access_monitor.dart   # Pauses references/vibes without paid access and announces access changes once
     │   │   ├── character_manager.dart         # Character lifecycle management
     │   │   ├── preset_service.dart            # Preset apply/save logic extracted from notifier
@@ -393,6 +397,8 @@ Context-aware floating action buttons rendered on the image viewer. Each button 
 8. `ImageUtils.injectMetadata()` encodes settings into PNG Comment/Description chunks (in Isolate)
 9. Image saved to `output/` folder, `GalleryNotifier` picks it up
 
+One generation runs at a time (`GenerationState.isGenerating`); the settings, request and metadata are frozen when it is submitted, results are written back by item id and run id (late or foreign results are dropped), and everything that acts on an image (save, export, album) is given that image's item id.
+
 ### Img2Img / Inpainting
 1. Source image loaded into `Img2ImgNotifier` (from file, last generation, or canvas editor)
 2. If using canvas: `CanvasNotifier` manages multi-layer drawing state; `CanvasFlattenService` merges visible layers to PNG
@@ -449,7 +455,7 @@ Context-aware floating action buttons rendered on the image viewer. Each button 
 ### Photoshoot
 1. User opens Photoshoot for a character + outfit; the outfit is copied into ephemeral working state
 2. Dress/Scene/Prompt drawer assembles a prompt from the rendered outfit + style + pose/environment presets
-3. GENERATE snapshots the main editor's prompt + negative, writes the assembled prompt (and character/outfit negatives) into the shared controllers, runs `GenerationNotifier.generate()`, then restores the snapshot; SEND instead pops back and appends to the main prompt
+3. GENERATE passes the assembled prompt (and character/outfit negatives) to `GenerationNotifier.generate(prompt:, negativePrompt:)`, so the main editor's boxes and batch size are never touched; SEND instead pops back and appends to the main prompt
 4. Saved closet is untouched unless the user taps "save state to outfit"
 
 ### Pack Export/Import

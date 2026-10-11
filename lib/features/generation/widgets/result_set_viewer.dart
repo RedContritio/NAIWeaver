@@ -383,7 +383,8 @@ class _ResultSetStatus extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     failed
-                        ? (item.errorMessage ?? 'Generation failed')
+                        ? (item.errorMessage ??
+                              context.l.generationFailedFallback)
                         : (item.isGenerating
                               ? context.l.mainResultGenerating
                               : context.l.mainResultPending),

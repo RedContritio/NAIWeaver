@@ -51,7 +51,10 @@ class _QuickActionOverlayState extends State<QuickActionOverlay> {
       return const SizedBox.shrink();
     }
 
-    final bool showSave = !state.autoSaveImages && !notifier.imageSaved;
+    // Every action applies to the image shown now, whichever is selected by
+    // the time a slow one finishes.
+    final item = state.selectedItem!;
+    final bool showSave = !state.autoSaveImages && !item.saved;
     final bool showExport = prefs.showExportButton && !kIsWeb;
     final bool showCopy = prefs.showCopyButton && !kIsWeb;
     final gallery = context.watch<GalleryNotifier>();
@@ -99,7 +102,7 @@ class _QuickActionOverlayState extends State<QuickActionOverlay> {
     if (showSave) {
       addAction(
         _SaveButton(
-          onTap: () => notifier.saveCurrentImage(),
+          onTap: () => notifier.saveImage(item.id),
           icon: Icons.save_alt,
           label: l.mainSave.toUpperCase(),
           color: t.accentSuccess,
@@ -110,7 +113,7 @@ class _QuickActionOverlayState extends State<QuickActionOverlay> {
     if (showExport) {
       addAction(
         _ActionButton(
-          onTap: () => notifier.exportToDevice(context),
+          onTap: () => notifier.exportImage(context, item.id),
           icon: Icons.download,
           label: l.mainExport,
           color: t.accent,
@@ -121,9 +124,20 @@ class _QuickActionOverlayState extends State<QuickActionOverlay> {
     if (showCopy) {
       addAction(
         _ActionButton(
-          onTap: () => notifier.copyToClipboard(context),
+          onTap: () => notifier.copyImage(context, item.id),
           icon: mobile ? Icons.share : Icons.copy,
           label: mobile ? 'SHARE' : 'COPY',
+          color: t.accent,
+          mobile: mobile,
+        ),
+      );
+    }
+    if (item.seed != null && state.randomizeSeed) {
+      addAction(
+        _ActionButton(
+          onTap: () => notifier.reuseSeed(item.id),
+          icon: Icons.casino_outlined,
+          label: l.generationReuseSeed,
           color: t.accent,
           mobile: mobile,
         ),
@@ -132,7 +146,7 @@ class _QuickActionOverlayState extends State<QuickActionOverlay> {
     if (showAlbum) {
       addAction(
         _ActionButton(
-          onTap: () => _showAlbumPicker(context, notifier, gallery, t),
+          onTap: () => _showAlbumPicker(context, notifier, item.id, gallery, t),
           icon: Icons.photo_album_outlined,
           label: 'ALBUM',
           color: t.accent,
@@ -420,10 +434,11 @@ class _QuickActionOverlayState extends State<QuickActionOverlay> {
 void _showAlbumPicker(
   BuildContext context,
   GenerationNotifier notifier,
+  String itemId,
   GalleryNotifier gallery,
   VisionTokens t,
 ) async {
-  final basename = await notifier.ensureSavedAndGetBasename();
+  final basename = await notifier.ensureSavedAndGetBasename(itemId);
   if (basename == null || !context.mounted) return;
 
   showModalBottomSheet(

@@ -6,8 +6,11 @@ import '../gateway/backend_exception.dart';
 import '../gateway/backend_gateway.dart';
 import '../gateway/backend_rules.dart';
 import '../gateway/image_quote.dart';
+import '../../features/generation/models/generation_quote.dart';
 import '../../features/generation/models/nai_character.dart';
+import '../../features/generation/services/gateway_task_watcher.dart';
 import 'backend_client.dart';
+import 'backend_history_api.dart';
 
 /// Strips backslashes from a prompt before it reaches the NovelAI API.
 /// NovelAI prompts have no use for `\` (it's not an escape or weighting
@@ -53,6 +56,11 @@ class GatewayGenerationSubmission {
     required this.taskId,
     required this.items,
   });
+}
+
+/// The user declined the gateway's price.
+class QuoteDeclinedException implements Exception {
+  const QuoteDeclinedException();
 }
 
 class UnauthorizedException implements Exception {
@@ -176,75 +184,39 @@ class NovelAIService {
     throw StateError('Unreachable');
   }
 
-  /// Wait for a gateway-owned generation task. The job itself lives on the
-  /// server, so closing or refreshing the client cannot discard it.
-  Future<Uint8List> waitForGatewayGeneration(
-    String taskId, {
-    ValueChanged<String>? onStatus,
-  }) async {
-    var retryDelay = const Duration(seconds: 1);
-    var pollFailures = 0;
-    var imageFailures = 0;
-    while (true) {
-      Map<String, dynamic> task;
-      try {
-        final statusResponse = await _client.get<dynamic>(
-          '/api/generation-items/$taskId',
-        );
-        final data = statusResponse.data;
-        if (data is! Map<String, dynamic>) {
-          throw const BackendException(
+  /// Waits for the only image of [submission] and returns it. The job itself
+  /// lives on the server, so closing or refreshing the client cannot discard
+  /// it.
+  Future<Uint8List> _awaitGatewayImage(
+    GatewayGenerationSubmission submission,
+  ) async {
+    final id = submission.items.single.id;
+    Uint8List? image;
+    Object? failure;
+    await GatewayTaskWatcher(api: BackendHistoryApi(client: _client)).watch(
+      taskId: submission.taskId,
+      itemIds: {id},
+      token: GatewayWatchToken(),
+      onItem: (item) {
+        if (item.status == 'failed' ||
+            item.status == 'rejected' ||
+            item.status == 'cancelled') {
+          failure = BackendException(
             statusCode: null,
-            code: BackendErrorCode.invalidResponse,
+            code: item.errorCode ?? BackendErrorCode.internalError,
           );
         }
-        task = data;
-      } on BackendException catch (error) {
-        final status = error.statusCode;
-        if (error.isNotAuthenticated || status == 403 || status == 404) {
-          rethrow;
-        }
-        pollFailures++;
-        if (pollFailures >= 8) rethrow;
-        await Future.delayed(retryDelay);
-        final nextSeconds = (retryDelay.inSeconds * 2).clamp(1, 15);
-        retryDelay = Duration(seconds: nextSeconds);
-        continue;
-      }
-      final taskStatus = task['status'] as String? ?? '';
-      pollFailures = 0;
-      onStatus?.call(taskStatus);
-      if (taskStatus == 'success') {
-        try {
-          final imageResponse = await _client.get<List<int>>(
-            '/api/history/$taskId/image',
-            options: Options(responseType: ResponseType.bytes),
-          );
-          return Uint8List.fromList(imageResponse.data ?? const <int>[]);
-        } on BackendException catch (error) {
-          imageFailures++;
-          final imageStatus = error.statusCode;
-          if (error.isNotAuthenticated ||
-              imageStatus == 403 ||
-              (imageStatus == 404 && imageFailures >= 3) ||
-              imageFailures >= 8) {
-            rethrow;
-          }
-          await Future.delayed(retryDelay);
-          continue;
-        }
-      }
-      if (taskStatus == 'failed' ||
-          taskStatus == 'rejected' ||
-          taskStatus == 'cancelled') {
-        throw BackendException(
+      },
+      onImage: (item, bytes) => image = bytes,
+      onImageFailed: (item, error) => failure = error,
+    );
+    final bytes = image;
+    if (bytes != null) return bytes;
+    throw failure ??
+        const BackendException(
           statusCode: null,
-          code: task['error_code'] as String? ?? BackendErrorCode.internalError,
+          code: BackendErrorCode.internalError,
         );
-      }
-      retryDelay = const Duration(seconds: 1);
-      await Future.delayed(const Duration(seconds: 1));
-    }
   }
 
   /// Encodes an image into a vibe vector via the NAI encode-vibe endpoint.
@@ -511,6 +483,82 @@ class NovelAIService {
     return GatewayGenerationSubmission(taskId: taskId, items: items);
   }
 
+  /// Submits [request] with the price computed from the rules (loaded when not
+  /// given). When the gateway answers with a different price (`quote_changed`,
+  /// or the free allowance ran out), the user decides through [confirmQuote];
+  /// on yes the request is sent once more with the gateway's price, on no
+  /// [QuoteDeclinedException] is thrown. Red points are never offered to an
+  /// account that cannot pay them ([canPayRed]).
+  Future<GatewayGenerationSubmission> submitGatewayBatch({
+    required ImageGenerationRequest request,
+    required List<int> seeds,
+    required String clientRequestId,
+    QuoteConfirmer? confirmQuote,
+    bool canPayRed = true,
+    ImageRules? rules,
+  }) async {
+    final prices = rules ?? await loadImageRules();
+    final ImageQuote shown;
+    try {
+      shown = quoteImageRequest(prices, request.body, images: seeds.length);
+    } on InvalidQuoteRequest catch (error) {
+      throw error.toBackendException();
+    }
+    try {
+      return await submitGatewayGenerationBatch(
+        request: request,
+        seeds: seeds,
+        clientRequestId: clientRequestId,
+        expectedQuote: shown.toExpectedQuote(),
+      );
+    } on BackendException catch (error) {
+      final server = _gatewayQuoteOf(error);
+      if (server == null ||
+          confirmQuote == null ||
+          (server.mode == QuoteMode.paid && !canPayRed)) {
+        // The cached prices are stale; the next call reloads them.
+        if (error is QuoteChangedException) _client.imageRules = null;
+        rethrow;
+      }
+      final confirmed = await confirmQuote(
+        QuoteConfirmation(
+          shown: shown,
+          serverMode: server.mode,
+          serverPoints: server.points,
+          reasons: server.reasons,
+        ),
+      );
+      if (!confirmed) throw const QuoteDeclinedException();
+      return submitGatewayGenerationBatch(
+        request: request,
+        seeds: seeds,
+        clientRequestId: newClientRequestId(),
+        expectedQuote: {'mode': server.mode, 'points': server.points},
+      );
+    }
+  }
+
+  /// The gateway's own quote carried by a price disagreement, if [error] is
+  /// one.
+  ({String mode, int points, List<String> reasons})? _gatewayQuoteOf(
+    BackendException error,
+  ) {
+    final raw = error is QuoteChangedException
+        ? error.quote
+        : error.code == BackendErrorCode.freeAllowanceExhausted
+        ? error.details['quote']
+        : null;
+    if (raw is! Map<String, dynamic>) return null;
+    final mode = raw['mode'];
+    final points = raw['points'];
+    if (mode is! String || points is! num) return null;
+    return (
+      mode: mode,
+      points: points.toInt(),
+      reasons: [for (final reason in raw['reasons'] as List? ?? []) '$reason'],
+    );
+  }
+
   /// Generates an image using the NAI Diffusion V5 model.
   ///
   /// For img2img: set [action] to `"img2img"`, provide [sourceImageBase64],
@@ -548,11 +596,8 @@ class NovelAIService {
     List<double>? vibeTransferInfoExtracted,
     bool? useCoords,
     bool useCurated = false,
-    Future<void> Function(String taskId)? onGatewayTaskAccepted,
-    ValueChanged<String>? onGatewayTaskStatus,
-    String? batchId,
-    int? batchIndex,
-    bool isBatch = false,
+    QuoteConfirmer? confirmQuote,
+    bool canPayRed = true,
   }) async {
     final request = buildImageGenerationRequest(
       prompt: prompt,
@@ -588,42 +633,29 @@ class NovelAIService {
       useCoords: useCoords,
       useCurated: useCurated,
     );
+    if (_gateway) {
+      final submission = await submitGatewayBatch(
+        request: request,
+        seeds: [seed],
+        clientRequestId: newClientRequestId(),
+        confirmQuote: confirmQuote,
+        canPayRed: canPayRed,
+      );
+      return GenerationResult(
+        imageBytes: await _awaitGatewayImage(submission),
+        metadata: Map<String, dynamic>.from(request.metadata),
+      );
+    }
+    return GenerationResult(
+      imageBytes: await generateDirect(request),
+      metadata: Map<String, dynamic>.from(request.metadata),
+    );
+  }
+
+  /// Sends an already built request straight to NovelAI with the personal API
+  /// key (no gateway) and returns the image.
+  Future<Uint8List> generateDirect(ImageGenerationRequest request) async {
     try {
-      if (_gateway) {
-        final ImageQuote quote;
-        try {
-          quote = quoteImageRequest(
-            await _client.requireImageRules(),
-            request.body,
-            images: 1,
-          );
-        } on InvalidQuoteRequest catch (error) {
-          throw error.toBackendException();
-        }
-        final GatewayGenerationSubmission submission;
-        try {
-          submission = await submitGatewayGenerationBatch(
-            request: request,
-            seeds: [seed],
-            clientRequestId: newClientRequestId(),
-            expectedQuote: quote.toExpectedQuote(),
-          );
-        } on QuoteChangedException {
-          // The cached prices are stale; the next call reloads them.
-          _client.imageRules = null;
-          rethrow;
-        }
-        final taskId = submission.items.single.id;
-        await onGatewayTaskAccepted?.call(taskId);
-        final imageBytes = await waitForGatewayGeneration(
-          taskId,
-          onStatus: onGatewayTaskStatus,
-        );
-        return GenerationResult(
-          imageBytes: imageBytes,
-          metadata: Map<String, dynamic>.from(request.metadata),
-        );
-      }
       final response = await _dio.post(
         _imageUrl('/ai/generate-image'),
         data: request.body,
@@ -634,16 +666,7 @@ class NovelAIService {
       );
 
       if (response.statusCode == 200) {
-        final imageBytes = await compute(
-          _decodeZip,
-          response.data as List<int>,
-        );
-
-        // Prepare metadata in official NAI style
-        // We include both 'uc' and 'undesired_content' to be absolutely sure
-        final metadata = Map<String, dynamic>.from(request.metadata);
-
-        return GenerationResult(imageBytes: imageBytes, metadata: metadata);
+        return await compute(_decodeZip, response.data as List<int>);
       } else {
         throw Exception('[API Error ${response.statusCode}]');
       }

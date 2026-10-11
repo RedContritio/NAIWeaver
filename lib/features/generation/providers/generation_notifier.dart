@@ -4,12 +4,8 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:gal/gal.dart';
 import 'package:path/path.dart' as p;
 import 'package:intl/intl.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:super_clipboard/super_clipboard.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../../core/gateway/backend_error_messages.dart';
 import '../../../core/gateway/backend_exception.dart';
@@ -17,24 +13,16 @@ import '../../../core/gateway/backend_gateway.dart';
 import '../../../core/gateway/backend_permissions.dart';
 import '../../../core/gateway/backend_rules.dart';
 import '../../../core/gateway/image_quote.dart';
-import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/l10n/locale_notifier.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../../core/utils/app_snackbar.dart';
-import '../../../core/utils/filename_pattern.dart';
-import '../../../core/utils/nai_filename.dart';
-import '../../../core/utils/unique_file_path.dart';
-import '../../../core/utils/web_download.dart';
-import '../../../core/services/saf_export_service.dart';
 import '../../../core/services/preferences_service.dart';
-import '../../../core/services/backend_client.dart';
+import '../../../core/services/client_diagnostics.dart';
 import '../../../core/services/novel_ai_service.dart';
 import '../../../core/services/backend_history_api.dart';
 import '../../../core/services/nai_text_service.dart';
 import '../../../core/services/wildcard_processor.dart';
 import '../../../core/services/presets.dart';
 import '../../../core/services/tag_service.dart';
-import '../../../core/utils/image_utils.dart';
 import '../../../core/services/wildcard_service.dart';
 import '../../../core/utils/tag_suggestion_helper.dart';
 import '../../../core/widgets/syntax_highlight_controller.dart';
@@ -43,6 +31,7 @@ import '../../gallery/providers/gallery_notifier.dart';
 import '../../tools/providers/tag_library_notifier.dart';
 import '../models/nai_character.dart';
 import '../models/character_preset.dart';
+import '../models/generated_image_item.dart';
 import '../models/generation_quote.dart';
 import '../../tools/cascade/services/cascade_stitching_service.dart';
 import '../../tools/img2img/services/img2img_request_builder.dart';
@@ -59,6 +48,11 @@ import '../services/metadata_import_service.dart';
 import '../services/session_snapshot_service.dart';
 import '../services/character_manager.dart';
 import '../services/preset_service.dart';
+import '../services/gateway_task_watcher.dart';
+import '../services/generation_image_persistence.dart';
+import '../services/seed_policy.dart';
+
+export '../models/generated_image_item.dart';
 
 /// Outcome of applying a tag suggestion, so the UI can react (e.g. show a
 /// "character limit reached" toast). Only [characterLimitReached] needs UI
@@ -78,8 +72,6 @@ enum ApplyTagResult {
 
 enum GenerationErrorTone { general, greenPoints, redPoints }
 
-enum GenerationTaskProgress { queued, generating, failed, rejected, cancelled }
-
 class GenerationError {
   final String message;
   final GenerationErrorTone tone;
@@ -92,80 +84,16 @@ class GenerationError {
   ]);
 }
 
-class GeneratedImageItem {
-  final String id;
-  final Uint8List? bytes;
-  final Map<String, dynamic>? metadata;
-  final int batchIndex;
-  final int batchCount;
-  final int? seed;
-  final bool isLoading;
-  final GenerationTaskProgress progress;
-  final bool duplicateImageDetected;
-  final bool saved;
-  final String? savedBasename;
-  final String? errorMessage;
-
-  const GeneratedImageItem({
-    required this.id,
-    required this.batchIndex,
-    required this.batchCount,
-    this.bytes,
-    this.metadata,
-    this.seed,
-    this.isLoading = false,
-    this.progress = GenerationTaskProgress.queued,
-    this.duplicateImageDetected = false,
-    this.saved = false,
-    this.savedBasename,
-    this.errorMessage,
-  });
-
-  bool get isComplete => bytes != null;
-  bool get isTerminal =>
-      isComplete ||
-      progress == GenerationTaskProgress.failed ||
-      progress == GenerationTaskProgress.rejected ||
-      progress == GenerationTaskProgress.cancelled;
-
-  GeneratedImageItem copyWith({
-    Uint8List? bytes,
-    Map<String, dynamic>? metadata,
-    int? seed,
-    bool? isLoading,
-    GenerationTaskProgress? progress,
-    bool? duplicateImageDetected,
-    bool? saved,
-    String? savedBasename,
-    String? errorMessage,
-    bool clearErrorMessage = false,
-  }) {
-    return GeneratedImageItem(
-      id: id,
-      batchIndex: batchIndex,
-      batchCount: batchCount,
-      bytes: bytes ?? this.bytes,
-      metadata: metadata ?? this.metadata,
-      seed: seed ?? this.seed,
-      isLoading: isLoading ?? this.isLoading,
-      progress: progress ?? this.progress,
-      duplicateImageDetected:
-          duplicateImageDetected ?? this.duplicateImageDetected,
-      saved: saved ?? this.saved,
-      savedBasename: savedBasename ?? this.savedBasename,
-      errorMessage: clearErrorMessage
-          ? null
-          : errorMessage ?? this.errorMessage,
-    );
-  }
-}
-
 class GenerationState {
-  final Uint8List? generatedImage;
   final List<GeneratedImageItem> generatedImages;
   final String? selectedGeneratedImageId;
   final bool autoFollowLatestImage;
+
+  /// Any generation work is in flight: a batch run or a single-image call.
   final bool isLoading;
+
+  /// A batch run is in flight (submitted, queued, or being followed).
+  final bool isGenerating;
   final bool isDragging;
   final bool isSettingsExpanded;
   final List<GenerationPreset> presets;
@@ -211,11 +139,11 @@ class GenerationState {
   final bool duplicateImageDetected;
 
   GenerationState({
-    this.generatedImage,
     this.generatedImages = const [],
     this.selectedGeneratedImageId,
     this.autoFollowLatestImage = true,
     this.isLoading = false,
+    this.isGenerating = false,
     this.isDragging = false,
     this.isSettingsExpanded = false,
     this.presets = const [],
@@ -259,14 +187,23 @@ class GenerationState {
     this.duplicateImageDetected = false,
   });
 
+  /// The selected result, the one the actions (save, export, tools) apply to.
+  GeneratedImageItem? get selectedItem => selectedGeneratedImageId == null
+      ? null
+      : generatedImages
+            .where((item) => item.id == selectedGeneratedImageId)
+            .firstOrNull;
+
+  /// The selected result's image.
+  Uint8List? get generatedImage => selectedItem?.bytes;
+
   GenerationState copyWith({
-    Uint8List? generatedImage,
-    bool clearGeneratedImage = false,
     List<GeneratedImageItem>? generatedImages,
     String? selectedGeneratedImageId,
     bool clearSelectedGeneratedImageId = false,
     bool? autoFollowLatestImage,
     bool? isLoading,
+    bool? isGenerating,
     bool? isDragging,
     bool? isSettingsExpanded,
     List<GenerationPreset>? presets,
@@ -312,9 +249,6 @@ class GenerationState {
     bool? duplicateImageDetected,
   }) {
     return GenerationState(
-      generatedImage: clearGeneratedImage
-          ? null
-          : generatedImage ?? this.generatedImage,
       generatedImages: generatedImages ?? this.generatedImages,
       selectedGeneratedImageId: clearSelectedGeneratedImageId
           ? null
@@ -322,6 +256,7 @@ class GenerationState {
       autoFollowLatestImage:
           autoFollowLatestImage ?? this.autoFollowLatestImage,
       isLoading: isLoading ?? this.isLoading,
+      isGenerating: isGenerating ?? this.isGenerating,
       isDragging: isDragging ?? this.isDragging,
       isSettingsExpanded: isSettingsExpanded ?? this.isSettingsExpanded,
       presets: presets ?? this.presets,
@@ -416,23 +351,37 @@ class GenerationNotifier extends ChangeNotifier {
   String get presetsFilePath => _presetService.presetsFilePath;
   String get stylesFilePath => _presetService.stylesFilePath;
 
-  Map<String, dynamic>? _lastMetadata;
-  bool _imageSaved = false;
-  bool get imageSaved => _imageSaved;
-  String? _lastSavedBasename;
-  String? get lastSavedBasename => _lastSavedBasename;
+  late final GenerationImagePersistence _persistence;
+  late final GatewayTaskWatcher _watcher;
   Uint8List? _previousImageBytes;
-
-  /// Filenames already triggered as web downloads this session. Web has no
-  /// filesystem to probe for collisions like [uniqueFilePath] does, so we track
-  /// emitted names here and apply the same `_(2)`, `_(3)`, … suffix convention
-  /// when [_buildFileName] yields a name we've handed out before.
-  final Set<String> _webDownloadedNames = {};
 
   Timer? _tagDebounce;
   Timer? _sessionSaveDebounce;
   bool _sessionReady = false;
-  bool _metadataImportedBeforeSessionReady = false;
+  bool _disposed = false;
+  late final Future<void> _initialLoad;
+
+  /// Imports that arrived before the saved session was restored. They are
+  /// applied on top of the restored session, so the restore cannot overwrite
+  /// them and the session saved afterwards holds them.
+  final List<({MetadataImportResult result, Set<ImportCategory> categories})>
+  _pendingImports = [];
+
+  // — Runs —
+  // A run is one batch of generate() (or the restore of a server batch). It
+  // owns the result set it created: results carry the run id of their item and
+  // are written back by item id, so a late result of an older run, or of an
+  // account that was switched away from, finds nothing to write to.
+  int _runSeq = 0;
+  int? _activeRunId;
+  GatewayWatchToken? _runToken;
+
+  /// The gateway submission behind the result set, for cancelling and for
+  /// following it again.
+  String? _taskId;
+  int _singleImageCalls = 0;
+  final Map<String, Future<String?>> _saves = {};
+
   final SyntaxHighlightController promptController =
       SyntaxHighlightController();
   final SyntaxHighlightController negativePromptController =
@@ -453,6 +402,7 @@ class GenerationNotifier extends ChangeNotifier {
     CharacterLibraryNotifier? characterLibrary,
     NovelAIService Function(String apiKey)? serviceFactory,
     BackendHistoryApi? historyApi,
+    GatewayTaskWatcher? watcher,
   }) : _prefs = preferences,
        _tagService = tagService,
        _wildcardService = wildcardService,
@@ -462,6 +412,7 @@ class GenerationNotifier extends ChangeNotifier {
        _serviceFactory = serviceFactory ?? NovelAIService.new,
        _historyApi = historyApi ?? BackendHistoryApi() {
     _service = _serviceFactory('');
+    _watcher = watcher ?? GatewayTaskWatcher(api: _historyApi);
     _wildcardProcessor = WildcardProcessor(
       wildcardDir: wildcardService.wildcardDir,
       wildcardService: _wildcardService,
@@ -477,12 +428,340 @@ class GenerationNotifier extends ChangeNotifier {
       ),
     );
     _characterManager = CharacterManager(prefs: _prefs);
+    _persistence = GenerationImagePersistence(
+      prefs: _prefs,
+      outputDir: () => _outputDir,
+      gallery: () => _galleryNotifier,
+    );
     negativePromptController.text = "";
-    _loadInitialData();
+    promptController.addListener(_scheduleSessionSave);
+    negativePromptController.addListener(_scheduleSessionSave);
+    seedController.addListener(_scheduleSessionSave);
+    _initialLoad = _loadInitialData();
   }
+
+  /// Completes when the initial data is loaded and the saved session (and any
+  /// import that waited for it) is applied.
+  Future<void> get initialized => _initialLoad;
 
   void updateGalleryNotifier(GalleryNotifier galleryNotifier) {
     _galleryNotifier = galleryNotifier;
+  }
+
+  // — Result set and runs —
+
+  bool get _busy => _activeRunId != null || _singleImageCalls > 0;
+
+  void _syncBusy() {
+    _state = _state.copyWith(
+      isGenerating: _activeRunId != null,
+      isLoading: _busy,
+    );
+  }
+
+  /// Starts the run that owns the result set from now on.
+  int _beginRun() {
+    final runId = ++_runSeq;
+    _activeRunId = runId;
+    _runToken = GatewayWatchToken();
+    _syncBusy();
+    return runId;
+  }
+
+  /// Ends [runId] (if it is still the active one) and settles its items.
+  void _endRun(int runId) {
+    if (_activeRunId == runId) {
+      _activeRunId = null;
+      _runToken = null;
+      _syncBusy();
+    }
+    _state = _state.copyWith(
+      generatedImages: [
+        for (final item in _state.generatedImages)
+          item.runId == runId && item.isLoading
+              ? item.copyWith(isLoading: false)
+              : item,
+      ],
+    );
+  }
+
+  /// The one place the result set is replaced. Callers notify.
+  void _setResults(
+    List<GeneratedImageItem> items, {
+    String? selectedId,
+    String? taskId,
+  }) {
+    _taskId = taskId;
+    _state = _state.copyWith(
+      generatedImages: items,
+      selectedGeneratedImageId: selectedId,
+      clearSelectedGeneratedImageId: selectedId == null,
+      autoFollowLatestImage: true,
+      duplicateImageDetected: false,
+    );
+  }
+
+  /// Shows one image that has no batch (a tool result, a dropped file).
+  GeneratedImageItem _showSingleImage(
+    Uint8List bytes, {
+    Map<String, dynamic>? metadata,
+    int? seed,
+  }) {
+    final runId = ++_runSeq;
+    final item = GeneratedImageItem(
+      id: 'single-$runId',
+      runId: runId,
+      batchIndex: 1,
+      batchCount: 1,
+      bytes: bytes,
+      metadata: metadata,
+      seed: seed,
+    );
+    _setResults([item], selectedId: item.id);
+    return item;
+  }
+
+  GeneratedImageItem? _itemById(String id, {int? runId}) => _state
+      .generatedImages
+      .where((item) => item.id == id && (runId == null || item.runId == runId))
+      .firstOrNull;
+
+  /// Rewrites the item [id] (of run [runId], when given). False when no such
+  /// item exists any more: the caller drops the result instead of failing.
+  bool _mapItem(
+    String id,
+    GeneratedImageItem Function(GeneratedImageItem item) update, {
+    int? runId,
+  }) {
+    final index = _state.generatedImages.indexWhere(
+      (item) => item.id == id && (runId == null || item.runId == runId),
+    );
+    if (index < 0) return false;
+    final items = [..._state.generatedImages];
+    items[index] = update(items[index]);
+    _state = _state.copyWith(generatedImages: items);
+    return true;
+  }
+
+  void _recordDropped(String what, int runId, String itemId) {
+    ClientDiagnostics.instance.record('generation_result_dropped', {
+      'what': what,
+      'run_id': runId,
+      'item_id': itemId,
+      'active_run_id': _activeRunId,
+    });
+  }
+
+  /// Puts the image of item [id] in its slot, and selects it when the user is
+  /// following the newest result. False when the slot is gone or taken.
+  bool _completeItem(int runId, String id, Uint8List bytes) {
+    final existing = _itemById(id, runId: runId);
+    if (existing == null) {
+      _recordDropped('image', runId, id);
+      return false;
+    }
+    if (existing.isComplete) return false;
+    final isDuplicate =
+        _previousImageBytes != null && listEquals(bytes, _previousImageBytes);
+    _previousImageBytes = Uint8List.fromList(bytes);
+    _mapItem(
+      id,
+      (item) => item.copyWith(
+        bytes: bytes,
+        isLoading: false,
+        progress: GenerationTaskProgress.generating,
+        duplicateImageDetected: isDuplicate,
+        clearErrorMessage: true,
+        retryable: false,
+      ),
+    );
+    final shouldSelect =
+        _state.autoFollowLatestImage ||
+        _state.selectedGeneratedImageId == id ||
+        _state.selectedGeneratedImageId == null;
+    if (shouldSelect) _showSeedOfSelection(existing.seed);
+    _state = _state.copyWith(
+      selectedGeneratedImageId: shouldSelect ? id : null,
+      duplicateImageDetected: isDuplicate,
+    );
+    notifyListeners();
+    return true;
+  }
+
+  void _failItem(int runId, String id, Object error) {
+    final failed = _mapItem(
+      id,
+      (item) => item.copyWith(
+        isLoading: false,
+        progress: GenerationTaskProgress.failed,
+        errorMessage: _formatError(error).message,
+        retryable: false,
+      ),
+      runId: runId,
+    );
+    if (failed) {
+      notifyListeners();
+    } else {
+      _recordDropped('failure', runId, id);
+    }
+  }
+
+  /// With random seeds the seed box is an output: it shows the seed of the
+  /// image on screen.
+  void _showSeedOfSelection(int? seed) {
+    if (seed != null && _state.randomizeSeed) {
+      seedController.text = seed.toString();
+    }
+  }
+
+  /// Follows [itemIds] of the gateway submission [taskId] for run [runId]
+  /// until each is final. Failing or giving up marks what is left as
+  /// retryable instead of failed: the server may still finish it.
+  Future<void> _watchRun(
+    int runId,
+    String taskId,
+    Set<String> itemIds, {
+    required GatewayWatchToken token,
+  }) async {
+    final saves = <Future<void>>[];
+    try {
+      await _watcher.watch(
+        taskId: taskId,
+        itemIds: itemIds,
+        token: token,
+        onItem: (server) => _applyServerItem(server, runId: runId),
+        onImage: (server, bytes) {
+          if (_completeItem(runId, server.id, bytes)) {
+            saves.add(_autoSave(server.id));
+          }
+        },
+        onImageFailed: (server, error) => _failItem(runId, server.id, error),
+      );
+    } on GatewayWatchTimeout {
+      _stopFollowing(runId, itemIds, _l10n.generationWatchTimedOut);
+    } catch (error) {
+      if (!token.isCancelled) {
+        _stopFollowing(runId, itemIds, _formatError(error).message);
+      }
+    }
+    await Future.wait(saves);
+  }
+
+  void _applyServerItem(ServerHistoryItem server, {int? runId}) {
+    var changed = false;
+    _mapItem(server.id, (item) {
+      if (item.isTerminal) return item;
+      final progress = progressForGatewayStatus(server.status);
+      final loading =
+          !isFinalGatewayStatus(server.status) || server.status == 'success';
+      final message = taskItemFailureMessage(
+        _l10n,
+        server.status,
+        server.errorCode,
+      );
+      if (progress == item.progress && loading == item.isLoading) return item;
+      changed = true;
+      return item.copyWith(
+        progress: progress,
+        isLoading: loading,
+        errorMessage: message,
+        retryable: false,
+      );
+    }, runId: runId);
+    if (changed) notifyListeners();
+  }
+
+  void _stopFollowing(int runId, Set<String> itemIds, String message) {
+    _state = _state.copyWith(
+      generatedImages: [
+        for (final item in _state.generatedImages)
+          itemIds.contains(item.id) && item.runId == runId && !item.isTerminal
+              ? item.copyWith(
+                  isLoading: false,
+                  retryable: true,
+                  errorMessage: message,
+                )
+              : item,
+      ],
+      errorMessage: message,
+    );
+    notifyListeners();
+  }
+
+  /// Whether queued work can still be cancelled: on the gateway the items
+  /// that have not started, directly the images not yet requested.
+  bool get canCancelQueued =>
+      (_service.viaGateway ? _taskId != null : _activeRunId != null) &&
+      _state.generatedImages.any(
+        (item) =>
+            item.progress == GenerationTaskProgress.queued && !item.isTerminal,
+      );
+
+  /// Cancels the queued images of the batch. Images that already started are
+  /// not affected and still arrive.
+  Future<void> cancelQueued() async {
+    if (!canCancelQueued) return;
+    if (!_service.viaGateway) {
+      // The serial loop checks the token before each request.
+      _runToken?.cancel();
+      return;
+    }
+    final taskId = _taskId!;
+    try {
+      final task = await _historyApi.cancelGenerationTask(taskId);
+      if (_taskId != taskId) return;
+      for (final server in task.items) {
+        _applyServerItem(server);
+      }
+    } catch (error) {
+      final formatted = _formatError(error);
+      _state = _state.copyWith(
+        errorMessage: formatted.message,
+        errorTone: formatted.tone,
+      );
+      notifyListeners();
+    }
+  }
+
+  /// Items the client stopped following, which the server may still finish.
+  bool get canResumeWatching =>
+      _activeRunId == null &&
+      _taskId != null &&
+      _state.generatedImages.any((item) => item.retryable);
+
+  /// Follows the retryable items again.
+  Future<void> resumeWatching() async {
+    if (!canResumeWatching) return;
+    final taskId = _taskId!;
+    final retryable = _state.generatedImages
+        .where((item) => item.retryable)
+        .toList();
+    final runId = retryable.first.runId;
+    _activeRunId = runId;
+    final token = _runToken = GatewayWatchToken();
+    final ids = {for (final item in retryable) item.id};
+    _state = _state.copyWith(
+      generatedImages: [
+        for (final item in _state.generatedImages)
+          ids.contains(item.id)
+              ? item.copyWith(
+                  isLoading: true,
+                  retryable: false,
+                  clearErrorMessage: true,
+                )
+              : item,
+      ],
+      clearErrorMessage: true,
+    );
+    _syncBusy();
+    notifyListeners();
+    try {
+      await _watchRun(runId, taskId, ids, token: token);
+    } finally {
+      _endRun(runId);
+      notifyListeners();
+      fetchAnlas();
+    }
   }
 
   /// Rebuild the result workspace after a browser reload. Generation tasks are
@@ -491,18 +770,14 @@ class GenerationNotifier extends ChangeNotifier {
     if (_backendUserId == userId) return;
     _backendUserId = userId;
     // The workspace belongs to the previous account: another user must never
-    // see its images, even when their own history is empty.
-    _lastMetadata = null;
-    _imageSaved = false;
-    _state = _state.copyWith(
-      generatedImages: const [],
-      clearGeneratedImage: true,
-      clearSelectedGeneratedImageId: true,
-      autoFollowLatestImage: true,
-      isLoading: false,
-      clearErrorMessage: true,
-      duplicateImageDetected: false,
-    );
+    // see its images, even when their own history is empty. Whatever the old
+    // run still delivers finds no slot and is dropped.
+    _runToken?.cancel();
+    _runToken = null;
+    _activeRunId = null;
+    _setResults(const []);
+    _syncBusy();
+    _state = _state.copyWith(clearErrorMessage: true);
     notifyListeners();
     if (useBackendGateway && userId != null) {
       unawaited(_restoreGatewayWorkspace(userId));
@@ -510,7 +785,7 @@ class GenerationNotifier extends ChangeNotifier {
   }
 
   Future<void> _restoreGatewayWorkspace(int userId) async {
-    if (_restoringWorkspaceForUserId == userId || _state.isLoading) return;
+    if (_restoringWorkspaceForUserId == userId || _activeRunId != null) return;
     _restoringWorkspaceForUserId = userId;
     try {
       final currentTask = await _historyApi.fetchCurrentTask();
@@ -523,7 +798,7 @@ class GenerationNotifier extends ChangeNotifier {
       if (history.isEmpty) {
         history = await _historyApi.fetchHistory(limit: 20);
       }
-      if (_backendUserId != userId || _state.isLoading) return;
+      if (_backendUserId != userId || _activeRunId != null || _disposed) return;
       final visible = history.toList(growable: false);
       if (visible.isEmpty) return;
       // A browser batch submits all of its tasks together. Restore that most
@@ -542,35 +817,48 @@ class GenerationNotifier extends ChangeNotifier {
             })();
       if (recoverable.isEmpty) return;
 
+      final taskId = currentTask?.id ?? recoverable.first.batchId;
+      final runId = _beginRun();
+      final token = _runToken!;
       final restored = List<GeneratedImageItem>.generate(recoverable.length, (
         index,
       ) {
         final task = recoverable[index];
+        final open = !isFinalGatewayStatus(task.status);
         return GeneratedImageItem(
           id: task.id,
+          runId: runId,
           batchIndex: index + 1,
           batchCount: recoverable.length,
           seed: task.seed,
-          metadata: task.generationMetadata,
-          isLoading: task.status == 'queued' || task.status == 'running',
-          progress: _progressForGatewayStatus(task.status),
-          errorMessage: _itemFailureMessage(task),
+          metadata: _historyMetadata(task),
+          isLoading: open || task.status == 'success',
+          progress: progressForGatewayStatus(task.status),
+          errorMessage: taskItemFailureMessage(
+            _l10n,
+            task.status,
+            task.errorCode,
+          ),
         );
       });
-      _state = _state.copyWith(
-        generatedImages: restored,
-        selectedGeneratedImageId: restored.first.id,
-        autoFollowLatestImage: true,
-        clearGeneratedImage: true,
-      );
+      _setResults(restored, selectedId: restored.first.id, taskId: taskId);
       notifyListeners();
 
-      for (final task in recoverable.where(
-        (item) => item.status == 'success',
-      )) {
-        unawaited(_restoreGatewayImage(task, userId));
+      // One watcher follows every unfinished item at once, and fetches the
+      // images of the finished ones.
+      final following = {
+        for (final task in recoverable)
+          if (task.status == 'success' || !isFinalGatewayStatus(task.status))
+            task.id,
+      };
+      try {
+        if (taskId != null && following.isNotEmpty) {
+          await _watchRun(runId, taskId, following, token: token);
+        }
+      } finally {
+        _endRun(runId);
+        notifyListeners();
       }
-      unawaited(_resumeGatewayTasks(recoverable, userId));
     } catch (error) {
       debugPrint('Could not restore gateway generation workspace: $error');
     } finally {
@@ -580,129 +868,24 @@ class GenerationNotifier extends ChangeNotifier {
     }
   }
 
-  Future<void> _restoreGatewayImage(ServerHistoryItem task, int userId) async {
-    try {
-      final bytes = await _historyApi.fetchImageBytes(task.id);
-      _applyRestoredGatewayImage(task, userId, bytes);
-    } catch (error) {
-      debugPrint('Could not restore gateway image ${task.id}: $error');
-      if (_backendUserId != userId) return;
-      _state = _state.copyWith(
-        generatedImages: _replaceGeneratedImageItem(
-          task.id,
-          (item) => item.copyWith(
-            isLoading: false,
-            progress: GenerationTaskProgress.failed,
-            errorMessage: _formatError(error).message,
-          ),
-        ),
-      );
-      notifyListeners();
-    }
-  }
-
-  void _applyRestoredGatewayImage(
-    ServerHistoryItem task,
-    int userId,
-    Uint8List bytes,
-  ) {
-    if (_backendUserId != userId) return;
-    final metadata = _historyMetadata(task);
-    final existing = _state.generatedImages
-        .where((item) => item.id == task.id)
-        .firstOrNull;
-    if (existing == null) return;
-    final completed = existing.copyWith(
-      bytes: bytes,
-      metadata: metadata,
-      seed: task.seed,
-      isLoading: false,
-    );
-    final shouldSelect =
-        _state.autoFollowLatestImage || _state.selectedGeneratedImageId == null;
-    _state = _state.copyWith(
-      generatedImages: _replaceGeneratedImageItem(task.id, (_) => completed),
-      selectedGeneratedImageId: shouldSelect ? task.id : null,
-      generatedImage: shouldSelect ? bytes : null,
-    );
-    if (shouldSelect) _lastMetadata = metadata;
-    notifyListeners();
-  }
-
-  Future<void> _resumeGatewayTask(ServerHistoryItem task, int userId) async {
-    try {
-      final bytes = await _service.waitForGatewayGeneration(
-        task.id,
-        onStatus: (status) {
-          if (_backendUserId != userId || status != 'running') return;
-          _state = _state.copyWith(
-            generatedImages: _replaceGeneratedImageItem(
-              task.id,
-              (item) =>
-                  item.copyWith(progress: GenerationTaskProgress.generating),
-            ),
-          );
-          notifyListeners();
-        },
-      );
-      if (_backendUserId != userId) return;
-      _applyRestoredGatewayImage(task, userId, bytes);
-    } catch (error) {
-      debugPrint('Could not resume gateway task ${task.id}: $error');
-      if (_backendUserId != userId) return;
-      _state = _state.copyWith(
-        generatedImages: _replaceGeneratedImageItem(
-          task.id,
-          (item) => item.copyWith(
-            isLoading: false,
-            progress: GenerationTaskProgress.failed,
-            errorMessage: _formatError(error).message,
-          ),
-        ),
-      );
-      notifyListeners();
-    }
-  }
-
-  Future<void> _resumeGatewayTasks(
-    List<ServerHistoryItem> tasks,
-    int userId,
-  ) async {
-    for (final task in tasks) {
-      if (task.status != 'queued' && task.status != 'running') continue;
-      if (_backendUserId != userId) return;
-      await _resumeGatewayTask(task, userId);
-    }
-  }
-
-  String? _itemFailureMessage(ServerHistoryItem item) =>
-      taskItemFailureMessage(_l10n, item.status, item.errorCode);
-
   Map<String, dynamic> _historyMetadata(ServerHistoryItem task) => {
     ...task.generationMetadata,
     'seed': task.seed,
   };
-
-  static GenerationTaskProgress _progressForGatewayStatus(String status) {
-    return switch (status) {
-      'running' => GenerationTaskProgress.generating,
-      'failed' => GenerationTaskProgress.failed,
-      'rejected' => GenerationTaskProgress.rejected,
-      'cancelled' => GenerationTaskProgress.cancelled,
-      _ => GenerationTaskProgress.queued,
-    };
-  }
 
   void updateCharacterLibraryNotifier(CharacterLibraryNotifier notifier) {
     _characterLibrary = notifier;
   }
 
   void updateDirectorRefNotifier(DirectorRefNotifier notifier) {
-    _directorRefNotifier = notifier;
+    if (identical(_directorRefNotifier, notifier)) return;
+    _directorRefNotifier = notifier..addListener(_scheduleSessionSave);
   }
 
   void updateVibeTransferNotifier(VibeTransferNotifier notifier) {
-    _vibeTransferNotifier = notifier;
+    if (!identical(_vibeTransferNotifier, notifier)) {
+      _vibeTransferNotifier = notifier..addListener(_scheduleSessionSave);
+    }
     notifier.updateService(_service);
     notifier.updateUseCurated(_state.useCurated);
   }
@@ -726,7 +909,15 @@ class GenerationNotifier extends ChangeNotifier {
     _outputDir = dir;
   }
 
-  static List<String> _defaultActiveStyleNames(List<PromptStyle> styles) {
+  /// The styles a fresh editor starts with: the ones the user marked as
+  /// default in the style editor; without any, the built-in quality style.
+  @visibleForTesting
+  static List<String> defaultActiveStyleNames(List<PromptStyle> styles) {
+    final marked = [
+      for (final style in styles)
+        if (style.isDefault) style.name,
+    ];
+    if (marked.isNotEmpty) return marked;
     for (final style in styles) {
       if (style.name == _qualityStyleName) return [style.name];
     }
@@ -736,15 +927,20 @@ class GenerationNotifier extends ChangeNotifier {
     return styles.isNotEmpty ? [styles.first.name] : <String>[];
   }
 
-  static List<String> _normalizeRestoredStyleNames(
-    List<String> activeStyleNames,
+  /// Snapshots written before versions existed may hold the old default
+  /// ("Light - NAI" alone); those are moved to today's default once. A
+  /// snapshot of this build keeps whatever the user chose.
+  static List<String> _migrateRestoredStyleNames(
+    SessionSnapshot snapshot,
     List<PromptStyle> styles,
   ) {
-    if (activeStyleNames.length == 1 &&
-        activeStyleNames.first == _legacyLightStyleName) {
-      return _defaultActiveStyleNames(styles);
+    final names = snapshot.activeStyleNames;
+    if (snapshot.version < 1 &&
+        names.length == 1 &&
+        names.first == _legacyLightStyleName) {
+      return defaultActiveStyleNames(styles);
     }
-    return activeStyleNames;
+    return names;
   }
 
   Future<void> _loadInitialData() async {
@@ -752,12 +948,12 @@ class GenerationNotifier extends ChangeNotifier {
     await _wildcardService.refresh();
     final presets = await _presetService.loadPresets();
     final styles = await _presetService.loadStyles();
-
-    final initialActiveStyles = _defaultActiveStyleNames(styles);
+    if (_disposed) return;
 
     final apiKey = useBackendGateway
         ? serverManagedApiKey
         : await _prefs.getApiKey();
+    if (_disposed) return;
     _service = _serviceFactory(apiKey);
     _textService = NaiTextService(apiKey);
     _vibeTransferNotifier?.updateService(_service);
@@ -768,9 +964,7 @@ class GenerationNotifier extends ChangeNotifier {
     _state = _state.copyWith(
       presets: presets,
       styles: styles,
-      activeStyleNames: _metadataImportedBeforeSessionReady
-          ? null
-          : initialActiveStyles,
+      activeStyleNames: defaultActiveStyleNames(styles),
       apiKey: apiKey,
       autoSaveImages: _prefs.autoSaveImages,
       showDirectorRefShelf: _prefs.showDirectorRefShelf,
@@ -788,9 +982,15 @@ class GenerationNotifier extends ChangeNotifier {
     loadCharacterPresets();
     notifyListeners();
 
+    // The saved session first; whatever was imported meanwhile goes on top.
     await _restoreSessionSnapshot();
+    if (_disposed) return;
     _sessionReady = true;
-    if (_metadataImportedBeforeSessionReady) _scheduleSessionSave();
+    final imports = [..._pendingImports];
+    _pendingImports.clear();
+    for (final pending in imports) {
+      applyImportedMetadata(pending.result, pending.categories);
+    }
 
     fetchAnlas();
   }
@@ -890,11 +1090,6 @@ class GenerationNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setLoading(bool value) {
-    _state = _state.copyWith(isLoading: value);
-    notifyListeners();
-  }
-
   void setAutoPositioning(bool value) {
     _state = _state.copyWith(autoPositioning: value);
     notifyListeners();
@@ -964,6 +1159,7 @@ class GenerationNotifier extends ChangeNotifier {
       furryMode: furryMode,
       useCurated: useCurated,
     );
+    _scheduleSessionSave();
     notifyListeners();
   }
 
@@ -976,6 +1172,7 @@ class GenerationNotifier extends ChangeNotifier {
     );
     if (result == null) return;
     _state = _state.copyWith(characters: result);
+    _scheduleSessionSave();
     notifyListeners();
   }
 
@@ -987,6 +1184,7 @@ class GenerationNotifier extends ChangeNotifier {
     );
     if (result == null) return;
     _state = _state.copyWith(characters: result);
+    _scheduleSessionSave();
     notifyListeners();
   }
 
@@ -1001,6 +1199,7 @@ class GenerationNotifier extends ChangeNotifier {
       characters: result.characters,
       interactions: result.interactions,
     );
+    _scheduleSessionSave();
     notifyListeners();
   }
 
@@ -1014,350 +1213,111 @@ class GenerationNotifier extends ChangeNotifier {
       replacing: replacing,
     );
     _state = _state.copyWith(interactions: updated);
+    _scheduleSessionSave();
     notifyListeners();
   }
 
+  /// Shows [image] (a tool preview) as the result. Ignored while a batch runs:
+  /// it would replace the images that are still arriving.
   void setGeneratedImage(Uint8List? image) {
-    _state = _state.copyWith(
-      generatedImage: image,
-      clearGeneratedImage: image == null,
-      generatedImages: const [],
-      clearSelectedGeneratedImageId: true,
-      autoFollowLatestImage: true,
-    );
+    if (_activeRunId != null) return;
+    if (image == null) {
+      _setResults(const []);
+    } else {
+      _showSingleImage(image);
+    }
     notifyListeners();
   }
 
-  void selectGeneratedImage(String id, {bool userInitiated = true}) {
-    final selected = _state.generatedImages
-        .where((item) => item.id == id)
-        .firstOrNull;
+  void selectGeneratedImage(String id) {
+    final selected = _itemById(id);
     if (selected == null) return;
 
     _state = _state.copyWith(
       selectedGeneratedImageId: id,
-      autoFollowLatestImage: userInitiated
-          ? false
-          : _state.autoFollowLatestImage,
-      generatedImage: selected.bytes,
-      clearGeneratedImage: selected.bytes == null,
+      autoFollowLatestImage: false,
       duplicateImageDetected: selected.duplicateImageDetected,
     );
-    _lastMetadata = selected.metadata;
-    _imageSaved = selected.saved;
-    _lastSavedBasename = selected.savedBasename;
+    _showSeedOfSelection(selected.seed);
     notifyListeners();
   }
 
-  List<GeneratedImageItem> _replaceGeneratedImageItem(
-    String id,
-    GeneratedImageItem Function(GeneratedImageItem item) update,
-  ) {
-    return _state.generatedImages
-        .map((item) => item.id == id ? update(item) : item)
-        .toList(growable: false);
+  /// Makes the seed of image [id] the fixed seed of the next generation.
+  void reuseSeed(String id) {
+    final seed = _itemById(id)?.seed;
+    if (seed == null) return;
+    seedController.text = seed.toString();
+    updateSettings(randomizeSeed: false);
   }
 
-  void _markSelectedImageSaved(String basename) {
-    final id = _state.selectedGeneratedImageId;
-    if (id == null) return;
-    _state = _state.copyWith(
-      generatedImages: _replaceGeneratedImageItem(
-        id,
-        (item) => item.copyWith(saved: true, savedBasename: basename),
-      ),
+  /// Saves image [itemId] (the one the caller captured when the user asked,
+  /// not whichever is selected by the time the write finishes). Saving twice
+  /// writes once: the second call gets the first one's file name.
+  Future<String?> saveImage(String itemId) => _persist(itemId, auto: false);
+
+  /// The save after a generation finished, when the user enabled it.
+  Future<String?> _autoSave(String itemId) async {
+    if (!_state.autoSaveImages) return null;
+    return _persist(itemId, auto: true);
+  }
+
+  Future<String?> _persist(String itemId, {required bool auto}) {
+    final running = _saves[itemId];
+    if (running != null) return running;
+    final item = _itemById(itemId);
+    final bytes = item?.bytes;
+    final metadata = item?.metadata;
+    if (item == null || bytes == null || metadata == null) {
+      return Future.value(null);
+    }
+    if (item.saved) return Future.value(item.savedBasename);
+    final save = _persistNow(itemId, bytes, metadata, auto: auto);
+    _saves[itemId] = save;
+    return save.whenComplete(() => _saves.remove(itemId));
+  }
+
+  Future<String?> _persistNow(
+    String itemId,
+    Uint8List bytes,
+    Map<String, dynamic> metadata, {
+    required bool auto,
+  }) async {
+    final basename = await (auto
+        ? _persistence.autoSave(bytes, metadata)
+        : _persistence.save(bytes, metadata));
+    if (basename == null) return null;
+    _mapItem(
+      itemId,
+      (item) => item.copyWith(saved: true, savedBasename: basename),
     );
+    notifyListeners();
+    return basename;
   }
 
-  Future<void> saveCurrentImage() async {
-    if (_state.generatedImage == null || _lastMetadata == null) return;
-
-    // Web has no filesystem; trigger a browser download of the image (with
-    // metadata injected) instead so the SAVE button isn't a silent no-op.
-    if (kIsWeb) {
-      final baseName = _uniqueWebName(_buildFileName(_lastMetadata!));
-      final bytesWithMetadata = await compute(injectMetadata, {
-        'bytes': _state.generatedImage!,
-        'metadata': _lastMetadata!,
-      });
-      final ok = downloadBytes(bytesWithMetadata, '$baseName.png');
-      if (ok) {
-        _webDownloadedNames.add('$baseName.png');
-        _imageSaved = true;
-        _lastSavedBasename = '$baseName.png';
-        _markSelectedImageSaved('$baseName.png');
-        notifyListeners();
-      }
-      return;
-    }
-
-    final savedFile = await _saveToDisk(_state.generatedImage!, _lastMetadata!);
-    if (savedFile != null) {
-      _galleryNotifier?.addFile(savedFile, DateTime.now());
-      _imageSaved = true;
-      _lastSavedBasename = p.basename(savedFile.path);
-      _markSelectedImageSaved(_lastSavedBasename!);
-      notifyListeners();
-
-      await _autoExportIfEnabled(_state.generatedImage!, _lastMetadata!);
-    }
+  /// Ensures image [itemId] is saved and returns its file name, for adding it
+  /// to an album. Web has no gallery to add to.
+  Future<String?> ensureSavedAndGetBasename(String itemId) async {
+    final item = _itemById(itemId);
+    if (item == null) return null;
+    if (item.saved) return item.savedBasename;
+    if (kIsWeb) return null;
+    return saveImage(itemId);
   }
 
-  /// Ensures image is saved and returns its basename for album assignment.
-  Future<String?> ensureSavedAndGetBasename() async {
-    if (_lastSavedBasename != null) return _lastSavedBasename;
-    if (_state.generatedImage == null || _lastMetadata == null) return null;
-    final savedFile = await _saveToDisk(_state.generatedImage!, _lastMetadata!);
-    if (savedFile != null) {
-      _galleryNotifier?.addFile(savedFile, DateTime.now());
-      _imageSaved = true;
-      _lastSavedBasename = p.basename(savedFile.path);
-      notifyListeners();
-      return _lastSavedBasename;
-    }
-    return null;
+  /// Copies image [itemId] to the clipboard (shares it on mobile).
+  Future<void> copyImage(BuildContext context, String itemId) async {
+    final bytes = _itemById(itemId)?.bytes;
+    if (bytes == null) return;
+    await _persistence.copyToClipboard(context, bytes);
   }
 
-  /// Copies the current generated image to the system clipboard.
-  /// On desktop, uses super_clipboard for native image copy.
-  /// On mobile, uses share_plus to share the image (native clipboard is unreliable).
-  Future<void> copyToClipboard(BuildContext context) async {
-    if (_state.generatedImage == null) return;
-
-    // Mobile: use share sheet (super_clipboard's native lib is missing on Android)
-    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-      try {
-        final timestamp = DateFormat(
-          'yyyyMMdd_HHmmssSSS',
-        ).format(DateTime.now());
-        await Share.shareXFiles([
-          XFile.fromData(
-            _state.generatedImage!,
-            mimeType: 'image/png',
-            name: 'Gen_$timestamp.png',
-          ),
-        ]);
-      } catch (e) {
-        if (context.mounted) {
-          showAppSnackBar(
-            context,
-            'Share failed: $e',
-            color: const Color(0xFFF44336),
-          );
-        }
-      }
-      return;
-    }
-
-    // Desktop: use super_clipboard for native image clipboard
-    try {
-      final item = DataWriterItem();
-      item.add(Formats.png(_state.generatedImage!));
-      final clipboard = SystemClipboard.instance;
-      if (clipboard != null) {
-        await clipboard.write([item]);
-        if (context.mounted) {
-          showAppSnackBar(
-            context,
-            'COPIED TO CLIPBOARD',
-            color: const Color(0xFF4CAF50),
-          );
-        }
-        return;
-      }
-    } catch (_) {}
-    if (context.mounted) {
-      showAppSnackBar(
-        context,
-        'CLIPBOARD NOT AVAILABLE',
-        color: const Color(0xFFF44336),
-      );
-    }
-  }
-
-  /// Exports the current generated image to the custom folder, device gallery, or file dialog.
-  Future<void> exportToDevice(BuildContext context) async {
-    if (_state.generatedImage == null) return;
-    try {
-      final fallbackName = _lastMetadata != null
-          ? _buildFileName(_lastMetadata!)
-          : 'Gen_${DateFormat('yyyyMMdd_HHmmssSSS').format(DateTime.now())}';
-      // Custom filename pattern (issue #27); `<digits>` can't count a SAF
-      // tree or the device gallery, so it stays at 1 for those targets.
-      final exportName = _patternedName(_lastMetadata, fallbackName);
-
-      // If a custom export folder is set, write directly there (any platform)
-      final customFolder = _prefs.exportFolderPath;
-      if (customFolder.isNotEmpty && !kIsWeb) {
-        // For a SAF (SD-card) target, verify we still hold the write grant —
-        // the card may have been removed or permission revoked. For a legacy
-        // plain filesystem path on Android, scoped storage makes it unreachable.
-        // Either way a clear message beats the cryptic PathAccessException
-        // users used to see (issue #13).
-        final unreachable =
-            SafExportService.isStalePlainPath(customFolder) ||
-            (SafExportService.isSafUri(customFolder) &&
-                !await SafExportService.instance.hasWriteAccess(customFolder));
-        if (unreachable) {
-          if (context.mounted) {
-            showAppSnackBar(
-              context,
-              'EXPORT FOLDER UNAVAILABLE — RE-PICK IT IN SETTINGS',
-              color: const Color(0xFFF44336),
-            );
-          }
-          return;
-        }
-        if (SafExportService.isSafUri(customFolder)) {
-          await _exportToFolder(
-            _state.generatedImage!,
-            customFolder,
-            exportName,
-          );
-        } else {
-          // Plain folders also honor the path pattern's auto-subfolders and
-          // per-folder <digits> counting (issue #27).
-          final target = await _patternedTarget(
-            customFolder,
-            _lastMetadata ?? const {},
-            fallbackName,
-          );
-          await _exportToFolder(
-            _state.generatedImage!,
-            target.dir,
-            target.base,
-          );
-        }
-        if (context.mounted) {
-          final label = SafExportService.isSafUri(customFolder)
-              ? 'SD CARD'
-              : p.basename(customFolder).toUpperCase();
-          showAppSnackBar(
-            context,
-            'SAVED TO $label',
-            color: const Color(0xFF4CAF50),
-          );
-        }
-        return;
-      }
-
-      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-        await _exportBytesToMobileGallery(_state.generatedImage!, exportName);
-        if (context.mounted) {
-          showAppSnackBar(
-            context,
-            context.l.gallerySavedToDevice,
-            color: const Color(0xFF4CAF50),
-          );
-        }
-      } else {
-        // Desktop: show save file dialog
-        final result = await FilePicker.platform.saveFile(
-          dialogTitle: 'Export Image',
-          fileName: '$exportName.png',
-          type: FileType.image,
-        );
-        if (result == null) return;
-        await File(result).writeAsBytes(_state.generatedImage!);
-        if (context.mounted) {
-          showAppSnackBar(
-            context,
-            'SAVED TO ${p.basename(result).toUpperCase()}',
-            color: const Color(0xFF4CAF50),
-          );
-        }
-      }
-    } catch (e) {
-      if (context.mounted) {
-        showAppSnackBar(
-          context,
-          'Export failed: $e',
-          color: const Color(0xFFF44336),
-        );
-      }
-    }
-  }
-
-  Future<void> _exportBytesToMobileGallery(
-    Uint8List bytes,
-    String exportName,
-  ) async {
-    final hasAccess = await Gal.hasAccess();
-    if (!hasAccess) {
-      final granted = await Gal.requestAccess();
-      if (!granted) return;
-    }
-    final album = _prefs.exportAlbumName;
-    await Gal.putImageBytes(bytes, name: exportName, album: album);
-  }
-
-  Future<void> _exportToFolder(
-    Uint8List bytes,
-    String folderPath,
-    String fileName,
-  ) async {
-    // A SAF tree URI (content://…) targets a folder we can only reach through
-    // the Storage Access Framework — e.g. a removable SD card (issue #13).
-    if (SafExportService.isSafUri(folderPath)) {
-      await SafExportService.instance.writePng(folderPath, fileName, bytes);
-      return;
-    }
-    final dir = Directory(folderPath);
-    if (!await dir.exists()) await dir.create(recursive: true);
-    final file = File(await uniqueFilePath(folderPath, fileName, 'png'));
-    await file.writeAsBytes(bytes);
-  }
-
-  Future<void> _autoExportIfEnabled(
-    Uint8List bytes,
-    Map<String, dynamic> metadata,
-  ) async {
-    if (!_prefs.autoExportToDevice) return;
-    try {
-      final fallbackName = _buildFileName(metadata);
-
-      // Custom folder takes priority on all platforms — but a legacy plain
-      // filesystem path is unreachable under Android scoped storage (issue
-      // #13), so skip it and fall through to the device gallery rather than
-      // throwing a PathAccessException into the catch below (which would
-      // silently drop the auto-export).
-      final customFolder = _prefs.exportFolderPath;
-      if (customFolder.isNotEmpty &&
-          !kIsWeb &&
-          !SafExportService.isStalePlainPath(customFolder)) {
-        if (SafExportService.isSafUri(customFolder)) {
-          await _exportToFolder(
-            bytes,
-            customFolder,
-            _patternedName(metadata, fallbackName),
-          );
-        } else {
-          final target = await _patternedTarget(
-            customFolder,
-            metadata,
-            fallbackName,
-          );
-          await _exportToFolder(bytes, target.dir, target.base);
-        }
-        return;
-      }
-
-      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-        await _exportBytesToMobileGallery(
-          bytes,
-          _patternedName(metadata, fallbackName),
-        );
-      } else if (!kIsWeb) {
-        final target = await _patternedTarget(
-          _outputDir,
-          metadata,
-          fallbackName,
-        );
-        await _exportToFolder(bytes, target.dir, target.base);
-      }
-    } catch (e) {
-      debugPrint('Auto-export failed: $e');
-    }
+  /// Exports image [itemId] to the export folder, the device gallery or a
+  /// file dialog.
+  Future<void> exportImage(BuildContext context, String itemId) async {
+    final item = _itemById(itemId);
+    final bytes = item?.bytes;
+    if (bytes == null) return;
+    await _persistence.exportToDevice(context, bytes, item!.metadata);
   }
 
   void removeInteraction(NaiInteraction interaction) {
@@ -1366,6 +1326,7 @@ class GenerationNotifier extends ChangeNotifier {
       interaction,
     );
     _state = _state.copyWith(interactions: updated);
+    _scheduleSessionSave();
     notifyListeners();
   }
 
@@ -1426,6 +1387,7 @@ class GenerationNotifier extends ChangeNotifier {
     );
     if (result == null) return;
     _state = _state.copyWith(characters: result);
+    _scheduleSessionSave();
     notifyListeners();
   }
 
@@ -1481,41 +1443,13 @@ class GenerationNotifier extends ChangeNotifier {
       current.add(name);
     }
     _state = _state.copyWith(activeStyleNames: current);
+    _scheduleSessionSave();
     notifyListeners();
   }
 
   static int _clampBatchCount(int value, int limit) {
     final max = math.max(1, math.min(limit, 10));
     return math.max(1, math.min(value, max));
-  }
-
-  @visibleForTesting
-  static List<int> buildBatchSeeds({
-    required int count,
-    required bool randomize,
-    required int fixedSeed,
-    math.Random? random,
-  }) {
-    if (!randomize) {
-      return List<int>.generate(
-        count,
-        (index) => (fixedSeed + index) & 0xFFFFFFFF,
-      );
-    }
-    final source = random ?? math.Random();
-    final used = <int>{};
-    final seeds = <int>[];
-    while (seeds.length < count) {
-      final seed = _randomUint32(source);
-      if (used.add(seed)) seeds.add(seed);
-    }
-    return seeds;
-  }
-
-  static int _randomUint32(math.Random source) {
-    // Two 16-bit draws work consistently on native and web and cover the
-    // complete uint32 seed range, including 0xFFFFFFFF.
-    return source.nextInt(1 << 16) * (1 << 16) + source.nextInt(1 << 16);
   }
 
   /// The gateway's image rules and what the account may do, as of the last
@@ -1560,8 +1494,10 @@ class GenerationNotifier extends ChangeNotifier {
   /// wildcards and aliases are not expanded because they never change what
   /// the request costs.
   ImageGenerationRequest previewRequest() => _buildRequest(
+    state: _state,
     seed: 0,
     prompts: _composePrompts(
+      state: _state,
       prompt: promptController.text,
       baseNegative: negativePromptController.text,
     ),
@@ -1597,6 +1533,7 @@ class GenerationNotifier extends ChangeNotifier {
   /// The prompts of a request: the demo prefixes, the active styles and the
   /// merged negative prompt, from texts that are already expanded.
   _ComposedPrompts _composePrompts({
+    required GenerationState state,
     required String prompt,
     required String baseNegative,
   }) {
@@ -1611,10 +1548,10 @@ class GenerationNotifier extends ChangeNotifier {
       }
     }
     final styleResult = resolveStyles(
-      isStyleEnabled: _state.isStyleEnabled,
-      activeStyleNames: _state.activeStyleNames,
-      styles: _state.styles,
-      furryMode: _state.furryMode,
+      isStyleEnabled: state.isStyleEnabled,
+      activeStyleNames: state.activeStyleNames,
+      styles: state.styles,
+      furryMode: state.furryMode,
     );
     final styleNegative = styleResult.negative;
     return _ComposedPrompts(
@@ -1627,9 +1564,12 @@ class GenerationNotifier extends ChangeNotifier {
   }
 
   /// The one place a generation request is assembled, for the quote that is
-  /// shown and for what is submitted. [directorRefs] and [vibes] are the
-  /// payloads of the inputs that are actually sent.
+  /// shown and for what is submitted, under the settings of [state]. The
+  /// request holds copies, so editing the form later does not change it.
+  /// [directorRefs] and [vibes] are the payloads of the inputs that are
+  /// actually sent.
   ImageGenerationRequest _buildRequest({
+    required GenerationState state,
     required int seed,
     required _ComposedPrompts prompts,
     required List<NaiCharacter> characters,
@@ -1639,20 +1579,20 @@ class GenerationNotifier extends ChangeNotifier {
     return _service.buildImageGenerationRequest(
       prompt: prompts.prompt,
       negativePrompt: prompts.negative,
-      width: _state.width.toInt(),
-      height: _state.height.toInt(),
-      scale: _state.scale,
-      steps: _state.steps.toInt(),
-      sampler: _state.sampler,
-      smea: _state.smea,
-      smeaDyn: _state.smeaDyn,
-      decrisper: _state.decrisper,
+      width: state.width.toInt(),
+      height: state.height.toInt(),
+      scale: state.scale,
+      steps: state.steps.toInt(),
+      sampler: state.sampler,
+      smea: state.smea,
+      smeaDyn: state.smeaDyn,
+      decrisper: state.decrisper,
       seed: seed,
       promptPrefix: prompts.prefix,
       promptSuffix: prompts.suffix,
       characters: characters,
-      interactions: _state.interactions,
-      useCoords: _state.characters.isNotEmpty ? !_state.autoPositioning : false,
+      interactions: state.interactions,
+      useCoords: state.characters.isNotEmpty ? !state.autoPositioning : false,
       directorRefImages: directorRefs?.images,
       directorRefDescriptions: directorRefs?.descriptions,
       directorRefStrengths: directorRefs?.strengths,
@@ -1661,7 +1601,7 @@ class GenerationNotifier extends ChangeNotifier {
       vibeTransferImages: vibes?.vibeVectors,
       vibeTransferStrengths: vibes?.strengths,
       vibeTransferInfoExtracted: vibes?.infoExtracted,
-      useCurated: _state.useCurated,
+      useCurated: state.useCurated,
     );
   }
 
@@ -1674,114 +1614,72 @@ class GenerationNotifier extends ChangeNotifier {
     required List<int> seeds,
     required String clientRequestId,
     required QuoteConfirmer? confirmQuote,
-  }) async {
-    final rules = _rules ?? await _service.loadImageRules();
-    final ImageQuote shown;
-    try {
-      shown = quoteImageRequest(rules, request.body, images: seeds.length);
-    } on InvalidQuoteRequest catch (error) {
-      throw error.toBackendException();
-    }
-    try {
-      return await _service.submitGatewayGenerationBatch(
-        request: request,
-        seeds: seeds,
-        clientRequestId: clientRequestId,
-        expectedQuote: shown.toExpectedQuote(),
-      );
-    } on BackendException catch (error) {
-      final server = _gatewayQuoteOf(error);
-      // Red points cannot be offered to an account that cannot pay them.
-      if (server == null ||
-          confirmQuote == null ||
-          (server.mode == QuoteMode.paid && !_access.canPay)) {
-        rethrow;
-      }
-      final confirmed = await confirmQuote(
-        QuoteConfirmation(
-          shown: shown,
-          serverMode: server.mode,
-          serverPoints: server.points,
-          reasons: server.reasons,
-        ),
-      );
-      if (!confirmed) throw const _QuoteDeclined();
-      return _service.submitGatewayGenerationBatch(
-        request: request,
-        seeds: seeds,
-        clientRequestId: newClientRequestId(),
-        expectedQuote: {'mode': server.mode, 'points': server.points},
-      );
-    }
+  }) => _service.submitGatewayBatch(
+    request: request,
+    seeds: seeds,
+    clientRequestId: clientRequestId,
+    confirmQuote: confirmQuote,
+    canPayRed: _access.canPay,
+    rules: _rules,
+  );
+
+  void _rejectBusy() {
+    _state = _state.copyWith(errorMessage: _l10n.generationBusy);
+    notifyListeners();
   }
 
-  /// The gateway's own quote carried by a price disagreement, if [error] is
-  /// one.
-  ({String mode, int points, List<String> reasons})? _gatewayQuoteOf(
-    BackendException error,
-  ) {
-    final raw = error is QuoteChangedException
-        ? error.quote
-        : error.code == BackendErrorCode.freeAllowanceExhausted
-        ? error.details['quote']
-        : null;
-    if (raw is! Map<String, dynamic>) return null;
-    final mode = raw['mode'];
-    final points = raw['points'];
-    if (mode is! String || points is! num) return null;
-    return (
-      mode: mode,
-      points: points.toInt(),
-      reasons: [for (final reason in raw['reasons'] as List? ?? []) '$reason'],
-    );
+  GenerationOutcome _rejectedBusy() {
+    _rejectBusy();
+    return GenerationOutcome.rejected(_l10n.generationBusy);
   }
 
   /// Submits the current prompt and settings. Through the gateway the price
   /// shown to the user is sent along; when the gateway prices the request
   /// differently, [confirmQuote] asks the user whether to go on at the
   /// gateway's price (declining submits nothing).
-  Future<void> generate({
+  ///
+  /// [prompt] and [negativePrompt] stand in for the prompt boxes when the
+  /// caller has its own (the photoshoot), which are then left alone. Only one
+  /// generation runs at a time: asking while another runs is refused. The
+  /// settings are read once, here; the request, its metadata and the result
+  /// slots are frozen from that moment.
+  Future<GenerationOutcome> generate({
     int batchLimit = 1,
     QuoteConfirmer? confirmQuote,
+    String? prompt,
+    String? negativePrompt,
   }) async {
+    if (_busy) return _rejectedBusy();
     clearTagSuggestions();
 
-    final batchCount = _clampBatchCount(_state.batchCount, batchLimit);
+    final s = _state;
+    final promptText = prompt ?? promptController.text;
+    final negativeText = negativePrompt ?? negativePromptController.text;
+    final batchCount = _clampBatchCount(s.batchCount, batchLimit);
+    final List<int> seeds;
+    try {
+      seeds = resolveSeeds(
+        count: batchCount,
+        randomize: s.randomizeSeed,
+        seedText: seedController.text,
+      );
+    } on InvalidSeedInput {
+      _state = _state.copyWith(errorMessage: _l10n.generationSeedInvalid);
+      notifyListeners();
+      return GenerationOutcome.rejected(_l10n.generationSeedInvalid);
+    }
+    if (s.randomizeSeed) seedController.text = seeds.last.toString();
+
+    final runId = _beginRun();
+    final token = _runToken!;
     final nonceSource = math.Random.secure();
-    final batchRunId = [
+    final submissionId = [
       DateTime.now().microsecondsSinceEpoch.toRadixString(16),
-      _randomUint32(nonceSource).toRadixString(16).padLeft(8, '0'),
-      _randomUint32(nonceSource).toRadixString(16).padLeft(8, '0'),
+      randomSeed(nonceSource).toRadixString(16).padLeft(8, '0'),
+      randomSeed(nonceSource).toRadixString(16).padLeft(8, '0'),
     ].join('-');
     final gatewayBatch = _service.viaGateway;
-    var gatewaySubmissionAccepted = false;
-    final placeholders = List<GeneratedImageItem>.generate(
-      batchCount,
-      (index) => GeneratedImageItem(
-        id: '$batchRunId-$index',
-        batchIndex: index + 1,
-        batchCount: batchCount,
-        isLoading: true,
-      ),
-    );
-    _state = gatewayBatch
-        ? _state.copyWith(
-            isLoading: true,
-            hasAuthError: false,
-            batchCount: batchCount,
-            clearErrorMessage: true,
-          )
-        : _state.copyWith(
-            isLoading: true,
-            hasAuthError: false,
-            batchCount: batchCount,
-            generatedImages: placeholders,
-            selectedGeneratedImageId: placeholders.first.id,
-            autoFollowLatestImage: true,
-            clearGeneratedImage: true,
-            duplicateImageDetected: false,
-            clearErrorMessage: true,
-          );
+    _state = _state.copyWith(hasAuthError: false, clearErrorMessage: true);
     notifyListeners();
 
     // Keep screen/CPU awake during generation to prevent network drops
@@ -1791,30 +1689,25 @@ class GenerationNotifier extends ChangeNotifier {
       } catch (_) {}
     }
 
+    Object? firstError;
+    var declined = false;
+    var authFailed = false;
+    String? failureMessage;
     try {
-      final processedPrompt = await _wildcardProcessor.process(
-        promptController.text,
-      );
+      final processedPrompt = await _wildcardProcessor.process(promptText);
       final prompts = _composePrompts(
+        state: s,
         prompt: _tagService.resolveAliases(processedPrompt),
         baseNegative: _tagService.resolveAliases(
-          await _wildcardProcessor.process(negativePromptController.text),
+          await _wildcardProcessor.process(negativeText),
         ),
       );
-      final finalPrompt = prompts.prompt;
-      final baseNegative = prompts.baseNegative;
-      final fullNegativePrompt = prompts.negative;
-      final combinedPrefix = prompts.prefix;
-      final combinedSuffix = prompts.suffix;
-
-      final fixedSeed = int.tryParse(seedController.text) ?? 0;
-
       final dirPayload = _directorRefNotifier?.buildPayload();
       final vibePayload = _vibeTransferNotifier?.buildPayload();
 
       // Process wildcards in character prompts
       final processedCharacters = await Future.wait(
-        _state.characters.map(
+        s.characters.map(
           (c) async => c.copyWith(
             prompt: _tagService.resolveAliases(
               await _wildcardProcessor.process(c.prompt),
@@ -1825,301 +1718,108 @@ class GenerationNotifier extends ChangeNotifier {
           ),
         ),
       );
+      // The account was switched while the prompts were being prepared.
+      if (_activeRunId != runId) return const GenerationOutcome.rejected();
 
-      final seeds = buildBatchSeeds(
-        count: batchCount,
-        randomize: _state.randomizeSeed,
-        fixedSeed: fixedSeed,
-      );
-      if (_state.randomizeSeed) {
-        seedController.text = seeds.last.toString();
-      }
-
-      ImageGenerationRequest buildRequest(int seed) => _buildRequest(
-        seed: seed,
-        prompts: prompts,
-        characters: processedCharacters,
-        directorRefs: dirPayload,
-        vibes: vibePayload,
-      );
-
-      Future<void> applyResult(int index, GenerationResult result) async {
-        final currentItem = _state.generatedImages.firstWhere(
-          (item) => item.batchIndex == index + 1,
-        );
-        final itemId = currentItem.id;
-        final seed = seeds[index];
-
-        // Save active style info in metadata for round-trip restore.
-        result.metadata['active_style_names'] =
-            (_state.isStyleEnabled && _state.activeStyleNames.isNotEmpty)
-            ? _state.activeStyleNames
-            : <String>[];
-        result.metadata['is_style_enabled'] = _state.isStyleEnabled;
-        result.metadata['original_negative_prompt'] = baseNegative;
-        if (batchCount > 1) {
-          result.metadata['batch_index'] = index + 1;
-          result.metadata['batch_count'] = batchCount;
-        }
-
-        final isDuplicate =
-            _previousImageBytes != null &&
-            listEquals(result.imageBytes, _previousImageBytes);
-        _previousImageBytes = Uint8List.fromList(result.imageBytes);
-
-        final completedItem = currentItem.copyWith(
-          bytes: result.imageBytes,
-          metadata: result.metadata,
-          seed: seed,
-          isLoading: false,
-          duplicateImageDetected: isDuplicate,
-          saved: false,
-          clearErrorMessage: true,
-        );
-        final shouldSelect =
-            _state.autoFollowLatestImage ||
-            _state.selectedGeneratedImageId == itemId ||
-            _state.selectedGeneratedImageId == null;
-        if (shouldSelect) {
-          _lastMetadata = result.metadata;
-          _imageSaved = false;
-          _lastSavedBasename = null;
-        }
-        _state = _state.copyWith(
-          generatedImages: _replaceGeneratedImageItem(
-            itemId,
-            (_) => completedItem,
+      // Everything that will be sent, and everything the saved files will say
+      // about it, is fixed here.
+      final requests = [
+        for (final seed in seeds)
+          _buildRequest(
+            state: s,
+            seed: seed,
+            prompts: prompts,
+            characters: processedCharacters,
+            directorRefs: dirPayload,
+            vibes: vibePayload,
           ),
-          selectedGeneratedImageId: shouldSelect ? itemId : null,
-          generatedImage: shouldSelect ? result.imageBytes : null,
-          duplicateImageDetected: isDuplicate,
-        );
-        notifyListeners();
-
-        if (_state.autoSaveImages) {
-          final savedFile = await _saveToDisk(
-            result.imageBytes,
-            result.metadata,
-          );
-          if (savedFile != null) {
-            _galleryNotifier?.addFile(savedFile, DateTime.now());
-            final basename = p.basename(savedFile.path);
-            final savedImages = _replaceGeneratedImageItem(
-              itemId,
-              (item) => item.copyWith(saved: true, savedBasename: basename),
-            );
-            if (_state.selectedGeneratedImageId == itemId) {
-              _imageSaved = true;
-              _lastSavedBasename = basename;
-            }
-            _state = _state.copyWith(generatedImages: savedImages);
-            notifyListeners();
-            await _autoExportIfEnabled(result.imageBytes, result.metadata);
-          }
-        }
-      }
+      ];
+      final metadata = [
+        for (var index = 0; index < batchCount; index++)
+          {
+            ...requests[index].metadata,
+            // Style info for the round-trip restore of an image.
+            'active_style_names': s.isStyleEnabled ? s.activeStyleNames : [],
+            'is_style_enabled': s.isStyleEnabled,
+            'original_negative_prompt': prompts.baseNegative,
+            if (batchCount > 1) 'batch_index': index + 1,
+            if (batchCount > 1) 'batch_count': batchCount,
+          },
+      ];
+      GeneratedImageItem slot(String id, int index) => GeneratedImageItem(
+        id: id,
+        runId: runId,
+        batchIndex: index + 1,
+        batchCount: batchCount,
+        metadata: metadata[index],
+        seed: seeds[index],
+        isLoading: true,
+        progress: GenerationTaskProgress.queued,
+      );
 
       if (gatewayBatch) {
-        final preparedRequest = buildRequest(seeds.first);
         final submission = await _submitGatewayBatch(
-          request: preparedRequest,
+          request: requests.first,
           seeds: seeds,
-          clientRequestId: batchRunId,
+          clientRequestId: submissionId,
           confirmQuote: confirmQuote,
         );
-        final submittedItems = submission.items.toList()
+        if (_activeRunId != runId) return const GenerationOutcome.rejected();
+        final submitted = submission.items.toList()
           ..sort((a, b) => a.batchIndex.compareTo(b.batchIndex));
-        final acceptedImages = List<GeneratedImageItem>.generate(batchCount, (
-          index,
-        ) {
-          final accepted = submittedItems[index];
-          final metadata = Map<String, dynamic>.from(
-            buildRequest(seeds[index]).metadata,
-          );
-          return GeneratedImageItem(
-            id: accepted.id,
-            batchIndex: index + 1,
-            batchCount: batchCount,
-            metadata: metadata,
-            seed: seeds[index],
-            isLoading: true,
-            progress: _progressForGatewayStatus(accepted.status),
-          );
-        });
-        _state = _state.copyWith(
-          generatedImages: acceptedImages,
-          selectedGeneratedImageId: acceptedImages.first.id,
-          autoFollowLatestImage: true,
-          clearGeneratedImage: true,
-          duplicateImageDetected: false,
+        final accepted = [
+          for (var index = 0; index < batchCount; index++)
+            slot(submitted[index].id, index).copyWith(
+              progress: progressForGatewayStatus(submitted[index].status),
+            ),
+        ];
+        _setResults(
+          accepted,
+          selectedId: accepted.first.id,
+          taskId: submission.taskId,
         );
-        gatewaySubmissionAccepted = true;
         notifyListeners();
-
-        var retryDelay = const Duration(seconds: 1);
-        var taskFetchFailures = 0;
-        final downloadFailures = <String, int>{};
-        while (true) {
-          ServerGenerationTask task;
-          try {
-            task = await _historyApi.fetchGenerationTask(submission.taskId);
-            retryDelay = const Duration(seconds: 1);
-            taskFetchFailures = 0;
-          } on BackendException catch (error) {
-            if (error.isNotAuthenticated ||
-                error.statusCode == 403 ||
-                error.statusCode == 404) {
-              rethrow;
-            }
-            taskFetchFailures++;
-            if (taskFetchFailures >= 8) rethrow;
-            await Future.delayed(retryDelay);
-            retryDelay = Duration(
-              seconds: (retryDelay.inSeconds * 2).clamp(1, 15),
-            );
-            continue;
-          }
-
-          var changed = false;
-          for (final serverItem in task.items) {
-            final existing = _state.generatedImages
-                .where((item) => item.id == serverItem.id)
-                .firstOrNull;
-            if (existing == null || existing.isTerminal) continue;
-            final progress = _progressForGatewayStatus(serverItem.status);
-            final loading =
-                serverItem.status == 'queued' || serverItem.status == 'running';
-            _state = _state.copyWith(
-              generatedImages: _replaceGeneratedImageItem(
-                serverItem.id,
-                (item) => item.copyWith(
-                  progress: progress,
-                  isLoading: loading || serverItem.status == 'success',
-                  errorMessage: _itemFailureMessage(serverItem),
-                ),
-              ),
-            );
-            changed = true;
-          }
-          if (changed) notifyListeners();
-
-          var successfulDownloadsComplete = true;
-          for (final serverItem in task.items.where(
-            (item) => item.status == 'success',
-          )) {
-            final existing = _state.generatedImages
-                .where((item) => item.id == serverItem.id)
-                .firstOrNull;
-            if (existing == null || existing.isTerminal) continue;
-            try {
-              final bytes = await _historyApi.fetchImageBytes(serverItem.id);
-              final index =
-                  serverItem.batchIndex ??
-                  _state.generatedImages.indexWhere(
-                    (item) => item.id == serverItem.id,
-                  );
-              if (index < 0 || index >= batchCount) continue;
-              final metadata = Map<String, dynamic>.from(
-                buildRequest(seeds[index]).metadata,
-              );
-              await applyResult(
-                index,
-                GenerationResult(imageBytes: bytes, metadata: metadata),
-              );
-            } on BackendException catch (error) {
-              if (error.isNotAuthenticated) rethrow;
-              final failures = (downloadFailures[serverItem.id] ?? 0) + 1;
-              downloadFailures[serverItem.id] = failures;
-              final statusCode = error.statusCode;
-              final permanent =
-                  statusCode == 403 ||
-                  (statusCode == 404 && failures >= 3) ||
-                  failures >= 8;
-              if (!permanent) {
-                successfulDownloadsComplete = false;
-                continue;
-              }
-              _state = _state.copyWith(
-                generatedImages: _replaceGeneratedImageItem(
-                  serverItem.id,
-                  (item) => item.copyWith(
-                    isLoading: false,
-                    progress: GenerationTaskProgress.failed,
-                    errorMessage: _formatError(error).message,
-                  ),
-                ),
-              );
-              notifyListeners();
-            }
-          }
-
-          final statusesTerminal =
-              task.items.isNotEmpty &&
-              task.items.every(
-                (item) =>
-                    item.status == 'success' ||
-                    item.status == 'failed' ||
-                    item.status == 'rejected' ||
-                    item.status == 'cancelled',
-              );
-          if (statusesTerminal && successfulDownloadsComplete) break;
-          await Future.delayed(const Duration(seconds: 1));
-        }
+        await _watchRun(runId, submission.taskId, {
+          for (final item in accepted) item.id,
+        }, token: token);
       } else {
-        Object? firstError;
-        await Future.wait(
-          List<Future<void>>.generate(batchCount, (index) async {
-            try {
-              final result = await _service.generateImage(
-                prompt: finalPrompt,
-                negativePrompt: fullNegativePrompt,
-                width: _state.width.toInt(),
-                height: _state.height.toInt(),
-                scale: _state.scale,
-                steps: _state.steps.toInt(),
-                sampler: _state.sampler,
-                smea: _state.smea,
-                smeaDyn: _state.smeaDyn,
-                decrisper: _state.decrisper,
-                seed: seeds[index],
-                promptPrefix: combinedPrefix,
-                promptSuffix: combinedSuffix,
-                characters: processedCharacters,
-                interactions: _state.interactions,
-                useCoords: _state.characters.isNotEmpty
-                    ? !_state.autoPositioning
-                    : false,
-                directorRefImages: dirPayload?.images,
-                directorRefDescriptions: dirPayload?.descriptions,
-                directorRefStrengths: dirPayload?.strengths,
-                directorRefSecondaryStrengths: dirPayload?.secondaryStrengths,
-                directorRefInfoExtracted: dirPayload?.infoExtracted,
-                vibeTransferImages: vibePayload?.vibeVectors,
-                vibeTransferStrengths: vibePayload?.strengths,
-                vibeTransferInfoExtracted: vibePayload?.infoExtracted,
-                useCurated: _state.useCurated,
-              );
-              await applyResult(index, result);
-            } catch (error) {
-              firstError ??= error;
-              _state = _state.copyWith(
-                generatedImages: _replaceGeneratedImageItem(
-                  placeholders[index].id,
-                  (item) => item.copyWith(
-                    isLoading: false,
-                    progress: GenerationTaskProgress.failed,
-                    errorMessage: _formatError(error).message,
-                  ),
-                ),
-              );
-              notifyListeners();
-            }
-          }),
-        );
+        final placeholders = [
+          for (var index = 0; index < batchCount; index++)
+            slot('$submissionId-$index', index),
+        ];
+        _setResults(placeholders, selectedId: placeholders.first.id);
+        notifyListeners();
+        // NovelAI allows one generation per account at a time: one request in
+        // flight, and each one starts only if the batch was not cancelled.
+        for (var index = 0; index < batchCount; index++) {
+          final id = placeholders[index].id;
+          if (token.isCancelled || _activeRunId != runId) {
+            _cancelUnsent(runId, firstError);
+            break;
+          }
+          _mapItem(
+            id,
+            (item) =>
+                item.copyWith(progress: GenerationTaskProgress.generating),
+            runId: runId,
+          );
+          notifyListeners();
+          try {
+            final bytes = await _service.generateDirect(requests[index]);
+            if (_completeItem(runId, id, bytes)) await _autoSave(id);
+          } catch (error) {
+            firstError ??= error;
+            if (_itemById(id, runId: runId) == null) break;
+            _failItem(runId, id, error);
+            // The same account and key would fail the rest the same way.
+            _cancelUnsent(runId, error);
+            break;
+          }
+        }
         if (firstError != null) {
-          final capturedError = firstError!;
-          if (capturedError is UnauthorizedException) throw capturedError;
-          final error = _formatError(capturedError);
+          if (firstError is UnauthorizedException) throw firstError;
+          final error = _formatError(firstError);
+          failureMessage = error.message;
           _state = _state.copyWith(
             errorMessage: error.message,
             errorTone: error.tone,
@@ -2128,31 +1828,22 @@ class GenerationNotifier extends ChangeNotifier {
         }
       }
     } on UnauthorizedException {
+      authFailed = true;
       _state = _state.copyWith(hasAuthError: true);
-    } on _QuoteDeclined {
+    } on QuoteDeclinedException {
       // The user chose not to pay the gateway's price: nothing was submitted.
+      declined = true;
     } catch (e) {
       debugPrint("Generation error: $e");
       final error = _formatError(e);
+      failureMessage = error.message;
       _state = _state.copyWith(
         errorMessage: error.message,
         errorTone: error.tone,
         errorSuggestRandomSeed: error.suggestRandomSeed,
       );
     } finally {
-      final settleWorkspace = !gatewayBatch || gatewaySubmissionAccepted;
-      final settledImages = settleWorkspace
-          ? _state.generatedImages
-                .map(
-                  (item) =>
-                      item.isLoading ? item.copyWith(isLoading: false) : item,
-                )
-                .toList(growable: false)
-          : _state.generatedImages;
-      _state = _state.copyWith(
-        isLoading: false,
-        generatedImages: settledImages,
-      );
+      _endRun(runId);
       notifyListeners();
       fetchAnlas();
       if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
@@ -2161,171 +1852,39 @@ class GenerationNotifier extends ChangeNotifier {
         } catch (_) {}
       }
     }
-  }
 
-  /// Generates a NovelAI-style filename from the prompt and seed.
-  /// Format: `<prompt> s-<seed>.png`, matching NAI's own convention (issue #28).
-  String _buildFileName(
-    Map<String, dynamic> metadata, {
-    String prefix = 'Gen',
-  }) {
-    try {
-      final prompt = (metadata['prompt'] as String? ?? '').trim();
-      final seed = metadata['seed']?.toString() ?? '';
-      if (prompt.isNotEmpty && seed.isNotEmpty) {
-        return naiFilenameBase(prompt, seed);
-      }
-    } catch (_) {}
-    // Fallback to timestamp
-    return '${prefix}_${DateFormat('yyyyMMdd_HHmmssSSS').format(DateTime.now())}';
-  }
-
-  /// Name of the default-save album — the album a fresh save lands in — for
-  /// the `<album>` pattern token, or '' when none is configured.
-  String _defaultSaveAlbumName() {
-    final id = _prefs.defaultSaveAlbumId;
-    if (id == null || id.isEmpty) return '';
-    final albums = _galleryNotifier?.albums;
-    if (albums == null) return '';
-    for (final album in albums) {
-      if (album.id == id) return album.name;
-    }
-    return '';
-  }
-
-  /// Applies the custom filename pattern (issue #27) with [sequence] for
-  /// `<digits>` tokens. Returns [fallback] when no pattern is set, when
-  /// prompt/seed are unavailable (the same condition under which the
-  /// NAI-style default itself applies), or when the pattern expands to
-  /// nothing. Used directly for targets whose contents we can't cheaply
-  /// count (SAF trees, the device gallery) — there `<digits>` stays at 1.
-  String _patternedName(
-    Map<String, dynamic>? metadata,
-    String fallback, {
-    int sequence = 1,
-  }) {
-    final pattern = _prefs.filenamePattern;
-    if (pattern.isEmpty || metadata == null) return fallback;
-    final prompt = (metadata['prompt'] as String? ?? '').trim();
-    final seed = metadata['seed']?.toString() ?? '';
-    if (prompt.isEmpty || seed.isEmpty) return fallback;
-    final expanded = expandFilenamePattern(
-      pattern,
-      FilenamePatternContext(
-        prompt: prompt,
-        seed: seed,
-        savedAt: DateTime.now(),
-        albumName: _defaultSaveAlbumName(),
-        sequence: sequence,
-      ),
+    final items = _state.generatedImages.where((item) => item.runId == runId);
+    return GenerationOutcome(
+      declined: declined,
+      authFailed: authFailed,
+      completed: items.where((item) => item.isComplete).length,
+      failed: items.where((item) => !item.isComplete).length,
+      errorMessage:
+          items.map((item) => item.errorMessage).nonNulls.firstOrNull ??
+          failureMessage,
     );
-    return expanded.isEmpty ? fallback : expanded;
   }
 
-  /// Resolves the destination folder and filename base for a plain-filesystem
-  /// save under [baseDir] from the pattern settings (issue #27). The path
-  /// pattern can add auto-subfolders; `<digits>` counts the images already in
-  /// the final folder, so counters reset per subfolder.
-  Future<_SaveTarget> _patternedTarget(
-    String baseDir,
-    Map<String, dynamic> metadata,
-    String fallbackBase,
-  ) async {
-    final pathPattern = _prefs.savePathPattern;
-    final fnPattern = _prefs.filenamePattern;
-    final prompt = (metadata['prompt'] as String? ?? '').trim();
-    final seed = metadata['seed']?.toString() ?? '';
-    if ((pathPattern.isEmpty && fnPattern.isEmpty) ||
-        prompt.isEmpty ||
-        seed.isEmpty) {
-      return _SaveTarget(baseDir, fallbackBase);
-    }
-    final savedAt = DateTime.now();
-    final albumName = _defaultSaveAlbumName();
-    var dirPath = baseDir;
-    final sub = expandSavePathPattern(
-      pathPattern,
-      FilenamePatternContext(
-        prompt: prompt,
-        seed: seed,
-        savedAt: savedAt,
-        albumName: albumName,
-      ),
+  /// Marks the images of [runId] that were never requested as cancelled.
+  void _cancelUnsent(int runId, Object? because) {
+    final message = because == null
+        ? _l10n.generationItemCancelled
+        : _formatError(because).message;
+    _state = _state.copyWith(
+      generatedImages: [
+        for (final item in _state.generatedImages)
+          item.runId == runId &&
+                  !item.isTerminal &&
+                  item.progress == GenerationTaskProgress.queued
+              ? item.copyWith(
+                  isLoading: false,
+                  progress: GenerationTaskProgress.cancelled,
+                  errorMessage: message,
+                )
+              : item,
+      ],
     );
-    if (sub.isNotEmpty) dirPath = p.join(dirPath, sub);
-    var base = fallbackBase;
-    if (fnPattern.isNotEmpty) {
-      // Only pay for a directory listing when the pattern actually counts.
-      final seq = fnPattern.contains('<digits')
-          ? await nextImageSequence(dirPath)
-          : 1;
-      final expanded = expandFilenamePattern(
-        fnPattern,
-        FilenamePatternContext(
-          prompt: prompt,
-          seed: seed,
-          savedAt: savedAt,
-          albumName: albumName,
-          sequence: seq,
-        ),
-      );
-      if (expanded.isNotEmpty) base = expanded;
-    }
-    return _SaveTarget(dirPath, base);
-  }
-
-  /// Returns [baseName] if it hasn't been downloaded this session, otherwise
-  /// appends `_(2)`, `_(3)`, … — the same convention as [uniqueFilePath], but
-  /// tracked in memory since web has no filesystem to probe. The returned name
-  /// is the bare base (no extension); the caller adds `.png`.
-  String _uniqueWebName(String baseName) {
-    if (!_webDownloadedNames.contains('$baseName.png')) return baseName;
-    var i = 2;
-    while (_webDownloadedNames.contains('${baseName}_($i).png')) {
-      i++;
-    }
-    return '${baseName}_($i)';
-  }
-
-  Future<File?> _saveToDisk(
-    Uint8List bytes,
-    Map<String, dynamic> metadata, {
-    String prefix = 'Gen',
-    String? timestamp,
-  }) async {
-    // No filesystem on web. Bytes remain in memory; users use the existing
-    // download/share path (XFile / share_plus) to get the image off-app.
-    if (kIsWeb) return null;
-    try {
-      // Explicit-timestamp saves (img2img Src/Gen pairs) keep their fixed
-      // names and flat location; the pattern settings apply to standard
-      // generation saves (issue #27).
-      final target = timestamp != null
-          ? _SaveTarget(_outputDir, '${prefix}_$timestamp')
-          : await _patternedTarget(
-              _outputDir,
-              metadata,
-              _buildFileName(metadata, prefix: prefix),
-            );
-      final directory = Directory(target.dir);
-      if (!await directory.exists()) {
-        await directory.create(recursive: true);
-      }
-
-      final filePath = await uniqueFilePath(directory.path, target.base, 'png');
-
-      final bytesWithMetadata = await compute(injectMetadata, {
-        'bytes': bytes,
-        'metadata': metadata,
-      });
-
-      final file = File(filePath);
-      await file.writeAsBytes(bytesWithMetadata);
-      return file;
-    } catch (e) {
-      debugPrint("Save error: $e");
-      return null;
-    }
+    notifyListeners();
   }
 
   void handleTagSuggestions(String text, TextSelection selection) {
@@ -2457,14 +2016,17 @@ class GenerationNotifier extends ChangeNotifier {
   }
 
   /// Apply a parsed metadata result, importing only the selected categories.
+  ///
+  /// The saved session is restored first and an import goes on top of it, so
+  /// an import that arrives while the app is still starting waits for the
+  /// restore instead of being overwritten by it.
   void applyImportedMetadata(
     MetadataImportResult result,
     Set<ImportCategory> categories,
   ) {
-    // Startup can still be loading tags/styles while history is open. An
-    // explicit import must win over the older saved editor session.
-    if (!_sessionReady && categories.isNotEmpty) {
-      _metadataImportedBeforeSessionReady = true;
+    if (!_sessionReady) {
+      _pendingImports.add((result: result, categories: categories));
+      return;
     }
     if (categories.contains(ImportCategory.prompt)) {
       promptController.value = TextEditingValue(
@@ -2484,61 +2046,41 @@ class GenerationNotifier extends ChangeNotifier {
       seedController.text = result.seed!;
     }
 
+    final settings = categories.contains(ImportCategory.settings);
+    final styles = categories.contains(ImportCategory.styles);
+    final characters = categories.contains(ImportCategory.characters);
     _state = _state.copyWith(
-      width: categories.contains(ImportCategory.settings) ? result.width : null,
-      height: categories.contains(ImportCategory.settings)
-          ? result.height
-          : null,
-      scale: categories.contains(ImportCategory.settings) ? result.scale : null,
-      steps: categories.contains(ImportCategory.settings) ? result.steps : null,
-      sampler: categories.contains(ImportCategory.settings)
-          ? result.sampler
-          : null,
-      smea: categories.contains(ImportCategory.settings) ? result.smea : null,
-      smeaDyn: categories.contains(ImportCategory.settings)
-          ? result.smeaDyn
-          : null,
-      decrisper: categories.contains(ImportCategory.settings)
-          ? result.decrisper
-          : null,
+      width: settings ? result.width : null,
+      height: settings ? result.height : null,
+      scale: settings ? result.scale : null,
+      steps: settings ? result.steps : null,
+      sampler: settings ? result.sampler : null,
+      smea: settings ? result.smea : null,
+      smeaDyn: settings ? result.smeaDyn : null,
+      decrisper: settings ? result.decrisper : null,
       randomizeSeed: categories.contains(ImportCategory.seed) ? false : null,
-      generatedImage: result.imageBytes,
-      generatedImages: result.imageBytes != null ? const [] : null,
-      clearSelectedGeneratedImageId: result.imageBytes != null,
-      autoFollowLatestImage: result.imageBytes != null ? true : null,
-      activeStyleNames: categories.contains(ImportCategory.styles)
-          ? result.activeStyleNames
-          : null,
-      isStyleEnabled: categories.contains(ImportCategory.styles)
-          ? result.isStyleEnabled
-          : null,
-      characters: categories.contains(ImportCategory.characters)
-          ? result.characters
-          : null,
-      interactions: categories.contains(ImportCategory.characters)
-          ? result.interactions
-          : null,
-      autoPositioning: categories.contains(ImportCategory.characters)
-          ? result.autoPositioning
-          : null,
+      activeStyleNames: styles ? result.activeStyleNames : null,
+      isStyleEnabled: styles ? result.isStyleEnabled : null,
+      characters: characters ? result.characters : null,
+      interactions: characters ? result.interactions : null,
+      autoPositioning: characters ? result.autoPositioning : null,
     );
+    // The dropped image replaces the shown result, unless a batch is still
+    // delivering its images: those are never discarded for it.
+    final image = result.imageBytes;
+    if (image != null && _activeRunId == null) _showSingleImage(image);
+    _scheduleSessionSave();
     notifyListeners();
   }
 
   /// Import all metadata from a PNG file (used by drag-and-drop).
   Future<void> importImageMetadata(File file) async {
-    _state = _state.copyWith(isLoading: true);
-    notifyListeners();
-
     try {
       final result = await parseImageMetadata(file);
       applyImportedMetadata(result, ImportCategory.values.toSet());
     } catch (e) {
       debugPrint("Metadata extraction error: $e");
       rethrow;
-    } finally {
-      _state = _state.copyWith(isLoading: false);
-      notifyListeners();
     }
   }
 
@@ -2593,6 +2135,7 @@ class GenerationNotifier extends ChangeNotifier {
     } else {
       _vibeTransferNotifier?.clearAll();
     }
+    _scheduleSessionSave();
     notifyListeners();
   }
 
@@ -2616,14 +2159,62 @@ class GenerationNotifier extends ChangeNotifier {
     await _presetService.savePresets(updatedPresets);
   }
 
+  /// Runs one single-image call (a tool preview, a cascade beat, img2img).
+  /// Only one generation runs at a time, so this is refused (null) while a
+  /// batch or another call is in flight: appending to or replacing a batch
+  /// that is still delivering paid images would lose or misplace them. The
+  /// busy state is [_singleImageCalls], undone in one place.
+  Future<T?> _runSingleImage<T>(
+    String label,
+    Future<T?> Function() call, {
+    bool showErrors = true,
+  }) async {
+    if (_busy) {
+      if (showErrors) _rejectBusy();
+      return null;
+    }
+    _singleImageCalls++;
+    _state = _state.copyWith(hasAuthError: false);
+    _syncBusy();
+    notifyListeners();
+    try {
+      return await call();
+    } on UnauthorizedException {
+      _state = _state.copyWith(hasAuthError: true);
+      return null;
+    } on QuoteDeclinedException {
+      return null;
+    } on InvalidSeedInput {
+      if (showErrors) {
+        _state = _state.copyWith(errorMessage: _l10n.generationSeedInvalid);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('$label error: $e');
+      if (showErrors) {
+        final error = _formatError(e);
+        _state = _state.copyWith(
+          errorMessage: error.message,
+          errorTone: error.tone,
+          errorSuggestRandomSeed: error.suggestRandomSeed,
+        );
+      }
+      return null;
+    } finally {
+      _singleImageCalls--;
+      _syncBusy();
+      notifyListeners();
+      if (showErrors) fetchAnlas();
+    }
+  }
+
   Future<Uint8List?> generateQuickPreview(
     String tag, {
     TagPreviewSettings? previewSettings,
-  }) async {
+  }) {
     final settings = previewSettings ?? TagPreviewSettings();
-
-    try {
-      final seed = settings.seed ?? _randomUint32(math.Random());
+    return _runSingleImage<Uint8List>('Quick preview', () async {
+      final seed = settings.seed ?? randomSeed();
       final result = await _service.generateImage(
         prompt: "${settings.positivePrompt}, $tag",
         negativePrompt: settings.negativePrompt,
@@ -2634,30 +2225,59 @@ class GenerationNotifier extends ChangeNotifier {
         sampler: settings.sampler,
         seed: seed,
         useCurated: _state.useCurated,
+        canPayRed: _access.canPay,
       );
 
       // Auto-save the preview as well, so it's in the gallery
       if (_state.autoSaveImages) {
-        final savedFile = await _saveToDisk(result.imageBytes, result.metadata);
-        if (savedFile != null) {
-          _galleryNotifier?.addFile(savedFile, DateTime.now());
-          await _autoExportIfEnabled(result.imageBytes, result.metadata);
-        }
+        await _persistence.autoSave(result.imageBytes, result.metadata);
       }
 
       return result.imageBytes;
-    } catch (e) {
-      debugPrint("Quick preview error: $e");
-      return null;
-    }
+    }, showErrors: false);
   }
 
-  Future<Uint8List?> generateCascadeBeat(CascadeStitchedRequest request) async {
-    _state = _state.copyWith(isLoading: true, hasAuthError: false);
+  /// Shows [result] as the only image and saves it when auto save is on.
+  Future<void> _showToolResult(
+    GenerationResult result,
+    int seed, {
+    Future<String?> Function(GeneratedImageItem item)? autoSave,
+  }) async {
+    final item = _showSingleImage(
+      result.imageBytes,
+      metadata: result.metadata,
+      seed: seed,
+    );
     notifyListeners();
+    if (!_state.autoSaveImages) return;
+    final basename = await (autoSave?.call(item) ?? _autoSave(item.id));
+    if (basename == null) return;
+    _mapItem(
+      item.id,
+      (current) => current.copyWith(saved: true, savedBasename: basename),
+    );
+    notifyListeners();
+  }
 
-    try {
-      final seed = _randomUint32(math.Random());
+  /// The seeds of a single image from the form (the random switch and the
+  /// seed box), written back to the box when it is random.
+  int _singleSeed() {
+    final seed = resolveSeeds(
+      count: 1,
+      randomize: _state.randomizeSeed,
+      seedText: seedController.text,
+    ).single;
+    if (_state.randomizeSeed) seedController.text = seed.toString();
+    return seed;
+  }
+
+  Future<Uint8List?> generateCascadeBeat(
+    CascadeStitchedRequest request, {
+    QuoteConfirmer? confirmQuote,
+  }) {
+    return _runSingleImage<Uint8List>('Cascade generation', () async {
+      final seed = _singleSeed();
+      final userId = _backendUserId;
 
       // Process wildcards in cascade prompts
       final processedCaption = await _wildcardProcessor.process(
@@ -2696,58 +2316,25 @@ class GenerationNotifier extends ChangeNotifier {
         characters: processedChars,
         useCoords: request.useCoords,
         useCurated: _state.useCurated,
+        confirmQuote: confirmQuote,
+        canPayRed: _access.canPay,
       );
+      // The account was switched while the image was being made.
+      if (_backendUserId != userId) return null;
 
-      _lastMetadata = result.metadata;
-      _imageSaved = false;
-      _state = _state.copyWith(
-        generatedImage: result.imageBytes,
-        generatedImages: const [],
-        clearSelectedGeneratedImageId: true,
-        autoFollowLatestImage: true,
-      );
-
-      if (_state.autoSaveImages) {
-        final savedFile = await _saveToDisk(result.imageBytes, result.metadata);
-        if (savedFile != null) {
-          _galleryNotifier?.addFile(savedFile, DateTime.now());
-          _imageSaved = true;
-          await _autoExportIfEnabled(result.imageBytes, result.metadata);
-        }
-      }
-
+      await _showToolResult(result, seed);
       return result.imageBytes;
-    } on UnauthorizedException {
-      _state = _state.copyWith(hasAuthError: true);
-      return null;
-    } catch (e) {
-      debugPrint("Cascade generation error: $e");
-      final error = _formatError(e);
-      _state = _state.copyWith(
-        errorMessage: error.message,
-        errorTone: error.tone,
-        errorSuggestRandomSeed: error.suggestRandomSeed,
-      );
-      return null;
-    } finally {
-      _state = _state.copyWith(isLoading: false);
-      notifyListeners();
-      fetchAnlas();
-    }
+    });
   }
 
   Future<Uint8List?> generateImg2Img(
     Img2ImgRequest request, {
     Uint8List? sourceImageBytes,
-  }) async {
-    _state = _state.copyWith(isLoading: true, hasAuthError: false);
-    notifyListeners();
-
-    try {
-      final seed = _state.randomizeSeed
-          ? _randomUint32(math.Random())
-          : (int.tryParse(seedController.text) ?? _randomUint32(math.Random()));
-      if (_state.randomizeSeed) seedController.text = seed.toString();
+    QuoteConfirmer? confirmQuote,
+  }) {
+    return _runSingleImage<Uint8List>('Img2Img generation', () async {
+      final seed = _singleSeed();
+      final userId = _backendUserId;
 
       final dirPayload = _directorRefNotifier?.buildPayload();
       final vibePayload = _vibeTransferNotifier?.buildPayload();
@@ -2782,71 +2369,55 @@ class GenerationNotifier extends ChangeNotifier {
         vibeTransferStrengths: vibePayload?.strengths,
         vibeTransferInfoExtracted: vibePayload?.infoExtracted,
         useCurated: _state.useCurated,
+        confirmQuote: confirmQuote,
+        canPayRed: _access.canPay,
       );
+      if (_backendUserId != userId) return null;
 
-      Uint8List finalBytes = result.imageBytes;
-
-      _lastMetadata = result.metadata;
-      _imageSaved = false;
-      _state = _state.copyWith(
-        generatedImage: finalBytes,
-        generatedImages: const [],
-        clearSelectedGeneratedImageId: true,
-        autoFollowLatestImage: true,
+      await _showToolResult(
+        result,
+        seed,
+        autoSave: (item) => _autoSaveImg2Img(item, sourceImageBytes),
       );
+      return result.imageBytes;
+    });
+  }
 
-      if (_state.autoSaveImages) {
-        final timestamp = DateFormat(
-          'yyyyMMdd_HHmmssSSS',
-        ).format(DateTime.now());
-        String? srcPath;
-        if (sourceImageBytes != null) {
-          try {
-            final directory = Directory(_outputDir);
-            if (!await directory.exists()) {
-              await directory.create(recursive: true);
-            }
-            srcPath = p.join(directory.path, 'Src_$timestamp.png');
-            await File(srcPath).writeAsBytes(sourceImageBytes);
-          } catch (e) {
-            debugPrint("Source image save error: $e");
-          }
+  /// Saves an img2img result like every other tool result, next to a copy of
+  /// its source (kept until the result is saved, so a failed save loses
+  /// neither).
+  Future<String?> _autoSaveImg2Img(
+    GeneratedImageItem item,
+    Uint8List? sourceImageBytes,
+  ) async {
+    final bytes = item.bytes;
+    final metadata = item.metadata;
+    if (bytes == null || metadata == null || kIsWeb) return null;
+    final timestamp = DateFormat('yyyyMMdd_HHmmssSSS').format(DateTime.now());
+    String? srcPath;
+    if (sourceImageBytes != null) {
+      try {
+        final directory = Directory(_outputDir);
+        if (!await directory.exists()) {
+          await directory.create(recursive: true);
         }
-        final savedFile = await _saveToDisk(
-          finalBytes,
-          result.metadata,
-          timestamp: timestamp,
-        );
-        if (savedFile != null) {
-          _galleryNotifier?.addFile(savedFile, DateTime.now());
-          _imageSaved = true;
-          await _autoExportIfEnabled(finalBytes, result.metadata);
-          if (srcPath != null) {
-            try {
-              await File(srcPath).delete();
-            } catch (_) {}
-          }
-        }
+        srcPath = p.join(directory.path, 'Src_$timestamp.png');
+        await File(srcPath).writeAsBytes(sourceImageBytes);
+      } catch (e) {
+        debugPrint("Source image save error: $e");
       }
-
-      return finalBytes;
-    } on UnauthorizedException {
-      _state = _state.copyWith(hasAuthError: true);
-      return null;
-    } catch (e) {
-      debugPrint("Img2Img generation error: $e");
-      final error = _formatError(e);
-      _state = _state.copyWith(
-        errorMessage: error.message,
-        errorTone: error.tone,
-        errorSuggestRandomSeed: error.suggestRandomSeed,
-      );
-      return null;
-    } finally {
-      _state = _state.copyWith(isLoading: false);
-      notifyListeners();
-      fetchAnlas();
     }
+    final basename = await _persistence.autoSaveToolResult(
+      bytes,
+      metadata,
+      fileName: 'Gen_$timestamp.png',
+    );
+    if (basename != null && srcPath != null) {
+      try {
+        await File(srcPath).delete();
+      } catch (_) {}
+    }
+    return basename;
   }
 
   /// The localized strings for the language the user has chosen.
@@ -2875,16 +2446,26 @@ class GenerationNotifier extends ChangeNotifier {
 
   @override
   void notifyListeners() {
+    // Work that was in flight when the notifier went away still finishes.
+    if (_disposed) return;
     super.notifyListeners();
-    _scheduleSessionSave();
   }
 
+  /// Saves the session soon. Called where the form changes, never by a
+  /// notification: results arriving or a flag flipping are not the session.
   void _scheduleSessionSave() {
-    if (!_sessionReady || !_prefs.rememberSession) return;
+    if (!_sessionReady || _disposed || !_prefs.rememberSession) return;
     _sessionSaveDebounce?.cancel();
     _sessionSaveDebounce = Timer(const Duration(seconds: 5), () {
       _saveSessionSnapshot();
     });
+  }
+
+  /// Writes the session now instead of when the delay is over.
+  @visibleForTesting
+  Future<void> flushSessionSave() {
+    _sessionSaveDebounce?.cancel();
+    return _saveSessionSnapshot();
   }
 
   Future<void> _saveSessionSnapshot() async {
@@ -2916,9 +2497,9 @@ class GenerationNotifier extends ChangeNotifier {
   }
 
   Future<void> _restoreSessionSnapshot() async {
-    if (!_prefs.rememberSession || _metadataImportedBeforeSessionReady) return;
+    if (!_prefs.rememberSession) return;
     final snapshot = await _sessionService.restore();
-    if (snapshot == null || _metadataImportedBeforeSessionReady) return;
+    if (snapshot == null || _disposed) return;
 
     promptController.text = snapshot.prompt;
     negativePromptController.text = snapshot.negativePrompt;
@@ -2936,10 +2517,7 @@ class GenerationNotifier extends ChangeNotifier {
       randomizeSeed: snapshot.randomizeSeed,
       batchCount: _clampBatchCount(snapshot.batchCount, 10),
       autoPositioning: snapshot.autoPositioning,
-      activeStyleNames: _normalizeRestoredStyleNames(
-        snapshot.activeStyleNames,
-        _state.styles,
-      ),
+      activeStyleNames: _migrateRestoredStyleNames(snapshot, _state.styles),
       isStyleEnabled: snapshot.isStyleEnabled,
       furryMode: snapshot.furryMode,
       useCurated: snapshot.useCurated,
@@ -2966,6 +2544,8 @@ class GenerationNotifier extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
+    _runToken?.cancel();
     _tagDebounce?.cancel();
     _sessionSaveDebounce?.cancel();
     promptController.dispose();
@@ -2973,6 +2553,42 @@ class GenerationNotifier extends ChangeNotifier {
     seedController.dispose();
     super.dispose();
   }
+}
+
+/// How a call of [GenerationNotifier.generate] ended.
+class GenerationOutcome {
+  const GenerationOutcome({
+    this.declined = false,
+    this.authFailed = false,
+    this.completed = 0,
+    this.failed = 0,
+    this.errorMessage,
+  }) : rejected = false;
+
+  /// Refused (another generation runs, or the seed is not valid): nothing was
+  /// submitted.
+  const GenerationOutcome.rejected([this.errorMessage])
+    : rejected = true,
+      declined = false,
+      authFailed = false,
+      completed = 0,
+      failed = 0;
+
+  final bool rejected;
+
+  /// The user declined the gateway's price.
+  final bool declined;
+  final bool authFailed;
+
+  /// Images that arrived, and images that did not (failed, cancelled, or
+  /// still unfinished).
+  final int completed;
+  final int failed;
+  final String? errorMessage;
+
+  /// Every image of the run arrived.
+  bool get succeeded =>
+      !rejected && !declined && !authFailed && failed == 0 && completed > 0;
 }
 
 /// The prompts of one request (see [GenerationNotifier._composePrompts]).
@@ -2992,17 +2608,4 @@ class _ComposedPrompts {
   final String negative;
   final String? prefix;
   final String? suffix;
-}
-
-/// The user declined the gateway's price.
-class _QuoteDeclined implements Exception {
-  const _QuoteDeclined();
-}
-
-/// Destination folder + filename base resolved from the pattern settings
-/// (issue #27).
-class _SaveTarget {
-  final String dir;
-  final String base;
-  const _SaveTarget(this.dir, this.base);
 }
