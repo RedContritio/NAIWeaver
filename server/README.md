@@ -10,8 +10,7 @@ cd server
 uv sync
 NOVELAI_TOKEN_FILE="$HOME/.config/naiweaver/novelai_token.txt" \
 NAIWEAVER_ADMIN_PASSWORD='local-test-admin' \
-NAIWEAVER_ALLOWED_CLIENT_CIDRS='127.0.0.1/32,::1/128,192.168.31.0/24' \
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 For local tests without NovelAI:
@@ -19,8 +18,7 @@ For local tests without NovelAI:
 ```bash
 NAIWEAVER_FAKE_NOVELAI=1 \
 NAIWEAVER_ADMIN_PASSWORD='local-test-admin' \
-NAIWEAVER_ALLOWED_CLIENT_CIDRS='127.0.0.1/32,::1/128,192.168.31.0/24' \
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 ## Build Web

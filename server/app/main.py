@@ -6,7 +6,6 @@ import hashlib
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
-import ipaddress
 from io import BytesIO
 import json
 import logging
@@ -98,10 +97,6 @@ PUBLIC_BASE_URL = os.environ.get(
 ).rstrip("/")
 only_auth = OnlyWebAuth(PUBLIC_BASE_URL, SESSION_TTL_SECONDS)
 MAX_REQUEST_BODY_BYTES = int(os.environ.get("NAIWEAVER_MAX_REQUEST_BODY_BYTES", "25000000"))
-ALLOWED_CLIENT_CIDRS = os.environ.get(
-    "NAIWEAVER_ALLOWED_CLIENT_CIDRS",
-    "127.0.0.1/32,::1/128,192.168.31.0/24",
-)
 CORS_ORIGINS = [
     origin.strip()
     for origin in os.environ.get("NAIWEAVER_CORS_ORIGINS", "").split(",")
@@ -1014,14 +1009,6 @@ def bootstrap_users() -> None:
         db.commit()
 
 
-def allowed_networks() -> list[ipaddress._BaseNetwork]:
-    return [
-        ipaddress.ip_network(item.strip(), strict=False)
-        for item in ALLOWED_CLIENT_CIDRS.split(",")
-        if item.strip()
-    ]
-
-
 def validate_runtime_config() -> None:
     if not SECRET_KEY:
         raise RuntimeError("NAIWEAVER_SECRET_KEY is required in production")
@@ -1076,20 +1063,6 @@ if CORS_ORIGINS:
         allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["Content-Type", "Authorization"],
     )
-
-
-@app.middleware("http")
-async def client_ip_allowlist(request: Request, call_next):
-    networks = allowed_networks()
-    if networks:
-        host = request.client.host if request.client else ""
-        try:
-            ip = ipaddress.ip_address(host)
-        except ValueError:
-            return Response("Forbidden", status_code=403)
-        if not any(ip in network for network in networks):
-            return Response("Forbidden", status_code=403)
-    return await call_next(request)
 
 
 @app.middleware("http")
@@ -1765,7 +1738,6 @@ def admin_config(
         "allowed_samplers": sorted(ALLOWED_SAMPLERS),
         "queue_weights": QUEUE_WEIGHTS,
         "text_concurrency": TEXT_GLOBAL_CONCURRENCY,
-        "allowed_client_cidrs": ALLOWED_CLIENT_CIDRS,
         "fake_novelai": FAKE_NOVELAI,
         "has_novelai_token": bool(novelai_token()),
         "tool_caps": dict(TOOL_CAPS),
