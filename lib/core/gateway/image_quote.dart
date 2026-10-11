@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'backend_exception.dart';
 import 'backend_rules.dart';
 
 /// How a request is charged (docs/GATEWAY_CONTRACT.md §3).
@@ -38,6 +39,13 @@ class InvalidQuoteRequest implements Exception {
   const InvalidQuoteRequest(this.field);
 
   final String field;
+
+  /// The `invalid_parameters` error the gateway would answer with.
+  BackendException toBackendException() => BackendException(
+    statusCode: null,
+    code: BackendErrorCode.invalidParameters,
+    details: {'field': field},
+  );
 
   @override
   String toString() => 'InvalidQuoteRequest($field)';

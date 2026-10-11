@@ -14,6 +14,9 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../../core/gateway/backend_error_messages.dart';
 import '../../../core/gateway/backend_exception.dart';
 import '../../../core/gateway/backend_gateway.dart';
+import '../../../core/gateway/backend_permissions.dart';
+import '../../../core/gateway/backend_rules.dart';
+import '../../../core/gateway/image_quote.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/l10n/locale_notifier.dart';
 import '../../../l10n/app_localizations.dart';
@@ -24,6 +27,7 @@ import '../../../core/utils/unique_file_path.dart';
 import '../../../core/utils/web_download.dart';
 import '../../../core/services/saf_export_service.dart';
 import '../../../core/services/preferences_service.dart';
+import '../../../core/services/backend_client.dart';
 import '../../../core/services/novel_ai_service.dart';
 import '../../../core/services/backend_history_api.dart';
 import '../../../core/services/nai_text_service.dart';
@@ -39,9 +43,12 @@ import '../../gallery/providers/gallery_notifier.dart';
 import '../../tools/providers/tag_library_notifier.dart';
 import '../models/nai_character.dart';
 import '../models/character_preset.dart';
+import '../models/generation_quote.dart';
 import '../../tools/cascade/services/cascade_stitching_service.dart';
 import '../../tools/img2img/services/img2img_request_builder.dart';
+import '../../director_ref/models/director_reference.dart';
 import '../../director_ref/providers/director_ref_notifier.dart';
+import '../../vibe_transfer/models/vibe_transfer.dart';
 import '../../vibe_transfer/providers/vibe_transfer_notifier.dart';
 import '../../tools/director_tools/providers/director_tools_notifier.dart';
 import '../../tools/enhance/providers/enhance_notifier.dart';
@@ -377,7 +384,10 @@ class GenerationNotifier extends ChangeNotifier {
   GenerationState get state => _state;
 
   late NovelAIService _service;
-  final BackendHistoryApi _historyApi = BackendHistoryApi();
+  final NovelAIService Function(String apiKey) _serviceFactory;
+  final BackendHistoryApi _historyApi;
+  ImageRules? _rules;
+  GenerationAccess _access = GenerationAccess.unrestricted;
   int? _backendUserId;
   int? _restoringWorkspaceForUserId;
   NovelAIService get service => _service;
@@ -441,13 +451,17 @@ class GenerationNotifier extends ChangeNotifier {
     required String stylesFilePath,
     GalleryNotifier? galleryNotifier,
     CharacterLibraryNotifier? characterLibrary,
+    NovelAIService Function(String apiKey)? serviceFactory,
+    BackendHistoryApi? historyApi,
   }) : _prefs = preferences,
        _tagService = tagService,
        _wildcardService = wildcardService,
        _outputDir = outputDir,
        _galleryNotifier = galleryNotifier,
-       _characterLibrary = characterLibrary {
-    _service = NovelAIService('');
+       _characterLibrary = characterLibrary,
+       _serviceFactory = serviceFactory ?? NovelAIService.new,
+       _historyApi = historyApi ?? BackendHistoryApi() {
+    _service = _serviceFactory('');
     _wildcardProcessor = WildcardProcessor(
       wildcardDir: wildcardService.wildcardDir,
       wildcardService: _wildcardService,
@@ -744,7 +758,7 @@ class GenerationNotifier extends ChangeNotifier {
     final apiKey = useBackendGateway
         ? serverManagedApiKey
         : await _prefs.getApiKey();
-    _service = NovelAIService(apiKey);
+    _service = _serviceFactory(apiKey);
     _textService = NaiTextService(apiKey);
     _vibeTransferNotifier?.updateService(_service);
     _directorToolsNotifier?.updateService(_service);
@@ -804,7 +818,7 @@ class GenerationNotifier extends ChangeNotifier {
       return;
     }
     await _prefs.setApiKey(key);
-    _service = NovelAIService(key);
+    _service = _serviceFactory(key);
     _textService = NaiTextService(key);
     _vibeTransferNotifier?.updateService(_service);
     _directorToolsNotifier?.updateService(_service);
@@ -1504,7 +1518,232 @@ class GenerationNotifier extends ChangeNotifier {
     return source.nextInt(1 << 16) * (1 << 16) + source.nextInt(1 << 16);
   }
 
-  Future<void> generate({int batchLimit = 1}) async {
+  /// The gateway's image rules and what the account may do, as of the last
+  /// `/api/me`.
+  void updateGatewayAccess(ImageRules? rules, GenerationAccess access) {
+    if (identical(_rules, rules) &&
+        _access.canFree == access.canFree &&
+        _access.paid == access.paid) {
+      return;
+    }
+    _rules = rules;
+    _access = access;
+    notifyListeners();
+  }
+
+  ImageRules? get imageRules => _rules;
+
+  /// The price of the request that would be sent now, or null when there is
+  /// none to show (no gateway, rules not loaded yet).
+  GenerationQuote? get quote {
+    final rules = _rules;
+    if (!_service.viaGateway || rules == null) return null;
+    ImageQuote? quote;
+    String? invalidField;
+    try {
+      quote = quoteImageRequest(
+        rules,
+        previewRequest().body,
+        images: _clampBatchCount(_state.batchCount, rules.batchLimit),
+      );
+    } on InvalidQuoteRequest catch (error) {
+      invalidField = error.field;
+    }
+    return GenerationQuote(
+      quote: quote,
+      invalidField: invalidField,
+      freeOnly: _access.freeOnly,
+    );
+  }
+
+  /// The request [generate] would build now, with the prompt as typed:
+  /// wildcards and aliases are not expanded because they never change what
+  /// the request costs.
+  ImageGenerationRequest previewRequest() => _buildRequest(
+    seed: 0,
+    prompts: _composePrompts(
+      prompt: promptController.text,
+      baseNegative: negativePromptController.text,
+    ),
+    characters: _state.characters,
+    directorRefs: _directorRefNotifier?.buildPayload(),
+    vibes: _vibeTransferNotifier?.buildPayload(),
+  );
+
+  /// Puts the size, steps and SMEA back inside what a free request allows.
+  /// Only the user asks for this; nothing adjusts the settings by itself.
+  void adjustToFreeParameters() {
+    final rules = _rules;
+    if (rules == null) return;
+    final isFreeSize = rules.freeSizes.any(
+      (size) =>
+          size.width == _state.width.toInt() &&
+          size.height == _state.height.toInt(),
+    );
+    final freeSize = isFreeSize || rules.freeSizes.isEmpty
+        ? null
+        : rules.freeSizes.first;
+    updateSettings(
+      width: freeSize?.width.toDouble(),
+      height: freeSize?.height.toDouble(),
+      steps: _state.steps > rules.freeMaxSteps
+          ? rules.freeMaxSteps.toDouble()
+          : null,
+      smea: _state.smea ? false : null,
+      smeaDyn: _state.smeaDyn ? false : null,
+    );
+  }
+
+  /// The prompts of a request: the demo prefixes, the active styles and the
+  /// merged negative prompt, from texts that are already expanded.
+  _ComposedPrompts _composePrompts({
+    required String prompt,
+    required String baseNegative,
+  }) {
+    var finalPrompt = prompt;
+    var negative = baseNegative;
+    if (_galleryNotifier?.demoMode == true) {
+      final demoPos = _prefs.demoPositivePrefix;
+      if (demoPos.isNotEmpty) finalPrompt = '$demoPos, $finalPrompt';
+      final demoNeg = _prefs.demoNegativePrefix;
+      if (demoNeg.isNotEmpty) {
+        negative = negative.isEmpty ? demoNeg : '$demoNeg, $negative';
+      }
+    }
+    final styleResult = resolveStyles(
+      isStyleEnabled: _state.isStyleEnabled,
+      activeStyleNames: _state.activeStyleNames,
+      styles: _state.styles,
+      furryMode: _state.furryMode,
+    );
+    final styleNegative = styleResult.negative;
+    return _ComposedPrompts(
+      prompt: finalPrompt,
+      baseNegative: negative,
+      negative: styleNegative != null ? '$negative, $styleNegative' : negative,
+      prefix: styleResult.prefix,
+      suffix: styleResult.suffix,
+    );
+  }
+
+  /// The one place a generation request is assembled, for the quote that is
+  /// shown and for what is submitted. [directorRefs] and [vibes] are the
+  /// payloads of the inputs that are actually sent.
+  ImageGenerationRequest _buildRequest({
+    required int seed,
+    required _ComposedPrompts prompts,
+    required List<NaiCharacter> characters,
+    required DirectorRefPayload? directorRefs,
+    required VibeTransferPayload? vibes,
+  }) {
+    return _service.buildImageGenerationRequest(
+      prompt: prompts.prompt,
+      negativePrompt: prompts.negative,
+      width: _state.width.toInt(),
+      height: _state.height.toInt(),
+      scale: _state.scale,
+      steps: _state.steps.toInt(),
+      sampler: _state.sampler,
+      smea: _state.smea,
+      smeaDyn: _state.smeaDyn,
+      decrisper: _state.decrisper,
+      seed: seed,
+      promptPrefix: prompts.prefix,
+      promptSuffix: prompts.suffix,
+      characters: characters,
+      interactions: _state.interactions,
+      useCoords: _state.characters.isNotEmpty ? !_state.autoPositioning : false,
+      directorRefImages: directorRefs?.images,
+      directorRefDescriptions: directorRefs?.descriptions,
+      directorRefStrengths: directorRefs?.strengths,
+      directorRefSecondaryStrengths: directorRefs?.secondaryStrengths,
+      directorRefInfoExtracted: directorRefs?.infoExtracted,
+      vibeTransferImages: vibes?.vibeVectors,
+      vibeTransferStrengths: vibes?.strengths,
+      vibeTransferInfoExtracted: vibes?.infoExtracted,
+      useCurated: _state.useCurated,
+    );
+  }
+
+  /// Submits [request] with the price computed from the rules. When the
+  /// gateway answers with a different price (`quote_changed`, or the free
+  /// allowance ran out), the user decides through [confirmQuote]; on yes the
+  /// request is sent once more with the gateway's price.
+  Future<GatewayGenerationSubmission> _submitGatewayBatch({
+    required ImageGenerationRequest request,
+    required List<int> seeds,
+    required String clientRequestId,
+    required QuoteConfirmer? confirmQuote,
+  }) async {
+    final rules = _rules ?? await _service.loadImageRules();
+    final ImageQuote shown;
+    try {
+      shown = quoteImageRequest(rules, request.body, images: seeds.length);
+    } on InvalidQuoteRequest catch (error) {
+      throw error.toBackendException();
+    }
+    try {
+      return await _service.submitGatewayGenerationBatch(
+        request: request,
+        seeds: seeds,
+        clientRequestId: clientRequestId,
+        expectedQuote: shown.toExpectedQuote(),
+      );
+    } on BackendException catch (error) {
+      final server = _gatewayQuoteOf(error);
+      // Red points cannot be offered to an account that cannot pay them.
+      if (server == null ||
+          confirmQuote == null ||
+          (server.mode == QuoteMode.paid && !_access.canPay)) {
+        rethrow;
+      }
+      final confirmed = await confirmQuote(
+        QuoteConfirmation(
+          shown: shown,
+          serverMode: server.mode,
+          serverPoints: server.points,
+          reasons: server.reasons,
+        ),
+      );
+      if (!confirmed) throw const _QuoteDeclined();
+      return _service.submitGatewayGenerationBatch(
+        request: request,
+        seeds: seeds,
+        clientRequestId: newClientRequestId(),
+        expectedQuote: {'mode': server.mode, 'points': server.points},
+      );
+    }
+  }
+
+  /// The gateway's own quote carried by a price disagreement, if [error] is
+  /// one.
+  ({String mode, int points, List<String> reasons})? _gatewayQuoteOf(
+    BackendException error,
+  ) {
+    final raw = error is QuoteChangedException
+        ? error.quote
+        : error.code == BackendErrorCode.freeAllowanceExhausted
+        ? error.details['quote']
+        : null;
+    if (raw is! Map<String, dynamic>) return null;
+    final mode = raw['mode'];
+    final points = raw['points'];
+    if (mode is! String || points is! num) return null;
+    return (
+      mode: mode,
+      points: points.toInt(),
+      reasons: [for (final reason in raw['reasons'] as List? ?? []) '$reason'],
+    );
+  }
+
+  /// Submits the current prompt and settings. Through the gateway the price
+  /// shown to the user is sent along; when the gateway prices the request
+  /// differently, [confirmQuote] asks the user whether to go on at the
+  /// gateway's price (declining submits nothing).
+  Future<void> generate({
+    int batchLimit = 1,
+    QuoteConfirmer? confirmQuote,
+  }) async {
     clearTagSuggestions();
 
     final batchCount = _clampBatchCount(_state.batchCount, batchLimit);
@@ -1514,7 +1753,7 @@ class GenerationNotifier extends ChangeNotifier {
       _randomUint32(nonceSource).toRadixString(16).padLeft(8, '0'),
       _randomUint32(nonceSource).toRadixString(16).padLeft(8, '0'),
     ].join('-');
-    final gatewayBatch = useBackendGateway;
+    final gatewayBatch = _service.viaGateway;
     var gatewaySubmissionAccepted = false;
     final placeholders = List<GeneratedImageItem>.generate(
       batchCount,
@@ -1556,42 +1795,19 @@ class GenerationNotifier extends ChangeNotifier {
       final processedPrompt = await _wildcardProcessor.process(
         promptController.text,
       );
-      final resolvedPrompt = _tagService.resolveAliases(processedPrompt);
-
-      String finalPrompt = resolvedPrompt;
-      if (_galleryNotifier?.demoMode == true) {
-        final demoPos = _prefs.demoPositivePrefix;
-        if (demoPos.isNotEmpty) {
-          finalPrompt = '$demoPos, $finalPrompt';
-        }
-      }
+      final prompts = _composePrompts(
+        prompt: _tagService.resolveAliases(processedPrompt),
+        baseNegative: _tagService.resolveAliases(
+          await _wildcardProcessor.process(negativePromptController.text),
+        ),
+      );
+      final finalPrompt = prompts.prompt;
+      final baseNegative = prompts.baseNegative;
+      final fullNegativePrompt = prompts.negative;
+      final combinedPrefix = prompts.prefix;
+      final combinedSuffix = prompts.suffix;
 
       final fixedSeed = int.tryParse(seedController.text) ?? 0;
-
-      final styleResult = resolveStyles(
-        isStyleEnabled: _state.isStyleEnabled,
-        activeStyleNames: _state.activeStyleNames,
-        styles: _state.styles,
-        furryMode: _state.furryMode,
-      );
-      String? combinedPrefix = styleResult.prefix;
-      String? combinedSuffix = styleResult.suffix;
-      String? styleNegativeContent = styleResult.negative;
-
-      String baseNegative = _tagService.resolveAliases(
-        await _wildcardProcessor.process(negativePromptController.text),
-      );
-      if (_galleryNotifier?.demoMode == true) {
-        final demoNeg = _prefs.demoNegativePrefix;
-        if (demoNeg.isNotEmpty) {
-          baseNegative = baseNegative.isEmpty
-              ? demoNeg
-              : '$demoNeg, $baseNegative';
-        }
-      }
-      final fullNegativePrompt = styleNegativeContent != null
-          ? "$baseNegative, $styleNegativeContent"
-          : baseNegative;
 
       final dirPayload = _directorRefNotifier?.buildPayload();
       final vibePayload = _vibeTransferNotifier?.buildPayload();
@@ -1619,37 +1835,13 @@ class GenerationNotifier extends ChangeNotifier {
         seedController.text = seeds.last.toString();
       }
 
-      ImageGenerationRequest buildRequest(int seed) {
-        return _service.buildImageGenerationRequest(
-          prompt: finalPrompt,
-          negativePrompt: fullNegativePrompt,
-          width: _state.width.toInt(),
-          height: _state.height.toInt(),
-          scale: _state.scale,
-          steps: _state.steps.toInt(),
-          sampler: _state.sampler,
-          smea: _state.smea,
-          smeaDyn: _state.smeaDyn,
-          decrisper: _state.decrisper,
-          seed: seed,
-          promptPrefix: combinedPrefix,
-          promptSuffix: combinedSuffix,
-          characters: processedCharacters,
-          interactions: _state.interactions,
-          useCoords: _state.characters.isNotEmpty
-              ? !_state.autoPositioning
-              : false,
-          directorRefImages: dirPayload?.images,
-          directorRefDescriptions: dirPayload?.descriptions,
-          directorRefStrengths: dirPayload?.strengths,
-          directorRefSecondaryStrengths: dirPayload?.secondaryStrengths,
-          directorRefInfoExtracted: dirPayload?.infoExtracted,
-          vibeTransferImages: vibePayload?.vibeVectors,
-          vibeTransferStrengths: vibePayload?.strengths,
-          vibeTransferInfoExtracted: vibePayload?.infoExtracted,
-          useCurated: _state.useCurated,
-        );
-      }
+      ImageGenerationRequest buildRequest(int seed) => _buildRequest(
+        seed: seed,
+        prompts: prompts,
+        characters: processedCharacters,
+        directorRefs: dirPayload,
+        vibes: vibePayload,
+      );
 
       Future<void> applyResult(int index, GenerationResult result) async {
         final currentItem = _state.generatedImages.firstWhere(
@@ -1729,10 +1921,11 @@ class GenerationNotifier extends ChangeNotifier {
 
       if (gatewayBatch) {
         final preparedRequest = buildRequest(seeds.first);
-        final submission = await _service.submitGatewayGenerationBatch(
+        final submission = await _submitGatewayBatch(
           request: preparedRequest,
           seeds: seeds,
           clientRequestId: batchRunId,
+          confirmQuote: confirmQuote,
         );
         final submittedItems = submission.items.toList()
           ..sort((a, b) => a.batchIndex.compareTo(b.batchIndex));
@@ -1936,6 +2129,8 @@ class GenerationNotifier extends ChangeNotifier {
       }
     } on UnauthorizedException {
       _state = _state.copyWith(hasAuthError: true);
+    } on _QuoteDeclined {
+      // The user chose not to pay the gateway's price: nothing was submitted.
     } catch (e) {
       debugPrint("Generation error: $e");
       final error = _formatError(e);
@@ -2778,6 +2973,30 @@ class GenerationNotifier extends ChangeNotifier {
     seedController.dispose();
     super.dispose();
   }
+}
+
+/// The prompts of one request (see [GenerationNotifier._composePrompts]).
+class _ComposedPrompts {
+  const _ComposedPrompts({
+    required this.prompt,
+    required this.baseNegative,
+    required this.negative,
+    required this.prefix,
+    required this.suffix,
+  });
+
+  final String prompt;
+
+  /// The negative prompt before the styles' negatives are merged in.
+  final String baseNegative;
+  final String negative;
+  final String? prefix;
+  final String? suffix;
+}
+
+/// The user declined the gateway's price.
+class _QuoteDeclined implements Exception {
+  const _QuoteDeclined();
 }
 
 /// Destination folder + filename base resolved from the pattern settings

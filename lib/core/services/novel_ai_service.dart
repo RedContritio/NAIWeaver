@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../gateway/backend_exception.dart';
 import '../gateway/backend_gateway.dart';
 import '../gateway/backend_rules.dart';
+import '../gateway/image_quote.dart';
 import '../../features/generation/models/nai_character.dart';
 import 'backend_client.dart';
 
@@ -76,6 +77,12 @@ class NovelAIService {
   final String _apiKey;
   final BackendClient _client;
   final bool _gateway;
+
+  /// Requests go through the gateway, which prices and queues them.
+  bool get viaGateway => _gateway;
+
+  /// The signed-in user's image rules (fetched when not known yet).
+  Future<ImageRules> loadImageRules() => _client.requireImageRules();
 
   /// Maximum output dimension (px) the NAI upscale endpoint accepts.
   static const int maxUpscaleOutputPixels = 4096;
@@ -468,6 +475,7 @@ class NovelAIService {
     required ImageGenerationRequest request,
     required List<int> seeds,
     required String clientRequestId,
+    required Map<String, dynamic> expectedQuote,
   }) async {
     final response = await _client.post<dynamic>(
       '/api/generation-tasks',
@@ -475,6 +483,7 @@ class NovelAIService {
         'client_request_id': clientRequestId,
         'request': request.body,
         'seeds': seeds,
+        'expected_quote': expectedQuote,
       },
     );
     final data = response.data;
@@ -581,11 +590,29 @@ class NovelAIService {
     );
     try {
       if (_gateway) {
-        final submission = await submitGatewayGenerationBatch(
-          request: request,
-          seeds: [seed],
-          clientRequestId: newClientRequestId(),
-        );
+        final ImageQuote quote;
+        try {
+          quote = quoteImageRequest(
+            await _client.requireImageRules(),
+            request.body,
+            images: 1,
+          );
+        } on InvalidQuoteRequest catch (error) {
+          throw error.toBackendException();
+        }
+        final GatewayGenerationSubmission submission;
+        try {
+          submission = await submitGatewayGenerationBatch(
+            request: request,
+            seeds: [seed],
+            clientRequestId: newClientRequestId(),
+            expectedQuote: quote.toExpectedQuote(),
+          );
+        } on QuoteChangedException {
+          // The cached prices are stale; the next call reloads them.
+          _client.imageRules = null;
+          rethrow;
+        }
         final taskId = submission.items.single.id;
         await onGatewayTaskAccepted?.call(taskId);
         final imageBytes = await waitForGatewayGeneration(
