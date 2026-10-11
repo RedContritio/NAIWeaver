@@ -17,7 +17,10 @@ import time
 from urllib.parse import quote, unquote, urlencode, urlsplit
 import weakref
 
+from cryptography.fernet import Fernet, InvalidToken
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from fastapi import HTTPException, Request
 from fastapi.responses import RedirectResponse
 import httpx
@@ -32,6 +35,11 @@ def unb64(value: str) -> bytes:
 
 
 FLOW_TTL = 300
+PRUNE_INTERVAL = 60
+# Login starts are unauthenticated and every request arrives from the proxy's
+# address, so they share one budget instead of being limited per client.
+LOGIN_BURST = 30
+LOGIN_REFILL_SECONDS = 60
 MAX_RETURN_TO = 2048
 
 SESSION_TABLE = """
@@ -62,8 +70,15 @@ def login_failed() -> HTTPException:
     return auth_error(403, "login_failed", "认证未完成，请从 NAIWeaver 重新发起登录。")
 
 
+class SigningKeyUnavailable(Exception):
+    """The token's signing key is not in the provider's current key set."""
+
+
 def is_transient(exc: Exception) -> bool:
     """An outage or throttling at the identity provider, not a rejection."""
+    if isinstance(exc, SigningKeyUnavailable):
+        # The key set may be mid-rotation or briefly stale; not a verdict on the session.
+        return True
     if isinstance(exc, httpx.HTTPStatusError):
         return exc.response.status_code == 429 or exc.response.status_code >= 500
     return isinstance(exc, httpx.TransportError)
@@ -128,6 +143,15 @@ class OnlyWebAuth:
         self.connect = connect
         self._db = None
         self.refresh_locks = weakref.WeakValueDictionary()
+        self.last_prune = 0.0
+        self.login_tokens = float(LOGIN_BURST)
+        self.login_refilled = time.monotonic()
+        self.fernet = None
+        if self.secret:
+            # Refresh tokens are stored encrypted under a key derived from the
+            # client secret; a changed secret invalidates stored sessions.
+            key = HKDF(hashes.SHA256(), 32, None, b"naiweaver refresh token").derive(self.secret.encode())
+            self.fernet = Fernet(base64.urlsafe_b64encode(key))
 
     @property
     def db(self) -> sqlite3.Connection:
@@ -173,6 +197,8 @@ class OnlyWebAuth:
                 match = re.search(r"(?:^|,)\s*max-age=(\d+)", response.headers.get("cache-control", ""))
                 ttl = min(self.key_ttl, int(match[1])) if match else self.key_ttl
                 self.keys_expire = time.time() + ttl
+            if kid not in self.keys:
+                raise SigningKeyUnavailable(kid)
             return self.keys[kid]
 
     async def verify(self, token: str, token_use: str, nonce=None):
@@ -215,8 +241,32 @@ class OnlyWebAuth:
         claims = await self.verify(tokens["access_token"], "access")
         return tokens, claims
 
+    def seal(self, refresh_token: str) -> str:
+        return self.fernet.encrypt(refresh_token.encode()).decode()
+
+    def unseal(self, sealed: str) -> str:
+        """The refresh token, or ``not_authenticated`` if it cannot be read."""
+        try:
+            return self.fernet.decrypt(sealed.encode()).decode()
+        except InvalidToken:
+            raise not_authenticated() from None
+
+    def take_login_token(self):
+        now = time.monotonic()
+        self.login_tokens = min(
+            LOGIN_BURST,
+            self.login_tokens + (now - self.login_refilled) * LOGIN_BURST / LOGIN_REFILL_SECONDS,
+        )
+        self.login_refilled = now
+        if self.login_tokens < 1:
+            raise auth_error(429, "rate_limited", "登录请求过于频繁，请稍后重试。")
+        self.login_tokens -= 1
+
     def prune(self):
         now = time.monotonic()
+        if now - self.last_prune < PRUNE_INTERVAL:
+            return
+        self.last_prune = now
         while self.flows and next(iter(self.flows.values()))["expires"] <= now:
             self.flows.popitem(last=False)
         with self.db:
@@ -246,6 +296,7 @@ class OnlyWebAuth:
         # The request supplies return_to and this browser's pending flow cookies.
         if not self.enabled:
             raise auth_error(503, "auth_unavailable", "only WebAuth is not configured")
+        self.take_login_token()
         self.prune()
         try:
             metadata = await self.metadata()
@@ -275,6 +326,8 @@ class OnlyWebAuth:
         self.prune()
         state = request.query_params.get("state", "")
         flow = self.flows.pop(state, None)
+        if flow and flow["expires"] <= time.monotonic():
+            flow = None  # pruning is lazy, so expiry is checked here
         flow_cookie = self.flow_cookie_name(state)
         browser_state = request.cookies.get(flow_cookie, "")
         if not flow or not secrets.compare_digest(browser_state.encode(), state.encode()):
@@ -308,7 +361,7 @@ class OnlyWebAuth:
                             (self.session_key(request.cookies.get(self.cookie, "")),))
             self.db.execute(
                 "INSERT INTO only_webauth_sessions VALUES (?, ?, ?, ?, ?, ?)",
-                (self.session_key(session_id), claims["sub"], local_id, tokens["refresh_token"],
+                (self.session_key(session_id), claims["sub"], local_id, self.seal(tokens["refresh_token"]),
                  claims["exp"], time.time() + self.session_ttl),
             )
         response = redirect(flow["return_to"])
@@ -349,7 +402,8 @@ class OnlyWebAuth:
     async def refresh(self, key: str, session: sqlite3.Row):
         try:
             tokens, claims = await self.token_request({
-                "grant_type": "refresh_token", "refresh_token": session["refresh_token"],
+                "grant_type": "refresh_token",
+                "refresh_token": self.unseal(session["refresh_token"]),
             })
             if claims["sub"] != session["subject"]:
                 raise ValueError("Identity changed")
@@ -363,7 +417,7 @@ class OnlyWebAuth:
         with self.db:
             self.db.execute(
                 "UPDATE only_webauth_sessions SET refresh_token = ?, access_expires = ? WHERE id = ?",
-                (tokens["refresh_token"], claims["exp"], key),
+                (self.seal(tokens["refresh_token"]), claims["exp"], key),
             )
 
     async def logout(self, request: Request):
@@ -374,9 +428,10 @@ class OnlyWebAuth:
         if session:
             self.drop_session(key)
             try:
+                refresh_token = self.unseal(session["refresh_token"])
                 metadata = await self.metadata()
                 await self.http.post(metadata["revocation_endpoint"],
-                                     data={"token": session["refresh_token"]},
+                                     data={"token": refresh_token},
                                      auth=(self.client_id, self.secret))
-            except httpx.HTTPError:
+            except (httpx.HTTPError, HTTPException):
                 pass

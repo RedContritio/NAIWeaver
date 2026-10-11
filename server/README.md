@@ -137,7 +137,8 @@ provider user IDs to existing local numeric user IDs using
 happens at login. Unmapped users retain their data but cannot sign in.
 
 Browser cookies contain only a random session ID. Sessions, with their refresh
-tokens, are stored in the gateway's SQLite database under a SHA-256 digest of
+tokens (encrypted with a key derived from the client secret, so rotating the
+secret signs everyone out; the database file is created with mode 0600), are stored in the gateway's SQLite database under a SHA-256 digest of
 that ID, so they survive restarts. Access tokens are verified on receipt and
 normal requests check their validity locally. Refreshes are serialized per
 session; an identity provider outage keeps the session (`auth_unavailable`),

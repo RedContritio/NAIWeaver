@@ -3,6 +3,10 @@ from __future__ import annotations
 import tests  # noqa: F401  # isolates the data directories before app imports
 
 import asyncio
+import os
+from pathlib import Path
+import stat
+import tempfile
 import unittest
 from unittest import mock
 
@@ -93,6 +97,28 @@ class TextSlotTests(unittest.IsolatedAsyncioTestCase):
             await asyncio.gather(task, return_exceptions=True)
         self.assertNotIn(int(self.user["id"]), main.active_text_user_ids)
         self.assertEqual(main.active_text_count, 0)
+
+
+class DatabaseFileTests(unittest.TestCase):
+    def test_database_is_created_owner_only(self) -> None:
+        directory = tempfile.TemporaryDirectory(prefix="naiweaver-mode-")
+        self.addCleanup(directory.cleanup)
+        for name, path in (("DATA_DIR", Path(directory.name)),
+                           ("DB_PATH", Path(directory.name) / "gateway.sqlite3")):
+            patcher = mock.patch.object(main, name, path)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        old = os.umask(0o022)
+        self.addCleanup(os.umask, old)
+        main.db_connect().close()
+        self.assertEqual(stat.S_IMODE(main.DB_PATH.stat().st_mode), 0o600)
+        main.DB_PATH.chmod(0o644)
+        for name in ("IMAGE_DIR", "THUMBNAIL_DIR", "AUDIT_DIR"):
+            patcher = mock.patch.object(main, name, Path(directory.name) / name)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        main.init_db()
+        self.assertEqual(stat.S_IMODE(main.DB_PATH.stat().st_mode), 0o600)
 
 
 class AdminAccountTests(unittest.TestCase):

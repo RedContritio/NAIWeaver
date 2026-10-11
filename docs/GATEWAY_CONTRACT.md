@@ -18,7 +18,7 @@ The client maps `code` to localized text and never shows raw exceptions.
 | code | HTTP | extra fields | meaning |
 |---|---|---|---|
 | `not_authenticated` | 401 | | gateway session missing/expired (never used for upstream 401) |
-| `auth_unavailable` | 503 | | the identity provider is temporarily unavailable (or not configured); any existing session is kept |
+| `auth_unavailable` | 503 | | the identity provider is temporarily unavailable (or not configured, or its signing key is not yet published); any existing session is kept |
 | `login_failed` | 403 | | the identity provider returned an error or the login could not be verified |
 | `account_not_linked` | 403 | | the identity provider subject is not in the account mapping, or the account is disabled |
 | `permission_denied` | 403 | `permission` | user lacks the permission |
@@ -36,7 +36,8 @@ Other codes the gateway emits: `not_found` (404, including unknown `/api/*`
 paths), `task_active` (409, deleting a queued/running item),
 `duplicate_generation` / `duplicate_within_batch` (409, identical effective
 parameters; extra `task_id`, `batch_index`, `seed`), `rate_limited` (429,
-feedback), `method_not_allowed` (405), `service_unavailable` (503) and
+feedback, and `GET /auth/login` once more than 30 logins start within a minute
+across all clients), `method_not_allowed` (405), `service_unavailable` (503) and
 `internal_error` (500). `queue_full` is also used for the one-active-text-job
 limit (`limit: 1`). Body validation failures are `invalid_parameters` (400)
 with `field` set to the offending body path.

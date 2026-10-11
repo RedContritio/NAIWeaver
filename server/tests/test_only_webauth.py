@@ -48,6 +48,7 @@ class FakeIdentityProvider:
         self.token_replies: list = []
         self.token_requests: list[dict[str, str]] = []
         self.revoked: list[str] = []
+        self.key_id = "k1"
 
     def jwt(self, token_use: str, **claims) -> str:
         now = int(time.time())
@@ -55,7 +56,7 @@ class FakeIdentityProvider:
             "iss": ISSUER, "aud": "naiweaver", "sub": SUBJECT,
             "iat": now, "exp": now + 300, "token_use": token_use, **claims,
         }
-        header = b64(json.dumps({"alg": "EdDSA", "kid": "k1"}).encode())
+        header = b64(json.dumps({"alg": "EdDSA", "kid": self.key_id}).encode())
         payload = b64(json.dumps(body).encode())
         signature = self.key.sign(f"{header}.{payload}".encode())
         return f"{header}.{payload}.{b64(signature)}"
@@ -175,9 +176,9 @@ class OnlyWebAuthTestCase(unittest.IsolatedAsyncioTestCase):
             auth.db.execute("UPDATE only_webauth_sessions SET access_expires = 0")
 
     def refresh_tokens(self, auth: OnlyWebAuth) -> list[str]:
-        """The refresh token of every stored session."""
+        """The (decrypted) refresh token of every stored session."""
         rows = auth.db.execute("SELECT refresh_token FROM only_webauth_sessions").fetchall()
-        return [row["refresh_token"] for row in rows]
+        return [auth.unseal(row["refresh_token"]) for row in rows]
 
     async def assert_auth_error(self, awaitable, status: int, code: str) -> None:
         with self.assertRaises(HTTPException) as raised:
@@ -292,6 +293,10 @@ class FlowTests(OnlyWebAuthTestCase):
         for flow in auth.flows.values():
             flow["expires"] = time.monotonic() - 1
         browser = Browser()
+        # Pruning is lazy: not before PRUNE_INTERVAL has passed.
+        await auth.callback(browser.request("/auth/callback", "state=unknown"), self.users)
+        self.assertEqual(len(auth.flows), 3)
+        auth.last_prune -= 61
         await auth.callback(browser.request("/auth/callback", "state=unknown"), self.users)
         self.assertEqual(len(auth.flows), 0)
 
@@ -309,6 +314,67 @@ class FlowTests(OnlyWebAuthTestCase):
         self.assertEqual(self.idp.token_requests, [])
         await self.finish_login(auth, browser, *logins[-1])
         self.assertEqual(await auth.user_id(browser.request("/")), LOCAL_ID)
+
+
+class HardeningTests(OnlyWebAuthTestCase):
+    async def test_login_starts_share_a_global_rate_limit(self) -> None:
+        auth = await self.make_auth()
+        for _ in range(30):
+            await self.start_login(auth, Browser())
+        await self.assert_auth_error(
+            auth.login(Browser().request("/auth/login")), 429, "rate_limited"
+        )
+        # The budget refills over time.
+        auth.login_refilled -= 60
+        await self.start_login(auth, Browser())
+
+    async def test_unconfigured_login_is_unavailable_before_the_rate_limit(self) -> None:
+        with mock.patch.dict(os.environ, {"NAIWEAVER_AUTH_ISSUER": ""}):
+            auth = OnlyWebAuth(PUBLIC_URL, 3600, lambda: sqlite3.connect(self.session_db))
+        self.addAsyncCleanup(auth.aclose)
+        await self.assert_auth_error(
+            auth.login(Browser().request("/auth/login")), 503, "auth_unavailable"
+        )
+
+    async def test_expired_flow_is_refused_even_before_pruning(self) -> None:
+        auth = await self.make_auth()
+        browser = Browser()
+        state, nonce = await self.start_login(auth, browser)
+        auth.flows[state]["expires"] = time.monotonic() - 1
+        response = await self.finish_login(auth, browser, state, nonce)
+        self.assertEqual(response.headers["location"], "/")
+        self.assertNotIn(OnlyWebAuth.cookie, browser.cookies)
+
+    async def test_unknown_signing_key_keeps_the_session(self) -> None:
+        auth = await self.make_auth()
+        browser = await self.signed_in(auth)
+        self.expire_access(auth)
+        self.idp.key_id = "rotated"
+        reply = self.idp.tokens("rt-2")
+        self.idp.token_replies.append(reply)
+        await self.assert_auth_error(auth.user_id(browser.request("/")), 503, "auth_unavailable")
+        self.assertEqual(self.refresh_tokens(auth), ["rt-1"])
+
+        self.idp.key_id = "k1"
+        self.idp.token_replies.append(self.idp.tokens("rt-2"))
+        self.assertEqual(await auth.user_id(browser.request("/")), LOCAL_ID)
+
+    async def test_refresh_token_is_encrypted_and_bound_to_the_client_secret(self) -> None:
+        auth = await self.make_auth()
+        browser = await self.signed_in(auth)
+        stored = auth.db.execute("SELECT refresh_token FROM only_webauth_sessions").fetchone()[0]
+        self.assertNotIn("rt-1", stored)
+        self.assertEqual(self.refresh_tokens(auth), ["rt-1"])
+
+        with open(self.secret_file, "w") as handle:
+            handle.write("another-secret\n")
+        changed = await self.make_auth()
+        self.expire_access(changed)
+        await self.assert_auth_error(changed.user_id(browser.request("/")), 401, "not_authenticated")
+        self.assertEqual(changed.db.execute("SELECT COUNT(*) FROM only_webauth_sessions").fetchone()[0], 0)
+        self.assertEqual(
+            [form["grant_type"] for form in self.idp.token_requests], ["authorization_code"]
+        )
 
 
 class ReturnToTests(OnlyWebAuthTestCase):

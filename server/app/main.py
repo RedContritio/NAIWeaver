@@ -614,6 +614,9 @@ def session_response(
 
 def db_connect() -> sqlite3.Connection:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    if not DB_PATH.exists():
+        # The database holds session secrets: owner-only from the start.
+        os.close(os.open(DB_PATH, os.O_CREAT | os.O_WRONLY, 0o600))
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
@@ -648,6 +651,7 @@ def init_db() -> None:
         db.executescript(SCHEMA)
         migrate_db(db)
         db.commit()
+    DB_PATH.chmod(0o600)
 
 
 def recompute_reserved_points(db: sqlite3.Connection) -> None:
