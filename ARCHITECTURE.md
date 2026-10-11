@@ -60,6 +60,7 @@ lib/
 │   │   └── l10n_extensions.dart           # BuildContext extension: `context.l` for localized strings
 │   ├── services/
 │   │   ├── novel_ai_service.dart          # NovelAI API client (Dio, ZIP decompression)
+│   │   ├── backend_client.dart            # The one Dio client for the gateway: BackendException mapping, GET-only retries, 401 reporting
 │   │   ├── text_gen_service.dart          # NovelAI text-model client (model-aware transport, SSE streaming)
 │   │   ├── saf_export_service.dart        # Android Storage Access Framework export (SD-card writes, stale-path detection)
 │   │   ├── preferences_service.dart       # SharedPreferences wrapper (core preferences)

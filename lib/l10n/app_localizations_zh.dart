@@ -171,15 +171,6 @@ class AppLocalizationsZh extends AppLocalizations {
       '此 Web 服务使用后端保存的 NovelAI token。浏览器不会保存或发送 NovelAI token。';
 
   @override
-  String get gatewayUsername => '用户名';
-
-  @override
-  String get gatewayPassword => '密码';
-
-  @override
-  String get gatewayLogin => '登录';
-
-  @override
   String get gatewayLogout => '退出登录';
 
   @override
@@ -201,22 +192,109 @@ class AppLocalizationsZh extends AppLocalizations {
   String get gatewayQuotaPaidLabel => '付费点数';
 
   @override
-  String get gatewayQuotaFreeShort => '免';
-
-  @override
-  String get gatewayQuotaPaidShort => '点';
-
-  @override
   String get gatewayQuotaUnlimited => '无限';
 
   @override
   String get gatewayQuotaRefresh => '点击刷新自己的额度';
 
   @override
-  String get gatewayShowPassword => '显示密码';
+  String get gatewayErrNotAuthenticated => '登录已失效，请重新登录。';
 
   @override
-  String get gatewayHidePassword => '隐藏密码';
+  String get gatewayErrAuthUnavailable => '登录服务暂时不可用，请稍后重试。';
+
+  @override
+  String get gatewayErrLoginFailed => '登录未能通过验证，请重试。';
+
+  @override
+  String get gatewayErrAccountNotLinked => '该登录身份未关联本站账号，或账号已被停用。';
+
+  @override
+  String get gatewayErrPermissionDenied => '当前账号没有执行此操作的权限。';
+
+  @override
+  String get gatewayErrInvalidParameters => '请求参数无效，请检查尺寸、步数或采样器。';
+
+  @override
+  String get gatewayErrPointsInsufficient => '可用点数不足，无法完成本次请求。';
+
+  @override
+  String get gatewayErrQuoteChanged => '价格已变化，请确认新价格后重试。';
+
+  @override
+  String get gatewayErrFreeAllowanceExhausted => '免费额度暂时用尽，本次请求需要消耗付费点数。';
+
+  @override
+  String get gatewayErrQueueFull => '当前未完成的任务已达上限，请等待部分任务完成后再提交。';
+
+  @override
+  String get gatewayErrDuplicateRequest => '该请求编号已被用于不同内容的请求。';
+
+  @override
+  String get gatewayErrRequestTooLarge => '请求内容过大。';
+
+  @override
+  String get gatewayErrUpstream => 'NovelAI 未能完成请求，请稍后重试。';
+
+  @override
+  String get gatewayErrInterrupted => '任务因服务重启而中断，已退还预留点数。';
+
+  @override
+  String get gatewayErrNotFound => '未找到请求的内容。';
+
+  @override
+  String get gatewayErrTaskActive => '该项目仍在排队或生成中。';
+
+  @override
+  String get gatewayErrDuplicateGeneration => '参数没有变化，请检查 Seed。';
+
+  @override
+  String get gatewayErrRateLimited => '请求过于频繁，请稍候再试。';
+
+  @override
+  String get gatewayErrServiceUnavailable => '服务暂时不可用，请稍后重试。';
+
+  @override
+  String get gatewayErrInternal => '服务器出现内部错误，请稍后重试。';
+
+  @override
+  String get gatewayErrNetwork => '网络错误，请检查网络后重试。';
+
+  @override
+  String get gatewayErrTimeout => '请求超时，请重试。';
+
+  @override
+  String get gatewayErrUnknown => '请求失败，请稍后重试。';
+
+  @override
+  String get gatewayErrDirectAnlas => 'NovelAI 账号的 Anlas 不足，无法完成本次请求。';
+
+  @override
+  String get gatewayErrDirectRateLimited => 'NovelAI 正在限制请求频率，请稍候再试。';
+
+  @override
+  String get gatewayErrDirectForbidden => 'NovelAI 拒绝了当前账号的此次请求。';
+
+  @override
+  String get gatewaySessionExpiredTitle => '登录已失效';
+
+  @override
+  String get gatewaySessionExpiredBody => '你的登录已结束。请重新登录后继续；在此之前本页内容不会丢失。';
+
+  @override
+  String get gatewaySessionExpiredConfirm => '重新登录';
+
+  @override
+  String get gatewayAuthContinue => '通过 only WebAuth 继续';
+
+  @override
+  String get gatewayAuthRetry => '重试';
+
+  @override
+  String get gatewayLoginOpenFailed => '无法打开认证页面，请刷新后重试。';
+
+  @override
+  String get gatewayLogoutFailed => '退出登录失败，你仍处于登录状态，请重试。';
 
   @override
   String get settingsAutoSave => '自动保存图片';
@@ -818,6 +896,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get feedbackUnavailable => '诊断反馈仅在经过认证的 Web 应用中可用。';
+
+  @override
+  String get feedbackInvalid => '报告被拒绝，请缩短描述后重试。';
 
   @override
   String get helpTitle => 'NAIWeaver';

@@ -418,24 +418,6 @@ abstract class AppLocalizations {
   /// **'This web service uses the backend NovelAI token. The browser never stores or sends your NovelAI token.'**
   String get settingsApiManagedDesc;
 
-  /// No description provided for @gatewayUsername.
-  ///
-  /// In en, this message translates to:
-  /// **'Username'**
-  String get gatewayUsername;
-
-  /// No description provided for @gatewayPassword.
-  ///
-  /// In en, this message translates to:
-  /// **'Password'**
-  String get gatewayPassword;
-
-  /// No description provided for @gatewayLogin.
-  ///
-  /// In en, this message translates to:
-  /// **'Log In'**
-  String get gatewayLogin;
-
   /// No description provided for @gatewayLogout.
   ///
   /// In en, this message translates to:
@@ -478,18 +460,6 @@ abstract class AppLocalizations {
   /// **'Paid points'**
   String get gatewayQuotaPaidLabel;
 
-  /// No description provided for @gatewayQuotaFreeShort.
-  ///
-  /// In en, this message translates to:
-  /// **'Free'**
-  String get gatewayQuotaFreeShort;
-
-  /// No description provided for @gatewayQuotaPaidShort.
-  ///
-  /// In en, this message translates to:
-  /// **'Pts'**
-  String get gatewayQuotaPaidShort;
-
   /// No description provided for @gatewayQuotaUnlimited.
   ///
   /// In en, this message translates to:
@@ -502,17 +472,203 @@ abstract class AppLocalizations {
   /// **'Tap to refresh your quota'**
   String get gatewayQuotaRefresh;
 
-  /// No description provided for @gatewayShowPassword.
+  /// No description provided for @gatewayErrNotAuthenticated.
   ///
   /// In en, this message translates to:
-  /// **'Show password'**
-  String get gatewayShowPassword;
+  /// **'Your session has expired. Sign in again.'**
+  String get gatewayErrNotAuthenticated;
 
-  /// No description provided for @gatewayHidePassword.
+  /// No description provided for @gatewayErrAuthUnavailable.
   ///
   /// In en, this message translates to:
-  /// **'Hide password'**
-  String get gatewayHidePassword;
+  /// **'The sign-in service is temporarily unavailable. Try again later.'**
+  String get gatewayErrAuthUnavailable;
+
+  /// No description provided for @gatewayErrLoginFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in could not be verified. Try again.'**
+  String get gatewayErrLoginFailed;
+
+  /// No description provided for @gatewayErrAccountNotLinked.
+  ///
+  /// In en, this message translates to:
+  /// **'This sign-in is not linked to an account here, or the account is disabled.'**
+  String get gatewayErrAccountNotLinked;
+
+  /// No description provided for @gatewayErrPermissionDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account is not allowed to do this.'**
+  String get gatewayErrPermissionDenied;
+
+  /// No description provided for @gatewayErrInvalidParameters.
+  ///
+  /// In en, this message translates to:
+  /// **'The request was rejected as invalid. Check the size, steps and sampler.'**
+  String get gatewayErrInvalidParameters;
+
+  /// No description provided for @gatewayErrPointsInsufficient.
+  ///
+  /// In en, this message translates to:
+  /// **'Not enough points for this request.'**
+  String get gatewayErrPointsInsufficient;
+
+  /// No description provided for @gatewayErrQuoteChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'The price has changed. Review the new price and try again.'**
+  String get gatewayErrQuoteChanged;
+
+  /// No description provided for @gatewayErrFreeAllowanceExhausted.
+  ///
+  /// In en, this message translates to:
+  /// **'The free allowance is used up for now, so this request would cost paid points.'**
+  String get gatewayErrFreeAllowanceExhausted;
+
+  /// No description provided for @gatewayErrQueueFull.
+  ///
+  /// In en, this message translates to:
+  /// **'You have too many unfinished tasks. Wait for some to finish before submitting more.'**
+  String get gatewayErrQueueFull;
+
+  /// No description provided for @gatewayErrDuplicateRequest.
+  ///
+  /// In en, this message translates to:
+  /// **'This request id was already used with different content.'**
+  String get gatewayErrDuplicateRequest;
+
+  /// No description provided for @gatewayErrRequestTooLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'The request is too large.'**
+  String get gatewayErrRequestTooLarge;
+
+  /// No description provided for @gatewayErrUpstream.
+  ///
+  /// In en, this message translates to:
+  /// **'NovelAI could not complete the request. Try again later.'**
+  String get gatewayErrUpstream;
+
+  /// No description provided for @gatewayErrInterrupted.
+  ///
+  /// In en, this message translates to:
+  /// **'The task was interrupted by a server restart and its points were released.'**
+  String get gatewayErrInterrupted;
+
+  /// No description provided for @gatewayErrNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'The requested item was not found.'**
+  String get gatewayErrNotFound;
+
+  /// No description provided for @gatewayErrTaskActive.
+  ///
+  /// In en, this message translates to:
+  /// **'This item is still queued or running.'**
+  String get gatewayErrTaskActive;
+
+  /// No description provided for @gatewayErrDuplicateGeneration.
+  ///
+  /// In en, this message translates to:
+  /// **'The parameters did not change. Check the seed.'**
+  String get gatewayErrDuplicateGeneration;
+
+  /// No description provided for @gatewayErrRateLimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many requests. Wait a moment and try again.'**
+  String get gatewayErrRateLimited;
+
+  /// No description provided for @gatewayErrServiceUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The service is temporarily unavailable. Try again later.'**
+  String get gatewayErrServiceUnavailable;
+
+  /// No description provided for @gatewayErrInternal.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong on the server. Try again later.'**
+  String get gatewayErrInternal;
+
+  /// No description provided for @gatewayErrNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Network error. Check your connection and try again.'**
+  String get gatewayErrNetwork;
+
+  /// No description provided for @gatewayErrTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'The request timed out. Try again.'**
+  String get gatewayErrTimeout;
+
+  /// No description provided for @gatewayErrUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'The request failed. Try again later.'**
+  String get gatewayErrUnknown;
+
+  /// No description provided for @gatewayErrDirectAnlas.
+  ///
+  /// In en, this message translates to:
+  /// **'Your NovelAI account does not have enough Anlas for this request.'**
+  String get gatewayErrDirectAnlas;
+
+  /// No description provided for @gatewayErrDirectRateLimited.
+  ///
+  /// In en, this message translates to:
+  /// **'NovelAI is limiting your requests. Wait a moment and try again.'**
+  String get gatewayErrDirectRateLimited;
+
+  /// No description provided for @gatewayErrDirectForbidden.
+  ///
+  /// In en, this message translates to:
+  /// **'NovelAI refused this request for your account.'**
+  String get gatewayErrDirectForbidden;
+
+  /// No description provided for @gatewaySessionExpiredTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Session expired'**
+  String get gatewaySessionExpiredTitle;
+
+  /// No description provided for @gatewaySessionExpiredBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your sign-in has ended. Sign in again to continue; nothing on this page is lost until you do.'**
+  String get gatewaySessionExpiredBody;
+
+  /// No description provided for @gatewaySessionExpiredConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get gatewaySessionExpiredConfirm;
+
+  /// No description provided for @gatewayAuthContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue with only WebAuth'**
+  String get gatewayAuthContinue;
+
+  /// No description provided for @gatewayAuthRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get gatewayAuthRetry;
+
+  /// No description provided for @gatewayLoginOpenFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open the sign-in page. Reload and try again.'**
+  String get gatewayLoginOpenFailed;
+
+  /// No description provided for @gatewayLogoutFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not sign out. You are still signed in; try again.'**
+  String get gatewayLogoutFailed;
 
   /// No description provided for @settingsAutoSave.
   ///
@@ -1617,6 +1773,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Diagnostic reports are available in the authenticated Web app.'**
   String get feedbackUnavailable;
+
+  /// No description provided for @feedbackInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'The report was rejected. Shorten the description and try again.'**
+  String get feedbackInvalid;
 
   /// No description provided for @helpTitle.
   ///

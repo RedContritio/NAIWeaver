@@ -172,15 +172,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'This web service uses the backend NovelAI token. The browser never stores or sends your NovelAI token.';
 
   @override
-  String get gatewayUsername => 'Username';
-
-  @override
-  String get gatewayPassword => 'Password';
-
-  @override
-  String get gatewayLogin => 'Log In';
-
-  @override
   String get gatewayLogout => 'Log Out';
 
   @override
@@ -202,22 +193,133 @@ class AppLocalizationsEn extends AppLocalizations {
   String get gatewayQuotaPaidLabel => 'Paid points';
 
   @override
-  String get gatewayQuotaFreeShort => 'Free';
-
-  @override
-  String get gatewayQuotaPaidShort => 'Pts';
-
-  @override
   String get gatewayQuotaUnlimited => 'Unlimited';
 
   @override
   String get gatewayQuotaRefresh => 'Tap to refresh your quota';
 
   @override
-  String get gatewayShowPassword => 'Show password';
+  String get gatewayErrNotAuthenticated =>
+      'Your session has expired. Sign in again.';
 
   @override
-  String get gatewayHidePassword => 'Hide password';
+  String get gatewayErrAuthUnavailable =>
+      'The sign-in service is temporarily unavailable. Try again later.';
+
+  @override
+  String get gatewayErrLoginFailed =>
+      'Sign-in could not be verified. Try again.';
+
+  @override
+  String get gatewayErrAccountNotLinked =>
+      'This sign-in is not linked to an account here, or the account is disabled.';
+
+  @override
+  String get gatewayErrPermissionDenied =>
+      'Your account is not allowed to do this.';
+
+  @override
+  String get gatewayErrInvalidParameters =>
+      'The request was rejected as invalid. Check the size, steps and sampler.';
+
+  @override
+  String get gatewayErrPointsInsufficient =>
+      'Not enough points for this request.';
+
+  @override
+  String get gatewayErrQuoteChanged =>
+      'The price has changed. Review the new price and try again.';
+
+  @override
+  String get gatewayErrFreeAllowanceExhausted =>
+      'The free allowance is used up for now, so this request would cost paid points.';
+
+  @override
+  String get gatewayErrQueueFull =>
+      'You have too many unfinished tasks. Wait for some to finish before submitting more.';
+
+  @override
+  String get gatewayErrDuplicateRequest =>
+      'This request id was already used with different content.';
+
+  @override
+  String get gatewayErrRequestTooLarge => 'The request is too large.';
+
+  @override
+  String get gatewayErrUpstream =>
+      'NovelAI could not complete the request. Try again later.';
+
+  @override
+  String get gatewayErrInterrupted =>
+      'The task was interrupted by a server restart and its points were released.';
+
+  @override
+  String get gatewayErrNotFound => 'The requested item was not found.';
+
+  @override
+  String get gatewayErrTaskActive => 'This item is still queued or running.';
+
+  @override
+  String get gatewayErrDuplicateGeneration =>
+      'The parameters did not change. Check the seed.';
+
+  @override
+  String get gatewayErrRateLimited =>
+      'Too many requests. Wait a moment and try again.';
+
+  @override
+  String get gatewayErrServiceUnavailable =>
+      'The service is temporarily unavailable. Try again later.';
+
+  @override
+  String get gatewayErrInternal =>
+      'Something went wrong on the server. Try again later.';
+
+  @override
+  String get gatewayErrNetwork =>
+      'Network error. Check your connection and try again.';
+
+  @override
+  String get gatewayErrTimeout => 'The request timed out. Try again.';
+
+  @override
+  String get gatewayErrUnknown => 'The request failed. Try again later.';
+
+  @override
+  String get gatewayErrDirectAnlas =>
+      'Your NovelAI account does not have enough Anlas for this request.';
+
+  @override
+  String get gatewayErrDirectRateLimited =>
+      'NovelAI is limiting your requests. Wait a moment and try again.';
+
+  @override
+  String get gatewayErrDirectForbidden =>
+      'NovelAI refused this request for your account.';
+
+  @override
+  String get gatewaySessionExpiredTitle => 'Session expired';
+
+  @override
+  String get gatewaySessionExpiredBody =>
+      'Your sign-in has ended. Sign in again to continue; nothing on this page is lost until you do.';
+
+  @override
+  String get gatewaySessionExpiredConfirm => 'Sign in';
+
+  @override
+  String get gatewayAuthContinue => 'Continue with only WebAuth';
+
+  @override
+  String get gatewayAuthRetry => 'Retry';
+
+  @override
+  String get gatewayLoginOpenFailed =>
+      'Could not open the sign-in page. Reload and try again.';
+
+  @override
+  String get gatewayLogoutFailed =>
+      'Could not sign out. You are still signed in; try again.';
 
   @override
   String get settingsAutoSave => 'Auto-Save Images';
@@ -837,6 +939,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get feedbackUnavailable =>
       'Diagnostic reports are available in the authenticated Web app.';
+
+  @override
+  String get feedbackInvalid =>
+      'The report was rejected. Shorten the description and try again.';
 
   @override
   String get helpTitle => 'NAIWeaver';

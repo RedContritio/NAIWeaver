@@ -64,11 +64,6 @@ bool isFreeOnlyImageUser(BuildContext context) {
 
 int backendImageBatchLimit(BuildContext context) {
   if (!useBackendGateway) return 10;
-  final auth = context.watch<BackendAuthNotifier>();
-  final user = auth.user;
-  if (user == null) return 1;
-  if (user.isAdmin) return 10;
-  if (canUsePaidImageFeatures(context)) return 8;
-  if (user.permissions.contains(BackendPermission.imageGenerateFree)) return 4;
-  return 1;
+  // The gateway resolves the limit per user (docs/GATEWAY_CONTRACT.md §2).
+  return context.watch<BackendAuthNotifier>().rules?.batchLimit ?? 1;
 }
