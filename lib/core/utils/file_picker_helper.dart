@@ -46,11 +46,24 @@ Future<FilePickerResult?> pickImageFiles({
   );
 }
 
+/// Reads the content of a picked file. This is the one way to turn a picker
+/// result into bytes: on Web `PlatformFile.path` throws, so it only falls back
+/// to the cached path on native platforms (where `withData` may be off).
 Future<Uint8List?> readPickedFileBytes(PlatformFile file) async {
   if (file.bytes != null) return file.bytes;
+  if (kIsWeb) return null;
   final path = file.path;
   if (path == null) return null;
   return File(path).readAsBytes();
+}
+
+/// Last-modified time of a picked file, or null where the picker exposes no
+/// filesystem path (always on Web).
+Future<DateTime?> readPickedFileModified(PlatformFile file) async {
+  if (kIsWeb) return null;
+  final path = file.path;
+  if (path == null) return null;
+  return File(path).lastModified();
 }
 
 /// Picks files with custom extensions, using [FileType.any] on Android

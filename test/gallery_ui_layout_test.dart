@@ -37,8 +37,41 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  test('gallery grid reserves bulk action space only in selection mode', () {
-    expect(galleryGridBottomInset(false), 8);
-    expect(galleryGridBottomInset(true), 80);
+  test('gallery grid clears the home indicator and the bulk action bar', () {
+    // Not selecting: only the safe area (e.g. iPhone home indicator).
+    expect(galleryGridBottomInset(safeAreaBottom: 34), 42);
+    expect(galleryGridBottomInset(safeAreaBottom: 0), 8);
+    // Selecting: the bar sits 34 + 16 above the edge and is 54 tall.
+    expect(
+      galleryGridBottomInset(safeAreaBottom: 34, actionBarExtent: 34 + 16 + 54),
+      112,
+    );
+  });
+
+  testWidgets('HeightReporter reports the laid-out height', (tester) async {
+    final heights = <double>[];
+    var height = 54.0;
+    late StateSetter setHeight;
+
+    await tester.pumpWidget(
+      StatefulBuilder(
+        builder: (context, setState) {
+          setHeight = setState;
+          return Align(
+            child: HeightReporter(
+              onHeight: heights.add,
+              child: SizedBox(width: 100, height: height),
+            ),
+          );
+        },
+      ),
+    );
+    await tester.pump();
+    expect(heights, [54]);
+
+    setHeight(() => height = 72);
+    await tester.pump();
+    await tester.pump();
+    expect(heights, [54, 72]);
   });
 }

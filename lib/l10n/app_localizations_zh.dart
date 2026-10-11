@@ -515,6 +515,19 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String galleryResultDownloaded(String name) {
+    return '已下载 $name';
+  }
+
+  @override
+  String galleryResultSaveFailed(String error) {
+    return '结果未保存：$error';
+  }
+
+  @override
+  String get galleryNewImageHidden => '新图已保存，但被当前过滤条件隐藏';
+
+  @override
   String get galleryToggleFavorite => '切换收藏';
 
   @override
@@ -2042,6 +2055,15 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get img2imgClearMaskTitle => '清除蒙版？';
+
+  @override
+  String get img2imgClearMaskMessage => '将移除全部蒙版笔画，此操作无法撤销。';
+
+  @override
+  String get img2imgClearMaskConfirm => '清除';
+
+  @override
   String get img2imgNoMask => '无蒙版（全图生图）';
 
   @override
@@ -2921,6 +2943,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get toolsEnhance => '增强';
 
   @override
+  String get toolDiscardResultTitle => '放弃结果？';
+
+  @override
+  String get toolDiscardResultMessage => '该结果尚未保存，返回后将被丢弃。';
+
+  @override
+  String get toolDiscardResultConfirm => '放弃';
+
+  @override
   String get directorToolsTitle => '导演工具';
 
   @override
@@ -3047,6 +3078,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get naiApiKeyRequired => '需要 API 密钥';
+
+  @override
+  String get naiActionNotPermitted => '当前账号无权使用此操作';
+
+  @override
+  String get naiImageUnreadable => '无法读取图片尺寸';
 
   @override
   String get comparisonBefore => '处理前';

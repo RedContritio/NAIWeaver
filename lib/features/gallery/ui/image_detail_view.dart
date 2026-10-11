@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui' as ui;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -26,6 +25,7 @@ import '../../tools/slideshow/models/slideshow_config.dart';
 import '../../tools/slideshow/providers/slideshow_notifier.dart';
 import '../../tools/slideshow/widgets/slideshow_player.dart';
 import '../../tools/tools_hub_screen.dart';
+import '../../tools/widgets/tool_source_picker.dart';
 import 'import_metadata_dialog.dart';
 import '../../../core/ml/ml_notifier.dart';
 import '../../../core/ml/widgets/ml_processing_overlay.dart';
@@ -33,11 +33,12 @@ import '../../../core/ml/widgets/bg_removal_overlay.dart';
 import '../../../core/ml/widgets/upscale_comparison_view.dart';
 import '../../tools/enhance/providers/enhance_notifier.dart';
 import '../../tools/director_tools/providers/director_tools_notifier.dart';
-import '../../../core/services/novel_ai_service.dart';
 import '../../../core/services/novel_ai_image_action_service.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:super_clipboard/super_clipboard.dart';
+import '../services/tool_result_saver.dart';
 import 'gallery_layout.dart';
+import 'novel_ai_image_action_flow.dart';
 
 class ImageDetailView extends StatefulWidget {
   final int initialIndex;
@@ -67,11 +68,20 @@ class _ImageDetailViewState extends State<ImageDetailView>
   // Action buttons scroll indicator
   final ScrollController _actionScrollController = ScrollController();
   bool _showScrollIndicator = true;
+  bool _closing = false;
+
+  // Paid NAI actions: one at a time, each with its own loading dialog.
+  final _naiFlow = NovelAiImageActionFlow();
 
   // Double-tap zoom animation
   late final AnimationController _zoomAnimController;
   Animation<Matrix4>? _zoomAnimation;
   Offset? _lastDoubleTapLocal;
+
+  GalleryItem? get _currentItemOrNull {
+    final items = context.read<GalleryNotifier>().activeItems;
+    return _currentIndex < items.length ? items[_currentIndex] : null;
+  }
 
   GalleryItem get _currentItem {
     final gallery = Provider.of<GalleryNotifier>(context, listen: false);
@@ -144,9 +154,11 @@ class _ImageDetailViewState extends State<ImageDetailView>
       setState(() => _isLoadingMetadata = false);
       return;
     }
-    final metadata = await gallery.getMetadata(items[_currentIndex]);
+    final item = items[_currentIndex];
+    final metadata = await gallery.getMetadata(item);
 
-    if (!mounted) return;
+    // A later page change owns the panel now; never show stale metadata.
+    if (!mounted || _currentItemOrNull != item) return;
     if (metadata != null && metadata.containsKey('Comment')) {
       final settings = parseCommentJson(metadata['Comment']!);
       setState(() {
@@ -208,18 +220,57 @@ class _ImageDetailViewState extends State<ImageDetailView>
     }
   }
 
-  /// Jump to the newly inserted image at index 0 after post-processing saves.
-  void _jumpToNewImage() {
+  /// Shows a freshly saved result. It lands wherever the current sort puts
+  /// it, and an album, favorites, search or demo filter may hide it.
+  void _jumpToNewImage(String basename) {
+    final index = context.read<GalleryNotifier>().activeIndexOf(basename);
+    if (index == null) {
+      showAppSnackBar(context, context.l.galleryNewImageHidden);
+      return;
+    }
     setState(() {
-      _currentIndex = 0;
+      _currentIndex = index;
       _isLoadingMetadata = true;
       _promptExpanded = false;
       _isZoomed = false;
       _showScrollIndicator = true;
     });
-    _pageController.jumpToPage(0);
+    _pageController.jumpToPage(index);
     _loadMetadata();
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkActionOverflow());
+  }
+
+  /// The current image just left the active list (deleted, removed from the
+  /// album, or unfavorited while only favorites show). The same index now
+  /// holds the next image, so reload its metadata. When none is left, the
+  /// empty-list guard in [build] closes the view.
+  void _onCurrentItemRemoved() {
+    final items = context.read<GalleryNotifier>().activeItems;
+    if (items.isEmpty) return;
+    setState(() {
+      if (_currentIndex >= items.length) _currentIndex = items.length - 1;
+      _isLoadingMetadata = true;
+      _promptExpanded = false;
+    });
+    _loadMetadata();
+  }
+
+  /// Loads [item] into a tool and opens that tool in place of the gallery.
+  Future<void> _sendToTool(
+    GalleryItem item,
+    String toolId,
+    Future<void> Function(Uint8List bytes) loadSource,
+  ) async {
+    final bytes = await item.file.readAsBytes();
+    if (!mounted) return;
+    await loadSource(bytes);
+    if (!mounted) return;
+    final navigator = Navigator.of(context);
+    navigator.pop(); // detail view
+    navigator.pop(); // gallery
+    navigator.push(
+      MaterialPageRoute(builder: (_) => ToolsHubScreen(initialToolId: toolId)),
+    );
   }
 
   /// Returns (label, color) for post-processed images based on filename prefix.
@@ -420,10 +471,85 @@ class _ImageDetailViewState extends State<ImageDetailView>
     }
   }
 
+  NovelAiImageActionService _naiActions() => NovelAiImageActionService(
+    context.read<GenerationNotifier>().service,
+    saver: ToolResultSaver.of(context),
+  );
+
+  String _outputName(String prefix, GalleryItem item) =>
+      '${prefix}_${p.basenameWithoutExtension(item.file.path)}_'
+      '${generateTimestamp()}.png';
+
+  /// Shows an upscale next to its source; the user (or auto-save) keeps it.
+  Future<void> _reviewUpscale(
+    Uint8List source,
+    Uint8List result,
+    String outputName,
+    Future<ToolResultSaveOutcome> Function() save,
+  ) async {
+    final autoSave = context.read<GenerationNotifier>().state.autoSaveImages;
+    ToolResultSaveOutcome? outcome;
+    await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => UpscaleComparisonView(
+          originalBytes: source,
+          upscaledBytes: result,
+          outputName: outputName,
+          autoSave: autoSave,
+          onSave: () async {
+            final saved = await save();
+            outcome = saved;
+            if (!saved.succeeded && mounted) {
+              showToolResultSaveFeedback(context, saved);
+            }
+            return saved.succeeded;
+          },
+        ),
+      ),
+    );
+    if (outcome?.destination == ToolResultDestination.gallery && mounted) {
+      _jumpToNewImage(outputName);
+    }
+  }
+
+  /// Lets the user refine a background removal, then saves what they keep.
+  Future<void> _reviewBgRemoval(
+    Uint8List result,
+    String outputName,
+    Future<ToolResultSaveOutcome> Function(Uint8List kept) save,
+  ) async {
+    final t = context.tRead;
+    final autoSave = context.read<GenerationNotifier>().state.autoSaveImages;
+    final kept = await showDialog<Uint8List>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog.fullscreen(
+        backgroundColor: t.background,
+        child: BGRemovalOverlay(
+          resultImage: result,
+          onSave: (img) => Navigator.pop(ctx, img),
+          onDiscard: () => Navigator.pop(ctx),
+          autoSave: autoSave,
+        ),
+      ),
+    );
+    if (kept == null || !mounted) return;
+    final outcome = await save(kept);
+    if (!mounted) return;
+    showToolResultSaveFeedback(
+      context,
+      outcome,
+      savedMessage: context.l.mlBgRemovedSavedAs(outputName),
+    );
+    if (outcome.destination == ToolResultDestination.gallery) {
+      _jumpToNewImage(outputName);
+    }
+  }
+
   Future<void> _handleRemoveBg(GalleryItem item) async {
     final ml = context.read<MLNotifier>();
-    final gallery = context.read<GalleryNotifier>();
-    final t = context.tRead;
+    final saver = ToolResultSaver.of(context);
 
     final bytes = await item.file.readAsBytes();
     if (!mounted) return;
@@ -436,41 +562,17 @@ class _ImageDetailViewState extends State<ImageDetailView>
       return;
     }
 
-    // Show BG removal overlay
-    if (!mounted) return;
-    final saved = await showDialog<Uint8List>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => Dialog.fullscreen(
-        backgroundColor: t.background,
-        child: BGRemovalOverlay(
-          resultImage: result,
-          onSave: (img) => Navigator.pop(ctx, img),
-          onDiscard: () => Navigator.pop(ctx),
-          autoSave: context.read<GenerationNotifier>().state.autoSaveImages,
-        ),
-      ),
+    final outputName = _outputName('BG', item);
+    await _reviewBgRemoval(
+      result,
+      outputName,
+      (kept) => saver.save(kept, outputName, sourceBytes: bytes),
     );
-
-    if (saved != null && mounted) {
-      final baseName = p.basenameWithoutExtension(item.file.path);
-      final timestamp = generateTimestamp();
-      final outputName = 'BG_${baseName}_$timestamp.png';
-      await gallery.saveMLResultWithMetadata(
-        saved,
-        outputName,
-        sourceBytes: bytes,
-      );
-      if (mounted) {
-        showAppSnackBar(context, context.l.mlBgRemovedSavedAs(outputName));
-        _jumpToNewImage();
-      }
-    }
   }
 
   Future<void> _handleUpscale(GalleryItem item) async {
     final ml = context.read<MLNotifier>();
-    final gallery = context.read<GalleryNotifier>();
+    final saver = ToolResultSaver.of(context);
 
     final bytes = await item.file.readAsBytes();
     if (!mounted) return;
@@ -483,219 +585,66 @@ class _ImageDetailViewState extends State<ImageDetailView>
       return;
     }
 
-    final baseName = p.basenameWithoutExtension(item.file.path);
-    final timestamp = generateTimestamp();
-    final outputName = 'UP_${baseName}_$timestamp.png';
-
-    if (mounted) {
-      final gen = context.read<GenerationNotifier>();
-      final saved = await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => UpscaleComparisonView(
-            originalBytes: bytes,
-            upscaledBytes: result,
-            outputName: outputName,
-            autoSave: gen.state.autoSaveImages,
-            onSave: () async {
-              await gallery.saveMLResultWithMetadata(
-                result,
-                outputName,
-                sourceBytes: bytes,
-              );
-            },
-          ),
-        ),
-      );
-      if (saved == true && mounted) {
-        _jumpToNewImage();
-      }
-    }
+    final outputName = _outputName('UP', item);
+    await _reviewUpscale(
+      bytes,
+      result,
+      outputName,
+      () => saver.save(result, outputName, sourceBytes: bytes),
+    );
   }
 
-  Future<void> _handleNaiUpscale(GalleryItem item) async {
-    final gen = context.read<GenerationNotifier>();
-    final naiActions = NovelAiImageActionService(gen.service);
-    if (!naiActions.isConfigured(apiKey: gen.state.apiKey)) {
-      showErrorSnackBar(context, context.l.naiApiKeyRequired);
-      return;
-    }
-    final gallery = context.read<GalleryNotifier>();
-
-    final bytes = await item.file.readAsBytes();
-    if (!mounted) return;
-
-    final codec = await ui.instantiateImageCodec(bytes);
-    final frame = await codec.getNextFrame();
-    final w = frame.image.width;
-    final h = frame.image.height;
-    frame.image.dispose();
-
-    final scale = NovelAIService.bestUpscaleScale(w, h);
-    if (scale == null) {
-      if (!mounted) return;
-      showErrorSnackBar(context, context.l.naiUpscaleTooLarge(w, h));
-      return;
-    }
-
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        final t = ctx.tRead;
-        return AlertDialog(
-          backgroundColor: t.surfaceHigh,
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(),
-              const SizedBox(height: 16),
-              Text(
-                context.l.naiUpscaling,
-                style: TextStyle(
-                  fontSize: t.fontSize(10),
-                  letterSpacing: 2,
-                  color: t.textSecondary,
-                ),
-              ),
-            ],
-          ),
+  Future<void> _handleNaiUpscale(
+    GalleryItem item, {
+    required bool permissionGranted,
+  }) {
+    final service = _naiActions();
+    return _naiFlow.run(
+      context,
+      service: service,
+      action: NovelAiImageAction.upscale,
+      permissionGranted: permissionGranted,
+      apiKey: context.read<GenerationNotifier>().state.apiKey,
+      readSource: item.file.readAsBytes,
+      onResult: (source, result) {
+        final outputName = _outputName(
+          NovelAiImageAction.upscale.filePrefix,
+          item,
         );
-      },
-    );
-
-    try {
-      final result = await naiActions.upscale(
-        bytes: bytes,
-        width: w,
-        height: h,
-        scale: scale,
-      );
-      if (!mounted) return;
-      Navigator.of(context).pop();
-
-      final baseName = p.basenameWithoutExtension(item.file.path);
-      final timestamp = generateTimestamp();
-      final outputName = 'NAI_UP_${baseName}_$timestamp.png';
-
-      final saved = await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => UpscaleComparisonView(
-            originalBytes: bytes,
-            upscaledBytes: result,
-            outputName: outputName,
-            autoSave: gen.state.autoSaveImages,
-            onSave: () async {
-              await gallery.saveMLResultWithMetadata(
-                result,
-                outputName,
-                sourceBytes: bytes,
-              );
-            },
-          ),
-        ),
-      );
-      if (saved == true && mounted) {
-        _jumpToNewImage();
-      }
-    } catch (e) {
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      showErrorSnackBar(context, context.l.naiUpscaleFailed);
-    }
-  }
-
-  Future<void> _handleNaiBgRemoval(GalleryItem item) async {
-    final gen = context.read<GenerationNotifier>();
-    final naiActions = NovelAiImageActionService(gen.service);
-    if (!naiActions.isConfigured(apiKey: gen.state.apiKey)) {
-      showErrorSnackBar(context, context.l.naiApiKeyRequired);
-      return;
-    }
-    final gallery = context.read<GalleryNotifier>();
-    final t = context.tRead;
-
-    final bytes = await item.file.readAsBytes();
-    if (!mounted) return;
-
-    final codec = await ui.instantiateImageCodec(bytes);
-    final frame = await codec.getNextFrame();
-    final w = frame.image.width;
-    final h = frame.image.height;
-    frame.image.dispose();
-
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        final t = ctx.tRead;
-        return AlertDialog(
-          backgroundColor: t.surfaceHigh,
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(),
-              const SizedBox(height: 16),
-              Text(
-                ctx.l.naiRemovingBackground,
-                style: TextStyle(
-                  fontSize: t.fontSize(10),
-                  letterSpacing: 2,
-                  color: t.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    try {
-      final result = await naiActions.removeBackground(
-        bytes: bytes,
-        width: w,
-        height: h,
-      );
-      if (!mounted) return;
-      Navigator.of(context).pop();
-
-      // Show BG removal overlay
-      final saved = await showDialog<Uint8List>(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => Dialog.fullscreen(
-          backgroundColor: t.background,
-          child: BGRemovalOverlay(
-            resultImage: result,
-            onSave: (img) => Navigator.pop(ctx, img),
-            onDiscard: () => Navigator.pop(ctx),
-            autoSave: gen.state.autoSaveImages,
-          ),
-        ),
-      );
-
-      if (saved != null && mounted) {
-        final baseName = p.basenameWithoutExtension(item.file.path);
-        final timestamp = generateTimestamp();
-        final outputName = 'BG_${baseName}_$timestamp.png';
-        await gallery.saveMLResultWithMetadata(
-          saved,
+        return _reviewUpscale(
+          source,
+          result,
           outputName,
-          sourceBytes: bytes,
+          () => service.save(result, outputName, sourceBytes: source),
         );
-        if (mounted) {
-          showAppSnackBar(context, context.l.mlBgRemovedSavedAs(outputName));
-          _jumpToNewImage();
-        }
-      }
-    } catch (e) {
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      showErrorSnackBar(context, context.l.naiBgRemovalFailed);
-    }
+      },
+    );
+  }
+
+  Future<void> _handleNaiBgRemoval(
+    GalleryItem item, {
+    required bool permissionGranted,
+  }) {
+    final service = _naiActions();
+    return _naiFlow.run(
+      context,
+      service: service,
+      action: NovelAiImageAction.backgroundRemoval,
+      permissionGranted: permissionGranted,
+      apiKey: context.read<GenerationNotifier>().state.apiKey,
+      readSource: item.file.readAsBytes,
+      onResult: (source, result) {
+        final outputName = _outputName(
+          NovelAiImageAction.backgroundRemoval.filePrefix,
+          item,
+        );
+        return _reviewBgRemoval(
+          result,
+          outputName,
+          (kept) => service.save(kept, outputName, sourceBytes: source),
+        );
+      },
+    );
   }
 
   void _launchSlideshow() {
@@ -759,21 +708,30 @@ class _ImageDetailViewState extends State<ImageDetailView>
     final items = gallery.activeItems;
     final ml = context.watch<MLNotifier>();
     final prefs = context.read<PreferencesService>();
+    final naiBgRemovalAllowed = hasNovelAiImageActionPermission(
+      context,
+      NovelAiImageAction.backgroundRemoval,
+    );
+    final naiUpscaleAllowed = hasNovelAiImageActionPermission(
+      context,
+      NovelAiImageAction.upscale,
+    );
     final canRemoveBackground = prefs.bgRemovalBackend == 'novelai'
-        ? hasNovelAiImageActionPermission(
-            context,
-            NovelAiImageAction.backgroundRemoval,
-          )
+        ? naiBgRemovalAllowed
         : ml.hasBgRemovalModel;
     final canUpscale = prefs.upscaleBackend == 'novelai'
-        ? hasNovelAiImageActionPermission(context, NovelAiImageAction.upscale)
+        ? naiUpscaleAllowed
         : ml.hasUpscaleModel;
 
-    // Guard: if all images deleted, pop
+    // Guard: if all images are gone, pop once (later rebuilds during the exit
+    // transition must not pop the gallery underneath as well).
     if (items.isEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.pop(context);
-      });
+      if (!_closing) {
+        _closing = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) Navigator.pop(context);
+        });
+      }
       return Scaffold(backgroundColor: t.background);
     }
 
@@ -903,7 +861,12 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                     tooltip: context.l.galleryToggleFavorite,
                                     onPressed: () {
                                       gallery.toggleFavorite(item);
-                                      setState(() {});
+                                      if (gallery.showFavoritesOnly &&
+                                          !item.isFavorite) {
+                                        _onCurrentItemRemoved();
+                                      } else {
+                                        setState(() {});
+                                      }
                                     },
                                   ),
                                   _isExporting
@@ -941,19 +904,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                           gallery.activeAlbumId!,
                                           [item],
                                         );
-                                        final newItems = gallery.activeItems;
-                                        if (!context.mounted) return;
-                                        if (newItems.isEmpty) {
-                                          Navigator.pop(context);
-                                        } else {
-                                          setState(() {
-                                            if (_currentIndex >=
-                                                newItems.length) {
-                                              _currentIndex =
-                                                  newItems.length - 1;
-                                            }
-                                          });
-                                        }
+                                        _onCurrentItemRemoved();
                                       },
                                     ),
                                   IconButton(
@@ -979,23 +930,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                         listen: false,
                                       ).deleteItem(item);
                                       if (!context.mounted) return;
-                                      final newItems =
-                                          Provider.of<GalleryNotifier>(
-                                            context,
-                                            listen: false,
-                                          ).activeItems;
-                                      if (newItems.isEmpty) {
-                                        Navigator.pop(context);
-                                      } else {
-                                        setState(() {
-                                          if (_currentIndex >=
-                                              newItems.length) {
-                                            _currentIndex = newItems.length - 1;
-                                          }
-                                          _isLoadingMetadata = true;
-                                        });
-                                        _loadMetadata();
-                                      }
+                                      _onCurrentItemRemoved();
                                     },
                                   ),
                                 ],
@@ -1223,66 +1158,27 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                               .toUpperCase(),
                                           color: t.accentEdit,
                                           mobile: mobile,
-                                          onTap: () async {
-                                            final bytes = await item.file
-                                                .readAsBytes();
-                                            if (!context.mounted) return;
-                                            String? prompt;
-                                            String? negativePrompt;
-                                            final prefs = context
-                                                .read<PreferencesService>();
-                                            if (prefs.img2imgImportPrompt) {
-                                              final metadata = extractMetadata(
-                                                bytes,
-                                              );
-                                              if (metadata != null &&
-                                                  metadata.containsKey(
-                                                    'Comment',
-                                                  )) {
-                                                final json = parseCommentJson(
-                                                  metadata['Comment']!,
-                                                );
-                                                if (json != null) {
-                                                  // Prefer the clean base prompt over the
-                                                  // fully-styled one. The 'prompt' field has
-                                                  // the active style's prefix/suffix already
-                                                  // baked in; img2img re-applies the current
-                                                  // style at generation time, so loading the
-                                                  // styled prompt double-applies it. Older
-                                                  // images without 'original_prompt' fall back
-                                                  // to 'prompt'.
-                                                  prompt =
-                                                      (json['original_prompt']
-                                                          as String?) ??
-                                                      (json['prompt']
-                                                          as String?);
-                                                  negativePrompt =
-                                                      json['uc'] as String?;
-                                                }
-                                              }
-                                            }
-                                            if (!context.mounted) return;
-                                            context
-                                                .read<Img2ImgNotifier>()
-                                                .loadSourceImage(
-                                                  bytes,
-                                                  prompt: prompt,
-                                                  negativePrompt:
-                                                      negativePrompt,
-                                                  filePath: item.file.path,
-                                                );
-                                            Navigator.pop(context);
-                                            Navigator.pop(context);
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    const ToolsHubScreen(
-                                                      initialToolId: 'img2img',
-                                                    ),
-                                              ),
-                                            );
-                                          },
+                                          onTap: () => _sendToTool(
+                                            item,
+                                            'img2img',
+                                            (bytes) {
+                                              final imported =
+                                                  prefs.img2imgImportPrompt
+                                                  ? promptFromImageMetadata(
+                                                      bytes,
+                                                    )
+                                                  : null;
+                                              return context
+                                                  .read<Img2ImgNotifier>()
+                                                  .loadSourceImage(
+                                                    bytes,
+                                                    prompt: imported?.prompt,
+                                                    negativePrompt: imported
+                                                        ?.negativePrompt,
+                                                    filePath: item.file.path,
+                                                  );
+                                            },
+                                          ),
                                         ),
                                         _ViewerAction(
                                           icon: Icons.hd,
@@ -1290,25 +1186,13 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                               .toUpperCase(),
                                           color: t.accent,
                                           mobile: mobile,
-                                          onTap: () async {
-                                            final bytes = await item.file
-                                                .readAsBytes();
-                                            if (!context.mounted) return;
+                                          onTap: () => _sendToTool(
+                                            item,
+                                            'enhance',
                                             context
                                                 .read<EnhanceNotifier>()
-                                                .setSourceImage(bytes);
-                                            Navigator.pop(context);
-                                            Navigator.pop(context);
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    const ToolsHubScreen(
-                                                      initialToolId: 'enhance',
-                                                    ),
-                                              ),
-                                            );
-                                          },
+                                                .setSourceImage,
+                                          ),
                                         ),
                                         _ViewerAction(
                                           icon: Icons.auto_fix_high,
@@ -1316,26 +1200,13 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                               .toUpperCase(),
                                           color: t.accent,
                                           mobile: mobile,
-                                          onTap: () async {
-                                            final bytes = await item.file
-                                                .readAsBytes();
-                                            if (!context.mounted) return;
+                                          onTap: () => _sendToTool(
+                                            item,
+                                            'director_tools',
                                             context
                                                 .read<DirectorToolsNotifier>()
-                                                .setSourceImage(bytes);
-                                            Navigator.pop(context);
-                                            Navigator.pop(context);
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    const ToolsHubScreen(
-                                                      initialToolId:
-                                                          'director_tools',
-                                                    ),
-                                              ),
-                                            );
-                                          },
+                                                .setSourceImage,
+                                          ),
                                         ),
                                         if (canRemoveBackground)
                                           _ViewerAction(
@@ -1352,7 +1223,11 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                                     if (prefs
                                                             .bgRemovalBackend ==
                                                         'novelai') {
-                                                      _handleNaiBgRemoval(item);
+                                                      _handleNaiBgRemoval(
+                                                        item,
+                                                        permissionGranted:
+                                                            naiBgRemovalAllowed,
+                                                      );
                                                     } else {
                                                       _handleRemoveBg(item);
                                                     }
@@ -1372,7 +1247,11 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                                 : () {
                                                     if (prefs.upscaleBackend ==
                                                         'novelai') {
-                                                      _handleNaiUpscale(item);
+                                                      _handleNaiUpscale(
+                                                        item,
+                                                        permissionGranted:
+                                                            naiUpscaleAllowed,
+                                                      );
                                                     } else {
                                                       _handleUpscale(item);
                                                     }

@@ -5,10 +5,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../../../core/l10n/l10n_extensions.dart';
 import '../../../../core/theme/theme_extensions.dart';
 import '../../../../core/theme/vision_tokens.dart';
 import '../../../../core/utils/app_snackbar.dart';
 import '../../../../core/utils/web_download.dart';
+import '../../../../core/widgets/confirm_dialog.dart';
 import '../../../../core/widgets/vision_slider.dart';
 import '../providers/img2img_notifier.dart';
 import '../services/mask_encoder.dart';
@@ -49,113 +51,127 @@ class _MaskToolbarState extends State<MaskToolbar> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SingleChildScrollView(
-            key: const ValueKey<String>('mask-toolbar-primary-scroll'),
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Undo
-                IconButton(
-                  icon: Icon(Icons.undo, size: 16, color: t.textTertiary),
-                  onPressed: notifier.hasMask ? notifier.undoLastStroke : null,
-                  tooltip: 'Undo stroke',
-                  splashRadius: 16,
-                ),
-                // Clear
-                IconButton(
-                  icon: Icon(
-                    Icons.delete_outline,
-                    size: 16,
-                    color: t.textTertiary,
-                  ),
-                  onPressed: notifier.hasMask ? notifier.clearMask : null,
-                  tooltip: 'Clear mask',
-                  splashRadius: 16,
-                ),
+          LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              key: const ValueKey<String>('mask-toolbar-primary-scroll'),
+              scrollDirection: Axis.horizontal,
+              // Wide: fill the row so the Spacer pushes the display and mask
+              // file actions to the right edge. Narrow: scroll instead.
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                child: IntrinsicWidth(
+                  child: Row(
+                    children: [
+                      // Undo
+                      IconButton(
+                        icon: Icon(Icons.undo, size: 16, color: t.textTertiary),
+                        onPressed: notifier.hasMask
+                            ? notifier.undoLastStroke
+                            : null,
+                        tooltip: 'Undo stroke',
+                        splashRadius: 16,
+                      ),
+                      // Clear
+                      IconButton(
+                        icon: Icon(
+                          Icons.delete_outline,
+                          size: 16,
+                          color: t.textTertiary,
+                        ),
+                        onPressed: notifier.hasMask
+                            ? () => _confirmClearMask(context, notifier)
+                            : null,
+                        tooltip: 'Clear mask',
+                        splashRadius: 16,
+                      ),
 
-                const SizedBox(width: 8),
+                      const SizedBox(width: 8),
 
-                // Brush shape toggle (round/square)
-                IconButton(
-                  icon: Icon(
-                    notifier.maskBrushRound
-                        ? Icons.circle_outlined
-                        : Icons.square_outlined,
-                    size: 16,
-                    color: t.textTertiary,
-                  ),
-                  onPressed: () =>
-                      notifier.setMaskBrushRound(!notifier.maskBrushRound),
-                  tooltip: notifier.maskBrushRound
-                      ? 'Round brush'
-                      : 'Square brush',
-                  splashRadius: 16,
-                ),
+                      // Brush shape toggle (round/square)
+                      IconButton(
+                        icon: Icon(
+                          notifier.maskBrushRound
+                              ? Icons.circle_outlined
+                              : Icons.square_outlined,
+                          size: 16,
+                          color: t.textTertiary,
+                        ),
+                        onPressed: () => notifier.setMaskBrushRound(
+                          !notifier.maskBrushRound,
+                        ),
+                        tooltip: notifier.maskBrushRound
+                            ? 'Round brush'
+                            : 'Square brush',
+                        splashRadius: 16,
+                      ),
 
-                const SizedBox(width: 8),
+                      const SizedBox(width: 8),
 
-                // Brush size slider
-                Text(
-                  'SIZE',
-                  style: TextStyle(
-                    color: t.textDisabled,
-                    fontSize: t.fontSize(8),
-                    letterSpacing: 1,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 120,
-                  child: VisionSlider.subtle(
-                    value: notifier.brushRadius,
-                    min: 0.005,
-                    max: 0.15,
-                    onChanged: notifier.setBrushRadius,
-                    t: t,
-                  ),
-                ),
+                      // Brush size slider
+                      Text(
+                        'SIZE',
+                        style: TextStyle(
+                          color: t.textDisabled,
+                          fontSize: t.fontSize(8),
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 120,
+                        child: VisionSlider.subtle(
+                          value: notifier.brushRadius,
+                          min: 0.005,
+                          max: 0.15,
+                          onChanged: notifier.setBrushRadius,
+                          t: t,
+                        ),
+                      ),
 
-                const SizedBox(width: 20),
+                      const SizedBox(width: 8),
+                      const Spacer(),
 
-                // Mask display settings toggle
-                IconButton(
-                  icon: Icon(
-                    Icons.tune,
-                    size: 16,
-                    color: _showSettings ? t.accentEdit : t.textTertiary,
-                  ),
-                  onPressed: () =>
-                      setState(() => _showSettings = !_showSettings),
-                  tooltip: 'Mask display settings',
-                  splashRadius: 16,
-                ),
+                      // Mask display settings toggle
+                      IconButton(
+                        icon: Icon(
+                          Icons.tune,
+                          size: 16,
+                          color: _showSettings ? t.accentEdit : t.textTertiary,
+                        ),
+                        onPressed: () =>
+                            setState(() => _showSettings = !_showSettings),
+                        tooltip: 'Mask display settings',
+                        splashRadius: 16,
+                      ),
 
-                // Save mask
-                IconButton(
-                  icon: Icon(
-                    Icons.save_outlined,
-                    size: 16,
-                    color: t.textTertiary,
+                      // Save mask
+                      IconButton(
+                        icon: Icon(
+                          Icons.save_outlined,
+                          size: 16,
+                          color: t.textTertiary,
+                        ),
+                        onPressed: notifier.hasMask
+                            ? () => _saveMask(context, notifier)
+                            : null,
+                        tooltip: 'Save mask',
+                        splashRadius: 16,
+                      ),
+                      // Load mask
+                      IconButton(
+                        icon: Icon(
+                          Icons.folder_open,
+                          size: 16,
+                          color: t.textTertiary,
+                        ),
+                        onPressed: () => _loadMask(context, notifier),
+                        tooltip: 'Load mask',
+                        splashRadius: 16,
+                      ),
+                    ],
                   ),
-                  onPressed: notifier.hasMask
-                      ? () => _saveMask(context, notifier)
-                      : null,
-                  tooltip: 'Save mask',
-                  splashRadius: 16,
                 ),
-                // Load mask
-                IconButton(
-                  icon: Icon(
-                    Icons.folder_open,
-                    size: 16,
-                    color: t.textTertiary,
-                  ),
-                  onPressed: () => _loadMask(context, notifier),
-                  tooltip: 'Load mask',
-                  splashRadius: 16,
-                ),
-              ],
+              ),
             ),
           ),
           // Mask display settings row
@@ -304,6 +320,22 @@ class _MaskToolbarState extends State<MaskToolbar> {
     );
   }
 
+  /// Clearing drops every stroke and cannot be undone, so ask first.
+  Future<void> _confirmClearMask(
+    BuildContext context,
+    Img2ImgNotifier notifier,
+  ) async {
+    final l = context.l;
+    final confirmed = await showConfirmDialog(
+      context,
+      title: l.img2imgClearMaskTitle,
+      message: l.img2imgClearMaskMessage,
+      confirmLabel: l.img2imgClearMaskConfirm,
+      cancelLabel: l.commonCancel,
+    );
+    if (confirmed == true) notifier.clearMask();
+  }
+
   Future<void> _saveMask(BuildContext context, Img2ImgNotifier notifier) async {
     final session = notifier.session;
     if (session == null) return;
@@ -351,13 +383,10 @@ class _MaskToolbarState extends State<MaskToolbar> {
     final result = await pickCustomFiles(
       allowedExtensions: ['png', 'jpg', 'jpeg'],
     );
-    if (result == null ||
-        result.files.isEmpty ||
-        result.files.first.path == null) {
-      return;
-    }
+    if (result == null || result.files.isEmpty) return;
 
-    final bytes = await File(result.files.first.path!).readAsBytes();
+    final bytes = await readPickedFileBytes(result.files.first);
+    if (bytes == null || !context.mounted) return;
     notifier.loadMask(bytes);
   }
 }

@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'dart:ui' as ui;
 import 'package:file_picker/file_picker.dart';
 import '../../../core/utils/file_picker_helper.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -10,8 +8,8 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:gal/gal.dart';
 import 'package:provider/provider.dart';
-import '../../../core/gateway/backend_permissions.dart';
 import '../../../core/l10n/l10n_extensions.dart';
+import '../../../core/services/novel_ai_image_action_service.dart';
 import '../../../core/services/preferences_service.dart';
 import '../../../core/services/saf_export_service.dart';
 import '../../../core/theme/theme_extensions.dart';
@@ -22,6 +20,8 @@ import '../../../core/utils/image_utils.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/utils/timestamp_utils.dart';
 import '../providers/gallery_notifier.dart';
+import '../services/gallery_import_service.dart';
+import '../services/tool_result_saver.dart';
 import '../../generation/providers/generation_notifier.dart';
 import '../../tools/img2img/providers/img2img_notifier.dart';
 import '../../../core/ml/ml_notifier.dart';
@@ -32,6 +32,7 @@ import 'comparison_view.dart';
 import 'gallery_layout.dart';
 import 'image_detail_view.dart';
 import 'import_metadata_dialog.dart';
+import 'novel_ai_image_action_flow.dart';
 
 class GalleryScreen extends StatefulWidget {
   const GalleryScreen({super.key});
@@ -63,6 +64,9 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
   // Info overlay (hover/long-press)
   int? _hoveredIndex;
+
+  // Measured height of the floating bulk action bar.
+  double _bulkBarHeight = 0;
 
   @override
   void initState() {
@@ -295,7 +299,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
   Future<void> _openSegmentation(GalleryItem item) async {
     _exitSelectionMode();
-    final gallery = context.read<GalleryNotifier>();
+    final saver = ToolResultSaver.of(context);
     final imageBytes = await item.file.readAsBytes();
     if (!mounted) return;
     Navigator.push(
@@ -311,8 +315,14 @@ class _GalleryScreenState extends State<GalleryScreen> {
                 onSave: (resultBytes) async {
                   final baseName = p.basenameWithoutExtension(item.file.path);
                   final ts = DateTime.now().millisecondsSinceEpoch;
-                  await gallery.saveMLResult(resultBytes, 'SEG_${baseName}_$ts.png');
-                  if (ctx.mounted) Navigator.pop(ctx);
+                  final outcome = await saveToolResult(
+                    ctx,
+                    bytes: resultBytes,
+                    fileName: 'SEG_${baseName}_$ts.png',
+                    sourceBytes: imageBytes,
+                    saver: saver,
+                  );
+                  if (outcome.succeeded && ctx.mounted) Navigator.pop(ctx);
                 },
                 onDiscard: () => Navigator.pop(ctx),
                 onSendToCanvas: (resultBytes) {
@@ -353,104 +363,112 @@ class _GalleryScreenState extends State<GalleryScreen> {
     );
   }
 
-  Future<void> _bulkRemoveBg(List<GalleryItem> selectedItems) async {
-    final ml = context.read<MLNotifier>();
-    final gallery = context.read<GalleryNotifier>();
+  /// Runs a local ML model over [selectedItems] and saves each result with
+  /// its source metadata. Only images that were processed and saved count.
+  Future<void> _bulkLocalMl(
+    List<GalleryItem> selectedItems, {
+    required String title,
+    required String filePrefix,
+    required Future<Uint8List?> Function(Uint8List bytes) process,
+    required String Function(int succeeded, int total) summary,
+  }) async {
+    final saver = ToolResultSaver.of(context);
     final total = selectedItems.length;
-    int completed = 0;
+    var succeeded = 0;
 
-    final progress = mounted ? showProgressDialog(context, title: 'REMOVING BACKGROUNDS') : null;
+    final progress = showProgressDialog(context, title: title);
 
-    for (final item in selectedItems) {
-      final bytes = await item.file.readAsBytes();
-      final result = await ml.removeBackground(bytes);
-      if (result != null) {
-        final baseName = p.basenameWithoutExtension(item.file.path);
-        final timestamp = generateTimestamp();
-        await gallery.saveMLResult(result, 'BG_${baseName}_$timestamp.png');
-      }
-      completed++;
-      progress?.update(completed, total);
-    }
-
-    progress?.close();
-
-    if (mounted) {
-      showAppSnackBar(context, context.l.mlBgRemovedCount(completed, total));
-    }
-    _exitSelectionMode();
-  }
-
-  Future<void> _bulkUpscale(List<GalleryItem> selectedItems) async {
-    final ml = context.read<MLNotifier>();
-    final gallery = context.read<GalleryNotifier>();
-    final total = selectedItems.length;
-    int completed = 0;
-
-    final progress = mounted ? showProgressDialog(context, title: context.l.mlUpscalingImages) : null;
-
-    for (final item in selectedItems) {
-      final bytes = await item.file.readAsBytes();
-      final result = await ml.upscaleImage(bytes);
-      if (result != null) {
-        final baseName = p.basenameWithoutExtension(item.file.path);
-        final timestamp = generateTimestamp();
-        await gallery.saveMLResult(result, 'UP_${baseName}_$timestamp.png');
-      }
-      completed++;
-      progress?.update(completed, total);
-    }
-
-    progress?.close();
-
-    if (mounted) {
-      showAppSnackBar(context, context.l.mlUpscaledCount(completed, total));
-    }
-    _exitSelectionMode();
-  }
-
-  Future<void> _bulkNaiUpscale(List<GalleryItem> selectedItems) async {
-    final gen = context.read<GenerationNotifier>();
-    if (gen.state.apiKey.isEmpty) {
-      showErrorSnackBar(context, context.l.naiApiKeyRequired);
-      return;
-    }
-    final gallery = context.read<GalleryNotifier>();
-    final total = selectedItems.length;
-    int completed = 0;
-
-    final progress = mounted ? showProgressDialog(context, title: context.l.naiUpscaling, progressColor: context.tRead.accentEdit) : null;
-
-    for (final item in selectedItems) {
+    for (var i = 0; i < total; i++) {
+      final item = selectedItems[i];
       try {
         final bytes = await item.file.readAsBytes();
-        final codec = await ui.instantiateImageCodec(bytes);
-        final frame = await codec.getNextFrame();
-        final w = frame.image.width;
-        final h = frame.image.height;
-        frame.image.dispose();
-
-        final imageBase64 = base64Encode(bytes);
-        final result = await gen.service.upscaleImage(
-          imageBase64: imageBase64,
-          width: w,
-          height: h,
-          scale: 4,
-        );
-        final baseName = p.basenameWithoutExtension(item.file.path);
-        final timestamp = generateTimestamp();
-        await gallery.saveMLResult(result, 'NAI_UP_${baseName}_$timestamp.png');
+        final result = await process(bytes);
+        if (result != null) {
+          final baseName = p.basenameWithoutExtension(item.file.path);
+          final outcome = await saver.save(
+            result,
+            '${filePrefix}_${baseName}_${generateTimestamp()}.png',
+            sourceBytes: bytes,
+          );
+          if (outcome.succeeded) succeeded++;
+        }
       } catch (e) {
-        debugPrint('_GalleryScreenState._bulkNaiUpscale: $e');
+        debugPrint('_GalleryScreenState._bulkLocalMl: $e');
       }
-      completed++;
-      progress?.update(completed, total);
+      progress.update(i + 1, total);
     }
 
-    progress?.close();
+    progress.close();
+    _showBatchSummary(summary(succeeded, total), allSucceeded: succeeded == total);
+    _exitSelectionMode();
+  }
+
+  void _showBatchSummary(String message, {required bool allSucceeded}) {
+    if (!mounted) return;
+    if (allSucceeded) {
+      showAppSnackBar(context, message);
+    } else {
+      showErrorSnackBar(context, message);
+    }
+  }
+
+  Future<void> _bulkRemoveBg(List<GalleryItem> selectedItems) =>
+      _bulkLocalMl(
+        selectedItems,
+        title: 'REMOVING BACKGROUNDS',
+        filePrefix: 'BG',
+        process: context.read<MLNotifier>().removeBackground,
+        summary: context.l.mlBgRemovedCount,
+      );
+
+  Future<void> _bulkUpscale(List<GalleryItem> selectedItems) => _bulkLocalMl(
+    selectedItems,
+    title: context.l.mlUpscalingImages,
+    filePrefix: 'UP',
+    process: context.read<MLNotifier>().upscaleImage,
+    summary: context.l.mlUpscaledCount,
+  );
+
+  Future<void> _bulkNaiUpscale(
+    List<GalleryItem> selectedItems, {
+    required bool permissionGranted,
+  }) async {
+    final gen = context.read<GenerationNotifier>();
+    final service = NovelAiImageActionService(
+      gen.service,
+      saver: ToolResultSaver.of(context),
+    );
+    final blocker = service.blocker(
+      apiKey: gen.state.apiKey,
+      permissionGranted: permissionGranted,
+    );
+    if (blocker != null) {
+      showErrorSnackBar(
+        context,
+        novelAiImageActionBlockerMessage(context.l, blocker),
+      );
+      return;
+    }
+
+    final progress = showProgressDialog(
+      context,
+      title: context.l.naiUpscaling,
+      progressColor: context.tRead.accentEdit,
+    );
+    final result = await service.upscaleAll([
+      for (final item in selectedItems)
+        NovelAiImageActionSource(
+          baseName: p.basenameWithoutExtension(item.file.path),
+          readBytes: item.file.readAsBytes,
+        ),
+    ], onProgress: progress.update);
+    progress.close();
 
     if (mounted) {
-      showAppSnackBar(context, context.l.naiUpscaledCount(completed, total));
+      _showBatchSummary(
+        context.l.naiUpscaledCount(result.succeeded, result.total),
+        allSucceeded: result.succeeded == result.total,
+      );
     }
     _exitSelectionMode();
   }
@@ -462,15 +480,10 @@ class _GalleryScreenState extends State<GalleryScreen> {
     final result = await pickImageFiles(allowMultiple: true);
     if (result == null || result.files.isEmpty) return;
 
-    final filePaths = result.files
-        .where((f) => f.path != null)
-        .map((f) => f.path!)
-        .toList();
-    if (filePaths.isEmpty) return;
-
-    final showProgress = filePaths.length >= 3;
+    final sources = result.files.map(GalleryImportSource.picked).toList();
+    final showProgress = sources.length >= 3;
     int currentProgress = 0;
-    int totalProgress = filePaths.length;
+    int totalProgress = sources.length;
     StateSetter? dialogSetState;
 
     if (showProgress && mounted) {
@@ -512,7 +525,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
     try {
       final importResult = await gallery.importFiles(
-        filePaths,
+        sources,
         onProgress: (current, total) {
           currentProgress = current;
           totalProgress = total;
@@ -1154,9 +1167,19 @@ class _GalleryScreenState extends State<GalleryScreen> {
     );
   }
 
+  /// Gap between the floating bulk action bar and the bottom edge.
+  double _bulkBarBottom(bool mobile) =>
+      mobile ? MediaQuery.paddingOf(context).bottom + 16 : 16;
+
   Widget _buildGrid(List<GalleryItem> items, bool mobile) {
+    final bottomInset = galleryGridBottomInset(
+      safeAreaBottom: MediaQuery.paddingOf(context).bottom,
+      actionBarExtent: _isSelectionMode
+          ? _bulkBarBottom(mobile) + _bulkBarHeight
+          : 0,
+    );
     final grid = TweenAnimationBuilder<double>(
-      tween: Tween<double>(end: galleryGridBottomInset(_isSelectionMode)),
+      tween: Tween<double>(end: bottomInset),
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
       builder: (context, bottomInset, _) => GridView.builder(
@@ -1427,199 +1450,211 @@ class _GalleryScreenState extends State<GalleryScreen> {
     final selectedItems =
         _selectedIndices.where((i) => i < items.length).map((i) => items[i]).toList();
     final count = _selectedIndices.length;
+    final naiUpscaleAllowed =
+        hasNovelAiImageActionPermission(context, NovelAiImageAction.upscale);
 
     return Positioned(
       left: 16,
       right: 16,
-      bottom: mobile ? MediaQuery.of(context).padding.bottom + 16 : 16,
-      child: AnimatedSlide(
-        offset: count > 0 ? Offset.zero : const Offset(0, 2),
-        duration: const Duration(milliseconds: 200),
-        child: AnimatedOpacity(
-          opacity: count > 0 ? 1.0 : 0.0,
+      bottom: _bulkBarBottom(mobile),
+      child: HeightReporter(
+        onHeight: (height) {
+          if (mounted && height != _bulkBarHeight) {
+            setState(() => _bulkBarHeight = height);
+          }
+        },
+        child: AnimatedSlide(
+          offset: count > 0 ? Offset.zero : const Offset(0, 2),
           duration: const Duration(milliseconds: 200),
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: mobile ? 16 : 12,
-              vertical: mobile ? 12 : 8,
-            ),
-            decoration: BoxDecoration(
-              color: t.surfaceHigh,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: t.borderMedium),
-              boxShadow: [
-                BoxShadow(
-                  color: t.background.withValues(alpha: 0.8),
-                  blurRadius: 20,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                if (count == 2)
-                  _ActionButton(
-                    icon: Icons.compare,
-                    label: context.l.galleryCompare.toUpperCase(),
-                    color: t.accent,
-                    mobile: mobile,
-                    iconOnly: mobile,
-                    onTap: () {
-                      final sorted = _selectedIndices.toList()..sort();
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ComparisonView(
-                            itemA: items[sorted[0]],
-                            itemB: items[sorted[1]],
+          child: AnimatedOpacity(
+            opacity: count > 0 ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 200),
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: mobile ? 16 : 12,
+                vertical: mobile ? 12 : 8,
+              ),
+              decoration: BoxDecoration(
+                color: t.surfaceHigh,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: t.borderMedium),
+                boxShadow: [
+                  BoxShadow(
+                    color: t.background.withValues(alpha: 0.8),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                  if (count == 2)
+                    _ActionButton(
+                      icon: Icons.compare,
+                      label: context.l.galleryCompare.toUpperCase(),
+                      color: t.accent,
+                      mobile: mobile,
+                      iconOnly: mobile,
+                      onTap: () {
+                        final sorted = _selectedIndices.toList()..sort();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ComparisonView(
+                              itemA: items[sorted[0]],
+                              itemB: items[sorted[1]],
+                            ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-                if (count == 2)
-                  SizedBox(width: mobile ? 12 : 8),
-                _ActionButton(
-                  icon: Icons.copy,
-                  label: context.l.galleryCopy.toUpperCase(),
-                  color: t.accent,
-                  mobile: mobile,
-                  iconOnly: mobile,
-                  onTap: count > 0 ? () {
-                    final gallery = context.read<GalleryNotifier>();
-                    gallery.copyToClipboard(selectedItems);
-                    showAppSnackBar(context, context.l.galleryImagesCopied(selectedItems.length), color: t.accent);
-                    _exitSelectionMode();
-                  } : null,
-                ),
-                SizedBox(width: mobile ? 12 : 8),
-                if (gallery.hasClipboard && gallery.activeAlbumId != null)
+                        );
+                      },
+                    ),
+                  if (count == 2)
+                    SizedBox(width: mobile ? 12 : 8),
                   _ActionButton(
-                    icon: Icons.paste,
-                    label: context.l.galleryPaste.toUpperCase(),
-                    color: t.accentSuccess,
-                    mobile: mobile,
-                    iconOnly: mobile,
-                    onTap: () {
-                      final pasteCount = gallery.clipboard.length;
-                      gallery.pasteToAlbum(gallery.activeAlbumId!);
-                      showAppSnackBar(context, context.l.galleryImagesPasted(pasteCount));
-                    },
-                  ),
-                if (gallery.hasClipboard && gallery.activeAlbumId != null)
-                  SizedBox(width: mobile ? 12 : 8),
-                _ActionButton(
-                  icon: Icons.photo_album,
-                  label: context.l.galleryAlbum.toUpperCase(),
-                  color: t.accent,
-                  mobile: mobile,
-                  iconOnly: mobile,
-                  onTap: count > 0 ? () => _showAddToAlbumDialog(selectedItems) : null,
-                ),
-                SizedBox(width: mobile ? 12 : 8),
-                _ActionButton(
-                  icon: Icons.save_alt,
-                  label: context.l.commonExport.toUpperCase(),
-                  color: t.accent,
-                  mobile: mobile,
-                  iconOnly: mobile,
-                  onTap: count > 0 ? () => _bulkExport(selectedItems) : null,
-                ),
-                SizedBox(width: mobile ? 12 : 8),
-                if (context.read<MLNotifier>().hasBgRemovalModel)
-                  _ActionButton(
-                    icon: Icons.content_cut,
-                    label: context.l.mlRemoveBg.toUpperCase(),
+                    icon: Icons.copy,
+                    label: context.l.galleryCopy.toUpperCase(),
                     color: t.accent,
-                    mobile: mobile,
-                    iconOnly: mobile,
-                    onTap: count > 0 ? () => _bulkRemoveBg(selectedItems) : null,
-                  ),
-                if (context.read<MLNotifier>().hasBgRemovalModel)
-                  SizedBox(width: mobile ? 12 : 8),
-                if (context.read<MLNotifier>().hasUpscaleModel)
-                  _ActionButton(
-                    icon: Icons.zoom_out_map,
-                    label: context.l.mlUpscale.toUpperCase(),
-                    color: t.accent,
-                    mobile: mobile,
-                    iconOnly: mobile,
-                    onTap: count > 0 ? () => _bulkUpscale(selectedItems) : null,
-                  ),
-                if (context.read<MLNotifier>().hasUpscaleModel)
-                  SizedBox(width: mobile ? 12 : 8),
-                if (context.read<GenerationNotifier>().state.apiKey.isNotEmpty &&
-                    hasBackendPermission(context, BackendPermission.imageUpscale))
-                  _ActionButton(
-                    icon: Icons.cloud_upload_outlined,
-                    label: context.l.naiUpscale.toUpperCase(),
-                    color: t.accentEdit,
-                    mobile: mobile,
-                    iconOnly: mobile,
-                    onTap: count > 0 ? () => _bulkNaiUpscale(selectedItems) : null,
-                  ),
-                if (context.read<GenerationNotifier>().state.apiKey.isNotEmpty &&
-                    hasBackendPermission(context, BackendPermission.imageUpscale))
-                  SizedBox(width: mobile ? 12 : 8),
-                if (context.read<MLNotifier>().selectedSegmentationModelId != null && count == 1)
-                  _ActionButton(
-                    icon: Icons.auto_awesome,
-                    label: context.l.mlSegment.toUpperCase(),
-                    color: t.accent,
-                    mobile: mobile,
-                    iconOnly: mobile,
-                    onTap: () => _openSegmentation(selectedItems.first),
-                  ),
-                if (context.read<MLNotifier>().selectedSegmentationModelId != null && count == 1)
-                  SizedBox(width: mobile ? 12 : 8),
-                // Send to Canvas (single image)
-                if (count == 1)
-                  _ActionButton(
-                    icon: Icons.brush,
-                    label: context.l.mlCanvas.toUpperCase(),
-                    color: t.accentEdit,
-                    mobile: mobile,
-                    iconOnly: mobile,
-                    onTap: () => _openInCanvas(selectedItems.first),
-                  ),
-                if (count == 1)
-                  SizedBox(width: mobile ? 12 : 8),
-                _ActionButton(
-                  icon: Icons.star,
-                  label: context.l.galleryFavorite.toUpperCase(),
-                  color: t.accentFavorite,
-                  mobile: mobile,
-                  iconOnly: mobile,
-                  onTap: count > 0 ? () => _bulkFavorite(selectedItems) : null,
-                ),
-                // Remove from album (only when viewing an album)
-                if (context.read<GalleryNotifier>().activeAlbumId != null) ...[
-                  SizedBox(width: mobile ? 12 : 8),
-                  _ActionButton(
-                    icon: Icons.playlist_remove,
-                    label: 'REMOVE',
-                    color: t.secondaryText,
                     mobile: mobile,
                     iconOnly: mobile,
                     onTap: count > 0 ? () {
-                      final g = context.read<GalleryNotifier>();
-                      g.removeFromAlbum(g.activeAlbumId!, selectedItems);
-                      setState(() => _selectedIndices.clear());
+                      final gallery = context.read<GalleryNotifier>();
+                      gallery.copyToClipboard(selectedItems);
+                      showAppSnackBar(context, context.l.galleryImagesCopied(selectedItems.length), color: t.accent);
+                      _exitSelectionMode();
                     } : null,
                   ),
-                ],
-                SizedBox(width: mobile ? 12 : 8),
-                _ActionButton(
-                  icon: Icons.delete_outline,
-                  label: context.l.commonDelete.toUpperCase(),
-                  color: t.accentDanger,
-                  mobile: mobile,
-                  iconOnly: mobile,
-                  onTap: count > 0 ? () => _bulkDelete(selectedItems) : null,
+                  SizedBox(width: mobile ? 12 : 8),
+                  if (gallery.hasClipboard && gallery.activeAlbumId != null)
+                    _ActionButton(
+                      icon: Icons.paste,
+                      label: context.l.galleryPaste.toUpperCase(),
+                      color: t.accentSuccess,
+                      mobile: mobile,
+                      iconOnly: mobile,
+                      onTap: () {
+                        final pasteCount = gallery.clipboard.length;
+                        gallery.pasteToAlbum(gallery.activeAlbumId!);
+                        showAppSnackBar(context, context.l.galleryImagesPasted(pasteCount));
+                      },
+                    ),
+                  if (gallery.hasClipboard && gallery.activeAlbumId != null)
+                    SizedBox(width: mobile ? 12 : 8),
+                  _ActionButton(
+                    icon: Icons.photo_album,
+                    label: context.l.galleryAlbum.toUpperCase(),
+                    color: t.accent,
+                    mobile: mobile,
+                    iconOnly: mobile,
+                    onTap: count > 0 ? () => _showAddToAlbumDialog(selectedItems) : null,
+                  ),
+                  SizedBox(width: mobile ? 12 : 8),
+                  _ActionButton(
+                    icon: Icons.save_alt,
+                    label: context.l.commonExport.toUpperCase(),
+                    color: t.accent,
+                    mobile: mobile,
+                    iconOnly: mobile,
+                    onTap: count > 0 ? () => _bulkExport(selectedItems) : null,
+                  ),
+                  SizedBox(width: mobile ? 12 : 8),
+                  if (context.read<MLNotifier>().hasBgRemovalModel)
+                    _ActionButton(
+                      icon: Icons.content_cut,
+                      label: context.l.mlRemoveBg.toUpperCase(),
+                      color: t.accent,
+                      mobile: mobile,
+                      iconOnly: mobile,
+                      onTap: count > 0 ? () => _bulkRemoveBg(selectedItems) : null,
+                    ),
+                  if (context.read<MLNotifier>().hasBgRemovalModel)
+                    SizedBox(width: mobile ? 12 : 8),
+                  if (context.read<MLNotifier>().hasUpscaleModel)
+                    _ActionButton(
+                      icon: Icons.zoom_out_map,
+                      label: context.l.mlUpscale.toUpperCase(),
+                      color: t.accent,
+                      mobile: mobile,
+                      iconOnly: mobile,
+                      onTap: count > 0 ? () => _bulkUpscale(selectedItems) : null,
+                    ),
+                  if (context.read<MLNotifier>().hasUpscaleModel)
+                    SizedBox(width: mobile ? 12 : 8),
+                  if (naiUpscaleAllowed)
+                    _ActionButton(
+                      icon: Icons.cloud_upload_outlined,
+                      label: context.l.naiUpscale.toUpperCase(),
+                      color: t.accentEdit,
+                      mobile: mobile,
+                      iconOnly: mobile,
+                      onTap: count > 0
+                          ? () => _bulkNaiUpscale(
+                                selectedItems,
+                                permissionGranted: naiUpscaleAllowed,
+                              )
+                          : null,
+                    ),
+                  if (naiUpscaleAllowed)
+                    SizedBox(width: mobile ? 12 : 8),
+                  if (context.read<MLNotifier>().selectedSegmentationModelId != null && count == 1)
+                    _ActionButton(
+                      icon: Icons.auto_awesome,
+                      label: context.l.mlSegment.toUpperCase(),
+                      color: t.accent,
+                      mobile: mobile,
+                      iconOnly: mobile,
+                      onTap: () => _openSegmentation(selectedItems.first),
+                    ),
+                  if (context.read<MLNotifier>().selectedSegmentationModelId != null && count == 1)
+                    SizedBox(width: mobile ? 12 : 8),
+                  // Send to Canvas (single image)
+                  if (count == 1)
+                    _ActionButton(
+                      icon: Icons.brush,
+                      label: context.l.mlCanvas.toUpperCase(),
+                      color: t.accentEdit,
+                      mobile: mobile,
+                      iconOnly: mobile,
+                      onTap: () => _openInCanvas(selectedItems.first),
+                    ),
+                  if (count == 1)
+                    SizedBox(width: mobile ? 12 : 8),
+                  _ActionButton(
+                    icon: Icons.star,
+                    label: context.l.galleryFavorite.toUpperCase(),
+                    color: t.accentFavorite,
+                    mobile: mobile,
+                    iconOnly: mobile,
+                    onTap: count > 0 ? () => _bulkFavorite(selectedItems) : null,
+                  ),
+                  // Remove from album (only when viewing an album)
+                  if (context.read<GalleryNotifier>().activeAlbumId != null) ...[
+                    SizedBox(width: mobile ? 12 : 8),
+                    _ActionButton(
+                      icon: Icons.playlist_remove,
+                      label: 'REMOVE',
+                      color: t.secondaryText,
+                      mobile: mobile,
+                      iconOnly: mobile,
+                      onTap: count > 0 ? () {
+                        final g = context.read<GalleryNotifier>();
+                        g.removeFromAlbum(g.activeAlbumId!, selectedItems);
+                        setState(() => _selectedIndices.clear());
+                      } : null,
+                    ),
+                  ],
+                  SizedBox(width: mobile ? 12 : 8),
+                  _ActionButton(
+                    icon: Icons.delete_outline,
+                    label: context.l.commonDelete.toUpperCase(),
+                    color: t.accentDanger,
+                    mobile: mobile,
+                    iconOnly: mobile,
+                    onTap: count > 0 ? () => _bulkDelete(selectedItems) : null,
+                  ),
+                  ],
                 ),
-                ],
               ),
             ),
           ),

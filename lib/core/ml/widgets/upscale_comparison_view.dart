@@ -11,7 +11,9 @@ class UpscaleComparisonView extends StatefulWidget {
   final Uint8List originalBytes;
   final Uint8List upscaledBytes;
   final String outputName;
-  final Future<void> Function() onSave;
+
+  /// Returns whether the result was saved; the caller reports failures.
+  final Future<bool> Function() onSave;
   final bool autoSave;
 
   const UpscaleComparisonView({
@@ -29,6 +31,8 @@ class UpscaleComparisonView extends StatefulWidget {
 
 class _UpscaleComparisonViewState extends State<UpscaleComparisonView> {
   bool _saved = false;
+  bool _saving = false;
+  bool _saveFailed = false;
   bool _sideBySide = false;
 
   @override
@@ -42,11 +46,16 @@ class _UpscaleComparisonViewState extends State<UpscaleComparisonView> {
   }
 
   Future<void> _handleSave() async {
-    if (_saved) return;
-    await widget.onSave();
+    if (_saved || _saving) return;
+    setState(() => _saving = true);
+    final saved = await widget.onSave();
     if (!mounted) return;
-    setState(() => _saved = true);
-    showAppSnackBar(context, 'SAVED: ${widget.outputName}');
+    setState(() {
+      _saving = false;
+      _saved = saved;
+      _saveFailed = !saved;
+    });
+    if (saved) showAppSnackBar(context, 'SAVED: ${widget.outputName}');
   }
 
   @override
@@ -88,9 +97,10 @@ class _UpscaleComparisonViewState extends State<UpscaleComparisonView> {
                 : l.comparisonSideBySide,
             onPressed: () => setState(() => _sideBySide = !_sideBySide),
           ),
-          if (!widget.autoSave)
+          // A failed auto-save falls back to the manual button for a retry.
+          if (!widget.autoSave || _saveFailed)
             TextButton(
-              onPressed: _saved ? null : _handleSave,
+              onPressed: _saved || _saving ? null : _handleSave,
               child: Text(
                 _saved ? 'SAVED' : 'SAVE',
                 style: TextStyle(

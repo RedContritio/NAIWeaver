@@ -530,6 +530,20 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String galleryResultDownloaded(String name) {
+    return 'Downloaded $name';
+  }
+
+  @override
+  String galleryResultSaveFailed(String error) {
+    return 'Result not saved: $error';
+  }
+
+  @override
+  String get galleryNewImageHidden =>
+      'New image saved, but the current filter hides it';
+
+  @override
   String get galleryToggleFavorite => 'Toggle favorite';
 
   @override
@@ -2087,6 +2101,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get img2imgClearMaskTitle => 'Clear mask?';
+
+  @override
+  String get img2imgClearMaskMessage =>
+      'All mask strokes will be removed. This cannot be undone.';
+
+  @override
+  String get img2imgClearMaskConfirm => 'Clear';
+
+  @override
   String get img2imgNoMask => 'NO MASK (full img2img)';
 
   @override
@@ -2978,6 +3002,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get toolsEnhance => 'Enhance';
 
   @override
+  String get toolDiscardResultTitle => 'Discard result?';
+
+  @override
+  String get toolDiscardResultMessage =>
+      'This result has not been saved. Going back discards it.';
+
+  @override
+  String get toolDiscardResultConfirm => 'Discard';
+
+  @override
   String get directorToolsTitle => 'DIRECTOR TOOLS';
 
   @override
@@ -3109,6 +3143,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get naiApiKeyRequired => 'API key required';
+
+  @override
+  String get naiActionNotPermitted =>
+      'Your account is not allowed to use this action';
+
+  @override
+  String get naiImageUnreadable => 'Could not read the image size';
 
   @override
   String get comparisonBefore => 'Before';

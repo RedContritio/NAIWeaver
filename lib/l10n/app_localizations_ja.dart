@@ -518,6 +518,19 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String galleryResultDownloaded(String name) {
+    return '$nameをダウンロードしました';
+  }
+
+  @override
+  String galleryResultSaveFailed(String error) {
+    return '結果を保存できませんでした: $error';
+  }
+
+  @override
+  String get galleryNewImageHidden => '新しい画像は保存されましたが、現在のフィルターで非表示になっています';
+
+  @override
   String get galleryToggleFavorite => 'お気に入りを切り替え';
 
   @override
@@ -2049,6 +2062,15 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get img2imgClearMaskTitle => 'マスクを消去しますか？';
+
+  @override
+  String get img2imgClearMaskMessage => 'すべてのマスクストロークが削除されます。この操作は元に戻せません。';
+
+  @override
+  String get img2imgClearMaskConfirm => '消去';
+
+  @override
   String get img2imgNoMask => 'マスクなし（全体IMG2IMG）';
 
   @override
@@ -2929,6 +2951,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get toolsEnhance => 'エンハンス';
 
   @override
+  String get toolDiscardResultTitle => '結果を破棄しますか？';
+
+  @override
+  String get toolDiscardResultMessage => 'この結果はまだ保存されていません。戻ると破棄されます。';
+
+  @override
+  String get toolDiscardResultConfirm => '破棄';
+
+  @override
   String get directorToolsTitle => 'ディレクターツール';
 
   @override
@@ -3055,6 +3086,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get naiApiKeyRequired => 'APIキーが必要です';
+
+  @override
+  String get naiActionNotPermitted => 'このアカウントではこの操作を利用できません';
+
+  @override
+  String get naiImageUnreadable => '画像サイズを読み取れませんでした';
 
   @override
   String get comparisonBefore => 'ビフォー';

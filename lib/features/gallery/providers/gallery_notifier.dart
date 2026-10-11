@@ -134,6 +134,13 @@ class GalleryNotifier extends ChangeNotifier {
     return _applySortMode(list);
   }
 
+  /// Position of [basename] in [activeItems], or null when the current
+  /// search, demo, favorites or album filter hides it.
+  int? activeIndexOf(String basename) {
+    final index = activeItems.indexWhere((item) => item.basename == basename);
+    return index < 0 ? null : index;
+  }
+
   List<GalleryItem> _applySortMode(List<GalleryItem> list) {
     final sorted = List<GalleryItem>.from(list);
     switch (_sortMode) {
@@ -368,12 +375,17 @@ class GalleryNotifier extends ChangeNotifier {
     _indexMetadataForItem(newItem);
   }
 
-  /// Save an ML-processed result (BG removal, upscale) to the output directory.
-  Future<void> saveMLResult(Uint8List bytes, String filename) async {
-    final destPath = p.join(outputDir, filename);
-    final file = File(destPath);
-    await file.writeAsBytes(bytes);
-    addFile(file, DateTime.now());
+  /// Re-encodes [bytes] as PNG carrying [sourceBytes]' metadata chunks, or
+  /// returns [bytes] unchanged when that conversion fails.
+  static Future<Uint8List> withSourceMetadata(
+    Uint8List bytes,
+    Uint8List sourceBytes,
+  ) async {
+    final result = await compute(convertToPngPreservingMetadata, {
+      'bytes': bytes,
+      'originalBytes': sourceBytes,
+    });
+    return result ?? bytes;
   }
 
   /// Save an ML result with metadata copied from the source image.
@@ -382,14 +394,9 @@ class GalleryNotifier extends ChangeNotifier {
     String filename, {
     Uint8List? sourceBytes,
   }) async {
-    Uint8List finalBytes = bytes;
-    if (sourceBytes != null) {
-      final result = await compute(convertToPngPreservingMetadata, {
-        'bytes': bytes,
-        'originalBytes': sourceBytes,
-      });
-      if (result != null) finalBytes = result;
-    }
+    final finalBytes = sourceBytes == null
+        ? bytes
+        : await withSourceMetadata(bytes, sourceBytes);
     final destPath = p.join(outputDir, filename);
     final file = File(destPath);
     await file.writeAsBytes(finalBytes);
@@ -397,11 +404,11 @@ class GalleryNotifier extends ChangeNotifier {
   }
 
   Future<ImportResult> importFiles(
-    List<String> filePaths, {
+    List<GalleryImportSource> sources, {
     void Function(int current, int total)? onProgress,
   }) {
     return _importService.importFiles(
-      filePaths,
+      sources,
       outputDir: outputDir,
       onFileImported: (file, date) =>
           addFile(file, date, albumId: _activeAlbumId),
