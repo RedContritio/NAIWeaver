@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -40,6 +41,67 @@ class _FakeGenerationNotifier extends ChangeNotifier
 }
 
 void main() {
+  testWidgets('grid menu works after mouse hover', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final preferences = PreferencesService(
+      await SharedPreferences.getInstance(),
+      const FlutterSecureStorage(),
+    );
+    String? selected;
+    await tester.pumpWidget(
+      ChangeNotifierProvider(
+        create: (_) => ThemeNotifier(preferences),
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: ResultSetWorkspace(
+              items: const [
+                ResultSetViewItem(
+                  id: 'fixture',
+                  position: 1,
+                  count: 1,
+                  infoTitle: 'Database prompt',
+                ),
+                ResultSetViewItem(id: 'second', position: 2, count: 2),
+              ],
+              selectedId: 'fixture',
+              onSelect: (_) {},
+              mobile: false,
+              pulseAnimation: const AlwaysStoppedAnimation(0),
+              gridItemTrailingBuilder: (_, _) => PopupMenuButton<String>(
+                onSelected: (value) => selected = value,
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'import', child: Text('Import fixture')),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    Future<void> click(Finder target) async {
+      await mouse.moveTo(tester.getCenter(target));
+      await tester.pumpAndSettle();
+      await mouse.down(tester.getCenter(target));
+      await mouse.up();
+      await tester.pumpAndSettle();
+    }
+
+    await click(find.byType(PopupMenuButton<String>).first);
+    await click(find.text('Import fixture'));
+    expect(selected, 'import');
+  });
+
   testWidgets(
     'selected pending batch item does not show another completed image',
     (tester) async {
@@ -187,9 +249,7 @@ void main() {
     },
   );
 
-  testWidgets('grid single tap opens the selected batch image', (
-    tester,
-  ) async {
+  testWidgets('grid single tap opens the selected batch image', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final preferences = PreferencesService(
       await SharedPreferences.getInstance(),

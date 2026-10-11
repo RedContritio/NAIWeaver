@@ -252,7 +252,14 @@ class ServerHistoryItem {
       'original_prompt': request?['input'] as String? ?? prompt,
       'uc': parsedParameters['uc'] as String? ?? negativePrompt,
       'undesired_content': parsedParameters['uc'] as String? ?? negativePrompt,
+      'width': width,
+      'height': height,
+      'steps': steps,
+      'scale': scale,
+      'sampler': sampler,
       ...parsedParameters,
+      // Each row represents one image, even when the request is shared.
+      'seed': seed,
       if (request?['model'] != null) 'model': request!['model'],
       if (request?['action'] != null) 'action': request!['action'],
     };

@@ -58,6 +58,7 @@ class PreferencesService {
   static const String _keyUiCharShowPosition = 'ui_char_show_position';
   static const String _keyUiCharShowPresets = 'ui_char_show_presets';
   static const String _keyUiCharPromptLines = 'ui_char_prompt_lines';
+  static const String _keyUiMainPromptLines = 'ui_main_prompt_lines';
   static const String _keyRefLastStrength = 'ref_last_strength';
   static const String _keyRefLastFidelity = 'ref_last_fidelity';
   static const String _keySidebarLayoutMode = 'sidebar_layout_mode';
@@ -494,6 +495,21 @@ class PreferencesService {
   Future<void> setUiCharPromptLines(int value) async {
     await _prefs.setInt(_keyUiCharPromptLines,
         value.clamp(kCharPromptMinLines, kCharPromptMaxLines));
+  }
+
+  /// User-selected visible height of the main generation prompt. A missing
+  /// value deliberately stays null so each responsive layout keeps its own
+  /// default height until the user first drags the handle.
+  int? get uiMainPromptLines {
+    final value = _prefs.getInt(_keyUiMainPromptLines);
+    return value?.clamp(kMainPromptMinLines, kMainPromptMaxLines);
+  }
+
+  Future<void> setUiMainPromptLines(int value) async {
+    await _prefs.setInt(
+      _keyUiMainPromptLines,
+      value.clamp(kMainPromptMinLines, kMainPromptMaxLines),
+    );
   }
 
   // — Reference defaults (last applied) —

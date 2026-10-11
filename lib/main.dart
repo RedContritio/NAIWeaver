@@ -29,10 +29,12 @@ import 'core/l10n/locale_notifier.dart';
 import 'core/l10n/l10n_extensions.dart';
 import 'core/services/path_service.dart';
 import 'core/services/preferences_service.dart';
+import 'core/services/backend_history_api.dart';
 import 'core/services/update_service.dart';
 import 'core/widgets/update_prompt.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'core/utils/responsive.dart';
+import 'core/utils/resizable_lines.dart';
 import 'core/utils/wheel_scroll.dart';
 import 'core/widgets/help_dialog.dart';
 import 'core/widgets/pin_lock_gate.dart';
@@ -406,7 +408,9 @@ void main() {
 }
 
 class SimpleGeneratorApp extends StatefulWidget {
-  const SimpleGeneratorApp({super.key});
+  const SimpleGeneratorApp({super.key, this.historyApi});
+
+  final BackendHistoryApi? historyApi;
 
   @override
   State<SimpleGeneratorApp> createState() => _SimpleGeneratorAppState();
@@ -417,6 +421,7 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
   late VoidCallback _generationListener;
+  GenerationNotifier? _listenedGenerationNotifier;
   late VoidCallback _promptDiagnosticsListener;
   late VoidCallback _negativePromptDiagnosticsListener;
   bool _diagnosticControllerListenersAttached = false;
@@ -425,8 +430,13 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
   String? _lastNegativePromptDiagnosticSignature;
   bool _isTouchingSuggestions = false;
   int _tagSuggestionIndex = -1;
+  int? _mainPromptLines;
+  bool _mainPromptLinesLoaded = false;
   final FocusNode _globalFocusNode = FocusNode(skipTraversal: true);
   final FocusNode _promptFocusNode = FocusNode();
+  final GlobalKey _mainPromptAreaKey = GlobalKey(
+    debugLabel: 'main-prompt-area',
+  );
   final GlobalKey<GenerationMobileSheetState> _mobileGenerationSheetKey =
       GlobalKey<GenerationMobileSheetState>();
 
@@ -442,7 +452,9 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
       end: 1.0,
     ).animate(_pulseController);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final notifier = context.read<GenerationNotifier>();
+      _listenedGenerationNotifier = notifier;
       _generationListener = () => _onGenerationStateChanged(notifier);
       notifier.addListener(_generationListener);
       _promptDiagnosticsListener = () => _recordPromptEditingState(
@@ -465,6 +477,14 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
       _negativePromptDiagnosticsListener();
       _maybeCheckForUpdate();
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_mainPromptLinesLoaded) return;
+    _mainPromptLines = context.read<PreferencesService>().uiMainPromptLines;
+    _mainPromptLinesLoaded = true;
   }
 
   /// Background, once-per-day update check. Never blocks startup and never
@@ -878,9 +898,9 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
   void dispose() {
     _globalFocusNode.dispose();
     _promptFocusNode.dispose();
-    final notifier = context.read<GenerationNotifier>();
-    notifier.removeListener(_generationListener);
-    if (_diagnosticControllerListenersAttached) {
+    final notifier = _listenedGenerationNotifier;
+    notifier?.removeListener(_generationListener);
+    if (notifier != null && _diagnosticControllerListenersAttached) {
       notifier.promptController.removeListener(_promptDiagnosticsListener);
       notifier.negativePromptController.removeListener(
         _negativePromptDiagnosticsListener,
@@ -1129,13 +1149,21 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
               if (useBackendGateway &&
                   hasBackendPermission(context, BackendPermission.historyRead))
                 TextButton(
-                  onPressed: () {
-                    Navigator.push(
+                  onPressed: () async {
+                    final imported = await Navigator.push<bool>(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => const ServerHistoryScreen(),
+                      MaterialPageRoute<bool>(
+                        builder: (context) =>
+                            ServerHistoryScreen(api: widget.historyApi),
                       ),
                     );
+                    if (imported != true || !mounted) return;
+                    final sheet = _mobileGenerationSheetKey.currentState;
+                    if (sheet != null) {
+                      await sheet.openTab(GenerationMobileTab.prompt);
+                    } else if (notifier.state.isSettingsExpanded) {
+                      notifier.toggleSettings();
+                    }
                   },
                   child: Text(
                     context.l.mainServerHistory.toUpperCase(),
@@ -1436,8 +1464,21 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
       results: _buildDefaultResultsArea(context, notifier, state, mobile),
       footer: isCascadeMode
           ? const CascadePlaybackView()
+          : state.isSettingsExpanded
+          ? const SizedBox.shrink()
           : _buildPromptArea(context, notifier, state, mobile, t),
       overlay: AdvancedSettingsPanel(
+        prompt: isCascadeMode
+            ? null
+            : _buildPromptArea(
+                context,
+                notifier,
+                state,
+                mobile,
+                t,
+                showQuickSeed: false,
+                embedded: true,
+              ),
         onManageStyles: () {
           String? activeStyle;
           for (final name in notifier.state.activeStyleNames) {
@@ -1668,13 +1709,19 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
       vibeReferenceCount: vibeFeatureAllowed ? activeVibeCount : 0,
       isOpus: false,
     );
-    final promptLines = embedded
+    final defaultPromptLines = embedded
         ? 4
         : useSidebarStyle
         ? 5
         : (mobile ? t.promptMaxLines + 2 : t.promptMaxLines + 1);
+    final promptLines = (_mainPromptLines ?? defaultPromptLines).clamp(
+      kMainPromptMinLines,
+      kMainPromptMaxLines,
+    );
+    final actionWidth = mobile ? 72.0 : 68.0;
     final showCostEstimate = useBackendGateway && imageGenerationAllowed;
     return Container(
+      key: _mainPromptAreaKey,
       padding: embedded
           ? const EdgeInsets.fromLTRB(12, 6, 12, 8)
           : EdgeInsets.fromLTRB(16, useSidebarStyle ? 8 : 0, 16, 12),
@@ -1740,10 +1787,25 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
                 variant: GenerationSeedControlVariant.compact,
               ),
             ),
-          GenerationComposerRow(
+          ResizableGenerationComposer(
             promptLines: promptLines,
             promptFontSize: t.promptFontSize - 1,
-            actionWidth: mobile ? 72 : 68,
+            actionWidth: actionWidth,
+            onPromptLinesChanged: (lines) {
+              setState(() => _mainPromptLines = lines);
+            },
+            onPromptResizeDone: (lines) {
+              final clamped = lines.clamp(
+                kMainPromptMinLines,
+                kMainPromptMaxLines,
+              );
+              setState(() => _mainPromptLines = clamped);
+              unawaited(
+                context.read<PreferencesService>().setUiMainPromptLines(
+                  clamped,
+                ),
+              );
+            },
             promptInput: Focus(
               onFocusChange: (hasFocus) {
                 if (hasFocus) {

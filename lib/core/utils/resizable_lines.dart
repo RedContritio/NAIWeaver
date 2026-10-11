@@ -8,6 +8,11 @@ const int kCharPromptMinLines = 2;
 const int kCharPromptMaxLines = 15;
 const int kCharPromptDefaultLines = 3;
 
+/// Bounds for the main generation prompt. The larger ceiling lets long prompts
+/// stay visible without forcing the whole composer to start out oversized.
+const int kMainPromptMinLines = 3;
+const int kMainPromptMaxLines = 24;
+
 /// Returns the line count a box should have after dragging its resize handle
 /// [dragDy] logical pixels from where the drag started (positive = down),
 /// given it started at [startLines] and one text line is [lineHeightPx] tall.

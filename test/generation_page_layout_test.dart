@@ -105,6 +105,110 @@ void main() {
     expect(prompt.height, 12 * 1.8 * 1.2 * 5 + 24);
   });
 
+  testWidgets('resizable composer grows the prompt and reports final lines', (
+    tester,
+  ) async {
+    var lines = 3;
+    int? completedLines;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 400,
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                return ResizableGenerationComposer(
+                  promptLines: lines,
+                  promptFontSize: 12,
+                  actionWidth: 68,
+                  promptInput: const ColoredBox(color: Colors.red),
+                  action: const ColoredBox(color: Colors.blue),
+                  resizeHandleColor: Colors.grey,
+                  onPromptLinesChanged: (next) {
+                    setState(() => lines = next);
+                  },
+                  onPromptResizeDone: (next) => completedLines = next,
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final before = tester.getRect(find.byKey(GenerationComposerRow.promptKey));
+    await tester.drag(
+      find.byKey(ResizableGenerationComposer.resizeHandleKey),
+      const Offset(0, -48),
+    );
+    await tester.pump();
+
+    final after = tester.getRect(find.byKey(GenerationComposerRow.promptKey));
+    expect(lines, greaterThan(3));
+    expect(completedLines, lines);
+    expect(after.height, greaterThan(before.height));
+  });
+
+  testWidgets('resizable composer puts its handle above the prompt', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 400,
+            child: ResizableGenerationComposer(
+              promptLines: 3,
+              promptFontSize: 12,
+              actionWidth: 68,
+              promptInput: const ColoredBox(color: Colors.red),
+              action: const ColoredBox(color: Colors.blue),
+              resizeHandleColor: Colors.grey,
+              onPromptLinesChanged: (_) {},
+              onPromptResizeDone: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final prompt = tester.getRect(find.byKey(GenerationComposerRow.promptKey));
+    final handle = tester.getRect(
+      find.byKey(ResizableGenerationComposer.resizeHandleKey),
+    );
+    expect(handle.bottom, prompt.top);
+  });
+
+  testWidgets('resize handle only spans the prompt column', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 400,
+            child: ResizableGenerationComposer(
+              promptLines: 3,
+              promptFontSize: 12,
+              actionWidth: 68,
+              promptInput: const ColoredBox(color: Colors.red),
+              action: const ColoredBox(color: Colors.blue),
+              resizeHandleColor: Colors.grey,
+              onPromptLinesChanged: (_) {},
+              onPromptResizeDone: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final prompt = tester.getRect(find.byKey(GenerationComposerRow.promptKey));
+    final handle = tester.getRect(
+      find.byKey(ResizableGenerationComposer.resizeHandleKey),
+    );
+    expect(handle.left, prompt.left);
+    expect(handle.right, prompt.right);
+  });
+
   testWidgets('settings collapsed extent is shared with safe area', (
     tester,
   ) async {

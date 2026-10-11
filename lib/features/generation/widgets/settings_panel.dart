@@ -158,11 +158,19 @@ class AdvancedSettingsPanel extends StatelessWidget {
   /// Callback for showing the save-preset dialog.
   final VoidCallback onSavePreset;
 
+  /// Main prompt composer shown as the first item while the panel is expanded.
+  final Widget? prompt;
+
+  static const promptRegionKey = ValueKey<String>(
+    'advanced-settings-prompt-region',
+  );
+
   const AdvancedSettingsPanel({
     super.key,
     required this.onManageStyles,
     this.onEditStyle,
     required this.onSavePreset,
+    this.prompt,
   });
 
   @override
@@ -255,6 +263,12 @@ class AdvancedSettingsPanel extends StatelessWidget {
                     if (isExpanded)
                       Expanded(
                         child: ExpandedSettingsContent(
+                          leading: prompt == null
+                              ? null
+                              : KeyedSubtree(
+                                  key: promptRegionKey,
+                                  child: prompt!,
+                                ),
                           onManageStyles: onManageStyles,
                           onEditStyle: onEditStyle,
                           onSavePreset: onSavePreset,
@@ -284,6 +298,7 @@ class ExpandedSettingsContent extends StatefulWidget {
   final bool forceCompact;
   final bool ownsScrollView;
   final GenerationSettingsGroup group;
+  final Widget? leading;
 
   const ExpandedSettingsContent({
     super.key,
@@ -294,6 +309,7 @@ class ExpandedSettingsContent extends StatefulWidget {
     this.forceCompact = false,
     this.ownsScrollView = true,
     this.group = GenerationSettingsGroup.all,
+    this.leading,
   });
 
   @override
@@ -438,7 +454,7 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
       },
     };
 
-    final sections = <Widget>[];
+    final sections = <Widget>[if (widget.leading != null) widget.leading!];
     for (final id in sectionOrder) {
       if (allowedSectionIds != null && !allowedSectionIds.contains(id)) {
         continue;

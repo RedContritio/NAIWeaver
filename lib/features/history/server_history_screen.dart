@@ -9,11 +9,13 @@ import 'package:provider/provider.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/services/backend_auth_api.dart';
 import '../../core/services/backend_history_api.dart';
+import '../../core/services/client_diagnostics.dart';
 import '../../core/theme/theme_extensions.dart';
 import '../../core/utils/app_snackbar.dart';
 import '../../core/utils/responsive.dart';
 import '../../core/utils/web_download.dart';
 import '../../core/widgets/confirm_dialog.dart';
+import '../../core/widgets/card_action_layout.dart';
 import '../auth/backend_auth_notifier.dart';
 import '../generation/providers/generation_notifier.dart';
 import '../generation/services/metadata_import_service.dart';
@@ -300,10 +302,14 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
                       entry: entry,
                       onOpen: () => _openEntry(entry),
                       onImport: entry.isBatch
-                          ? () => _importBatch(entry.items)
+                          ? () async {
+                              if (await _importBatch(entry.items) && mounted) {
+                                Navigator.of(this.context).pop(true);
+                              }
+                            }
                           : () async {
                               if (await _importItem(singleItem!) && mounted) {
-                                Navigator.of(this.context).pop();
+                                Navigator.of(this.context).pop(true);
                               }
                             },
                       onDownload: entry.isBatch
@@ -429,11 +435,16 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
           final imported = await _importItem(item);
           if (!imported || !dialogContext.mounted || !mounted) return;
           Navigator.of(dialogContext).pop();
-          Navigator.of(context).pop();
+          Navigator.of(context).pop(true);
         },
         onDownloadItem: _downloadItem,
         onDeleteItem: _deleteItem,
-        onImportBatch: () => _importBatch(entry.items),
+        onImportBatch: () async {
+          final imported = await _importBatch(entry.items);
+          if (!imported || !dialogContext.mounted || !mounted) return;
+          Navigator.of(dialogContext).pop();
+          Navigator.of(context).pop(true);
+        },
         onDownloadBatch: () => _downloadBatch(entry.items),
         onDeleteBatch: () async {
           if (await _deleteBatch(entry.items) && dialogContext.mounted) {
@@ -444,21 +455,67 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
     );
   }
 
-  Future<bool> _importItem(ServerHistoryItem item) async {
-    if (!item.hasImage) return false;
+  Future<bool> _importItem(ServerHistoryItem item) =>
+      _importParameters(item, batch: false);
+
+  Future<bool> _importParameters(
+    ServerHistoryItem item, {
+    required bool batch,
+  }) async {
+    var stage = 'resolve_notifier';
+    final diagnostics = ClientDiagnostics.instance;
+    diagnostics.record('history_parameter_import_started', {
+      'batch': batch,
+      'record_id': item.id,
+      'record_prompt_length': item.prompt.length,
+      'request_present': item.request != null,
+    });
     try {
-      final bytes = await _api.fetchImageBytes(item.id);
-      if (!mounted) return false;
       final notifier = context.read<GenerationNotifier>();
-      final result = await notifier.parseImageMetadataBytes(bytes);
-      notifier.applyImportedMetadata(result, ImportCategory.values.toSet());
-      // The history row is authoritative for the selected image's seed. PNG
-      // metadata can be absent or incomplete after external processing.
-      notifier.seedController.text = item.seed.toString();
+      stage = 'parse_parameters';
+      final result = notifier.parseHistoryParameters(item);
+      diagnostics.record('history_parameter_import_parsed', {
+        'batch': batch,
+        'prompt_length': result.prompt.length,
+        'negative_length': result.negativePrompt.length,
+        'character_count': result.characters.length,
+      });
+      stage = 'apply_parameters';
+      final categories = ImportCategory.values.toSet();
+      if (batch) categories.remove(ImportCategory.seed);
+      notifier.applyImportedMetadata(result, categories);
+      if (!batch) notifier.seedController.text = item.seed.toString();
+      diagnostics.record('history_parameter_import_applied', {
+        'batch': batch,
+        'prompt_length': notifier.promptController.text.length,
+        'negative_length': notifier.negativePromptController.text.length,
+      });
       if (!mounted) return false;
-      showAppSnackBar(context, context.l.serverHistoryImportSuccess);
+      stage = 'show_success';
+      showAppSnackBar(
+        context,
+        batch
+            ? context.l.serverHistoryBatchImportSuccess
+            : context.l.serverHistoryImportSuccess,
+      );
       return true;
-    } catch (_) {
+    } catch (error, stack) {
+      diagnostics.record('history_parameter_import_failed', {
+        'batch': batch,
+        'stage': stage,
+        'error_type': error.runtimeType.toString(),
+        'error_category': switch (error) {
+          ProviderNotFoundException() => 'provider_not_found',
+          FormatException() => 'format',
+          TypeError() => 'type',
+          StateError() => 'state',
+          _ => 'other',
+        },
+        // Stack frames identify the failing code without recording parameters.
+        for (final (index, frame)
+            in stack.toString().split('\n').take(8).indexed)
+          'stack_frame_$index': frame,
+      });
       if (mounted) {
         showErrorSnackBar(context, context.l.importNothingAvailable);
       }
@@ -485,28 +542,13 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
     }
   }
 
-  Future<void> _importBatch(List<ServerHistoryItem> items) async {
-    final imageItem = items.where((item) => item.hasImage).firstOrNull;
-    if (imageItem == null) {
+  Future<bool> _importBatch(List<ServerHistoryItem> items) async {
+    final item = items.firstOrNull;
+    if (item == null) {
       showErrorSnackBar(context, context.l.importNothingAvailable);
-      return;
+      return false;
     }
-    try {
-      final bytes = await _api.fetchImageBytes(imageItem.id);
-      if (!mounted) return;
-      final notifier = context.read<GenerationNotifier>();
-      final result = await notifier.parseImageMetadataBytes(bytes);
-      final categories = ImportCategory.values.toSet()
-        ..remove(ImportCategory.seed);
-      notifier.applyImportedMetadata(result, categories);
-      if (!mounted) return;
-      showAppSnackBar(context, context.l.serverHistoryBatchImportSuccess);
-      Navigator.of(context).pop();
-    } catch (_) {
-      if (mounted) {
-        showErrorSnackBar(context, context.l.importNothingAvailable);
-      }
-    }
+    return _importParameters(item, batch: true);
   }
 
   Future<void> _downloadBatch(List<ServerHistoryItem> items) async {
@@ -729,7 +771,7 @@ class _HistoryEntry {
   }
 }
 
-class _HistoryEntryCard extends StatefulWidget {
+class _HistoryEntryCard extends StatelessWidget {
   const _HistoryEntryCard({
     required this.entry,
     required this.onOpen,
@@ -745,110 +787,38 @@ class _HistoryEntryCard extends StatefulWidget {
   final VoidCallback onDelete;
 
   @override
-  State<_HistoryEntryCard> createState() => _HistoryEntryCardState();
-}
-
-class _HistoryEntryCardState extends State<_HistoryEntryCard> {
-  bool _hovered = false;
-
-  @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final mobile = isMobile(context);
-    final auth = context.watch<BackendAuthNotifier>();
-    final admin = auth.user?.isAdmin == true;
-    final entry = widget.entry;
     final lead = entry.lead;
-    final cover = entry.cover;
 
-    Widget card = Material(
+    return Material(
       key: ValueKey<String>('history-entry-${entry.key}'),
       color: t.surfaceMid,
       borderRadius: BorderRadius.circular(6),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: widget.onOpen,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            _HistoryEntryThumbnail(entry: entry),
-            if (_hovered && !mobile)
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: ColoredBox(
-                    color: t.background.withValues(alpha: 0.75),
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (lead.prompt.isNotEmpty)
-                            Text(
-                              lead.prompt,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: t.textSecondary,
-                                fontSize: t.fontSize(9),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          const SizedBox(height: 4),
-                          Text(
-                            admin && lead.username.isNotEmpty
-                                ? '${lead.username} · ${cover.downloadFileName}'
-                                : cover.downloadFileName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: t.textDisabled,
-                              fontSize: t.fontSize(8),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+        onTap: onOpen,
+        child: CardActionLayout(
+          content: _HistoryEntryThumbnail(entry: entry),
+          badge: entry.isBatch
+              ? _HistoryBatchBadge(count: entry.items.length)
+              : null,
+          action: entry.isBatch
+              ? _HistoryBatchMenu(
+                  hasImage: entry.items.any((item) => item.hasImage),
+                  onImport: onImport,
+                  onDownload: onDownload,
+                  onDelete: onDelete,
+                )
+              : _HistoryCardMenu(
+                  item: lead,
+                  onImport: onImport,
+                  onDownload: onDownload,
+                  onDelete: onDelete,
                 ),
-              ),
-            if (entry.isBatch)
-              Positioned(
-                left: 7,
-                bottom: 7,
-                child: _HistoryBatchBadge(count: entry.items.length),
-              ),
-            Positioned(
-              top: 5,
-              right: 5,
-              child: _HistoryMoreButtonFrame(
-                child: entry.isBatch
-                    ? _HistoryBatchMenu(
-                        hasImage: entry.items.any((item) => item.hasImage),
-                        onImport: widget.onImport,
-                        onDownload: widget.onDownload,
-                        onDelete: widget.onDelete,
-                      )
-                    : _HistoryCardMenu(
-                        item: lead,
-                        onImport: widget.onImport,
-                        onDownload: widget.onDownload,
-                        onDelete: widget.onDelete,
-                      ),
-              ),
-            ),
-          ],
         ),
       ),
     );
-    if (!mobile) {
-      card = MouseRegion(
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: card,
-      );
-    }
-    return card;
   }
 }
 
@@ -1039,7 +1009,7 @@ class _HistoryResultSetDialogState extends State<_HistoryResultSetDialog> {
           ),
           headerTrailingBuilder: (context, mode) {
             if (mode == ResultSetWorkspaceMode.grid && widget.entry.isBatch) {
-              return _HistoryMoreButtonFrame(
+              return CardActionFrame(
                 child: _HistoryBatchMenu(
                   key: const ValueKey<String>('history-batch-actions'),
                   hasImage: _items.any((item) => item.hasImage),
@@ -1049,7 +1019,7 @@ class _HistoryResultSetDialogState extends State<_HistoryResultSetDialog> {
                 ),
               );
             }
-            return _HistoryMoreButtonFrame(
+            return CardActionFrame(
               child: _HistoryCardMenu(
                 key: const ValueKey<String>('history-item-actions'),
                 item: selectedItem,
@@ -1063,14 +1033,12 @@ class _HistoryResultSetDialogState extends State<_HistoryResultSetDialog> {
             final item = _items.singleWhere(
               (candidate) => candidate.id == viewItem.id,
             );
-            return _HistoryMoreButtonFrame(
-              child: _HistoryCardMenu(
-                key: ValueKey<String>('history-grid-item-actions-${item.id}'),
-                item: item,
-                onImport: () => widget.onImportItem(item),
-                onDownload: () => widget.onDownloadItem(item),
-                onDelete: () => _delete(item),
-              ),
+            return _HistoryCardMenu(
+              key: ValueKey<String>('history-grid-item-actions-${item.id}'),
+              item: item,
+              onImport: () => widget.onImportItem(item),
+              onDownload: () => widget.onDownloadItem(item),
+              onDelete: () => _delete(item),
             );
           },
         ),
@@ -1105,29 +1073,6 @@ class _HistoryViewerLeading extends StatelessWidget {
   }
 }
 
-class _HistoryMoreButtonFrame extends StatelessWidget {
-  const _HistoryMoreButtonFrame({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    return SizedBox(
-      width: 32,
-      height: 32,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: t.background.withValues(alpha: 0.78),
-          border: Border.all(color: t.borderSubtle),
-          borderRadius: BorderRadius.circular(5),
-        ),
-        child: child,
-      ),
-    );
-  }
-}
-
 class _HistoryCardMenu extends StatelessWidget {
   const _HistoryCardMenu({
     super.key,
@@ -1154,7 +1099,12 @@ class _HistoryCardMenu extends StatelessWidget {
       icon: Icon(Icons.more_horiz, size: 14, color: t.headerText),
       iconSize: 14,
       splashRadius: 14,
+      onCanceled: () =>
+          ClientDiagnostics.instance.record('history_menu_cancelled'),
       onSelected: (value) {
+        ClientDiagnostics.instance.record('history_menu_action', {
+          'action': value,
+        });
         if (value == 'import') {
           onImport();
         } else if (value == 'download') {
@@ -1164,14 +1114,14 @@ class _HistoryCardMenu extends StatelessWidget {
         }
       },
       itemBuilder: (context) => [
-        if (item.hasImage) ...[
-          PopupMenuItem<String>(
-            value: 'import',
-            child: _HistoryMenuItem(
-              icon: Icons.upload_outlined,
-              label: context.l.serverHistoryImportParameters,
-            ),
+        PopupMenuItem<String>(
+          value: 'import',
+          child: _HistoryMenuItem(
+            icon: Icons.upload_outlined,
+            label: context.l.serverHistoryImportParameters,
           ),
+        ),
+        if (item.hasImage)
           PopupMenuItem<String>(
             value: 'download',
             child: _HistoryMenuItem(
@@ -1179,7 +1129,6 @@ class _HistoryCardMenu extends StatelessWidget {
               label: context.l.serverHistoryDownload,
             ),
           ),
-        ],
         PopupMenuItem<String>(
           value: 'delete',
           child: _HistoryMenuItem(
@@ -1219,7 +1168,12 @@ class _HistoryBatchMenu extends StatelessWidget {
       icon: Icon(Icons.more_horiz, size: 16, color: t.headerText),
       iconSize: 16,
       splashRadius: 16,
+      onCanceled: () =>
+          ClientDiagnostics.instance.record('history_menu_cancelled'),
       onSelected: (value) {
+        ClientDiagnostics.instance.record('history_menu_action', {
+          'action': value,
+        });
         if (value == 'import') {
           onImport();
         } else if (value == 'download') {
@@ -1229,14 +1183,14 @@ class _HistoryBatchMenu extends StatelessWidget {
         }
       },
       itemBuilder: (context) => [
-        if (hasImage) ...[
-          PopupMenuItem<String>(
-            value: 'import',
-            child: _HistoryMenuItem(
-              icon: Icons.upload_outlined,
-              label: context.l.serverHistoryBatchImportParameters,
-            ),
+        PopupMenuItem<String>(
+          value: 'import',
+          child: _HistoryMenuItem(
+            icon: Icons.upload_outlined,
+            label: context.l.serverHistoryBatchImportParameters,
           ),
+        ),
+        if (hasImage)
           PopupMenuItem<String>(
             value: 'download',
             child: _HistoryMenuItem(
@@ -1244,7 +1198,6 @@ class _HistoryBatchMenu extends StatelessWidget {
               label: context.l.serverHistoryBatchDownload,
             ),
           ),
-        ],
         PopupMenuItem<String>(
           value: 'delete',
           child: _HistoryMenuItem(

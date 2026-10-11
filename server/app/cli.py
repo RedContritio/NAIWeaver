@@ -1,43 +1,17 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timedelta, timezone
 import secrets
 
 from .main import (
     DEFAULT_ADMIN_RED_POINTS,
     DEFAULT_GREEN_POINT_LIMIT,
     DEFAULT_RED_POINTS,
-    PUBLIC_BASE_URL,
     db_connect,
     hash_password,
     init_db,
     now_iso,
-    token_hash,
 )
-
-
-def parse_ttl(value: str) -> timedelta:
-    value = value.strip().lower()
-    if not value:
-        raise argparse.ArgumentTypeError("TTL is required")
-    suffix = value[-1]
-    number = value[:-1] if suffix in {"s", "m", "h", "d"} else value
-    try:
-        amount = int(number)
-    except ValueError as exc:
-        raise argparse.ArgumentTypeError("TTL must be like 10m, 1h, or 600s") from exc
-    if amount <= 0:
-        raise argparse.ArgumentTypeError("TTL must be positive")
-    if suffix == "s":
-        return timedelta(seconds=amount)
-    if suffix == "m":
-        return timedelta(minutes=amount)
-    if suffix == "h":
-        return timedelta(hours=amount)
-    if suffix == "d":
-        return timedelta(days=amount)
-    return timedelta(seconds=amount)
 
 
 def role_defaults(role: str) -> dict[str, object]:
@@ -209,50 +183,6 @@ def cmd_points_grant(args: argparse.Namespace) -> None:
     print(f"granted to {args.username}: red +{red}")
 
 
-def cmd_bind(args: argparse.Namespace) -> None:
-    init_db()
-    base_url = (args.base_url or PUBLIC_BASE_URL).rstrip("/")
-    raw_token = secrets.token_urlsafe(32)
-    expires_at = datetime.now(timezone.utc) + args.ttl
-    with db_connect() as db:
-        user = db.execute(
-            "SELECT * FROM users WHERE username = ?", (args.username,)
-        ).fetchone()
-        if not user:
-            raise SystemExit(f"User not found: {args.username}")
-        if user["disabled"]:
-            raise SystemExit(f"User is disabled: {args.username}")
-        db.execute(
-            """
-            INSERT INTO webauthn_enrollment_tokens(
-              token_hash, user_id, expires_at, created_at
-            )
-            VALUES (?, ?, ?, ?)
-            """,
-            (token_hash(raw_token), user["id"], expires_at.isoformat(), now_iso()),
-        )
-        db.commit()
-    print(f"bind link for {args.username}:")
-    print(f"{base_url}/enroll?token={raw_token}")
-    print(f"expires_at: {expires_at.isoformat()}")
-
-
-def cmd_reset(args: argparse.Namespace) -> None:
-    init_db()
-    with db_connect() as db:
-        user = db.execute(
-            "SELECT * FROM users WHERE username = ?", (args.username,)
-        ).fetchone()
-        if not user:
-            raise SystemExit(f"User not found: {args.username}")
-        db.execute(
-            "UPDATE webauthn_credentials SET disabled = 1 WHERE user_id = ?",
-            (user["id"],),
-        )
-        db.commit()
-    print(f"disabled webauthn credentials: {args.username}")
-
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -289,18 +219,6 @@ def build_parser() -> argparse.ArgumentParser:
     points_grant.add_argument("username")
     points_grant.add_argument("--red", type=int, default=0)
     points_grant.set_defaults(func=cmd_points_grant)
-
-    webauthn = sub.add_parser("webauthn")
-    webauthn_sub = webauthn.add_subparsers(dest="webauthn_command", required=True)
-    bind = webauthn_sub.add_parser("bind")
-    bind.add_argument("username")
-    bind.add_argument("--ttl", type=parse_ttl, default=timedelta(minutes=10))
-    bind.add_argument("--base-url")
-    bind.set_defaults(func=cmd_bind)
-
-    reset = webauthn_sub.add_parser("reset")
-    reset.add_argument("username")
-    reset.set_defaults(func=cmd_reset)
 
     return parser
 

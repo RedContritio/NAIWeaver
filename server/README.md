@@ -42,13 +42,18 @@ exist. Production disables password login and test account bootstrap by default.
 
 ## Production Auth
 
-Production login is WebAuthn-only. Create or update a user from the backend
-virtualenv, then issue a one-time enrollment link:
+Production login uses only WebAuth through OIDC Authorization Code + PKCE.
+Passkeys are managed by the identity provider; this service no longer exposes
+its own WebAuthn endpoints. Existing users, history, quotas and local permissions
+remain in NAIWeaver.
 
 ```bash
-cd server
-.venv/bin/python -m app.cli user create admin --role admin --update
-.venv/bin/python -m app.cli webauthn bind admin --ttl 30m --base-url https://nai.recoco.xyz
+NAIWEAVER_PUBLIC_BASE_URL=https://nai.example.com
+NAIWEAVER_AUTH_ISSUER=https://auth.example.com
+NAIWEAVER_AUTH_CLIENT_ID=naiweaver
+NAIWEAVER_AUTH_CLIENT_SECRET_FILE=/path/to/client.secret
+NAIWEAVER_AUTH_SUBJECT_MAP='{"immutable-provider-user-id":1}'
+NAIWEAVER_AUTH_KEY_CACHE_MINUTES=10080
 ```
 
 ### User and point administration
@@ -113,15 +118,18 @@ discount, and `100` means no green points are consumed. `green_point_limit`
 and all red-point fields are permanent: they do not reset by day, month, or
 time period.
 
-For WebAuthn management:
+Register the exact callback `https://nai.example.com/auth/callback` with only
+WebAuth and grant the appropriate group access to the client. Map immutable
+provider user IDs to existing local numeric user IDs using
+`NAIWEAVER_AUTH_SUBJECT_MAP`; no username-based matching or account creation
+happens at login. Unmapped users retain their data but cannot sign in.
 
-```bash
-# Print a one-time enrollment URL.
-.venv/bin/python -m app.cli webauthn bind alice --ttl 30m --base-url https://nai.recoco.xyz
-
-# Disable all registered passkeys for a user.
-.venv/bin/python -m app.cli webauthn reset alice
-```
+Browser cookies contain only a random session ID. Tokens stay in process
+memory and are verified on receipt; normal requests check their validity
+locally. Refreshes are serialized per session. Restarting the service requires
+logging in again. Authentication and the one-second return screen are hosted
+by only WebAuth. Local logout revokes the refresh token but does not end the
+identity provider's session.
 
 The browser stores no NovelAI token. The real token and production env file
 should stay outside the repository:

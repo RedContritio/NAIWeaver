@@ -1,7 +1,6 @@
 import 'package:dio/dio.dart';
 
 import '../gateway/backend_gateway.dart';
-import 'webauthn_browser.dart';
 
 class BackendAuthException implements Exception {
   final int statusCode;
@@ -20,78 +19,6 @@ class BackendAuthApi {
   }
 
   final Dio _dio;
-
-  Future<AuthPayload> loginWithWebAuthn() async {
-    final options = await loginWebAuthnOptions();
-    return loginWithWebAuthnOptions(options);
-  }
-
-  Future<AuthPayload> loginWithWebAuthnOptions(
-    BackendWebAuthnOptions options,
-  ) async {
-    final credential = await getWebAuthnCredential(options.publicKey);
-    final data = await verifyWebAuthnLogin(options.challengeId, credential);
-    return AuthPayload.fromJson(data);
-  }
-
-  Future<AuthPayload> bindWithWebAuthn(String token) async {
-    final options = await registerWebAuthnOptions(token);
-    return bindWithWebAuthnOptions(token, options);
-  }
-
-  Future<AuthPayload> bindWithWebAuthnOptions(
-    String token,
-    BackendWebAuthnOptions options,
-  ) async {
-    final credential = await createWebAuthnCredential(options.publicKey);
-    final data = await verifyWebAuthnRegistration(
-      token,
-      options.challengeId,
-      credential,
-    );
-    return AuthPayload.fromJson(data);
-  }
-
-  Future<BackendWebAuthnOptions> loginWebAuthnOptions() async {
-    final data = await _json('POST', '/api/webauthn/login/options');
-    return BackendWebAuthnOptions.fromJson(data);
-  }
-
-  Future<BackendWebAuthnOptions> registerWebAuthnOptions(String token) async {
-    final data = await _json(
-      'POST',
-      '/api/webauthn/register/options',
-      body: {'token': token},
-    );
-    return BackendWebAuthnOptions.fromJson(data);
-  }
-
-  Future<Map<String, dynamic>> verifyWebAuthnLogin(
-    String challengeId,
-    Map<String, dynamic> credential,
-  ) {
-    return _json(
-      'POST',
-      '/api/webauthn/login/verify',
-      body: {'challenge_id': challengeId, 'credential': credential},
-    );
-  }
-
-  Future<Map<String, dynamic>> verifyWebAuthnRegistration(
-    String token,
-    String challengeId,
-    Map<String, dynamic> credential,
-  ) {
-    return _json(
-      'POST',
-      '/api/webauthn/register/verify',
-      body: {
-        'token': token,
-        'challenge_id': challengeId,
-        'credential': credential,
-      },
-    );
-  }
 
   Future<void> logout() async {
     await _json('POST', '/api/logout', body: <String, dynamic>{});
@@ -124,23 +51,6 @@ class BackendAuthApi {
       }
       throw BackendAuthException(e.response?.statusCode ?? 0, message);
     }
-  }
-}
-
-class BackendWebAuthnOptions {
-  final String challengeId;
-  final Map<String, dynamic> publicKey;
-
-  const BackendWebAuthnOptions({
-    required this.challengeId,
-    required this.publicKey,
-  });
-
-  factory BackendWebAuthnOptions.fromJson(Map<String, dynamic> json) {
-    return BackendWebAuthnOptions(
-      challengeId: json['challenge_id'] as String? ?? '',
-      publicKey: json['publicKey'] as Map<String, dynamic>? ?? const {},
-    );
   }
 }
 

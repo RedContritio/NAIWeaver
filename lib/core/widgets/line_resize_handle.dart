@@ -12,6 +12,10 @@ class LineResizeHandle extends StatefulWidget {
   final double lineHeightPx;
   final ValueChanged<int> onLines;
   final ValueChanged<int> onDone;
+  final int minLines;
+  final int maxLines;
+  final Color? color;
+  final bool growUpward;
 
   const LineResizeHandle({
     super.key,
@@ -19,6 +23,10 @@ class LineResizeHandle extends StatefulWidget {
     required this.lineHeightPx,
     required this.onLines,
     required this.onDone,
+    this.minLines = kCharPromptMinLines,
+    this.maxLines = kCharPromptMaxLines,
+    this.color,
+    this.growUpward = false,
   });
 
   @override
@@ -32,7 +40,7 @@ class _LineResizeHandleState extends State<LineResizeHandle> {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.t;
+    final handleColor = widget.color ?? context.t.borderMedium;
     return MouseRegion(
       cursor: SystemMouseCursors.resizeUpDown,
       child: GestureDetector(
@@ -46,8 +54,10 @@ class _LineResizeHandleState extends State<LineResizeHandle> {
           _dragDy += details.delta.dy;
           final next = linesAfterDrag(
             startLines: _startLines,
-            dragDy: _dragDy,
+            dragDy: widget.growUpward ? -_dragDy : _dragDy,
             lineHeightPx: widget.lineHeightPx,
+            minLines: widget.minLines,
+            maxLines: widget.maxLines,
           );
           if (next != _current) {
             _current = next;
@@ -64,7 +74,7 @@ class _LineResizeHandleState extends State<LineResizeHandle> {
               width: 36,
               height: 3,
               decoration: BoxDecoration(
-                color: t.borderMedium,
+                color: handleColor,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),

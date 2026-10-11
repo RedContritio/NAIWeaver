@@ -1,4 +1,7 @@
 import 'package:flutter/foundation.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../core/gateway/backend_gateway.dart';
 
 import '../../core/services/backend_auth_api.dart';
 
@@ -28,9 +31,14 @@ class BackendAuthNotifier extends ChangeNotifier {
       final payload = await api.me();
       _user = payload.user;
       _quota = payload.quota;
-    } on BackendAuthException {
+    } on BackendAuthException catch (error) {
       _user = null;
       _quota = null;
+      if (error.statusCode == 401) {
+        await login();
+      } else {
+        _errorMessage = error.message;
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -43,88 +51,22 @@ class BackendAuthNotifier extends ChangeNotifier {
       _user = payload.user;
       _quota = payload.quota;
       notifyListeners();
-    } on BackendAuthException {
+    } on BackendAuthException catch (error) {
       _user = null;
       _quota = null;
+      if (error.statusCode == 401) {
+        await login();
+      } else {
+        _errorMessage = error.message;
+      }
       notifyListeners();
     }
   }
 
-  Future<void> loginWithWebAuthn() async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
-    try {
-      final payload = await api.loginWithWebAuthn();
-      _user = payload.user;
-      _quota = payload.quota;
-    } catch (e) {
-      _user = null;
-      _quota = null;
-      _errorMessage = e.toString();
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  Future<BackendWebAuthnOptions> prepareWebAuthnLogin() {
-    return api.loginWebAuthnOptions();
-  }
-
-  Future<void> loginWithPreparedWebAuthn(BackendWebAuthnOptions options) async {
-    _errorMessage = null;
-    try {
-      final payload = await api.loginWithWebAuthnOptions(options);
-      _user = payload.user;
-      _quota = payload.quota;
-    } catch (e) {
-      _user = null;
-      _quota = null;
-      _errorMessage = e.toString();
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> bindWithWebAuthn(String token) async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
-    try {
-      final payload = await api.bindWithWebAuthn(token);
-      _user = payload.user;
-      _quota = payload.quota;
-    } catch (e) {
-      _user = null;
-      _quota = null;
-      _errorMessage = e.toString();
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  Future<BackendWebAuthnOptions> prepareWebAuthnBind(String token) {
-    return api.registerWebAuthnOptions(token);
-  }
-
-  Future<void> bindWithPreparedWebAuthn(
-    String token,
-    BackendWebAuthnOptions options,
-  ) async {
-    _errorMessage = null;
-    try {
-      final payload = await api.bindWithWebAuthnOptions(token, options);
-      _user = payload.user;
-      _quota = payload.quota;
-    } catch (e) {
-      _user = null;
-      _quota = null;
-      _errorMessage = e.toString();
-    } finally {
-      _isLoading = false;
+  Future<void> login() async {
+    final uri = Uri.base.resolve(backendUrl('/auth/login'));
+    if (!await launchUrl(uri, webOnlyWindowName: '_self')) {
+      _errorMessage = '无法打开认证页面，请刷新重试。';
       notifyListeners();
     }
   }

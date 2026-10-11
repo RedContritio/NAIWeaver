@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
-import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/quick_action_overlay.dart';
+import '../../../core/widgets/card_action_layout.dart';
 import '../providers/generation_notifier.dart';
 import 'result_set_viewer.dart';
 
@@ -147,6 +147,7 @@ class ResultSetWorkspace extends StatefulWidget {
   final Widget? headerLeading;
   final Widget Function(BuildContext, ResultSetWorkspaceMode)?
   headerTrailingBuilder;
+  /// Builds the action itself; [CardActionLayout] supplies its frame and position.
   final Widget Function(BuildContext, ResultSetViewItem)?
   gridItemTrailingBuilder;
   final ResultSetWorkspaceMode initialMode;
@@ -378,7 +379,7 @@ class _ResultsGrid extends StatelessWidget {
   }
 }
 
-class _ResultSetGridTile extends StatefulWidget {
+class _ResultSetGridTile extends StatelessWidget {
   const _ResultSetGridTile({
     required this.item,
     required this.selected,
@@ -394,79 +395,15 @@ class _ResultSetGridTile extends StatefulWidget {
   final Widget? trailing;
 
   @override
-  State<_ResultSetGridTile> createState() => _ResultSetGridTileState();
-}
-
-class _ResultSetGridTileState extends State<_ResultSetGridTile> {
-  bool _hovered = false;
-
-  @override
   Widget build(BuildContext context) {
-    final t = context.t;
-    final title = widget.item.infoTitle?.trim() ?? '';
-    final subtitle = widget.item.infoSubtitle?.trim() ?? '';
-    final showInfo = _hovered && (title.isNotEmpty || subtitle.isNotEmpty);
-    Widget tile = Stack(
-      children: [
-        Positioned.fill(
-          child: ResultSetThumbnail(
-            item: widget.item,
-            selected: widget.selected,
-            onTap: widget.onOpen ?? widget.onSelect,
-            showFooter: false,
-          ),
-        ),
-        if (showInfo)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: ColoredBox(
-                color: t.background.withValues(alpha: 0.75),
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (title.isNotEmpty)
-                        Text(
-                          title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: t.textSecondary,
-                            fontSize: t.fontSize(9),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      if (title.isNotEmpty && subtitle.isNotEmpty)
-                        const SizedBox(height: 4),
-                      if (subtitle.isNotEmpty)
-                        Text(
-                          subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: t.textDisabled,
-                            fontSize: t.fontSize(8),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        if (widget.trailing != null)
-          Positioned(top: 5, right: 5, child: widget.trailing!),
-      ],
+    return CardActionLayout(
+      content: ResultSetThumbnail(
+        item: item,
+        selected: selected,
+        onTap: onOpen ?? onSelect,
+        showFooter: false,
+      ),
+      action: trailing,
     );
-    if (!isMobile(context)) {
-      tile = MouseRegion(
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: tile,
-      );
-    }
-    return tile;
   }
 }

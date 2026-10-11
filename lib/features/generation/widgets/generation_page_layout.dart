@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/utils/resizable_lines.dart';
+import '../../../core/widgets/line_resize_handle.dart';
+
 /// Owns the vertical geometry of the generation page.
 ///
 /// Results and the composer are siblings in the same [Column], so neither can
@@ -142,6 +145,85 @@ class GenerationComposerRow extends StatelessWidget {
           SizedBox(key: actionKey, width: actionWidth, child: action),
         ],
       ),
+    );
+  }
+}
+
+/// A generation composer with a grab handle directly below the prompt input.
+/// The action rail keeps its width and does not become part of the drag target.
+class ResizableGenerationComposer extends StatelessWidget {
+  const ResizableGenerationComposer({
+    super.key,
+    required this.promptInput,
+    required this.action,
+    required this.promptLines,
+    required this.promptFontSize,
+    required this.actionWidth,
+    required this.onPromptLinesChanged,
+    required this.onPromptResizeDone,
+    this.lineHeight = 1.2,
+    this.verticalPadding = 24,
+    this.spacing = 4,
+    this.minLines = kMainPromptMinLines,
+    this.maxLines = kMainPromptMaxLines,
+    this.resizeHandleColor,
+  });
+
+  static const resizeHandleKey = ValueKey<String>(
+    'generation-composer-resize-handle',
+  );
+
+  final Widget promptInput;
+  final Widget action;
+  final int promptLines;
+  final double promptFontSize;
+  final double actionWidth;
+  final ValueChanged<int> onPromptLinesChanged;
+  final ValueChanged<int> onPromptResizeDone;
+  final double lineHeight;
+  final double verticalPadding;
+  final double spacing;
+  final int minLines;
+  final int maxLines;
+  final Color? resizeHandleColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final scaledFontSize = MediaQuery.textScalerOf(
+      context,
+    ).scale(promptFontSize);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: LineResizeHandle(
+                key: resizeHandleKey,
+                lines: promptLines,
+                lineHeightPx: scaledFontSize * lineHeight,
+                minLines: minLines,
+                maxLines: maxLines,
+                color: resizeHandleColor,
+                growUpward: true,
+                onLines: onPromptLinesChanged,
+                onDone: onPromptResizeDone,
+              ),
+            ),
+            SizedBox(width: spacing + actionWidth),
+          ],
+        ),
+        GenerationComposerRow(
+          promptInput: promptInput,
+          action: action,
+          promptLines: promptLines,
+          promptFontSize: promptFontSize,
+          actionWidth: actionWidth,
+          lineHeight: lineHeight,
+          verticalPadding: verticalPadding,
+          spacing: spacing,
+        ),
+      ],
     );
   }
 }

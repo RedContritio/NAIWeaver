@@ -418,6 +418,7 @@ class GenerationNotifier extends ChangeNotifier {
   Timer? _tagDebounce;
   Timer? _sessionSaveDebounce;
   bool _sessionReady = false;
+  bool _metadataImportedBeforeSessionReady = false;
   final SyntaxHighlightController promptController =
       SyntaxHighlightController();
   final SyntaxHighlightController negativePromptController =
@@ -730,7 +731,9 @@ class GenerationNotifier extends ChangeNotifier {
     _state = _state.copyWith(
       presets: presets,
       styles: styles,
-      activeStyleNames: initialActiveStyles,
+      activeStyleNames: _metadataImportedBeforeSessionReady
+          ? null
+          : initialActiveStyles,
       apiKey: apiKey,
       autoSaveImages: _prefs.autoSaveImages,
       showDirectorRefShelf: _prefs.showDirectorRefShelf,
@@ -750,6 +753,7 @@ class GenerationNotifier extends ChangeNotifier {
 
     await _restoreSessionSnapshot();
     _sessionReady = true;
+    if (_metadataImportedBeforeSessionReady) _scheduleSessionSave();
 
     fetchAnlas();
   }
@@ -2234,11 +2238,22 @@ class GenerationNotifier extends ChangeNotifier {
     );
   }
 
+  MetadataImportResult parseHistoryParameters(ServerHistoryItem item) {
+    return _metadataImportService.parseGenerationParameters(
+      item.generationMetadata,
+    );
+  }
+
   /// Apply a parsed metadata result, importing only the selected categories.
   void applyImportedMetadata(
     MetadataImportResult result,
     Set<ImportCategory> categories,
   ) {
+    // Startup can still be loading tags/styles while history is open. An
+    // explicit import must win over the older saved editor session.
+    if (!_sessionReady && categories.isNotEmpty) {
+      _metadataImportedBeforeSessionReady = true;
+    }
     if (categories.contains(ImportCategory.prompt)) {
       promptController.value = TextEditingValue(
         text: result.prompt,
@@ -2276,9 +2291,9 @@ class GenerationNotifier extends ChangeNotifier {
           : null,
       randomizeSeed: categories.contains(ImportCategory.seed) ? false : null,
       generatedImage: result.imageBytes,
-      generatedImages: const [],
-      clearSelectedGeneratedImageId: true,
-      autoFollowLatestImage: true,
+      generatedImages: result.imageBytes != null ? const [] : null,
+      clearSelectedGeneratedImageId: result.imageBytes != null,
+      autoFollowLatestImage: result.imageBytes != null ? true : null,
       activeStyleNames: categories.contains(ImportCategory.styles)
           ? result.activeStyleNames
           : null,
@@ -2731,9 +2746,9 @@ class GenerationNotifier extends ChangeNotifier {
   }
 
   Future<void> _restoreSessionSnapshot() async {
-    if (!_prefs.rememberSession) return;
+    if (!_prefs.rememberSession || _metadataImportedBeforeSessionReady) return;
     final snapshot = await _sessionService.restore();
-    if (snapshot == null) return;
+    if (snapshot == null || _metadataImportedBeforeSessionReady) return;
 
     promptController.text = snapshot.prompt;
     negativePromptController.text = snapshot.negativePrompt;

@@ -9,35 +9,28 @@ from datetime import date, datetime, timedelta, timezone
 import ipaddress
 from io import BytesIO
 import json
+import logging
 import math
 import os
 from pathlib import Path
+import re
 import secrets
 import sqlite3
+import time
 from typing import Any
 from zipfile import ZipFile
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
-from webauthn import (
-    generate_authentication_options,
-    generate_registration_options,
-    options_to_json,
-    verify_authentication_response,
-    verify_registration_response,
-)
-from webauthn.helpers.structs import (
-    AuthenticatorSelectionCriteria,
-    PublicKeyCredentialDescriptor,
-    ResidentKeyRequirement,
-    UserVerificationRequirement,
-)
+from .only_webauth import OnlyWebAuth
 
 from .security import TokenError, create_jwt, decode_jwt, hash_password, verify_password
 
+
+logger = logging.getLogger("uvicorn.error.naiweaver")
 
 SERVER_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = Path(os.environ.get("NAIWEAVER_DATA_DIR", SERVER_DIR / "data"))
@@ -66,11 +59,7 @@ FAKE_NOVELAI = os.environ.get("NAIWEAVER_FAKE_NOVELAI", "0") == "1"
 PUBLIC_BASE_URL = os.environ.get(
     "NAIWEAVER_PUBLIC_BASE_URL", "http://127.0.0.1:8000"
 ).rstrip("/")
-WEBAUTHN_RP_ID = os.environ.get("NAIWEAVER_WEBAUTHN_RP_ID", "localhost")
-WEBAUTHN_RP_NAME = os.environ.get("NAIWEAVER_WEBAUTHN_RP_NAME", "NAIWeaver")
-WEBAUTHN_ORIGIN = os.environ.get(
-    "NAIWEAVER_WEBAUTHN_ORIGIN", "http://localhost:8000"
-)
+only_auth = OnlyWebAuth(PUBLIC_BASE_URL, SESSION_TTL_SECONDS)
 MAX_REQUEST_BODY_BYTES = int(os.environ.get("NAIWEAVER_MAX_REQUEST_BODY_BYTES", "25000000"))
 ALLOWED_CLIENT_CIDRS = os.environ.get(
     "NAIWEAVER_ALLOWED_CLIENT_CIDRS",
@@ -129,6 +118,29 @@ PAID_ONLY_IMAGE_PARAMETERS = frozenset(
     }
 )
 AUDIT_MAX_STRING_CHARS = 20000
+GENERATION_ERROR_PREVIEW_MAX_CHARS = 4000
+GENERATION_LOG_SENSITIVE_KEYS = frozenset(
+    {
+        "authorization",
+        "base_caption",
+        "char_caption",
+        "char_captions",
+        "cookie",
+        "director_reference_descriptions",
+        "director_reference_images",
+        "image",
+        "input",
+        "mask",
+        "negative_prompt",
+        "password",
+        "prompt",
+        "reference_image_multiple",
+        "secret",
+        "set-cookie",
+        "token",
+        "uc",
+    }
+)
 TARGET_BASES = {
     "image": "https://image.novelai.net",
     "api": "https://api.novelai.net",
@@ -332,45 +344,6 @@ ON client_feedback_reports(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_client_feedback_reports_created
 ON client_feedback_reports(created_at DESC);
 
-CREATE TABLE IF NOT EXISTS webauthn_credentials (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  credential_id TEXT NOT NULL UNIQUE,
-  public_key TEXT NOT NULL,
-  sign_count INTEGER NOT NULL DEFAULT 0,
-  aaguid TEXT NOT NULL DEFAULT '',
-  device_type TEXT NOT NULL DEFAULT '',
-  backed_up INTEGER NOT NULL DEFAULT 0,
-  transports TEXT NOT NULL DEFAULT '',
-  disabled INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL,
-  last_used_at TEXT
-);
-
-CREATE INDEX IF NOT EXISTS idx_webauthn_credentials_user_id ON webauthn_credentials(user_id);
-
-CREATE TABLE IF NOT EXISTS webauthn_enrollment_tokens (
-  token_hash TEXT PRIMARY KEY,
-  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  expires_at TEXT NOT NULL,
-  used_at TEXT,
-  created_at TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_webauthn_enrollment_user_id ON webauthn_enrollment_tokens(user_id);
-
-CREATE TABLE IF NOT EXISTS webauthn_challenges (
-  id TEXT PRIMARY KEY,
-  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-  purpose TEXT NOT NULL,
-  challenge TEXT NOT NULL,
-  enrollment_token_hash TEXT,
-  expires_at TEXT NOT NULL,
-  used_at TEXT,
-  created_at TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_webauthn_challenges_user_id ON webauthn_challenges(user_id);
 """
 
 
@@ -546,25 +519,6 @@ class UserCreateRequest(BaseModel):
     red_points_used: int = Field(default=0, ge=0)
 
 
-class WebAuthnRegisterOptionsRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    token: str = Field(min_length=16, max_length=512)
-
-
-class WebAuthnRegisterVerifyRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    token: str = Field(min_length=16, max_length=512)
-    challenge_id: str = Field(min_length=8, max_length=128)
-    credential: dict[str, Any]
-
-
-class WebAuthnLoginVerifyRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    challenge_id: str = Field(min_length=8, max_length=128)
-    credential: dict[str, Any]
 
 
 def now_iso() -> str:
@@ -575,21 +529,6 @@ def today_key() -> str:
     return date.today().isoformat()
 
 
-def b64url_encode(data: bytes) -> str:
-    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
-
-
-def b64url_decode(value: str) -> bytes:
-    padding = "=" * (-len(value) % 4)
-    return base64.urlsafe_b64decode(value + padding)
-
-
-def token_hash(token: str) -> str:
-    return hashlib.sha256(token.encode("utf-8")).hexdigest()
-
-
-def parse_dt(value: str) -> datetime:
-    return datetime.fromisoformat(value)
 
 
 def session_response(
@@ -959,58 +898,6 @@ def migrate_db(db: sqlite3.Connection) -> None:
         "CREATE INDEX IF NOT EXISTS idx_client_feedback_reports_created "
         "ON client_feedback_reports(created_at DESC)"
     )
-    db.execute(
-        """
-        CREATE TABLE IF NOT EXISTS webauthn_credentials (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          credential_id TEXT NOT NULL UNIQUE,
-          public_key TEXT NOT NULL,
-          sign_count INTEGER NOT NULL DEFAULT 0,
-          aaguid TEXT NOT NULL DEFAULT '',
-          device_type TEXT NOT NULL DEFAULT '',
-          backed_up INTEGER NOT NULL DEFAULT 0,
-          transports TEXT NOT NULL DEFAULT '',
-          disabled INTEGER NOT NULL DEFAULT 0,
-          created_at TEXT NOT NULL,
-          last_used_at TEXT
-        )
-        """
-    )
-    db.execute(
-        "CREATE INDEX IF NOT EXISTS idx_webauthn_credentials_user_id ON webauthn_credentials(user_id)"
-    )
-    db.execute(
-        """
-        CREATE TABLE IF NOT EXISTS webauthn_enrollment_tokens (
-          token_hash TEXT PRIMARY KEY,
-          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          expires_at TEXT NOT NULL,
-          used_at TEXT,
-          created_at TEXT NOT NULL
-        )
-        """
-    )
-    db.execute(
-        "CREATE INDEX IF NOT EXISTS idx_webauthn_enrollment_user_id ON webauthn_enrollment_tokens(user_id)"
-    )
-    db.execute(
-        """
-        CREATE TABLE IF NOT EXISTS webauthn_challenges (
-          id TEXT PRIMARY KEY,
-          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-          purpose TEXT NOT NULL,
-          challenge TEXT NOT NULL,
-          enrollment_token_hash TEXT,
-          expires_at TEXT NOT NULL,
-          used_at TEXT,
-          created_at TEXT NOT NULL
-        )
-        """
-    )
-    db.execute(
-        "CREATE INDEX IF NOT EXISTS idx_webauthn_challenges_user_id ON webauthn_challenges(user_id)"
-    )
 
 
 def bootstrap_users() -> None:
@@ -1096,8 +983,8 @@ def validate_runtime_config() -> None:
             raise RuntimeError("NAIWEAVER_COOKIE_SECURE=1 is required in production")
         if ALLOW_PASSWORD_LOGIN:
             raise RuntimeError("Password login must stay disabled in production")
-        if not WEBAUTHN_ORIGIN.startswith("https://"):
-            raise RuntimeError("NAIWEAVER_WEBAUTHN_ORIGIN must be HTTPS in production")
+        if not only_auth.enabled:
+            raise RuntimeError("NAIWEAVER_AUTH_ISSUER is required in production")
 
 
 @asynccontextmanager
@@ -1123,6 +1010,7 @@ async def lifespan(_: FastAPI):
                 pass
         if http_client is not None:
             await http_client.aclose()
+        await only_auth.http.aclose()
 
 
 app = FastAPI(title="NAIWeaver Web Gateway", version="0.2.0", lifespan=lifespan)
@@ -1166,7 +1054,7 @@ async def request_limits_and_origin(request: Request, call_next):
         "OPTIONS",
     }:
         origin = request.headers.get("origin")
-        if origin and origin != WEBAUTHN_ORIGIN:
+        if origin and origin != PUBLIC_BASE_URL:
             return Response("Forbidden", status_code=403)
     return await call_next(request)
 
@@ -1241,7 +1129,13 @@ def user_admin_dict(user: sqlite3.Row) -> dict[str, Any]:
     }
 
 
-def require_user(request: Request, db: sqlite3.Connection = Depends(get_db)) -> sqlite3.Row:
+async def require_user(request: Request, db: sqlite3.Connection = Depends(get_db)) -> sqlite3.Row:
+    if only_auth.enabled:
+        local_id = await only_auth.user_id(request)
+        user = db.execute("SELECT * FROM users WHERE id = ?", (local_id,)).fetchone()
+        if not user or user["disabled"]:
+            raise HTTPException(401, "User disabled")
+        return user
     token = request.cookies.get("access_token")
     auth = request.headers.get("Authorization", "")
     if not token and auth.lower().startswith("bearer "):
@@ -1287,7 +1181,7 @@ def health():
 
 @app.post("/api/login")
 def login(payload: LoginRequest, response: Response, db: sqlite3.Connection = Depends(get_db)):
-    if not ALLOW_PASSWORD_LOGIN:
+    if only_auth.enabled or not ALLOW_PASSWORD_LOGIN:
         raise HTTPException(status.HTTP_410_GONE, "Password login is disabled")
     user = db.execute("SELECT * FROM users WHERE username = ?", (payload.username,)).fetchone()
     if not user or user["disabled"] or not verify_password(payload.password, user["password_hash"]):
@@ -1296,7 +1190,13 @@ def login(payload: LoginRequest, response: Response, db: sqlite3.Connection = De
 
 
 @app.post("/api/logout")
-def logout(request: Request, response: Response, db: sqlite3.Connection = Depends(get_db)):
+async def logout(request: Request, response: Response, db: sqlite3.Connection = Depends(get_db)):
+    if only_auth.enabled:
+        await only_auth.logout(request)
+        response.delete_cookie(only_auth.cookie, secure=True, httponly=True, samesite="lax")
+        response.delete_cookie("access_token", path="/")
+        response.delete_cookie("naiweaver_current_task", path="/")
+        return {"ok": True}
     token = request.cookies.get("access_token")
     if token:
         try:
@@ -1320,262 +1220,26 @@ def me(user: sqlite3.Row = Depends(require_user), db: sqlite3.Connection = Depen
     return {"user": user_to_dict(user, db), "quota": quota_for_user(db, user)}
 
 
-def valid_enrollment(
-    db: sqlite3.Connection, raw_token: str
-) -> tuple[sqlite3.Row, sqlite3.Row, str]:
-    hashed = token_hash(raw_token)
-    token_row = db.execute(
-        """
-        SELECT e.*, u.*
-        FROM webauthn_enrollment_tokens e
-        JOIN users u ON u.id = e.user_id
-        WHERE e.token_hash = ?
-        """,
-        (hashed,),
-    ).fetchone()
-    if not token_row:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Enrollment link not found")
-    if token_row["used_at"]:
-        raise HTTPException(status.HTTP_410_GONE, "Enrollment link already used")
-    if parse_dt(token_row["expires_at"]) < datetime.now(timezone.utc):
-        raise HTTPException(status.HTTP_410_GONE, "Enrollment link expired")
-    user = db.execute("SELECT * FROM users WHERE id = ?", (token_row["user_id"],)).fetchone()
-    if not user or user["disabled"]:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "User disabled")
-    return token_row, user, hashed
-
-
-def store_webauthn_challenge(
-    db: sqlite3.Connection,
-    *,
-    purpose: str,
-    challenge: bytes,
-    user_id: int | None = None,
-    enrollment_token_hash: str | None = None,
-) -> str:
-    challenge_id = secrets.token_urlsafe(18)
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
-    db.execute(
-        """
-        INSERT INTO webauthn_challenges(
-          id, user_id, purpose, challenge, enrollment_token_hash, expires_at, created_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            challenge_id,
-            user_id,
-            purpose,
-            b64url_encode(challenge),
-            enrollment_token_hash,
-            expires_at.isoformat(),
-            now_iso(),
-        ),
-    )
-    db.commit()
-    return challenge_id
-
-
-def consume_webauthn_challenge(
-    db: sqlite3.Connection,
-    *,
-    challenge_id: str,
-    purpose: str,
-    user_id: int | None = None,
-    enrollment_token_hash: str | None = None,
-) -> bytes:
-    row = db.execute(
-        "SELECT * FROM webauthn_challenges WHERE id = ? AND purpose = ?",
-        (challenge_id, purpose),
-    ).fetchone()
-    if not row or row["used_at"]:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid challenge")
-    if user_id is not None and row["user_id"] != user_id:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid challenge")
-    if (
-        enrollment_token_hash is not None
-        and row["enrollment_token_hash"] != enrollment_token_hash
-    ):
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid challenge")
-    if parse_dt(row["expires_at"]) < datetime.now(timezone.utc):
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Challenge expired")
-    db.execute(
-        "UPDATE webauthn_challenges SET used_at = ? WHERE id = ?",
-        (now_iso(), challenge_id),
-    )
-    db.commit()
-    return b64url_decode(row["challenge"])
-
-
-def webauthn_options_payload(options: Any, challenge_id: str) -> dict[str, Any]:
-    data = json.loads(options_to_json(options))
-    return {"challenge_id": challenge_id, "publicKey": data}
-
-
-@app.post("/api/webauthn/register/options")
-def webauthn_register_options(
-    payload: WebAuthnRegisterOptionsRequest,
-    db: sqlite3.Connection = Depends(get_db),
-):
-    _, user, hashed = valid_enrollment(db, payload.token)
-    existing = db.execute(
-        """
-        SELECT credential_id, transports
-        FROM webauthn_credentials
-        WHERE user_id = ? AND disabled = 0
-        """,
-        (user["id"],),
-    ).fetchall()
-    exclude_credentials = [
-        PublicKeyCredentialDescriptor(id=b64url_decode(row["credential_id"]))
-        for row in existing
-    ]
-    options = generate_registration_options(
-        rp_id=WEBAUTHN_RP_ID,
-        rp_name=WEBAUTHN_RP_NAME,
-        user_id=f"user:{user['id']}".encode("utf-8"),
-        user_name=user["username"],
-        user_display_name=user["username"],
-        authenticator_selection=AuthenticatorSelectionCriteria(
-            resident_key=ResidentKeyRequirement.PREFERRED,
-            require_resident_key=False,
-            user_verification=UserVerificationRequirement.REQUIRED,
-        ),
-        exclude_credentials=exclude_credentials,
-    )
-    challenge_id = store_webauthn_challenge(
-        db,
-        purpose="register",
-        challenge=options.challenge,
-        user_id=int(user["id"]),
-        enrollment_token_hash=hashed,
-    )
-    return webauthn_options_payload(options, challenge_id)
-
-
-@app.post("/api/webauthn/register/verify")
-def webauthn_register_verify(
-    payload: WebAuthnRegisterVerifyRequest,
-    response: Response,
-    db: sqlite3.Connection = Depends(get_db),
-):
-    _, user, hashed = valid_enrollment(db, payload.token)
-    challenge = consume_webauthn_challenge(
-        db,
-        challenge_id=payload.challenge_id,
-        purpose="register",
-        user_id=int(user["id"]),
-        enrollment_token_hash=hashed,
-    )
+@app.get("/auth/login")
+async def only_webauth_login():
     try:
-        verified = verify_registration_response(
-            credential=payload.credential,
-            expected_challenge=challenge,
-            expected_rp_id=WEBAUTHN_RP_ID,
-            expected_origin=WEBAUTHN_ORIGIN,
-            require_user_verification=True,
-        )
-    except Exception as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "WebAuthn registration failed") from exc
-    db.execute(
-        """
-        INSERT INTO webauthn_credentials(
-          user_id, credential_id, public_key, sign_count, aaguid, device_type,
-          backed_up, created_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            int(user["id"]),
-            b64url_encode(verified.credential_id),
-            b64url_encode(verified.credential_public_key),
-            int(verified.sign_count),
-            verified.aaguid,
-            str(verified.credential_device_type.value),
-            int(bool(verified.credential_backed_up)),
-            now_iso(),
-        ),
-    )
-    db.execute(
-        "UPDATE webauthn_enrollment_tokens SET used_at = ? WHERE token_hash = ?",
-        (now_iso(), hashed),
-    )
-    db.commit()
-    return session_response(response, db, user)
+        return await only_auth.login()
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(503, "认证服务暂时不可用，请稍后重试。")
 
 
-@app.post("/api/webauthn/login/options")
-def webauthn_login_options(db: sqlite3.Connection = Depends(get_db)):
-    credentials = db.execute(
-        """
-        SELECT credential_id
-        FROM webauthn_credentials
-        WHERE disabled = 0
-        """
-    ).fetchall()
-    allow_credentials = [
-        PublicKeyCredentialDescriptor(id=b64url_decode(row["credential_id"]))
-        for row in credentials
-    ]
-    options = generate_authentication_options(
-        rp_id=WEBAUTHN_RP_ID,
-        allow_credentials=allow_credentials or None,
-        user_verification=UserVerificationRequirement.REQUIRED,
-    )
-    challenge_id = store_webauthn_challenge(
-        db, purpose="login", challenge=options.challenge
-    )
-    return webauthn_options_payload(options, challenge_id)
-
-
-@app.post("/api/webauthn/login/verify")
-def webauthn_login_verify(
-    payload: WebAuthnLoginVerifyRequest,
-    response: Response,
-    db: sqlite3.Connection = Depends(get_db),
-):
-    challenge = consume_webauthn_challenge(
-        db, challenge_id=payload.challenge_id, purpose="login"
-    )
-    credential_id = payload.credential.get("id") or payload.credential.get("rawId")
-    if not credential_id:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Missing credential id")
-    credential = db.execute(
-        """
-        SELECT c.*, u.disabled
-        FROM webauthn_credentials c
-        JOIN users u ON u.id = c.user_id
-        WHERE c.credential_id = ? AND c.disabled = 0
-        """,
-        (credential_id,),
-    ).fetchone()
-    if not credential or credential["disabled"]:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Unknown credential")
-    user = db.execute("SELECT * FROM users WHERE id = ?", (credential["user_id"],)).fetchone()
-    if not user or user["disabled"]:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User disabled")
+@app.get("/auth/callback")
+async def only_webauth_callback(request: Request, db: sqlite3.Connection = Depends(get_db)):
+    if not only_auth.enabled:
+        raise HTTPException(404, "Not found")
     try:
-        verified = verify_authentication_response(
-            credential=payload.credential,
-            expected_challenge=challenge,
-            expected_rp_id=WEBAUTHN_RP_ID,
-            expected_origin=WEBAUTHN_ORIGIN,
-            credential_public_key=b64url_decode(credential["public_key"]),
-            credential_current_sign_count=int(credential["sign_count"]),
-            require_user_verification=True,
-        )
-    except Exception as exc:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "WebAuthn login failed") from exc
-    db.execute(
-        """
-        UPDATE webauthn_credentials
-        SET sign_count = ?, last_used_at = ?
-        WHERE id = ?
-        """,
-        (int(verified.new_sign_count), now_iso(), credential["id"]),
-    )
-    db.commit()
-    return session_response(response, db, user)
+        return await only_auth.callback(request, db)
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(403, "认证未完成，请从 NAIWeaver 重新发起登录。")
 
 
 def usage_for(db: sqlite3.Connection, user_id: int, mode: str) -> int:
@@ -2704,16 +2368,34 @@ def fake_png() -> bytes:
 
 
 def decode_zip_image(data: bytes) -> bytes | None:
+    entry_sizes: list[int] = []
     try:
         with ZipFile(BytesIO(data)) as archive:
             for item in archive.infolist():
                 if item.is_dir():
                     continue
+                entry_sizes.append(item.file_size)
                 raw = archive.read(item)
                 if raw.startswith(b"\x89PNG") or raw.startswith(b"RIFF"):
                     return raw
-    except Exception:
+    except Exception as exc:
+        logger.exception(
+            "novelai_image_archive_decode_failed exception_type=%s error=%r "
+            "response_bytes=%s response_sha256=%s",
+            type(exc).__name__,
+            str(exc),
+            len(data),
+            hashlib.sha256(data).hexdigest(),
+        )
         return None
+    logger.error(
+        "novelai_image_archive_missing_valid_image response_bytes=%s "
+        "response_sha256=%s archive_entry_count=%s archive_entry_sizes=%s",
+        len(data),
+        hashlib.sha256(data).hexdigest(),
+        len(entry_sizes),
+        entry_sizes,
+    )
     return None
 
 
@@ -3399,6 +3081,194 @@ async def enqueue_generation_batch(
         return parent_task_id, item_ids, False
 
 
+def _is_generation_log_sensitive_key(key: str) -> bool:
+    normalized = key.strip().lower().replace("-", "_")
+    if normalized in GENERATION_LOG_SENSITIVE_KEYS:
+        return True
+    return any(
+        marker in normalized
+        for marker in ("authorization", "cookie", "password", "secret", "token")
+    )
+
+
+def _generation_request_sensitive_values(body: bytes) -> tuple[str, ...]:
+    """Return bounded request values that must never be echoed by error logs."""
+    try:
+        request = json.loads(body)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return ()
+    values: set[str] = set()
+
+    def visit(value: Any, *, sensitive: bool = False) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                visit(
+                    child,
+                    sensitive=sensitive or _is_generation_log_sensitive_key(str(key)),
+                )
+            return
+        if isinstance(value, list):
+            for child in value:
+                visit(child, sensitive=sensitive)
+            return
+        if (
+            sensitive
+            and isinstance(value, str)
+            and 4 <= len(value) <= AUDIT_MAX_STRING_CHARS
+        ):
+            values.add(value)
+
+    visit(request)
+    return tuple(sorted(values, key=len, reverse=True))
+
+
+def _redact_generation_log_text(text: str, sensitive_values: tuple[str, ...]) -> str:
+    redacted = text
+    for value in sensitive_values:
+        redacted = redacted.replace(value, "<redacted-request-value>")
+    redacted = re.sub(
+        r"(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*",
+        "Bearer <redacted-token>",
+        redacted,
+    )
+    redacted = re.sub(r"\bpst-[A-Za-z0-9._~-]+", "<redacted-token>", redacted)
+    return redacted
+
+
+def safe_upstream_error_preview(content: bytes, request_body: bytes = b"") -> str:
+    """Render a bounded JSON error response without prompts or credentials."""
+    if not content:
+        return "<empty>"
+    try:
+        parsed = json.loads(content.decode("utf-8"))
+    except (UnicodeDecodeError, TypeError, ValueError, json.JSONDecodeError):
+        return "<non-json-response-not-logged>"
+    sensitive_values = _generation_request_sensitive_values(request_body)
+
+    def redact(value: Any, *, key: str = "") -> Any:
+        if _is_generation_log_sensitive_key(key):
+            return "<redacted>"
+        if isinstance(value, dict):
+            return {
+                str(child_key): redact(child, key=str(child_key))
+                for child_key, child in value.items()
+            }
+        if isinstance(value, list):
+            return [redact(child) for child in value]
+        if isinstance(value, str):
+            return _redact_generation_log_text(value, sensitive_values)
+        return value
+
+    preview = json.dumps(redact(parsed), ensure_ascii=False, separators=(",", ":"))
+    if len(preview) > GENERATION_ERROR_PREVIEW_MAX_CHARS:
+        omitted = len(preview) - GENERATION_ERROR_PREVIEW_MAX_CHARS
+        return f"{preview[:GENERATION_ERROR_PREVIEW_MAX_CHARS]}<truncated {omitted} chars>"
+    return preview
+
+
+def generation_job_log_context(job: ProxyJob, batch_id: str | None) -> str:
+    try:
+        request = json.loads(job.body)
+        if not isinstance(request, dict):
+            request = {}
+        params = request.get("parameters", {})
+        if not isinstance(params, dict):
+            params = {}
+    except (TypeError, ValueError, json.JSONDecodeError):
+        request = {}
+        params = {}
+    return (
+        f"task_id={job.task_id} batch_id={batch_id or '-'} user_id={job.user_id} "
+        f"service={job.service} path={job.path} quota_mode={job.quota_mode or '-'} "
+        f"model={request.get('model', '-')} action={request.get('action', '-')} "
+        f"seed={params.get('seed', '-')} width={params.get('width', '-')} "
+        f"height={params.get('height', '-')} steps={params.get('steps', '-')} "
+        f"sampler={params.get('sampler', '-')} "
+        f"request_sha256={hashlib.sha256(job.body).hexdigest()}"
+    )
+
+
+def log_generation_upstream_failure(
+    job: ProxyJob,
+    *,
+    batch_id: str | None,
+    status_code: int,
+    headers: dict[str, str],
+    content: bytes,
+    elapsed_ms: int,
+    kind: str = "upstream_http",
+    stage: str = "upstream_response",
+) -> None:
+    logger.error(
+        "generation_failed kind=%s stage=%s %s "
+        "status_code=%s elapsed_ms=%s content_type=%s response_bytes=%s "
+        "response_sha256=%s upstream_request_id=%s cf_ray=%s retry_after=%s "
+        "response_preview=%s",
+        kind,
+        stage,
+        generation_job_log_context(job, batch_id),
+        status_code,
+        elapsed_ms,
+        headers.get("content-type", "-"),
+        len(content),
+        hashlib.sha256(content).hexdigest(),
+        headers.get("x-request-id", headers.get("request-id", "-")),
+        headers.get("cf-ray", "-"),
+        headers.get("retry-after", "-"),
+        safe_upstream_error_preview(content, job.body),
+    )
+
+
+def log_generation_exception(
+    job: ProxyJob,
+    *,
+    batch_id: str | None,
+    stage: str,
+    exc: BaseException,
+    elapsed_ms: int,
+) -> None:
+    logger.exception(
+        "generation_failed kind=exception stage=%s %s exception_type=%s "
+        "error=%r elapsed_ms=%s",
+        stage,
+        generation_job_log_context(job, batch_id),
+        type(exc).__name__,
+        str(exc),
+        elapsed_ms,
+    )
+
+
+def persist_generation_failure(job: ProxyJob, error_message: str) -> str | None:
+    """Release reservations and durably mark a failed item."""
+    with db_connect() as db:
+        task = db.execute(
+            "SELECT reserved_points, batch_id FROM generation_tasks WHERE id = ?",
+            (job.task_id,),
+        ).fetchone()
+        batch_id = str(task["batch_id"]) if task and task["batch_id"] else None
+        release_generation_reservation(
+            db,
+            job.user_id,
+            job.quota_mode,
+            int(task["reserved_points"]) if task else 0,
+        )
+        db.execute(
+            """
+            UPDATE generation_tasks
+            SET status = 'failed', error_message = ?,
+                released_green_points = CASE WHEN mode = 'free' THEN reserved_points ELSE 0 END,
+                released_red_points = CASE WHEN mode = 'paid' THEN reserved_points ELSE 0 END,
+                completed_at = ?
+            WHERE id = ?
+            """,
+            (error_message, now_iso(), job.task_id),
+        )
+        if batch_id:
+            refresh_submission_task(db, batch_id)
+        db.commit()
+        return batch_id
+
+
 async def queue_worker() -> None:
     global queue_virtual_time
     assert queue_condition is not None
@@ -3409,40 +3279,70 @@ async def queue_worker() -> None:
             job = pending_jobs.pop(0)
             active_user_ids.add(job.user_id)
             queue_virtual_time = max(queue_virtual_time, job.virtual_finish)
-        with db_connect() as db:
-            db.execute(
-                "UPDATE generation_tasks SET status = 'running', started_at = ? WHERE id = ?",
-                (now_iso(), job.task_id),
-            )
-            parent = db.execute(
-                "SELECT batch_id FROM generation_tasks WHERE id = ?", (job.task_id,)
-            ).fetchone()
-            if parent and parent["batch_id"]:
-                refresh_submission_task(db, parent["batch_id"])
-            db.commit()
+        started_monotonic = time.monotonic()
+        batch_id: str | None = None
+        stage = "mark_running"
+        failure_message = "Generation failed"
         try:
+            with db_connect() as db:
+                db.execute(
+                    "UPDATE generation_tasks SET status = 'running', started_at = ? WHERE id = ?",
+                    (now_iso(), job.task_id),
+                )
+                parent = db.execute(
+                    "SELECT batch_id FROM generation_tasks WHERE id = ?",
+                    (job.task_id,),
+                ).fetchone()
+                if parent and parent["batch_id"]:
+                    batch_id = str(parent["batch_id"])
+                    refresh_submission_task(db, batch_id)
+                db.commit()
+
             anlas_before: int | None = None
             anlas_after: int | None = None
             paid_points_charged = 0
             if job.quota_mode == "paid":
+                stage = "fetch_anlas_before"
                 anlas_before = await fetch_anlas_balance()
                 if anlas_before is None:
                     raise HTTPException(
                         status.HTTP_503_SERVICE_UNAVAILABLE,
                         "NovelAI Anlas balance is unavailable",
                     )
-            result = await forward_to_novelai(job.service, job.path, method="POST", body=job.body)
+            stage = "upstream_request"
+            result = await forward_to_novelai(
+                job.service,
+                job.path,
+                method="POST",
+                body=job.body,
+            )
             assert not isinstance(result, StreamingResponse)
             status_code, headers, content = result
+            stage = "load_task_after_upstream"
             with db_connect() as db:
                 task = db.execute(
                     "SELECT reserved_points, batch_id FROM generation_tasks WHERE id = ?",
                     (job.task_id,),
                 ).fetchone()
                 reserved_points = int(task["reserved_points"]) if task else 0
+                if task and task["batch_id"]:
+                    batch_id = str(task["batch_id"])
                 if status_code == 200:
+                    stage = "decode_and_save_image"
                     image_path = await save_history_image(job.task_id, content)
                     if image_path is None:
+                        log_generation_upstream_failure(
+                            job,
+                            batch_id=batch_id,
+                            status_code=status_code,
+                            headers=headers,
+                            content=content,
+                            elapsed_ms=int(
+                                (time.monotonic() - started_monotonic) * 1000
+                            ),
+                            kind="invalid_image_response",
+                            stage=stage,
+                        )
                         raise HTTPException(
                             status.HTTP_502_BAD_GATEWAY,
                             "NovelAI returned no valid image",
@@ -3452,9 +3352,11 @@ async def queue_worker() -> None:
                         # conservative reservation instead of charging zero for
                         # work NovelAI already completed.
                         paid_points_charged = reserved_points
+                        stage = "fetch_anlas_after"
                         anlas_after = await fetch_anlas_balance()
                         if anlas_after is not None and anlas_before is not None:
                             paid_points_charged = max(0, anlas_before - anlas_after)
+                    stage = "settle_quota"
                     settle_generation_reservation(
                         db,
                         job.user_id,
@@ -3464,6 +3366,7 @@ async def queue_worker() -> None:
                             paid_points_charged if job.quota_mode == "paid" else None
                         ),
                     )
+                    stage = "persist_success"
                     db.execute(
                         """
                         UPDATE generation_tasks
@@ -3485,6 +3388,18 @@ async def queue_worker() -> None:
                         ),
                     )
                 else:
+                    stage = "persist_upstream_http_failure"
+                    failure_message = f"NovelAI HTTP {status_code}"
+                    log_generation_upstream_failure(
+                        job,
+                        batch_id=batch_id,
+                        status_code=status_code,
+                        headers=headers,
+                        content=content,
+                        elapsed_ms=int(
+                            (time.monotonic() - started_monotonic) * 1000
+                        ),
+                    )
                     release_generation_reservation(
                         db, job.user_id, job.quota_mode, reserved_points
                     )
@@ -3499,7 +3414,7 @@ async def queue_worker() -> None:
                         WHERE id = ?
                         """,
                         (
-                            f"NovelAI HTTP {status_code}",
+                            failure_message,
                             anlas_before,
                             anlas_after,
                             paid_points_charged,
@@ -3507,61 +3422,51 @@ async def queue_worker() -> None:
                             job.task_id,
                         ),
                     )
-                if task and task["batch_id"]:
-                    refresh_submission_task(db, task["batch_id"])
+                if batch_id:
+                    refresh_submission_task(db, batch_id)
+                stage = "commit_result"
                 db.commit()
         except HTTPException as exc:
-            with db_connect() as db:
-                task = db.execute(
-                    "SELECT reserved_points, batch_id FROM generation_tasks WHERE id = ?",
-                    (job.task_id,),
-                ).fetchone()
-                release_generation_reservation(
-                    db,
-                    job.user_id,
-                    job.quota_mode,
-                    int(task["reserved_points"]) if task else 0,
+            failure_message = str(exc.detail)
+            log_generation_exception(
+                job,
+                batch_id=batch_id,
+                stage=stage,
+                exc=exc,
+                elapsed_ms=int((time.monotonic() - started_monotonic) * 1000),
+            )
+            try:
+                batch_id = persist_generation_failure(job, failure_message)
+            except Exception as persistence_exc:
+                logger.exception(
+                    "generation_failure_persistence_failed %s original_error_type=%s "
+                    "original_error=%r persistence_error_type=%s persistence_error=%r",
+                    generation_job_log_context(job, batch_id),
+                    type(exc).__name__,
+                    str(exc),
+                    type(persistence_exc).__name__,
+                    str(persistence_exc),
                 )
-                db.execute(
-                    """
-                    UPDATE generation_tasks
-                    SET status = 'failed', error_message = ?,
-                        released_green_points = CASE WHEN mode = 'free' THEN reserved_points ELSE 0 END,
-                        released_red_points = CASE WHEN mode = 'paid' THEN reserved_points ELSE 0 END,
-                        completed_at = ?
-                    WHERE id = ?
-                    """,
-                    (str(exc.detail), now_iso(), job.task_id),
-                )
-                if task and task["batch_id"]:
-                    refresh_submission_task(db, task["batch_id"])
-                db.commit()
         except Exception as exc:
-            with db_connect() as db:
-                task = db.execute(
-                    "SELECT reserved_points, batch_id FROM generation_tasks WHERE id = ?",
-                    (job.task_id,),
-                ).fetchone()
-                release_generation_reservation(
-                    db,
-                    job.user_id,
-                    job.quota_mode,
-                    int(task["reserved_points"]) if task else 0,
+            log_generation_exception(
+                job,
+                batch_id=batch_id,
+                stage=stage,
+                exc=exc,
+                elapsed_ms=int((time.monotonic() - started_monotonic) * 1000),
+            )
+            try:
+                batch_id = persist_generation_failure(job, failure_message)
+            except Exception as persistence_exc:
+                logger.exception(
+                    "generation_failure_persistence_failed %s original_error_type=%s "
+                    "original_error=%r persistence_error_type=%s persistence_error=%r",
+                    generation_job_log_context(job, batch_id),
+                    type(exc).__name__,
+                    str(exc),
+                    type(persistence_exc).__name__,
+                    str(persistence_exc),
                 )
-                db.execute(
-                    """
-                    UPDATE generation_tasks
-                    SET status = 'failed', error_message = ?,
-                        released_green_points = CASE WHEN mode = 'free' THEN reserved_points ELSE 0 END,
-                        released_red_points = CASE WHEN mode = 'paid' THEN reserved_points ELSE 0 END,
-                        completed_at = ?
-                    WHERE id = ?
-                    """,
-                    ("Generation failed", now_iso(), job.task_id),
-                )
-                if task and task["batch_id"]:
-                    refresh_submission_task(db, task["batch_id"])
-                db.commit()
         finally:
             async with queue_condition:
                 active_user_ids.discard(job.user_id)
@@ -4090,7 +3995,18 @@ def delete_history_item(
 
 
 @app.get("/{path:path}")
-def serve_web(path: str):
+async def serve_web(path: str, request: Request):
+    # Authenticate document navigation before loading the Flutter application.
+    if only_auth.enabled and (not path or path == "index.html" or "." not in path):
+        db = db_connect()
+        try:
+            await require_user(request, db)
+        except HTTPException as exc:
+            if exc.status_code != 401:
+                raise
+            return RedirectResponse("/auth/login", status_code=302, headers={"Cache-Control": "no-store"})
+        finally:
+            db.close()
     if path.startswith("api/"):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
     web_root = WEB_BUILD_DIR.resolve()

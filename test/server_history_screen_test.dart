@@ -1,11 +1,14 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:naiweaver/core/services/backend_auth_api.dart';
 import 'package:naiweaver/core/services/backend_history_api.dart';
+import 'package:naiweaver/core/services/client_diagnostics.dart';
+import 'package:naiweaver/core/widgets/syntax_highlight_controller.dart';
 import 'package:naiweaver/core/services/preferences_service.dart';
 import 'package:naiweaver/core/theme/theme_notifier.dart';
 import 'package:naiweaver/features/auth/backend_auth_notifier.dart';
@@ -34,11 +37,19 @@ class _FakeHistoryApi extends BackendHistoryApi {
 
   @override
   Future<Uint8List> fetchImageBytes(String id) async =>
-      Uint8List.fromList([1, 2, 3]);
+      throw StateError('Parameter import must not fetch an image');
 }
 
 class _FakeGenerationNotifier extends ChangeNotifier
     implements GenerationNotifier {
+  _FakeGenerationNotifier({this.failParsing = false});
+  final bool failParsing;
+  @override
+  final SyntaxHighlightController promptController =
+      SyntaxHighlightController();
+  @override
+  final SyntaxHighlightController negativePromptController =
+      SyntaxHighlightController();
   @override
   GenerationState state = GenerationState();
 
@@ -46,13 +57,13 @@ class _FakeGenerationNotifier extends ChangeNotifier
   final TextEditingController seedController = TextEditingController();
 
   Set<ImportCategory>? importedCategories;
+  MetadataImportResult? importedResult;
 
   @override
-  Future<MetadataImportResult> parseImageMetadataBytes(Uint8List bytes) async {
-    return MetadataImportResult(
-      prompt: 'prompt',
-      negativePrompt: '',
-      imageBytes: bytes,
+  MetadataImportResult parseHistoryParameters(ServerHistoryItem item) {
+    if (failParsing) throw const FormatException('isolated fixture error');
+    return MetadataImportService().parseGenerationParameters(
+      item.generationMetadata,
     );
   }
 
@@ -62,11 +73,16 @@ class _FakeGenerationNotifier extends ChangeNotifier
     Set<ImportCategory> categories,
   ) {
     importedCategories = categories;
+    importedResult = result;
+    promptController.text = result.prompt;
+    negativePromptController.text = result.negativePrompt;
   }
 
   @override
   void dispose() {
     seedController.dispose();
+    promptController.dispose();
+    negativePromptController.dispose();
     super.dispose();
   }
 
@@ -268,57 +284,102 @@ void main() {
     },
   );
 
-  testWidgets('image-level import applies the selected history seed', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({});
-    final preferences = PreferencesService(
-      await SharedPreferences.getInstance(),
-      const FlutterSecureStorage(),
-    );
-    final generation = _FakeGenerationNotifier();
-    addTearDown(generation.dispose);
-    final page = ServerHistoryPage(
-      items: [_item(id: 'single', hasImage: true, seed: 987654)],
-      total: 1,
-      limit: 20,
-      offset: 0,
-    );
+  for (final failParsing in [false, true]) {
+    testWidgets(
+      failParsing
+          ? 'import failure records its stage without prompt contents'
+          : 'image-level import applies the selected history seed',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        final preferences = PreferencesService(
+          await SharedPreferences.getInstance(),
+          const FlutterSecureStorage(),
+        );
+        ClientDiagnostics.instance.clear();
+        final generation = _FakeGenerationNotifier(failParsing: failParsing);
+        addTearDown(generation.dispose);
+        final page = ServerHistoryPage(
+          items: [_item(id: 'single', hasImage: false, seed: 987654)],
+          total: 1,
+          limit: 20,
+          offset: 0,
+        );
 
-    await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider<ThemeNotifier>(
-            create: (_) => ThemeNotifier(preferences),
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider<ThemeNotifier>(
+                create: (_) => ThemeNotifier(preferences),
+              ),
+              ChangeNotifierProvider<BackendAuthNotifier>(
+                create: (_) => _FakeAuthNotifier(),
+              ),
+              ChangeNotifierProvider<GenerationNotifier>.value(
+                value: generation,
+              ),
+            ],
+            child: MaterialApp(
+              localizationsDelegates: const [
+                AppLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: ServerHistoryScreen(api: _FakeHistoryApi(page)),
+            ),
           ),
-          ChangeNotifierProvider<BackendAuthNotifier>(
-            create: (_) => _FakeAuthNotifier(),
-          ),
-          ChangeNotifierProvider<GenerationNotifier>.value(value: generation),
-        ],
-        child: MaterialApp(
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: ServerHistoryScreen(api: _FakeHistoryApi(page)),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-    final card = find.byKey(const ValueKey('history-entry-item:single'));
-    await tester.tap(
-      find.descendant(of: card, matching: find.byType(PopupMenuButton<String>)),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Import Parameters'));
-    await tester.pumpAndSettle();
+        final card = find.byKey(const ValueKey('history-entry-item:single'));
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        addTearDown(mouse.removePointer);
+        final menu = find.descendant(
+          of: card,
+          matching: find.byType(PopupMenuButton<String>),
+        );
+        await mouse.moveTo(tester.getCenter(menu));
+        await tester.pumpAndSettle();
+        await mouse.down(tester.getCenter(menu));
+        await mouse.up();
+        await tester.pumpAndSettle();
+        final importAction = find.text('Import Parameters');
+        await mouse.moveTo(tester.getCenter(importAction));
+        await tester.pumpAndSettle();
+        await mouse.down(tester.getCenter(importAction));
+        await mouse.up();
+        await tester.pumpAndSettle();
 
-    expect(generation.importedCategories, contains(ImportCategory.seed));
-    expect(generation.seedController.text, '987654');
-  });
+        final events = ClientDiagnostics.instance.snapshot();
+        if (failParsing) {
+          final failure = events.singleWhere(
+            (e) => e['event'] == 'history_parameter_import_failed',
+          );
+          expect(failure['details']['stage'], 'parse_parameters');
+          expect(failure['details']['error_category'], 'format');
+          expect(events.toString(), isNot(contains('shared prompt')));
+          expect(generation.importedCategories, isNull);
+          return;
+        }
+        expect(
+          events.where((e) => e['event'] == 'history_parameter_import_applied'),
+          hasLength(1),
+        );
+        expect(
+          events.where((e) => e['event'] == 'history_parameter_import_failed'),
+          isEmpty,
+        );
+        expect(generation.importedCategories, contains(ImportCategory.seed));
+        expect(generation.seedController.text, '987654');
+        expect(generation.importedResult?.prompt, 'shared prompt');
+        expect(generation.importedResult?.width, 832);
+        expect(generation.importedResult?.height, 1216);
+        expect(generation.importedResult?.steps, 28);
+        expect(generation.importedResult?.scale, 5);
+        expect(generation.importedResult?.sampler, 'k_euler');
+      },
+    );
+  }
 }

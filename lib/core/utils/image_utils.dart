@@ -31,7 +31,7 @@ Uint8List injectMetadata(Map<String, dynamic> data) {
   };
 
   final encoder = img.PngEncoder();
-  encoder.textData = textChunks;
+  image.textData = textChunks;
 
   return Uint8List.fromList(encoder.encode(image));
 }
@@ -167,7 +167,7 @@ Uint8List stripMetadata(Uint8List bytes) {
   if (image == null) return bytes;
 
   final encoder = img.PngEncoder();
-  encoder.textData = {};
+  image.textData = {};
   return Uint8List.fromList(encoder.encode(image));
 }
 
@@ -222,7 +222,7 @@ Uint8List? convertToPngPreservingMetadata(Map<String, dynamic> data) {
 
   final encoder = img.PngEncoder();
   if (textData != null && textData.isNotEmpty) {
-    encoder.textData = textData;
+    image.textData = textData;
   }
   return Uint8List.fromList(encoder.encode(image));
 }

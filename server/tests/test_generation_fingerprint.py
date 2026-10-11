@@ -128,6 +128,105 @@ class GenerationModelNormalizationTests(unittest.TestCase):
         )
 
 
+class GenerationFailureLoggingTests(unittest.TestCase):
+    def job(self) -> main.ProxyJob:
+        return main.ProxyJob(
+            virtual_finish=1.0,
+            negative_weight=-100,
+            created_at="2026-08-30T00:00:00+00:00",
+            user_id=7,
+            task_id="item-logging-test",
+            service="image",
+            path="ai/generate-image",
+            body=json.dumps(
+                {
+                    "input": "prompt that must stay private",
+                    "model": "nai-diffusion-5-full",
+                    "action": "generate",
+                    "parameters": {
+                        "width": 832,
+                        "height": 1216,
+                        "steps": 28,
+                        "sampler": "k_euler_ancestral",
+                        "seed": 123,
+                        "uc": "negative prompt that must stay private",
+                    },
+                }
+            ).encode(),
+            cost=20,
+            quota_mode="free",
+        )
+
+    def test_upstream_http_failure_logs_diagnostics_without_request_secrets(self) -> None:
+        response = json.dumps(
+            {
+                "error": {
+                    "code": "generation_rejected",
+                    "message": "rejected prompt that must stay private",
+                    "input": "prompt that must stay private",
+                },
+                "token": "pst-test-secret",
+            }
+        ).encode()
+
+        with self.assertLogs(main.logger, level="ERROR") as captured:
+            main.log_generation_upstream_failure(
+                self.job(),
+                batch_id="batch-logging-test",
+                status_code=503,
+                headers={
+                    "content-type": "application/json",
+                    "x-request-id": "upstream-request-1",
+                    "retry-after": "2",
+                },
+                content=response,
+                elapsed_ms=5012,
+            )
+
+        rendered = "\n".join(captured.output)
+        self.assertIn("kind=upstream_http", rendered)
+        self.assertIn("task_id=item-logging-test", rendered)
+        self.assertIn("batch_id=batch-logging-test", rendered)
+        self.assertIn("status_code=503", rendered)
+        self.assertIn("upstream_request_id=upstream-request-1", rendered)
+        self.assertIn("generation_rejected", rendered)
+        self.assertIn("<redacted", rendered)
+        self.assertNotIn("prompt that must stay private", rendered)
+        self.assertNotIn("pst-test-secret", rendered)
+
+    def test_unexpected_failure_logs_stage_exception_and_traceback(self) -> None:
+        with self.assertLogs(main.logger, level="ERROR") as captured:
+            try:
+                raise RuntimeError("connection closed mid-response")
+            except RuntimeError as exc:
+                main.log_generation_exception(
+                    self.job(),
+                    batch_id="batch-logging-test",
+                    stage="upstream_request",
+                    exc=exc,
+                    elapsed_ms=5015,
+                )
+
+        rendered = "\n".join(captured.output)
+        self.assertIn("kind=exception", rendered)
+        self.assertIn("stage=upstream_request", rendered)
+        self.assertIn("exception_type=RuntimeError", rendered)
+        self.assertIn("connection closed mid-response", rendered)
+        self.assertIn("Traceback", rendered)
+        self.assertNotIn("prompt that must stay private", rendered)
+
+    def test_invalid_upstream_archive_logs_the_decode_traceback(self) -> None:
+        with self.assertLogs(main.logger, level="ERROR") as captured:
+            image = main.decode_zip_image(b"not-a-zip-archive")
+
+        self.assertIsNone(image)
+        rendered = "\n".join(captured.output)
+        self.assertIn("novelai_image_archive_decode_failed", rendered)
+        self.assertIn("exception_type=BadZipFile", rendered)
+        self.assertIn("response_bytes=17", rendered)
+        self.assertIn("Traceback", rendered)
+
+
 class AtomicGenerationBatchTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.db = sqlite3.connect(":memory:", isolation_level=None)

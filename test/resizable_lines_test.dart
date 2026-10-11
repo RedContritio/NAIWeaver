@@ -80,5 +80,20 @@ void main() {
         4,
       );
     });
+
+    test('main prompt allows substantially more visible lines', () {
+      expect(kMainPromptMinLines, 3);
+      expect(kMainPromptMaxLines, greaterThan(kCharPromptMaxLines));
+      expect(
+        linesAfterDrag(
+          startLines: 3,
+          dragDy: lineHeight * 100,
+          lineHeightPx: lineHeight,
+          minLines: kMainPromptMinLines,
+          maxLines: kMainPromptMaxLines,
+        ),
+        kMainPromptMaxLines,
+      );
+    });
   });
 }

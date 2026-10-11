@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
 import '../services/client_diagnostics.dart';
+import 'browser_native_text_area_key_policy.dart';
 
 const bool supportsBrowserNativeTextArea = true;
 
@@ -263,10 +264,15 @@ class _BrowserNativeTextAreaState extends State<BrowserNativeTextArea>
           event.altKey,
           event.shiftKey,
         );
-        if (handled == true) {
+        final policy = browserNativeTextAreaKeyPolicy(handled == true);
+        if (policy.preventDefault) {
           event.preventDefault();
-          event.stopPropagation();
         }
+        // Editing belongs to the real DOM textarea. Let the browser perform
+        // unhandled input (notably Space), but never bubble the same key into
+        // Flutter's document-level keyboard dispatcher where it can be
+        // interpreted as an app shortcut or scrolling command.
+        if (policy.stopPropagation) event.stopPropagation();
       }).toJS,
     );
     _element = textarea;
