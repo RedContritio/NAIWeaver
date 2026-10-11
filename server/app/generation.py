@@ -33,6 +33,7 @@ from .billing import (
     reserve_points,
     settle_amount,
     settle_points,
+    settlement_transaction,
 )
 from .db import (
     db_session,
@@ -667,10 +668,10 @@ def persist_generation_failure(
 ) -> str | None:
     """Durably fail one item and release its reservation."""
     with db_session() as db:
-        batch_id = fail_generation_item(
-            db, job.task_id, error_code=error_code, error_message=error_message
-        )
-        db.commit()
+        with settlement_transaction(db):
+            batch_id = fail_generation_item(
+                db, job.task_id, error_code=error_code, error_message=error_message
+            )
     return batch_id
 
 
@@ -680,17 +681,17 @@ async def fail_queued_free_jobs() -> None:
     async with state.queue_condition:
         state.pending_jobs[:] = [job for job in state.pending_jobs if job.quota_mode == "paid"]
     with db_session() as db:
-        rows = db.execute(
-            "SELECT id FROM generation_tasks WHERE status = 'queued' AND mode <> 'paid'"
-        ).fetchall()
-        for row in rows:
-            fail_generation_item(
-                db,
-                str(row["id"]),
-                error_code="free_allowance_exhausted",
-                error_message=FREE_ALLOWANCE_EXHAUSTED_MESSAGE,
-            )
-        db.commit()
+        with settlement_transaction(db):
+            rows = db.execute(
+                "SELECT id FROM generation_tasks WHERE status = 'queued' AND mode <> 'paid'"
+            ).fetchall()
+            for row in rows:
+                fail_generation_item(
+                    db,
+                    str(row["id"]),
+                    error_code="free_allowance_exhausted",
+                    error_message=FREE_ALLOWANCE_EXHAUSTED_MESSAGE,
+                )
 
 
 def record_free_measurement(
@@ -738,24 +739,24 @@ def record_decode_failure(job: ProxyJob, call: UpstreamImageCall) -> bool:
     delta = call.measured_delta
     exhausted = False
     with db_session() as db:
-        item = db.execute(
-            "SELECT reserved_points FROM generation_tasks WHERE id = ?", (job.task_id,)
-        ).fetchone()
-        reserved = int(item["reserved_points"] or 0) if item else 0
-        if job.quota_mode == "paid":
-            record_billing_anomaly(
-                db,
-                kind=ANOMALY_DECODE_FAILED,
-                user_id=job.user_id,
-                task_id=job.task_id,
-                mode="paid",
-                quoted=reserved,
-                measured=delta,
-                note="NovelAI returned no valid image; reservation released",
-            )
-        else:
-            exhausted = record_free_measurement(db, job, reserved, delta)
-        db.commit()
+        with settlement_transaction(db):
+            item = db.execute(
+                "SELECT reserved_points FROM generation_tasks WHERE id = ?", (job.task_id,)
+            ).fetchone()
+            reserved = int(item["reserved_points"] or 0) if item else 0
+            if job.quota_mode == "paid":
+                record_billing_anomaly(
+                    db,
+                    kind=ANOMALY_DECODE_FAILED,
+                    user_id=job.user_id,
+                    task_id=job.task_id,
+                    mode="paid",
+                    quoted=reserved,
+                    measured=delta,
+                    note="NovelAI returned no valid image; reservation released",
+                )
+            else:
+                exhausted = record_free_measurement(db, job, reserved, delta)
     return exhausted
 
 
@@ -768,66 +769,66 @@ def settle_generation_success(
     """
     exhausted = False
     with db_session() as db:
-        item = db.execute(
-            "SELECT status, reserved_points, batch_id FROM generation_tasks WHERE id = ?",
-            (job.task_id,),
-        ).fetchone()
-        if item is None or item["status"] != "running":
-            return False
-        reserved = int(item["reserved_points"] or 0)
-        kind = point_kind_for_mode(job.quota_mode)
-        delta = call.measured_delta
-        if job.quota_mode == "paid":
-            charged, above_quote = settle_amount(reserved, delta)
-            if delta == 0:
-                # Paid work cannot cost nothing: the balance was not
-                # measurable, so the quote stands.
+        with settlement_transaction(db):
+            item = db.execute(
+                "SELECT status, reserved_points, batch_id FROM generation_tasks WHERE id = ?",
+                (job.task_id,),
+            ).fetchone()
+            if item is None or item["status"] != "running":
+                return False
+            reserved = int(item["reserved_points"] or 0)
+            kind = point_kind_for_mode(job.quota_mode)
+            delta = call.measured_delta
+            if job.quota_mode == "paid":
+                charged, above_quote = settle_amount(reserved, delta)
+                if delta == 0:
+                    # Paid work cannot cost nothing: the balance was not
+                    # measurable, so the quote stands.
+                    charged = reserved
+                    record_billing_anomaly(
+                        db,
+                        kind=ANOMALY_UNMEASURED,
+                        user_id=job.user_id,
+                        task_id=job.task_id,
+                        mode="paid",
+                        quoted=reserved,
+                        measured=delta,
+                        note="Anlas balance did not change; charged the quote",
+                    )
+                elif above_quote:
+                    record_billing_anomaly(
+                        db,
+                        kind=ANOMALY_MEASURED_ABOVE_QUOTE,
+                        user_id=job.user_id,
+                        task_id=job.task_id,
+                        mode="paid",
+                        quoted=reserved,
+                        measured=delta,
+                        note="Measured Anlas delta exceeded the quote; charged the quote",
+                    )
+            else:
+                # Free work is always charged its green quote.
                 charged = reserved
-                record_billing_anomaly(
-                    db,
-                    kind=ANOMALY_UNMEASURED,
-                    user_id=job.user_id,
-                    task_id=job.task_id,
-                    mode="paid",
-                    quoted=reserved,
-                    measured=delta,
-                    note="Anlas balance did not change; charged the quote",
-                )
-            elif above_quote:
-                record_billing_anomaly(
-                    db,
-                    kind=ANOMALY_MEASURED_ABOVE_QUOTE,
-                    user_id=job.user_id,
-                    task_id=job.task_id,
-                    mode="paid",
-                    quoted=reserved,
-                    measured=delta,
-                    note="Measured Anlas delta exceeded the quote; charged the quote",
-                )
-        else:
-            # Free work is always charged its green quote.
-            charged = reserved
-            exhausted = record_free_measurement(db, job, reserved, delta)
-        settle_points(db, job.user_id, kind, reserved, charged)
-        db.execute(
-            """
-            UPDATE generation_tasks
-            SET status = 'success', image_path = ?,
-                consumed_green_points = ?, consumed_red_points = ?,
-                completed_at = ?
-            WHERE id = ?
-            """,
-            (
-                image_path,
-                charged if kind == "green" else 0,
-                charged if kind == "red" else 0,
-                now_iso(),
-                job.task_id,
-            ),
-        )
-        if item["batch_id"]:
-            refresh_submission_task(db, str(item["batch_id"]))
-        db.commit()
+                exhausted = record_free_measurement(db, job, reserved, delta)
+            settle_points(db, job.user_id, kind, reserved, charged)
+            db.execute(
+                """
+                UPDATE generation_tasks
+                SET status = 'success', image_path = ?,
+                    consumed_green_points = ?, consumed_red_points = ?,
+                    completed_at = ?
+                WHERE id = ?
+                """,
+                (
+                    image_path,
+                    charged if kind == "green" else 0,
+                    charged if kind == "red" else 0,
+                    now_iso(),
+                    job.task_id,
+                ),
+            )
+            if item["batch_id"]:
+                refresh_submission_task(db, str(item["batch_id"]))
     return exhausted
 
 

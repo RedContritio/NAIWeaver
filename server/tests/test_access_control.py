@@ -201,6 +201,24 @@ class AuditBodyAccessTests(AccessControlTestCase):
         self.assertNotEqual(escaped.content, b"outside")
 
 
+class AdminRoleChangeTests(AccessControlTestCase):
+    def test_demoting_an_admin_drops_the_unlimited_discount(self) -> None:
+        other_admin = support.create_user(self.db, "root2", "admin")
+        client = self.client_for(self.admin)
+        response = client.patch(f"/api/admin/users/{other_admin['id']}", json={"is_admin": False})
+        self.assertEqual(response.status_code, 200)
+        row = support.fetch_user(self.db, "root2")
+        self.assertEqual((row["is_admin"], row["green_point_discount"]), (0, 0))
+
+    def test_an_explicit_discount_wins_over_the_role_default(self) -> None:
+        other_admin = support.create_user(self.db, "root2", "admin")
+        self.client_for(self.admin).patch(
+            f"/api/admin/users/{other_admin['id']}",
+            json={"is_admin": False, "green_point_discount": 40},
+        )
+        self.assertEqual(support.fetch_user(self.db, "root2")["green_point_discount"], 40)
+
+
 class StatusEndpointTests(AccessControlTestCase):
     PATHS = ("/api/quota", "/api/queue", "/api/current-generation-task")
 

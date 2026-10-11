@@ -32,8 +32,10 @@ number) and compares them with `scripts/ui_conventions_baseline.txt`.
   or a clean file gains a violation. Fix the code; do not raise the baseline.
 - When counts go down it says so; run `scripts/check_ui_conventions.sh --update`
   and commit the new baseline so the improvement is locked in.
-- `.github/workflows/ci.yml` runs it with `flutter analyze` on every push to
-  `master` and every pull request.
+- `.github/workflows/ci.yml` runs it, `flutter analyze`, `flutter test`, the
+  Chrome browser tests, `node --test test/web/*.test.mjs` and the gateway unit
+  tests (Flutter pinned to 3.44.8) on every push to `master` and every pull
+  request.
 
 ## Tests
 

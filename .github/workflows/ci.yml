@@ -19,6 +19,7 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: 3.44.8
           channel: stable
           cache: true
 
@@ -26,3 +27,27 @@ jobs:
 
       - name: Analyze
         run: flutter analyze --no-fatal-infos
+
+      - name: Flutter tests
+        run: flutter test
+
+      - name: Browser tests
+        run: >
+          flutter test --platform chrome
+          test/browser_native_text_area_test.dart
+          test/browser_platform_view_lifecycle_test.dart
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Web script tests
+        run: node --test test/web/*.test.mjs
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Gateway tests
+        working-directory: server
+        run: |
+          uv sync --frozen
+          NAIWEAVER_DATA_DIR=$(mktemp -d) uv run python -m unittest discover -s tests
