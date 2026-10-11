@@ -5,21 +5,19 @@ NovelAI requests. The browser never receives the NovelAI token.
 
 ## Run
 
+Local development has no login screen: `NAIWEAVER_DEV_USER` signs every
+request from the loopback address (`127.0.0.1` or `::1`) in as that user.
+
 ```bash
 cd server
 uv sync
-NOVELAI_TOKEN_FILE="$HOME/.config/naiweaver/novelai_token.txt" \
-NAIWEAVER_ADMIN_PASSWORD='local-test-admin' \
-uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
-```
-
-For local tests without NovelAI:
-
-```bash
+NAIWEAVER_DEV_USER=admin \
 NAIWEAVER_FAKE_NOVELAI=1 \
-NAIWEAVER_ADMIN_PASSWORD='local-test-admin' \
 uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
+
+Use `NOVELAI_TOKEN_FILE="$HOME/.config/naiweaver/novelai_token.txt"` instead of
+`NAIWEAVER_FAKE_NOVELAI=1` to talk to the real NovelAI.
 
 ## Build Web
 
@@ -27,21 +25,25 @@ uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 flutter build web --release --output server/static/web
 ```
 
-Open `http://127.0.0.1:8000/` or the Mac mini LAN address.
+Open `http://127.0.0.1:8000/`.
 
-## Local Test Accounts
+## Local Development Users
 
-In development mode the backend bootstraps these local accounts when they do not
-exist. Production disables password login and test account bootstrap by default.
+In development mode the backend bootstraps three local users when they do not
+exist: `admin`, `free_user` and `paid_user`, each with its role's defaults (see
+below) and no password. Pick one with `NAIWEAVER_DEV_USER=admin` (or
+`free_user`, `paid_user`, or any existing user name).
 
-- `admin / local-test-admin`
-- `free_user / free-test-pass`
-- `paid_user / paid-test-pass`
+`NAIWEAVER_DEV_USER` only takes effect when all of these hold:
 
-Each is created with its role's defaults (see below). When
-`NAIWEAVER_ADMIN_PASSWORD` is set, every start resets the existing `admin`
-password and re-applies the admin role's permissions; point totals are left
-alone.
+- `NAIWEAVER_ENV` is not `production`;
+- only WebAuth is not configured (no `NAIWEAVER_AUTH_ISSUER`);
+- the request comes from `127.0.0.1` or `::1`.
+
+Otherwise requests get 401 `not_authenticated`. Production refuses to start
+when `NAIWEAVER_DEV_USER` is set: behind frp every request appears to come from
+`127.0.0.1`, so the loopback check is meaningless there. Because of that, do not
+expose a development gateway through a reverse proxy either.
 
 ## Production Auth
 
@@ -58,6 +60,12 @@ NAIWEAVER_AUTH_CLIENT_SECRET_FILE=/path/to/client.secret
 NAIWEAVER_AUTH_SUBJECT_MAP='{"immutable-provider-user-id":1}'
 NAIWEAVER_AUTH_KEY_CACHE_MINUTES=10080
 ```
+
+`NAIWEAVER_SECRET_KEY`, `NAIWEAVER_COOKIE_SECURE`,
+`NAIWEAVER_ALLOW_PASSWORD_LOGIN` and `NAIWEAVER_ADMIN_PASSWORD` are no longer
+used and can be removed from the env file. Password login and JWT sessions no
+longer exist; the unused `sessions` table and `users.password_hash` column stay
+in the schema until the next schema version.
 
 ### User and point administration
 

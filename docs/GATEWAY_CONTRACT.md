@@ -32,6 +32,11 @@ The client maps `code` to localized text and never shows raw exceptions.
 | `upstream_error` | 502 | `upstream_status` | NovelAI returned non-2xx (`upstream_status` is `null` when NovelAI was unreachable); upstream 401/403 are never forwarded as-is |
 | `interrupted` | — (task status) | | task was running when the gateway restarted; reservation released |
 
+Authentication is only-WebAuth (OIDC) in production. For local development,
+`NAIWEAVER_DEV_USER=<username>` signs loopback clients in as that user when
+`NAIWEAVER_ENV` is not `production` and no OIDC issuer is configured; the
+gateway refuses to start in production with it set. There is no password login.
+
 Other codes the gateway emits: `not_found` (404, including unknown `/api/*`
 paths), `task_active` (409, deleting a queued/running item),
 `duplicate_generation` / `duplicate_within_batch` (409, identical effective
