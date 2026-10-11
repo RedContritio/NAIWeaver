@@ -170,6 +170,7 @@ def admin_audit_logs(
     for row in rows:
         item = dict(row)
         item["request_body_available"] = bool(item["request_body_path"])
+        item["request_body_expired"] = bool(item["request_body_expired_at"])
         item["request_body_url"] = (
             f"/api/admin/audit/{item['id']}/body"
             if item["request_body_path"]
@@ -187,12 +188,18 @@ def admin_audit_body(
 ):
     row = db.execute(
         """
-        SELECT request_body_path, request_content_type
+        SELECT request_body_path, request_content_type, request_body_expired_at
         FROM request_audit_logs
         WHERE id = ?
         """,
         (audit_id,),
     ).fetchone()
+    if row and row["request_body_expired_at"]:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            "Audit body expired: removed by the audit retention policy "
+            f"at {row['request_body_expired_at']}",
+        )
     if not row or not row["request_body_path"]:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Audit body not found")
     audit_root = config.AUDIT_DIR.resolve()

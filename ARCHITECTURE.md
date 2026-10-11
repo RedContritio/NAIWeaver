@@ -284,6 +284,32 @@ lib/
                 └── slideshow_player.dart   # Full-screen slideshow playback
 ```
 
+## Gateway server modules
+
+The FastAPI gateway in `server/app/` is assembled by `main.py` (middleware,
+error handlers, lifespan, `include_router`; the entry point stays
+`app.main:app`). Everything else is split by domain:
+
+| Module | Role |
+|---|---|
+| `config.py` | Environment variables and constants. Read as `config.X` so tests can patch paths. |
+| `state.py` | All process-wide mutable state: HTTP client, image/text queue clocks and pending lists, upstream lane, tool response cache, background tasks. |
+| `db.py` | Connections, `SCHEMA`, `migrate_db`, `recompute_reserved_points`, bootstrap users. |
+| `users.py` | Role and permission helpers, user DTOs, quota/rules for a user. |
+| `auth.py` | `require_user` / `require_admin`, login/logout, `/api/me`, `/api/quota`, `only_auth` wiring. |
+| `audit.py` | Request audit rows, body files (written in threads), retention. |
+| `proxy.py` | NovelAI forwarding, text queue, paid tools, `/api/nai/...`. |
+| `generation.py` | Submission, queue, worker, restore on startup, settlement wiring, task status. |
+| `storage.py` | History image / thumbnail files and PNG helpers. |
+| `history.py`, `admin.py`, `feedback.py`, `web.py` | Routers for history, administration, client feedback, static files and the SPA fallback (included last). |
+
+`billing.py`, `upstream_lane.py`, `idempotency.py`, `errors.py`,
+`body_limit.py`, `roles.py`, `only_webauth.py`, `security.py` and `cli.py`
+stay standalone. Dependencies point downwards (config/state/db first, routers
+last); a billing transaction (`BEGIN IMMEDIATE`) never contains an `await`.
+Blocking file work (audit bodies, history images, thumbnails) runs through
+`asyncio.to_thread`.
+
 ## Provider Dependency Tree
 
 All state flows through `ChangeNotifier` subclasses provided via `MultiProvider` in `main.dart`:

@@ -157,6 +157,7 @@ CREATE TABLE IF NOT EXISTS request_audit_logs (
   request_body_path TEXT,
   request_body_bytes INTEGER NOT NULL DEFAULT 0,
   request_body_sha256 TEXT NOT NULL DEFAULT '',
+  request_body_expired_at TEXT,
   error_message TEXT,
   created_at TEXT NOT NULL,
   completed_at TEXT
@@ -560,6 +561,7 @@ def migrate_db(db: sqlite3.Connection) -> None:
           request_body_path TEXT,
           request_body_bytes INTEGER NOT NULL DEFAULT 0,
           request_body_sha256 TEXT NOT NULL DEFAULT '',
+          request_body_expired_at TEXT,
           error_message TEXT,
           created_at TEXT NOT NULL,
           completed_at TEXT
@@ -575,6 +577,7 @@ def migrate_db(db: sqlite3.Connection) -> None:
         "request_body_path": "TEXT",
         "request_body_bytes": "INTEGER NOT NULL DEFAULT 0",
         "request_body_sha256": "TEXT NOT NULL DEFAULT ''",
+        "request_body_expired_at": "TEXT",
     }
     for name, definition in audit_log_columns.items():
         if name not in audit_columns:

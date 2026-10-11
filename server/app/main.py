@@ -9,6 +9,7 @@ import httpx
 
 from . import admin, auth, config, feedback, generation, history, proxy, state, web
 from .auth import only_auth, validate_runtime_config
+from .audit import audit_retention_loop, run_audit_retention
 from .body_limit import BodySizeLimitMiddleware
 from .db import bootstrap_users, db_connect, init_db, reclaim_tool_reservations
 from .errors import error_response, install_error_handlers
@@ -33,9 +34,17 @@ async def lifespan(_: FastAPI):
     state.tool_response_cache = ToolResponseCache()
     await restore_generation_queue()
     state.queue_worker_task = asyncio.create_task(queue_worker())
+    await run_audit_retention()
+    state.audit_retention_task = asyncio.create_task(audit_retention_loop())
     try:
         yield
     finally:
+        if state.audit_retention_task is not None:
+            state.audit_retention_task.cancel()
+            try:
+                await state.audit_retention_task
+            except asyncio.CancelledError:
+                pass
         if state.queue_worker_task is not None:
             # The worker marks its running item 'interrupted' on cancellation.
             state.queue_worker_task.cancel()

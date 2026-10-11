@@ -48,6 +48,9 @@ MAX_QUEUED_IMAGE_TASKS_PER_USER = int(
 THUMBNAIL_MAX_SIZE = int(os.environ.get("NAIWEAVER_THUMBNAIL_MAX_SIZE", "512"))
 THUMBNAIL_WEBP_QUALITY = int(os.environ.get("NAIWEAVER_THUMBNAIL_WEBP_QUALITY", "76"))
 
+# Audit body files older than this are deleted at startup and daily; the audit
+# rows stay and are marked expired. 0 keeps bodies forever.
+AUDIT_RETENTION_DAYS = int(os.environ.get("NAIWEAVER_AUDIT_RETENTION_DAYS", "30"))
 QUEUE_WEIGHTS = {"free": 100, "paid": 500, "admin": 1000}
 AUDIT_MAX_STRING_CHARS = 20000
 GENERATION_ERROR_PREVIEW_MAX_CHARS = 4000

@@ -237,3 +237,13 @@ created_at, completed_at`
   "item_count", "created_at", "completed_at", "items"}`. A task whose items
   are all hidden is 404 `not_found` (or skipped by the current-task
   endpoint).
+
+## 8. Audit bodies (admin)
+
+- `GET /api/admin/audit` items carry `request_body_available` and
+  `request_body_expired`.
+- Audit request bodies are kept for `NAIWEAVER_AUDIT_RETENTION_DAYS` (default
+  30). After that `GET /api/admin/audit/{id}/body` is 404 with a message that
+  the body expired; the audit row itself is kept.
+- A rejected `POST /api/generation-tasks` is audited with metadata only (no
+  stored body).

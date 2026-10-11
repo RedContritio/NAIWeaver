@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import closing
+from datetime import datetime, timedelta, timezone
 import hashlib
 from pathlib import Path
 import secrets
 import sqlite3
 
 from . import config
-from .db import now_iso
+from .db import db_connect, now_iso
 
 
 def audit_request_preview(body: bytes) -> str:
@@ -129,3 +131,73 @@ def complete_audit_log(
         (status_code, error_message, now_iso(), audit_id),
     )
     db.commit()
+
+
+AUDIT_RETENTION_INTERVAL_SECONDS = 24 * 60 * 60
+
+
+def prune_expired_audit_bodies(
+    retention_days: int | None = None, now: datetime | None = None
+) -> int:
+    """Delete audit body files older than the retention period.
+
+    The audit rows stay; they lose ``request_body_path`` and gain
+    ``request_body_expired_at`` so the admin API can say the body expired.
+    Blocking: run it in a worker thread. Returns the number of bodies expired.
+    """
+    days = config.AUDIT_RETENTION_DAYS if retention_days is None else retention_days
+    if days <= 0:
+        return 0
+    cutoff = ((now or datetime.now(timezone.utc)) - timedelta(days=days)).isoformat()
+    audit_root = config.AUDIT_DIR.resolve()
+    expired = 0
+    with closing(db_connect()) as db:
+        rows = db.execute(
+            """
+            SELECT id, request_body_path
+            FROM request_audit_logs
+            WHERE request_body_path IS NOT NULL AND created_at < ?
+            """,
+            (cutoff,),
+        ).fetchall()
+        for row in rows:
+            target = (audit_root / row["request_body_path"]).resolve()
+            if audit_root in target.parents:
+                try:
+                    target.unlink(missing_ok=True)
+                except OSError:
+                    config.logger.exception("audit_body_delete_failed id=%s", row["id"])
+                    continue
+                for directory in (target.parent, target.parent.parent):
+                    try:
+                        if directory != audit_root:
+                            directory.rmdir()  # only succeeds when empty
+                    except OSError:
+                        break
+            db.execute(
+                """
+                UPDATE request_audit_logs
+                SET request_body_path = NULL, request_body_expired_at = ?
+                WHERE id = ?
+                """,
+                (now_iso(), row["id"]),
+            )
+            expired += 1
+        db.commit()
+    return expired
+
+
+async def run_audit_retention() -> None:
+    try:
+        expired = await asyncio.to_thread(prune_expired_audit_bodies)
+    except Exception:
+        config.logger.exception("audit_retention_failed")
+        return
+    if expired:
+        config.logger.info("audit_retention_expired bodies=%d", expired)
+
+
+async def audit_retention_loop() -> None:
+    while True:
+        await asyncio.sleep(AUDIT_RETENTION_INTERVAL_SECONDS)
+        await run_audit_retention()

@@ -11,6 +11,7 @@ from .upstream_lane import FREE_PRIORITY, RED_PRIORITY, UpstreamLane
 http_client: httpx.AsyncClient | None = None
 queue_condition: asyncio.Condition | None = None
 queue_worker_task: asyncio.Task | None = None
+audit_retention_task: asyncio.Task | None = None
 pending_jobs: list["ProxyJob"] = []
 active_user_ids: set[int] = set()
 queue_virtual_time = 0.0

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import tests  # noqa: F401  # isolates the data directories before app imports
 
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import tempfile
@@ -85,3 +86,59 @@ class SubmissionAuditTests(AuditTestCase):
         stored = config.AUDIT_DIR / row["request_body_path"]
         self.assertEqual(stored.read_bytes(), body)
         self.assertEqual(row["request_body_bytes"], len(body))
+
+
+class RetentionTests(AuditTestCase):
+    def add_audit(self, audit_id: str, age_days: int, body: bytes) -> Path:
+        created = datetime.now(timezone.utc) - timedelta(days=age_days)
+        relative = Path(created.date().isoformat()) / "user-1" / f"{audit_id}.body"
+        target = config.AUDIT_DIR / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(body)
+        self.db.execute(
+            "INSERT INTO request_audit_logs(id, user_id, service, path, method, "
+            "request_content_type, request_body_path, request_body_bytes, created_at) "
+            "VALUES (?, ?, 'image', '/x', 'POST', 'application/json', ?, ?, ?)",
+            (audit_id, self.owner["id"], relative.as_posix(), len(body), created.isoformat()),
+        )
+        self.db.commit()
+        return target
+
+    def test_expired_bodies_are_deleted_and_recent_ones_kept(self) -> None:
+        old = self.add_audit("old", 45, b"old body")
+        fresh = self.add_audit("fresh", 5, b"fresh body")
+        with mock.patch.object(config, "AUDIT_RETENTION_DAYS", 30):
+            self.assertEqual(audit.prune_expired_audit_bodies(), 1)
+        self.assertFalse(old.exists())
+        self.assertTrue(fresh.exists())
+        rows = {r["id"]: r for r in self.audit_rows()}
+        self.assertIsNone(rows["old"]["request_body_path"])
+        self.assertIsNotNone(rows["old"]["request_body_expired_at"])
+        self.assertIsNone(rows["fresh"]["request_body_expired_at"])
+        self.assertEqual(
+            rows["fresh"]["request_body_path"],
+            fresh.relative_to(config.AUDIT_DIR).as_posix(),
+        )
+
+    def test_reading_an_expired_body_is_404_and_says_expired(self) -> None:
+        self.add_audit("old", 45, b"old body")
+        self.add_audit("fresh", 5, b"fresh body")
+        with mock.patch.object(config, "AUDIT_RETENTION_DAYS", 30):
+            audit.prune_expired_audit_bodies()
+        admin = self.client_for(self.admin)
+        expired = admin.get("/api/admin/audit/old/body")
+        self.assertEqual(expired.status_code, 404)
+        self.assertIn("expired", json.dumps(expired.json()).lower())
+        fresh = admin.get("/api/admin/audit/fresh/body")
+        self.assertEqual(fresh.status_code, 200)
+        self.assertEqual(fresh.content, b"fresh body")
+        items = {i["id"]: i for i in admin.get("/api/admin/audit").json()["items"]}
+        self.assertTrue(items["old"]["request_body_expired"])
+        self.assertFalse(items["old"]["request_body_available"])
+        self.assertFalse(items["fresh"]["request_body_expired"])
+
+    def test_zero_days_keeps_everything(self) -> None:
+        old = self.add_audit("old", 400, b"old body")
+        with mock.patch.object(config, "AUDIT_RETENTION_DAYS", 0):
+            self.assertEqual(audit.prune_expired_audit_bodies(), 0)
+        self.assertTrue(old.exists())
