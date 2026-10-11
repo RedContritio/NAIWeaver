@@ -304,7 +304,7 @@ class GenerationImagePersistence {
         ]);
       } catch (e) {
         if (context.mounted) {
-          showAppSnackBar(context, 'Share failed: $e', tone: AppTone.error);
+          showAppSnackBar(context, context.l.galleryShareFailed('$e'), tone: AppTone.error);
         }
       }
       return;
@@ -318,13 +318,13 @@ class GenerationImagePersistence {
       if (clipboard != null) {
         await clipboard.write([item]);
         if (context.mounted) {
-          showAppSnackBar(context, 'COPIED TO CLIPBOARD');
+          showAppSnackBar(context, context.l.galleryCopiedToClipboard);
         }
         return;
       }
     } catch (_) {}
     if (context.mounted) {
-      showAppSnackBar(context, 'CLIPBOARD NOT AVAILABLE', tone: AppTone.error);
+      showAppSnackBar(context, context.l.galleryClipboardUnavailable, tone: AppTone.error);
     }
   }
 
@@ -358,7 +358,7 @@ class GenerationImagePersistence {
           if (context.mounted) {
             showAppSnackBar(
               context,
-              'EXPORT FOLDER UNAVAILABLE — RE-PICK IT IN SETTINGS',
+              context.l.galleryExportFolderUnavailable,
               tone: AppTone.error,
             );
           }
@@ -378,9 +378,9 @@ class GenerationImagePersistence {
         }
         if (context.mounted) {
           final label = SafExportService.isSafUri(customFolder)
-              ? 'SD CARD'
-              : p.basename(customFolder).toUpperCase();
-          showAppSnackBar(context, 'SAVED TO $label');
+              ? context.l.gallerySdCard
+              : p.basename(customFolder);
+          showAppSnackBar(context, context.l.gallerySavedTo(label));
         }
         return;
       }
@@ -393,7 +393,7 @@ class GenerationImagePersistence {
       } else {
         // Desktop: show save file dialog
         final result = await FilePicker.platform.saveFile(
-          dialogTitle: 'Export Image',
+          dialogTitle: context.l.galleryExportImageDialog,
           fileName: '$exportName.png',
           type: FileType.image,
         );
@@ -402,13 +402,13 @@ class GenerationImagePersistence {
         if (context.mounted) {
           showAppSnackBar(
             context,
-            'SAVED TO ${p.basename(result).toUpperCase()}',
+            context.l.gallerySavedTo(p.basename(result)),
           );
         }
       }
     } catch (e) {
       if (context.mounted) {
-        showAppSnackBar(context, 'Export failed: $e', tone: AppTone.error);
+        showAppSnackBar(context, context.l.galleryExportFailed('$e'), tone: AppTone.error);
       }
     }
   }

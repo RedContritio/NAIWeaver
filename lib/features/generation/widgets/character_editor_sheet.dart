@@ -193,7 +193,7 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'CHARACTER ${widget.index + 1} EDITOR',
+                  context.l.charEditorSheetTitle(widget.index + 1),
                   style: TextStyle(
                     fontWeight: FontWeight.w900,
                     fontSize: t.fontSize(12),
@@ -219,7 +219,7 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
             ),
             const SizedBox(height: 24),
             Text(
-              'CHARACTER NAME',
+              context.l.charEditorCharacterName,
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 fontSize: t.fontSize(9),
@@ -236,7 +236,7 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
                 height: 1.4,
               ),
               decoration: InputDecoration(
-                hintText: 'NAME (OPTIONAL)',
+                hintText: context.l.charEditorNameOptional,
                 hintStyle: TextStyle(
                   fontSize: t.fontSize(9),
                   color: t.textMinimal,
@@ -261,7 +261,7 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
             ),
             const SizedBox(height: 20),
             Text(
-              'CHARACTER PROMPT',
+              context.l.charEditorCharacterPrompt,
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 fontSize: t.fontSize(9),
@@ -280,7 +280,7 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
                   height: 1.4,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'ENTER TAGS',
+                  hintText: context.l.charEditorEnterTags,
                   hintStyle: TextStyle(
                     fontSize: t.fontSize(9),
                     color: t.textMinimal,
@@ -322,7 +322,7 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
             ),
             const SizedBox(height: 20),
             Text(
-              'CHARACTER UC',
+              context.l.charEditorCharacterUc,
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 fontSize: t.fontSize(9),
@@ -341,7 +341,7 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
                   height: 1.4,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'ENTER TAGS',
+                  hintText: context.l.charEditorEnterTags,
                   hintStyle: TextStyle(
                     fontSize: t.fontSize(9),
                     color: t.textMinimal,
@@ -388,7 +388,7 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
               )
             else ...[
               Text(
-                'POSITION (5x5 GRID)',
+                context.l.charEditorPositionGrid,
                 style: TextStyle(
                   fontWeight: FontWeight.w900,
                   fontSize: t.fontSize(9),
@@ -427,7 +427,7 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
                 ),
               ),
               child: Text(
-                'SAVE CHARACTER',
+                context.l.charEditorSaveCharacter,
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   letterSpacing: 2,

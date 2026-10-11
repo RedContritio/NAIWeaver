@@ -137,9 +137,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mainPresetName => '预设名称';
 
   @override
-  String get mainAdvancedSettings => '高级设置';
-
-  @override
   String get generationSheetPrompt => '提示词';
 
   @override
@@ -451,19 +448,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsEditPositivePrefix => '编辑正向前缀';
 
   @override
-  String get settingsEditNegativePrefix => '编辑负向前缀';
-
-  @override
   String get settingsDemoPrefixes => '演示前缀';
 
   @override
-  String get settingsNotSet => '（未设置）';
-
-  @override
   String get settingsGithubRepository => 'GitHub 仓库';
-
-  @override
-  String get settingsGithubPlaceholder => 'GitHub 链接占位符';
 
   @override
   String get galleryTitle => '图库';
@@ -826,9 +814,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get panelSampler => '采样器';
 
   @override
-  String get panelPostProcessing => '后期处理';
-
-  @override
   String get panelStyles => '风格';
 
   @override
@@ -1027,15 +1012,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get helpShortcutArtistPrefix => '筛选画师标签';
-
-  @override
-  String get helpShortcutSourceAction => '执行动作的角色';
-
-  @override
-  String get helpShortcutTargetAction => '接收动作的角色';
-
-  @override
-  String get helpShortcutMutualAction => '角色间互动动作';
 
   @override
   String get helpShortcutEnter => '生成（或选择标签建议）';
@@ -1523,12 +1499,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get refVibeTransfer => '氛围迁移';
 
   @override
-  String get refDialogCancel => '取消';
-
-  @override
-  String get refDialogSave => '保存';
-
-  @override
   String get refNameHint => '名称';
 
   @override
@@ -1583,9 +1553,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get refSaveVibe => '保存氛围';
-
-  @override
-  String get refVibeTransfers => '氛围迁移';
 
   @override
   String refVibeCount(int count) {
@@ -1690,9 +1657,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get packExportGalleryZipDesc => '保留相册文件夹结构';
-
-  @override
-  String get packImportDialogTitle => '导入 NAIWeaver 包';
 
   @override
   String packFailedRead(String error) {
@@ -2252,15 +2216,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get img2imgUseAsSource => '设为原图';
 
   @override
-  String get img2imgInpainting => '局部重绘';
-
-  @override
-  String get img2imgTitle => '图生图';
-
-  @override
-  String get img2imgEditorLabel => '编辑器';
-
-  @override
   String get img2imgBackToPicker => '返回选择器';
 
   @override
@@ -2675,9 +2630,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsUpdateInstallFailed => '无法启动安装程序';
 
   @override
-  String get settingsUpdateSkipVersion => '跳过此版本';
-
-  @override
   String get settingsUpdateOpenInBrowser => '在浏览器中打开';
 
   @override
@@ -2699,7 +2651,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mainEstimatedCostReference => '参考图';
 
   @override
-  String get mainEstimatedCostVibe => 'Vibe';
+  String get mainEstimatedCostVibe => '氛围迁移';
 
   @override
   String get mainEstimatedCostSerialImages => '串行张数';
@@ -2762,9 +2714,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get canvasRedo => '重做';
 
   @override
-  String get canvasClear => '清空所有笔触';
-
-  @override
   String get canvasFlatten => '合并图层';
 
   @override
@@ -2788,21 +2737,6 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get canvasFlattening => '合并中…';
-
-  @override
-  String get canvasRestoreSession => '检测到上一次画布会话，是否恢复？';
-
-  @override
-  String get canvasRestore => '恢复';
-
-  @override
-  String get canvasAutoSave => '画布自动保存';
-
-  @override
-  String get canvasAutoSaveDesc => '自动保存画布编辑会话用于崩溃恢复';
-
-  @override
   String get canvasColor => '颜色';
 
   @override
@@ -2818,15 +2752,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get canvasLayerDuplicate => '复制图层';
 
   @override
-  String get canvasLayerRename => '重命名';
-
-  @override
-  String get canvasLayerVisible => '可见';
-
-  @override
-  String get canvasLayerHidden => '隐藏';
-
-  @override
   String get canvasLayerOpacity => '不透明度';
 
   @override
@@ -2834,11 +2759,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get canvasLayerDeleteConfirm => '删除此图层？笔触将会丢失。';
-
-  @override
-  String canvasLayerDefault(int number) {
-    return '图层 $number';
-  }
 
   @override
   String get canvasLayerClear => '清空图层';
@@ -2883,9 +2803,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get canvasTextSize => '大小';
 
   @override
-  String get canvasTextPlace => '放置';
-
-  @override
   String get canvasTextFont => '字体';
 
   @override
@@ -2922,18 +2839,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get canvasPaletteHoldHint => '长按替换';
 
   @override
-  String get canvasBlendNormal => '正常';
-
-  @override
-  String get canvasBlendMultiply => '正片叠底';
-
-  @override
-  String get canvasBlendScreen => '滤色';
-
-  @override
-  String get canvasBlendOverlay => '叠加';
-
-  @override
   String get settingsOutputFolder => '输出文件夹';
 
   @override
@@ -2964,9 +2869,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsFolderUseDefault => '使用默认文件夹';
-
-  @override
-  String get settingsOutputFolderClear => '清空';
 
   @override
   String get settingsUseSdCard => '使用SD卡';
@@ -3125,15 +3027,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String charEditorMutualDisplay(String source, String target, String action) {
-    return '$source ↔ $target：$action';
-  }
-
-  @override
   String get charEditorSavePreset => '保存预设';
-
-  @override
-  String get charEditorLoadPreset => '加载预设';
 
   @override
   String get charEditorPresetName => '预设名称';
@@ -3523,9 +3417,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get jukeboxSettings => '设置';
 
   @override
-  String get jukeboxQueue => '队列';
-
-  @override
   String get jukeboxQueueEmpty => '队列为空';
 
   @override
@@ -3575,15 +3466,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get jukeboxCategoryRock => '摇滚';
-
-  @override
-  String get jukeboxEnableMusic => '启用音乐';
-
-  @override
-  String get jukeboxMusicVolume => '音乐音量';
-
-  @override
-  String get jukeboxKaraokeLyrics => '卡拉OK歌词';
 
   @override
   String get mlModels => '机器学习模型';
@@ -3695,13 +3577,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mlTierQuality => '质量';
 
   @override
-  String get mlRemovingBg => '正在移除背景';
-
-  @override
   String get mlUpscalingImages => '正在放大图像';
-
-  @override
-  String get mlBgRemovalFailed => '背景移除失败';
 
   @override
   String get mlUpscaleFailed => '图像放大失败';
@@ -4009,9 +3885,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get commonMenu => '菜单';
 
   @override
-  String get presetDuplicate => '复制';
-
-  @override
   String get presetLoad => '加载预设';
 
   @override
@@ -4125,18 +3998,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsExportFolderDefault => '默认（设备相册）';
 
   @override
-  String get settingsUpscaleBackend => '放大后端';
-
-  @override
-  String get settingsUpscaleBackendDesc => '选择本地机器学习模型或 NovelAI API 进行放大';
-
-  @override
-  String get settingsUpscaleBackendMl => '机器学习（本地）';
-
-  @override
-  String get settingsUpscaleBackendNovelai => 'NovelAI（API）';
-
-  @override
   String get quickActionEnhance => '增强';
 
   @override
@@ -4239,9 +4100,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get jukeboxSelectInstrument => '选择乐器';
-
-  @override
-  String get jukeboxWatch => '观看';
 
   @override
   String get jukeboxPlayGame => '开始游戏';
@@ -4488,12 +4346,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get directorToolsFromGallery => '来自图库';
 
   @override
-  String get settingsBgRemovalBackend => '背景移除后端';
-
-  @override
-  String get settingsBgRemovalBackendDesc => '选择本地机器学习模型或 NovelAI API 进行背景移除';
-
-  @override
   String get importDialogTitle => '导入元数据';
 
   @override
@@ -4528,12 +4380,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get img2imgOutputRes => '输出分辨率';
-
-  @override
-  String get img2imgResetRes => '重置为原图';
-
-  @override
-  String get img2imgChangeRes => '更改';
 
   @override
   String get duplicateImageWarning => '生成的图像与上次完全相同——请尝试更换种子或检查氛围迁移/参考图';
@@ -4800,7 +4646,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get quoteReasonDirectorRefs => '包含精确参考图';
 
   @override
-  String get quoteReasonVibes => '包含 Vibe';
+  String get quoteReasonVibes => '包含氛围迁移';
 
   @override
   String get quoteReasonAllowanceExhausted => '免费额度暂时用尽';
@@ -4852,7 +4698,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String generationInputsActive(int references, int vibes) {
-    return '参考图 $references · VIBE $vibes';
+    return '参考图 $references · 氛围迁移 $vibes';
   }
 
   @override
@@ -4861,7 +4707,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get generationInputsTooltip => '下一张图会带上的参考图和 Vibe。点击打开。';
+  String get generationInputsTooltip => '下一张图会带上的参考图和氛围迁移。点击打开。';
 
   @override
   String get refPausedNoRedPoints => '已暂停：红点不足，不会发送。';
@@ -4876,7 +4722,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String refAccessCountVibes(int count) {
-    return '$count 个 Vibe';
+    return '$count 个氛围迁移';
   }
 
   @override
@@ -5046,4 +4892,474 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get photoshootStyleInk => '墨水';
+
+  @override
+  String get cascadeHelpTitle => '分镜指南';
+
+  @override
+  String get cascadeHelpOverviewHeader => '概览';
+
+  @override
+  String get cascadeHelpOverviewBody =>
+      '分镜用于生成角色保持一致的多镜头场景序列。每个镜头对应一次生成，拥有各自的环境、角色姿态和设置。角色外观只需在角色分配页设置一次，即可应用到所有镜头。';
+
+  @override
+  String get cascadeHelpSetupHeader => '设置流程';
+
+  @override
+  String get cascadeHelpStepCreate => '创建';
+
+  @override
+  String get cascadeHelpStepCreateDesc => '设置名称、角色数量（0-5）和定位模式';
+
+  @override
+  String get cascadeHelpStepEdit => '编辑镜头';
+
+  @override
+  String get cascadeHelpStepEditDesc => '为每个镜头设置场景/动作、环境、角色提示词、动作、位置、风格和参数';
+
+  @override
+  String get cascadeHelpStepCast => '分配角色';
+
+  @override
+  String get cascadeHelpStepCastDesc => '保存并返回主界面的播放视图';
+
+  @override
+  String get cascadeHelpStepGenerate => '生成';
+
+  @override
+  String get cascadeHelpStepGenerateDesc => '填写角色外观和可选的全局注入内容，然后逐个生成镜头';
+
+  @override
+  String get cascadeHelpBasePromptHeader => '基础提示词';
+
+  @override
+  String get cascadeHelpScene => '场景 / 动作';
+
+  @override
+  String get cascadeHelpSceneDesc =>
+      '基础提示词中描述正在发生什么、如何取景的标签（例如 \"2girls, hugging, wide shot, from above\"）。人数、动作和镜头类标签放在这里。';
+
+  @override
+  String get cascadeHelpEnvironment => '环境';
+
+  @override
+  String get cascadeHelpEnvironmentDesc =>
+      '基础提示词中描述场景发生地点的标签（例如 \"forest, night, indoors\"）。';
+
+  @override
+  String get cascadeHelpBasePromptNote =>
+      '两者都是标签（而非自然语言），会合并进同一个基础提示词：场景 / 动作在前，环境在后。';
+
+  @override
+  String get cascadeHelpSlotsHeader => '角色槽位';
+
+  @override
+  String get cascadeHelpSlotPositive => '正向提示词';
+
+  @override
+  String get cascadeHelpSlotPositiveDesc => '每个镜头的角色标签（例如 \"happy, sitting\"）';
+
+  @override
+  String get cascadeHelpSlotNegative => '负向提示词';
+
+  @override
+  String get cascadeHelpSlotNegativeDesc => '该角色在每个镜头中不希望出现的内容';
+
+  @override
+  String get cascadeHelpSlotGrid => '位置网格';
+
+  @override
+  String get cascadeHelpSlotGridDesc => '5x5 网格，用于精确定位（需开启手动定位）';
+
+  @override
+  String get cascadeHelpSlotActions => '动作标签';
+
+  @override
+  String get cascadeHelpSlotActionsDesc => '设置该镜头中角色之间的互动';
+
+  @override
+  String get cascadeHelpActionsHeader => '动作互动';
+
+  @override
+  String get cascadeHelpActionsIntro => '点击角色槽位之间的链接图标，即可为该镜头设置互动。';
+
+  @override
+  String get cascadeHelpSourceTarget => '发起者 → 对象';
+
+  @override
+  String get cascadeHelpSourceTargetDesc => '有方向的动作（例如 A 拥抱 B）';
+
+  @override
+  String get cascadeHelpMutual => '相互 ↔';
+
+  @override
+  String get cascadeHelpMutualDesc => '双方对等参与的动作（例如牵手）';
+
+  @override
+  String get cascadeHelpActionsNote =>
+      '标签会以 source#action、target#action 或 mutual#action 的形式嵌入角色提示词。';
+
+  @override
+  String get cascadeHelpCastingHeader => '角色分配页';
+
+  @override
+  String get cascadeHelpCastAppearance => '角色外观';
+
+  @override
+  String get cascadeHelpCastAppearanceDesc =>
+      '每个角色的基础外观（例如 \"1girl, blue hair\"），所有镜头共用';
+
+  @override
+  String get cascadeHelpCastGlobalScene => '全局场景';
+
+  @override
+  String get cascadeHelpCastGlobalSceneDesc =>
+      '应用到每个镜头的场景/动作标签（例如 \"2girls, school uniform\"），排在各镜头自己的场景 / 动作标签之前';
+
+  @override
+  String get cascadeHelpCastInjection => '全局注入';
+
+  @override
+  String get cascadeHelpCastInjectionDesc => '附加到每个镜头的额外提示词或风格';
+
+  @override
+  String get cascadeHelpCastThumbs => '镜头缩略图';
+
+  @override
+  String get cascadeHelpCastThumbsDesc => '点击选择；生成后显示预览';
+
+  @override
+  String get cascadeHelpCastCaption => '旁白字幕';
+
+  @override
+  String get cascadeHelpCastCaptionDesc =>
+      '显示在镜头预览上的自由文本旁白（仅用于显示），是自然语言而非标签。可用眼睛图标切换显示。不会随分镜一起保存。';
+
+  @override
+  String get cascadeHelpCastExport => '导出';
+
+  @override
+  String get cascadeHelpCastExportDesc =>
+      '将字幕烧录进单个镜头的 PNG，或把所有已生成的镜头拼成纵向/横向故事板长图（分享图标）';
+
+  @override
+  String get cascadeHelpCastGenerate => '生成';
+
+  @override
+  String get cascadeHelpCastGenerateDesc => '生成当前选中的镜头，并自动跳到下一个';
+
+  @override
+  String get cascadeHelpPerBeatHeader => '单镜头设置';
+
+  @override
+  String get cascadeHelpPerBeatBody =>
+      '每个镜头可以有自己的分辨率、采样器、步数、引导强度和风格。风格从你的风格库中按镜头单独开关。';
+
+  @override
+  String get cascadeHelpTipsHeader => '小技巧';
+
+  @override
+  String get cascadeHelpTip1 => '镜头之间换场景时，修改环境标签';
+
+  @override
+  String get cascadeHelpTip2 => '在角色分配页保持角色外观一致';
+
+  @override
+  String get cascadeHelpTip3 => '按镜头修改动作标签，展现互动的变化';
+
+  @override
+  String get cascadeHelpTip4 => '复制镜头，可快速迭代相似的场景';
+
+  @override
+  String get cascadeHelpTip5 => '每个镜头可使用不同风格来营造不同氛围';
+
+  @override
+  String get canvasHelpToolsHeader => '工具';
+
+  @override
+  String get canvasHelpPaint => '画笔 — 自由绘制';
+
+  @override
+  String get canvasHelpErase => '擦除 — 擦掉笔触';
+
+  @override
+  String get canvasHelpLine => '直线 — 绘制直线';
+
+  @override
+  String get canvasHelpRectangle => '矩形 — 空心或实心';
+
+  @override
+  String get canvasHelpCircle => '圆形 / 椭圆';
+
+  @override
+  String get canvasHelpFill => '填充 — 区域填色';
+
+  @override
+  String get canvasHelpText => '文字 — 在画布上添加文字';
+
+  @override
+  String get canvasHelpEyedropper => '取色 — 吸取颜色';
+
+  @override
+  String get canvasHelpTransform => '移动 — 移动/缩放图层';
+
+  @override
+  String get canvasHelpSelect => '选区 — 矩形选择';
+
+  @override
+  String get canvasHelpLasso => '套索 — 自由选择';
+
+  @override
+  String get canvasHelpBlur => '模糊 — 高斯模糊笔刷';
+
+  @override
+  String get canvasHelpClone => '仿制图章 — 从源点复制';
+
+  @override
+  String get canvasHelpNavigationHeader => '视图操作';
+
+  @override
+  String get canvasHelpKeySpaceDrag => '空格 + 拖动';
+
+  @override
+  String get canvasHelpPan => '平移画布';
+
+  @override
+  String get canvasHelpKeyScroll => '滚轮';
+
+  @override
+  String get canvasHelpZoom => '放大 / 缩小';
+
+  @override
+  String get canvasHelpKeyCtrlScroll => 'Ctrl + 滚轮';
+
+  @override
+  String get canvasHelpBrushSize => '调整笔刷大小';
+
+  @override
+  String get canvasHelpBrushStep => '减小 / 增大笔刷';
+
+  @override
+  String get canvasHelpActionsHeader => '操作';
+
+  @override
+  String get canvasHelpKeyEscape => 'Esc';
+
+  @override
+  String get canvasHelpCancelSelection => '取消选区';
+
+  @override
+  String get canvasHelpKeyAltClick => 'Alt + 点击';
+
+  @override
+  String get canvasHelpSetCloneSource => '设置仿制图章源点';
+
+  @override
+  String get canvasHelpModesHeader => '模式';
+
+  @override
+  String get canvasHelpModeSelect => '选区';
+
+  @override
+  String get canvasHelpModeSelectDesc => '矩形选区，通过角点手柄进行移动、旋转和缩放。';
+
+  @override
+  String get canvasHelpModeLasso => '套索';
+
+  @override
+  String get canvasHelpModeLassoDesc => '自由绘制的选区路径，带有外框手柄。';
+
+  @override
+  String get canvasHelpModeBlur => '模糊';
+
+  @override
+  String get canvasHelpModeBlurDesc => '应用高斯模糊，通过大小滑块调整 sigma。';
+
+  @override
+  String get canvasHelpModeClone => '仿制图章';
+
+  @override
+  String get canvasHelpModeCloneDesc => '从源点复制像素。先按 Alt+点击设置源点，再进行绘制。';
+
+  @override
+  String get canvasHelpModeSmooth => '平滑';
+
+  @override
+  String get canvasHelpModeSmoothDesc => '在工具栏中开启后，笔触将带抗锯齿。';
+
+  @override
+  String get commonApply => '应用';
+
+  @override
+  String get commonDefault => '默认';
+
+  @override
+  String get pinUnlockButton => '解锁';
+
+  @override
+  String pinLockoutMessage(int seconds) {
+    return '尝试次数过多，请 $seconds 秒后重试';
+  }
+
+  @override
+  String get pinBiometricUnlock => '生物识别解锁';
+
+  @override
+  String get pinUnlockReason => '解锁 NAIWeaver';
+
+  @override
+  String get jukeboxPlayerVolume => '玩家音量';
+
+  @override
+  String get jukeboxCategoryCustom => '自定义';
+
+  @override
+  String galleryShareFailed(String error) {
+    return '分享失败：$error';
+  }
+
+  @override
+  String get gallerySdCard => 'SD卡';
+
+  @override
+  String get canvasQuick => '常用';
+
+  @override
+  String get canvasReset => '重置';
+
+  @override
+  String get canvasPalette => '调色板';
+
+  @override
+  String get canvasRecent => '最近';
+
+  @override
+  String get canvasResizeTitle => '调整画布大小';
+
+  @override
+  String get canvasAnchor => '锚点';
+
+  @override
+  String get helpShortcutKeyHoldTap => '长按';
+
+  @override
+  String get helpShortcutKeyDragDrop => '拖放 PNG';
+
+  @override
+  String get charsDress => '服装';
+
+  @override
+  String get tagSuggestHonorOutfitState => '遵循服装状态';
+
+  @override
+  String charEditorSheetTitle(int n) {
+    return '角色 $n 编辑器';
+  }
+
+  @override
+  String get charEditorNameOptional => '名称（可选）';
+
+  @override
+  String get charEditorCharacterPrompt => '角色提示词';
+
+  @override
+  String get charEditorEnterTags => '输入标签';
+
+  @override
+  String get charEditorCharacterUc => '角色负面词 (UC)';
+
+  @override
+  String get charEditorPositionGrid => '位置（5x5 网格）';
+
+  @override
+  String get charEditorSaveCharacter => '保存角色';
+
+  @override
+  String get interactionEditorTitle => '互动编辑器';
+
+  @override
+  String get interactionActionLabel => '动作';
+
+  @override
+  String get interactionActionHint => '输入动作（例如 hugging）';
+
+  @override
+  String get interactionDirectionLabel => '方向';
+
+  @override
+  String get interactionSave => '保存互动';
+
+  @override
+  String tagLibPreviewSummary(
+    String prompt,
+    int width,
+    int height,
+    int steps,
+    String scale,
+  ) {
+    return 'P: $prompt | ${width}X$height | 步数: $steps | 缩放: $scale';
+  }
+
+  @override
+  String panelSectionError(String id, String error) {
+    return '$id 出错：$error';
+  }
+
+  @override
+  String get mlStageStarting => '正在开始...';
+
+  @override
+  String get mlStagePreprocessing => '正在预处理...';
+
+  @override
+  String get mlStageAnalyzing => '正在分析图像...';
+
+  @override
+  String get mlStageLoadingModel => '正在加载模型...';
+
+  @override
+  String get mlStageLoadingEncoder => '正在加载编码器...';
+
+  @override
+  String get mlStageEncodingImage => '正在编码图像...';
+
+  @override
+  String get mlStageRunningInference => '正在推理...';
+
+  @override
+  String get mlStageGeneratingMatte => '正在生成蒙版（matte）...';
+
+  @override
+  String get mlStageGeneratingMask => '正在生成蒙版...';
+
+  @override
+  String get mlStageApplyingMask => '正在应用蒙版...';
+
+  @override
+  String get mlStageSplittingTiles => '正在切分图块...';
+
+  @override
+  String get mlStageUpscalingTiles => '正在放大图块...';
+
+  @override
+  String get mlStageRecombiningAlpha => '正在合并透明通道...';
+
+  @override
+  String get mlStageStitching => '正在拼接结果...';
+
+  @override
+  String get mlStageComplete => '完成';
+
+  @override
+  String get mlCpuOnly => '仅 CPU';
+
+  @override
+  String get mlSegmentEncodeFailed => '图像编码失败——请确认已下载分割模型';
+
+  @override
+  String get mlSegmentNotEncoded => '图像尚未编码——请重新打开分割工具';
+
+  @override
+  String get mlSegmentFailed => '分割失败——请换几个点再试';
 }

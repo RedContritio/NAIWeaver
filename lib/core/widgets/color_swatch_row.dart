@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/vision_tokens.dart';
+import '../l10n/l10n_extensions.dart';
 
 /// Default swatch palette for color selection rows.
 const kDefaultSwatchColors = <Color>[
@@ -80,7 +81,7 @@ class ColorSwatchRow extends StatelessWidget {
                 borderRadius: BorderRadius.circular(3),
               ),
               child: Text(
-                'DEFAULT',
+                context.l.commonDefault.toUpperCase(),
                 style: TextStyle(
                   color: t.textMinimal,
                   fontSize: t.fontSize(6),

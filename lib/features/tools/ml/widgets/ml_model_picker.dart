@@ -76,7 +76,7 @@ class MLModelPicker extends StatelessWidget {
               child: Align(
                 alignment: Alignment.centerRight,
                 child: AppPill(
-                  text: caps.deviceInfoLabel,
+                  text: caps.deviceInfoLabel(context.l),
                   tone: caps.hasGpuAcceleration
                       ? AppTone.success
                       : AppTone.warning,

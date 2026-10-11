@@ -40,6 +40,7 @@ import 'demo_image_picker.dart';
 import 'shelf_toggle.dart';
 import 'synced_text_field.dart';
 import '../../../core/theme/vision_metrics.dart';
+import '../../../l10n/app_localizations.dart';
 
 class AppSettings extends StatefulWidget {
   const AppSettings({super.key});
@@ -1077,12 +1078,12 @@ class _AppSettingsState extends State<AppSettings> {
   /// Human-readable label for the stored export folder. SAF tree URIs are
   /// ugly (`content://…/tree/XXXX-XXXX%3ANAIWeaver`), so show the decoded
   /// trailing folder segment; plain filesystem paths are shown as-is.
-  String _exportFolderLabel(String path) {
+  String _exportFolderLabel(String path, AppLocalizations l) {
     if (!SafExportService.isSafUri(path)) return path;
     final decoded = Uri.decodeComponent(path);
     final lastColon = decoded.lastIndexOf(':');
     final tail = lastColon >= 0 ? decoded.substring(lastColon + 1) : decoded;
-    return tail.isEmpty ? 'SD CARD' : 'SD: $tail';
+    return tail.isEmpty ? l.gallerySdCard.toUpperCase() : '${l.gallerySdCard.toUpperCase()}: $tail';
   }
 
   Widget _buildExportFolderPicker(VisionTokens t) {
@@ -1125,7 +1126,7 @@ class _AppSettingsState extends State<AppSettings> {
                     child: Text(
                       currentPath.isEmpty
                           ? l.settingsExportFolderDefault
-                          : _exportFolderLabel(currentPath),
+                          : _exportFolderLabel(currentPath, l),
                       style: TextStyle(
                         fontSize: t.fontSize(9),
                         color: currentPath.isEmpty

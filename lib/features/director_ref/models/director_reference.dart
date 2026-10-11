@@ -18,17 +18,6 @@ extension DirectorReferenceTypeX on DirectorReferenceType {
         return 'character&style';
     }
   }
-
-  String get label {
-    switch (this) {
-      case DirectorReferenceType.character:
-        return 'CHARACTER';
-      case DirectorReferenceType.style:
-        return 'STYLE';
-      case DirectorReferenceType.characterAndStyle:
-        return 'CHAR & STYLE';
-    }
-  }
 }
 
 class DirectorReference {

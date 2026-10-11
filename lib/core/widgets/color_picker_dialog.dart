@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/theme_extensions.dart';
+import '../l10n/l10n_extensions.dart';
 
 /// A simple hex color picker dialog with a curated grid + hex text input.
 class ColorPickerDialog extends StatefulWidget {
@@ -172,11 +173,11 @@ class _ColorPickerDialogState extends State<ColorPickerDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text('CANCEL', style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9))),
+          child: Text(context.l.commonCancel.toUpperCase(), style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9))),
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, _selected),
-          child: Text('APPLY', style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(9))),
+          child: Text(context.l.commonApply.toUpperCase(), style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(9))),
         ),
       ],
     );

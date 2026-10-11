@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/jukebox/models/jukebox_song.dart';
+import '../../../../core/jukebox/models/song_category_l10n.dart';
 import '../../../../core/jukebox/providers/jukebox_notifier.dart';
 import '../../../../core/jukebox/widgets/fullscreen_visualizer.dart';
 import '../../../../core/jukebox/widgets/karaoke_overlay.dart';
@@ -144,7 +145,7 @@ class JukeboxNowPlaying extends StatelessWidget {
               borderRadius: BorderRadius.circular(VisionMetrics.radius2),
             ),
             child: Text(
-              song.categoryLabel,
+              song.category.label(context.l),
               style: TextStyle(
                 color: t.textDisabled,
                 fontSize: t.fontSize(7),

@@ -502,7 +502,7 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
         } catch (e) {
           sections.add(
             Text(
-              'Error in $id: $e',
+              context.l.panelSectionError(id, '$e'),
               style: TextStyle(color: t.accentDanger, fontSize: t.fontSize(9)),
             ),
           );

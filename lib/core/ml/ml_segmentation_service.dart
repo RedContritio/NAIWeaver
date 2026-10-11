@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'ml_image_processing.dart';
 import 'ml_inference_service.dart';
+import 'ml_stage.dart';
 
 class SAMEmbeddingResult {
   final Float32List embeddings;
@@ -72,9 +73,9 @@ class MLSegmentationService {
   Future<SAMEmbeddingResult?> encodeImage(
     Uint8List imageBytes,
     String encoderModelId, {
-    void Function(String stage, double progress)? onProgress,
+    void Function(MLStage stage, double progress)? onProgress,
   }) async {
-    onProgress?.call('Preprocessing...', 0.1);
+    onProgress?.call(MLStage.preprocessing, 0.1);
 
     // Preprocess for SAM (resize + pad to 1024x1024 + ImageNet norm)
     final preResult = await compute(
@@ -82,11 +83,11 @@ class MLSegmentationService {
       SAMPreprocessParams(imageBytes: imageBytes),
     );
 
-    onProgress?.call('Loading encoder...', 0.2);
+    onProgress?.call(MLStage.loadingEncoder, 0.2);
     final loaded = await _inferenceService.loadModel(encoderModelId);
     if (!loaded) return null;
 
-    onProgress?.call('Encoding image...', 0.4);
+    onProgress?.call(MLStage.encodingImage, 0.4);
     final result = await _inferenceService.runInference(
       modelId: encoderModelId,
       inputData: preResult.data,
@@ -97,7 +98,7 @@ class MLSegmentationService {
 
     debugPrint('ML: Encoder output shape: ${result.shape}');
 
-    onProgress?.call('Complete', 1.0);
+    onProgress?.call(MLStage.complete, 1.0);
     return SAMEmbeddingResult(
       embeddings: result.data,
       embeddingShape: result.shape,

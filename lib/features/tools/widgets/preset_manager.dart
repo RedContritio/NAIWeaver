@@ -25,6 +25,7 @@ import '../../generation/providers/generation_notifier.dart';
 import '../../characters/providers/character_library_notifier.dart';
 import '../providers/preset_notifier.dart';
 import '../../../core/theme/vision_metrics.dart';
+import '../../director_ref/models/director_reference_type_l10n.dart';
 
 class PresetManager extends StatelessWidget {
   const PresetManager({super.key});
@@ -815,7 +816,7 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
                         Positioned(
                           top: 4,
                           left: 4,
-                          child: AppPill(text: ref.type.label, dense: true),
+                          child: AppPill(text: ref.type.localizedLabel(context.l), dense: true),
                         ),
                         // Remove button
                         Positioned(
@@ -842,7 +843,7 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            "STR ${ref.strength.toStringAsFixed(1)}",
+                            '${context.l.refStrengthShort} ${ref.strength.toStringAsFixed(1)}',
                             style: TextStyle(
                               color: t.textDisabled,
                               fontSize: t.fontSize(7),
@@ -850,7 +851,7 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
                             ),
                           ),
                           Text(
-                            "FID ${ref.fidelity.toStringAsFixed(1)}",
+                            '${context.l.refFidelityShort} ${ref.fidelity.toStringAsFixed(1)}',
                             style: TextStyle(
                               color: t.textDisabled,
                               fontSize: t.fontSize(7),

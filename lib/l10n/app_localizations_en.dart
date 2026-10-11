@@ -138,9 +138,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mainPresetName => 'Preset Name';
 
   @override
-  String get mainAdvancedSettings => 'Advanced Settings';
-
-  @override
   String get generationSheetPrompt => 'Prompt';
 
   @override
@@ -492,19 +489,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsEditPositivePrefix => 'Edit Positive Prefix';
 
   @override
-  String get settingsEditNegativePrefix => 'Edit Negative Prefix';
-
-  @override
   String get settingsDemoPrefixes => 'Demo Prefixes';
 
   @override
-  String get settingsNotSet => '(not set)';
-
-  @override
   String get settingsGithubRepository => 'GitHub Repository';
-
-  @override
-  String get settingsGithubPlaceholder => 'GitHub link placeholder';
 
   @override
   String get galleryTitle => 'Gallery';
@@ -869,9 +857,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get panelSampler => 'Sampler';
 
   @override
-  String get panelPostProcessing => 'Post-Processing';
-
-  @override
   String get panelStyles => 'Styles';
 
   @override
@@ -1075,15 +1060,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get helpShortcutArtistPrefix => 'Filter tag suggestions to artists';
-
-  @override
-  String get helpShortcutSourceAction => 'Character performing action';
-
-  @override
-  String get helpShortcutTargetAction => 'Character receiving action';
-
-  @override
-  String get helpShortcutMutualAction => 'Shared action between characters';
 
   @override
   String get helpShortcutEnter => 'Generate (or select tag suggestion)';
@@ -1589,12 +1565,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get refVibeTransfer => 'VIBE TRANSFER';
 
   @override
-  String get refDialogCancel => 'CANCEL';
-
-  @override
-  String get refDialogSave => 'SAVE';
-
-  @override
   String get refNameHint => 'NAME';
 
   @override
@@ -1650,9 +1620,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get refSaveVibe => 'SAVE VIBE';
-
-  @override
-  String get refVibeTransfers => 'VIBE TRANSFERS';
 
   @override
   String refVibeCount(int count) {
@@ -1768,9 +1735,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get packExportGalleryZipDesc => 'Preserve album hierarchy in folders';
-
-  @override
-  String get packImportDialogTitle => 'Import NAIWeaver Pack';
 
   @override
   String packFailedRead(String error) {
@@ -2338,15 +2302,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get img2imgUseAsSource => 'USE AS SOURCE';
 
   @override
-  String get img2imgInpainting => 'INPAINTING';
-
-  @override
-  String get img2imgTitle => 'IMG2IMG';
-
-  @override
-  String get img2imgEditorLabel => 'EDITOR';
-
-  @override
   String get img2imgBackToPicker => 'Back to picker';
 
   @override
@@ -2768,9 +2723,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsUpdateInstallFailed => 'Could not start the installer';
 
   @override
-  String get settingsUpdateSkipVersion => 'Skip this version';
-
-  @override
   String get settingsUpdateOpenInBrowser => 'Open in browser';
 
   @override
@@ -2859,9 +2811,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get canvasRedo => 'Redo';
 
   @override
-  String get canvasClear => 'Clear all strokes';
-
-  @override
   String get canvasFlatten => 'FLATTEN';
 
   @override
@@ -2886,23 +2835,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get canvasFlattening => 'FLATTENING...';
-
-  @override
-  String get canvasRestoreSession =>
-      'A previous canvas session was found. Restore it?';
-
-  @override
-  String get canvasRestore => 'RESTORE';
-
-  @override
-  String get canvasAutoSave => 'Canvas Auto-Save';
-
-  @override
-  String get canvasAutoSaveDesc =>
-      'Auto-save canvas editing sessions for crash recovery';
-
-  @override
   String get canvasColor => 'COLOR';
 
   @override
@@ -2918,15 +2850,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get canvasLayerDuplicate => 'Duplicate Layer';
 
   @override
-  String get canvasLayerRename => 'Rename';
-
-  @override
-  String get canvasLayerVisible => 'Visible';
-
-  @override
-  String get canvasLayerHidden => 'Hidden';
-
-  @override
   String get canvasLayerOpacity => 'Opacity';
 
   @override
@@ -2935,11 +2858,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get canvasLayerDeleteConfirm =>
       'Delete this layer? Strokes will be lost.';
-
-  @override
-  String canvasLayerDefault(int number) {
-    return 'Layer $number';
-  }
 
   @override
   String get canvasLayerClear => 'Clear Layer';
@@ -2984,9 +2902,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get canvasTextSize => 'SIZE';
 
   @override
-  String get canvasTextPlace => 'PLACE';
-
-  @override
   String get canvasTextFont => 'FONT';
 
   @override
@@ -3024,18 +2939,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get canvasPaletteHoldHint => 'Hold to replace';
 
   @override
-  String get canvasBlendNormal => 'Normal';
-
-  @override
-  String get canvasBlendMultiply => 'Multiply';
-
-  @override
-  String get canvasBlendScreen => 'Screen';
-
-  @override
-  String get canvasBlendOverlay => 'Overlay';
-
-  @override
   String get settingsOutputFolder => 'Output Folder';
 
   @override
@@ -3067,9 +2970,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsFolderUseDefault => 'Use default folder';
-
-  @override
-  String get settingsOutputFolderClear => 'Clear';
 
   @override
   String get settingsUseSdCard => 'Use SD Card';
@@ -3229,15 +3129,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String charEditorMutualDisplay(String source, String target, String action) {
-    return '$source ↔ $target: $action';
-  }
-
-  @override
   String get charEditorSavePreset => 'SAVE PRESET';
-
-  @override
-  String get charEditorLoadPreset => 'LOAD PRESET';
 
   @override
   String get charEditorPresetName => 'Preset Name';
@@ -3644,9 +3536,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get jukeboxSettings => 'SETTINGS';
 
   @override
-  String get jukeboxQueue => 'QUEUE';
-
-  @override
   String get jukeboxQueueEmpty => 'QUEUE IS EMPTY';
 
   @override
@@ -3696,15 +3585,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get jukeboxCategoryRock => 'ROCK';
-
-  @override
-  String get jukeboxEnableMusic => 'ENABLE MUSIC';
-
-  @override
-  String get jukeboxMusicVolume => 'MUSIC VOLUME';
-
-  @override
-  String get jukeboxKaraokeLyrics => 'KARAOKE LYRICS';
 
   @override
   String get mlModels => 'ML MODELS';
@@ -3816,13 +3696,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mlTierQuality => 'QUALITY';
 
   @override
-  String get mlRemovingBg => 'REMOVING BACKGROUNDS';
-
-  @override
   String get mlUpscalingImages => 'UPSCALING IMAGES';
-
-  @override
-  String get mlBgRemovalFailed => 'BG REMOVAL FAILED';
 
   @override
   String get mlUpscaleFailed => 'UPSCALE FAILED';
@@ -4140,9 +4014,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonMenu => 'Menu';
 
   @override
-  String get presetDuplicate => 'Duplicate';
-
-  @override
   String get presetLoad => 'Load Preset';
 
   @override
@@ -4265,19 +4136,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsExportFolderDefault => 'Default (device gallery)';
 
   @override
-  String get settingsUpscaleBackend => 'Upscale Backend';
-
-  @override
-  String get settingsUpscaleBackendDesc =>
-      'Choose between local ML model or NovelAI API for upscaling';
-
-  @override
-  String get settingsUpscaleBackendMl => 'ML (Local)';
-
-  @override
-  String get settingsUpscaleBackendNovelai => 'NovelAI (API)';
-
-  @override
   String get quickActionEnhance => 'Enhance';
 
   @override
@@ -4381,9 +4239,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get jukeboxSelectInstrument => 'SELECT INSTRUMENT';
-
-  @override
-  String get jukeboxWatch => 'WATCH';
 
   @override
   String get jukeboxPlayGame => 'PLAY GAME';
@@ -4630,13 +4485,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get directorToolsFromGallery => 'FROM GALLERY';
 
   @override
-  String get settingsBgRemovalBackend => 'BG Removal Backend';
-
-  @override
-  String get settingsBgRemovalBackendDesc =>
-      'Choose between local ML model or NovelAI API for background removal';
-
-  @override
   String get importDialogTitle => 'IMPORT METADATA';
 
   @override
@@ -4671,12 +4519,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get img2imgOutputRes => 'OUTPUT RESOLUTION';
-
-  @override
-  String get img2imgResetRes => 'Reset to source';
-
-  @override
-  String get img2imgChangeRes => 'CHANGE';
 
   @override
   String get duplicateImageWarning =>
@@ -5226,4 +5068,500 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get photoshootStyleInk => 'Ink';
+
+  @override
+  String get cascadeHelpTitle => 'CASCADE GUIDE';
+
+  @override
+  String get cascadeHelpOverviewHeader => 'OVERVIEW';
+
+  @override
+  String get cascadeHelpOverviewBody =>
+      'Cascade generates multi-beat scene sequences with consistent characters. Each beat is one generation with its own environment, character poses, and settings. Character appearances are set once in the casting sheet and applied to all beats.';
+
+  @override
+  String get cascadeHelpSetupHeader => 'SETUP FLOW';
+
+  @override
+  String get cascadeHelpStepCreate => 'Create';
+
+  @override
+  String get cascadeHelpStepCreateDesc =>
+      'Set name, character count (0-5), and positioning mode';
+
+  @override
+  String get cascadeHelpStepEdit => 'Edit Beats';
+
+  @override
+  String get cascadeHelpStepEditDesc =>
+      'Set scene/action, environment, character prompts, actions, positions, styles, and settings per beat';
+
+  @override
+  String get cascadeHelpStepCast => 'Cast';
+
+  @override
+  String get cascadeHelpStepCastDesc =>
+      'Save and return to the main screen playback view';
+
+  @override
+  String get cascadeHelpStepGenerate => 'Generate';
+
+  @override
+  String get cascadeHelpStepGenerateDesc =>
+      'Enter character appearances, optional global injection, then generate each beat';
+
+  @override
+  String get cascadeHelpBasePromptHeader => 'BASE PROMPT';
+
+  @override
+  String get cascadeHelpScene => 'Scene / Action';
+
+  @override
+  String get cascadeHelpSceneDesc =>
+      'Base-prompt tags for what is happening and how it is framed (e.g., \"2girls, hugging, wide shot, from above\"). Subject-count, action, and camera tags go here.';
+
+  @override
+  String get cascadeHelpEnvironment => 'Environment';
+
+  @override
+  String get cascadeHelpEnvironmentDesc =>
+      'Base-prompt tags for where the scene takes place (e.g., \"forest, night, indoors\").';
+
+  @override
+  String get cascadeHelpBasePromptNote =>
+      'Both are tags (not prose) and feed the same base prompt — Scene / Action leads, Environment follows.';
+
+  @override
+  String get cascadeHelpSlotsHeader => 'CHARACTER SLOTS';
+
+  @override
+  String get cascadeHelpSlotPositive => 'Positive Prompt';
+
+  @override
+  String get cascadeHelpSlotPositiveDesc =>
+      'Per-beat character tags (e.g., \"happy, sitting\")';
+
+  @override
+  String get cascadeHelpSlotNegative => 'Negative Prompt';
+
+  @override
+  String get cascadeHelpSlotNegativeDesc =>
+      'Per-beat undesired content for this character';
+
+  @override
+  String get cascadeHelpSlotGrid => 'Position Grid';
+
+  @override
+  String get cascadeHelpSlotGridDesc =>
+      '5x5 grid for precise placement (if manual positioning is on)';
+
+  @override
+  String get cascadeHelpSlotActions => 'Action Tags';
+
+  @override
+  String get cascadeHelpSlotActionsDesc =>
+      'Define interactions between characters for this beat';
+
+  @override
+  String get cascadeHelpActionsHeader => 'ACTION INTERACTIONS';
+
+  @override
+  String get cascadeHelpActionsIntro =>
+      'Tap the link icon between character slots to set an interaction for that beat.';
+
+  @override
+  String get cascadeHelpSourceTarget => 'Source → Target';
+
+  @override
+  String get cascadeHelpSourceTargetDesc =>
+      'Directional action (e.g., A hugging B)';
+
+  @override
+  String get cascadeHelpMutual => 'Mutual ↔';
+
+  @override
+  String get cascadeHelpMutualDesc =>
+      'Both characters participate equally (e.g., holding hands)';
+
+  @override
+  String get cascadeHelpActionsNote =>
+      'Tags are embedded as source#action, target#action, or mutual#action in character prompts.';
+
+  @override
+  String get cascadeHelpCastingHeader => 'CASTING SHEET';
+
+  @override
+  String get cascadeHelpCastAppearance => 'Character Appearance';
+
+  @override
+  String get cascadeHelpCastAppearanceDesc =>
+      'Base look for each character (e.g., \"1girl, blue hair\") — shared across all beats';
+
+  @override
+  String get cascadeHelpCastGlobalScene => 'Global Scene';
+
+  @override
+  String get cascadeHelpCastGlobalSceneDesc =>
+      'Scene/action tags applied to every beat (e.g., \"2girls, school uniform\") — leads each beat\'s own Scene / Action tags';
+
+  @override
+  String get cascadeHelpCastInjection => 'Global Injection';
+
+  @override
+  String get cascadeHelpCastInjectionDesc =>
+      'Additional prompt text or style applied to every beat';
+
+  @override
+  String get cascadeHelpCastThumbs => 'Beat Thumbnails';
+
+  @override
+  String get cascadeHelpCastThumbsDesc =>
+      'Tap to select; shows preview after generation';
+
+  @override
+  String get cascadeHelpCastCaption => 'Narration Caption';
+
+  @override
+  String get cascadeHelpCastCaptionDesc =>
+      'Free-text narration shown over the beat preview (display only) — prose, not tags. Toggle with the eye icon. Not saved with the cascade.';
+
+  @override
+  String get cascadeHelpCastExport => 'Export';
+
+  @override
+  String get cascadeHelpCastExportDesc =>
+      'Burn captions into a single beat PNG, or assemble all generated beats into a vertical/horizontal storyboard strip (share icon)';
+
+  @override
+  String get cascadeHelpCastGenerate => 'Generate';
+
+  @override
+  String get cascadeHelpCastGenerateDesc =>
+      'Generates selected beat, auto-advances to next';
+
+  @override
+  String get cascadeHelpPerBeatHeader => 'PER-BEAT SETTINGS';
+
+  @override
+  String get cascadeHelpPerBeatBody =>
+      'Each beat can have its own resolution, sampler, steps, scale, and styles. Styles are toggled per-beat from your style library.';
+
+  @override
+  String get cascadeHelpTipsHeader => 'TIPS';
+
+  @override
+  String get cascadeHelpTip1 =>
+      'Use environment tags for scene changes between beats';
+
+  @override
+  String get cascadeHelpTip2 =>
+      'Keep character appearances consistent in the casting sheet';
+
+  @override
+  String get cascadeHelpTip3 =>
+      'Change action tags per-beat to show interactions evolving';
+
+  @override
+  String get cascadeHelpTip4 =>
+      'Clone beats to quickly iterate on similar scenes';
+
+  @override
+  String get cascadeHelpTip5 =>
+      'Each beat can use different styles for different moods';
+
+  @override
+  String get canvasHelpToolsHeader => 'TOOLS';
+
+  @override
+  String get canvasHelpPaint => 'Paint — freehand brush';
+
+  @override
+  String get canvasHelpErase => 'Erase — remove strokes';
+
+  @override
+  String get canvasHelpLine => 'Line — straight line';
+
+  @override
+  String get canvasHelpRectangle => 'Rectangle — outline or filled';
+
+  @override
+  String get canvasHelpCircle => 'Circle / Ellipse';
+
+  @override
+  String get canvasHelpFill => 'Fill — flood fill area';
+
+  @override
+  String get canvasHelpText => 'Text — add text to canvas';
+
+  @override
+  String get canvasHelpEyedropper => 'Eyedropper — pick color';
+
+  @override
+  String get canvasHelpTransform => 'Transform — move/scale layer';
+
+  @override
+  String get canvasHelpSelect => 'Select — rectangular selection';
+
+  @override
+  String get canvasHelpLasso => 'Lasso — freehand selection';
+
+  @override
+  String get canvasHelpBlur => 'Blur — Gaussian blur brush';
+
+  @override
+  String get canvasHelpClone => 'Clone Stamp — copy from source';
+
+  @override
+  String get canvasHelpNavigationHeader => 'NAVIGATION';
+
+  @override
+  String get canvasHelpKeySpaceDrag => 'Space + drag';
+
+  @override
+  String get canvasHelpPan => 'Pan canvas';
+
+  @override
+  String get canvasHelpKeyScroll => 'Scroll';
+
+  @override
+  String get canvasHelpZoom => 'Zoom in / out';
+
+  @override
+  String get canvasHelpKeyCtrlScroll => 'Ctrl + Scroll';
+
+  @override
+  String get canvasHelpBrushSize => 'Adjust brush size';
+
+  @override
+  String get canvasHelpBrushStep => 'Decrease / increase brush';
+
+  @override
+  String get canvasHelpActionsHeader => 'ACTIONS';
+
+  @override
+  String get canvasHelpKeyEscape => 'Escape';
+
+  @override
+  String get canvasHelpCancelSelection => 'Cancel selection';
+
+  @override
+  String get canvasHelpKeyAltClick => 'Alt + click';
+
+  @override
+  String get canvasHelpSetCloneSource => 'Set clone stamp source';
+
+  @override
+  String get canvasHelpModesHeader => 'MODES';
+
+  @override
+  String get canvasHelpModeSelect => 'Select';
+
+  @override
+  String get canvasHelpModeSelectDesc =>
+      'Rectangular selection with corner handles for move, rotate, and scale.';
+
+  @override
+  String get canvasHelpModeLasso => 'Lasso';
+
+  @override
+  String get canvasHelpModeLassoDesc =>
+      'Freehand selection path with bounding box handles.';
+
+  @override
+  String get canvasHelpModeBlur => 'Blur';
+
+  @override
+  String get canvasHelpModeBlurDesc =>
+      'Applies Gaussian blur. Adjust sigma with the size slider.';
+
+  @override
+  String get canvasHelpModeClone => 'Clone Stamp';
+
+  @override
+  String get canvasHelpModeCloneDesc =>
+      'Copies pixels from a source point. Alt+click to set source, then paint.';
+
+  @override
+  String get canvasHelpModeSmooth => 'Smooth';
+
+  @override
+  String get canvasHelpModeSmoothDesc =>
+      'Toggle in toolbar for anti-aliased brush strokes.';
+
+  @override
+  String get commonApply => 'Apply';
+
+  @override
+  String get commonDefault => 'Default';
+
+  @override
+  String get pinUnlockButton => 'Unlock';
+
+  @override
+  String pinLockoutMessage(int seconds) {
+    return 'Too many attempts. Try again in ${seconds}s';
+  }
+
+  @override
+  String get pinBiometricUnlock => 'Biometric unlock';
+
+  @override
+  String get pinUnlockReason => 'Unlock NAIWeaver';
+
+  @override
+  String get jukeboxPlayerVolume => 'PLAYER VOLUME';
+
+  @override
+  String get jukeboxCategoryCustom => 'CUSTOM';
+
+  @override
+  String galleryShareFailed(String error) {
+    return 'Share failed: $error';
+  }
+
+  @override
+  String get gallerySdCard => 'SD card';
+
+  @override
+  String get canvasQuick => 'QUICK';
+
+  @override
+  String get canvasReset => 'RESET';
+
+  @override
+  String get canvasPalette => 'PALETTE';
+
+  @override
+  String get canvasRecent => 'RECENT';
+
+  @override
+  String get canvasResizeTitle => 'RESIZE CANVAS';
+
+  @override
+  String get canvasAnchor => 'ANCHOR';
+
+  @override
+  String get helpShortcutKeyHoldTap => 'Hold tap';
+
+  @override
+  String get helpShortcutKeyDragDrop => 'Drag & drop PNG';
+
+  @override
+  String get charsDress => 'dress';
+
+  @override
+  String get tagSuggestHonorOutfitState => 'honor outfit state';
+
+  @override
+  String charEditorSheetTitle(int n) {
+    return 'CHARACTER $n EDITOR';
+  }
+
+  @override
+  String get charEditorNameOptional => 'NAME (OPTIONAL)';
+
+  @override
+  String get charEditorCharacterPrompt => 'CHARACTER PROMPT';
+
+  @override
+  String get charEditorEnterTags => 'ENTER TAGS';
+
+  @override
+  String get charEditorCharacterUc => 'CHARACTER UC';
+
+  @override
+  String get charEditorPositionGrid => 'POSITION (5x5 GRID)';
+
+  @override
+  String get charEditorSaveCharacter => 'SAVE CHARACTER';
+
+  @override
+  String get interactionEditorTitle => 'INTERACTION EDITOR';
+
+  @override
+  String get interactionActionLabel => 'ACTION';
+
+  @override
+  String get interactionActionHint => 'ENTER ACTION (e.g., hugging)';
+
+  @override
+  String get interactionDirectionLabel => 'DIRECTION';
+
+  @override
+  String get interactionSave => 'SAVE INTERACTION';
+
+  @override
+  String tagLibPreviewSummary(
+    String prompt,
+    int width,
+    int height,
+    int steps,
+    String scale,
+  ) {
+    return 'P: $prompt | ${width}X$height | STEPS: $steps | SCALE: $scale';
+  }
+
+  @override
+  String panelSectionError(String id, String error) {
+    return 'Error in $id: $error';
+  }
+
+  @override
+  String get mlStageStarting => 'Starting...';
+
+  @override
+  String get mlStagePreprocessing => 'Preprocessing...';
+
+  @override
+  String get mlStageAnalyzing => 'Analyzing image...';
+
+  @override
+  String get mlStageLoadingModel => 'Loading model...';
+
+  @override
+  String get mlStageLoadingEncoder => 'Loading encoder...';
+
+  @override
+  String get mlStageEncodingImage => 'Encoding image...';
+
+  @override
+  String get mlStageRunningInference => 'Running inference...';
+
+  @override
+  String get mlStageGeneratingMatte => 'Generating matte...';
+
+  @override
+  String get mlStageGeneratingMask => 'Generating mask...';
+
+  @override
+  String get mlStageApplyingMask => 'Applying mask...';
+
+  @override
+  String get mlStageSplittingTiles => 'Splitting into tiles...';
+
+  @override
+  String get mlStageUpscalingTiles => 'Upscaling tiles...';
+
+  @override
+  String get mlStageRecombiningAlpha => 'Recombining alpha...';
+
+  @override
+  String get mlStageStitching => 'Stitching result...';
+
+  @override
+  String get mlStageComplete => 'Complete';
+
+  @override
+  String get mlCpuOnly => 'CPU only';
+
+  @override
+  String get mlSegmentEncodeFailed =>
+      'Failed to encode image — check that segmentation models are downloaded';
+
+  @override
+  String get mlSegmentNotEncoded =>
+      'Image not encoded — try re-opening the segment tool';
+
+  @override
+  String get mlSegmentFailed => 'Segmentation failed — try different points';
 }

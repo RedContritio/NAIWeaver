@@ -389,7 +389,7 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'dress',
+              context.l.charsDress,
               style: TextStyle(
                 color: t.textTertiary,
                 fontSize: t.fontSize(8),
@@ -412,7 +412,7 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
                   prefix: '↑ ${context.l.charsTopPrefix.toUpperCase()}',
                   state: topState,
                   onTap: () => _pickState(
-                    slot: 'dress (top)',
+                    slot: '${context.l.charsDress} (${context.l.charsTopPrefix})',
                     current: topState,
                     valid: topValid,
                     onChosen: (v) => _setDressState('top', v),
@@ -423,7 +423,7 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
                   prefix: '↓ ${context.l.charsBottomPrefix.toUpperCase()}',
                   state: botState,
                   onTap: () => _pickState(
-                    slot: 'dress (bottom)',
+                    slot: '${context.l.charsDress} (${context.l.charsBottomPrefix})',
                     current: botState,
                     valid: botValid,
                     onChosen: (v) => _setDressState('bottom', v),

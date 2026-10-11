@@ -170,7 +170,7 @@ class _MLModelsManagerState extends State<MLModelsManager> {
               iconColor: caps.hasGpuAcceleration
                   ? t.accentSuccess
                   : t.accentEdit,
-              text: caps.deviceInfoLabel,
+              text: caps.deviceInfoLabel(context.l),
             ),
           if (caps != null && _stats != null) gap(VisionMetrics.space8),
           if (_stats != null)

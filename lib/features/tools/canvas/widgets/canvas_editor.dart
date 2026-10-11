@@ -618,7 +618,7 @@ class _CanvasResizeDialogState extends State<_CanvasResizeDialog> {
     return AlertDialog(
       backgroundColor: t.surfaceHigh,
       title: Text(
-        'RESIZE CANVAS',
+        context.l.canvasResizeTitle,
         style: TextStyle(
           fontSize: t.fontSize(10),
           letterSpacing: 2,
@@ -651,7 +651,7 @@ class _CanvasResizeDialogState extends State<_CanvasResizeDialog> {
           const SizedBox(height: VisionMetrics.space16),
           // Anchor label
           Text(
-            'ANCHOR',
+            context.l.canvasAnchor,
             style: TextStyle(
               fontSize: t.fontSize(8),
               letterSpacing: 2,

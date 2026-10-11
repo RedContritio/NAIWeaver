@@ -23,7 +23,7 @@ class JukeboxAudioHandler extends BaseAudioHandler with SeekHandler {
       final item = MediaItem(
         id: song.id,
         title: song.title,
-        artist: song.artist ?? song.categoryLabel,
+        artist: song.artist,
         album: 'NAIWeaver Jukebox',
         duration: duration,
       );

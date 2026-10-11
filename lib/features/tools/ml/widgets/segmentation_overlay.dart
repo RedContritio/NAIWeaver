@@ -60,9 +60,7 @@ class _SegmentationOverlayState extends State<SegmentationOverlay> {
     setState(() {
       _isEncoding = false;
       if (!ml.hasEncodedImage) {
-        _error =
-            ml.processingError ??
-            'Failed to encode image — check that segmentation models are downloaded';
+        _error = context.l.mlSegmentEncodeFailed;
       }
     });
   }
@@ -73,7 +71,7 @@ class _SegmentationOverlayState extends State<SegmentationOverlay> {
     final ml = context.read<MLNotifier>();
     if (!ml.hasEncodedImage) {
       setState(() {
-        _error = 'Image not encoded — try re-opening the segment tool';
+        _error = context.l.mlSegmentNotEncoded;
       });
       return;
     }
@@ -110,7 +108,7 @@ class _SegmentationOverlayState extends State<SegmentationOverlay> {
     } else if (mounted) {
       setState(() {
         _isDecoding = false;
-        _error = 'Segmentation failed — try different points';
+        _error = context.l.mlSegmentFailed;
       });
     }
   }

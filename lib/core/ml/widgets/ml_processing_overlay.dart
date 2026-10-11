@@ -4,6 +4,7 @@ import '../../theme/theme_extensions.dart';
 import '../../theme/vision_metrics.dart';
 import '../../utils/responsive.dart';
 import '../ml_notifier.dart';
+import '../../l10n/l10n_extensions.dart';
 
 class MLProcessingOverlay extends StatelessWidget {
   const MLProcessingOverlay({super.key});
@@ -36,7 +37,7 @@ class MLProcessingOverlay extends StatelessWidget {
               ),
               const SizedBox(height: VisionMetrics.space16),
               Text(
-                ml.processingStage.toUpperCase(),
+                ml.processingStage.label(context.l).toUpperCase(),
                 style: TextStyle(
                   color: t.textSecondary,
                   fontSize: t.fontSize(mobile ? 11 : 9),

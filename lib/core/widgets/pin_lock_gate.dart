@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
 import '../services/preferences_service.dart';
 import '../theme/theme_extensions.dart';
+import '../l10n/l10n_extensions.dart';
 
 class PinLockGate extends StatefulWidget {
   final PreferencesService prefs;
@@ -58,6 +59,7 @@ class _PinLockGateState extends State<PinLockGate> with WidgetsBindingObserver {
 
   Future<void> _attemptBiometric() async {
     if (!widget.prefs.pinBiometricEnabled) return;
+    final reason = context.l.pinUnlockReason;
     try {
       final auth = LocalAuthentication();
       final canCheck = await auth.canCheckBiometrics || await auth.isDeviceSupported();
@@ -71,7 +73,7 @@ class _PinLockGateState extends State<PinLockGate> with WidgetsBindingObserver {
           available.contains(BiometricType.weak);
 
       final didAuth = await auth.authenticate(
-        localizedReason: 'Unlock NAIWeaver',
+        localizedReason: reason,
         options: AuthenticationOptions(
           stickyAuth: true,
           biometricOnly: hasBiometric,
@@ -299,7 +301,7 @@ class _PinEntryScreenState extends State<PinEntryScreen>
               ),
               const SizedBox(height: 32),
               Text(
-                'ENTER PIN',
+                context.l.settingsEnterPinHint.toUpperCase(),
                 style: TextStyle(
                   color: t.textDisabled,
                   fontSize: t.fontSize(10),
@@ -355,7 +357,7 @@ class _PinEntryScreenState extends State<PinEntryScreen>
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
-                    'Too many attempts. Try again in ${_lockoutSecondsRemaining}s',
+                    context.l.pinLockoutMessage(_lockoutSecondsRemaining),
                     style: TextStyle(
                       color: t.accentDanger,
                       fontSize: t.fontSize(9),
@@ -424,7 +426,7 @@ class _PinEntryScreenState extends State<PinEntryScreen>
                       elevation: 0,
                     ),
                     child: Text(
-                      'UNLOCK',
+                      context.l.pinUnlockButton.toUpperCase(),
                       style: TextStyle(
                         fontSize: t.fontSize(10),
                         letterSpacing: 2,
@@ -440,7 +442,7 @@ class _PinEntryScreenState extends State<PinEntryScreen>
                 IconButton(
                   onPressed: widget.onBiometric,
                   icon: Icon(Icons.fingerprint, size: 36, color: t.accent),
-                  tooltip: 'Biometric unlock',
+                  tooltip: context.l.pinBiometricUnlock,
                 ),
               ],
             ],
