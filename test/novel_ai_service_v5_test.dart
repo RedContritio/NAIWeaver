@@ -25,8 +25,8 @@ void main() {
     final full = build();
     final curated = build(useCurated: true);
 
-    expect(full.body['model'], NovelAIService.v5FullModel);
-    expect(curated.body['model'], NovelAIService.v5CuratedModel);
+    expect(full.body['model'], 'nai-diffusion-5-full');
+    expect(curated.body['model'], 'nai-diffusion-5-curated');
     expect(full.body['parameters']['params_version'], 4);
     expect(curated.body['parameters']['params_version'], 4);
   });
@@ -35,7 +35,7 @@ void main() {
     final full = build(action: 'infill');
     final curated = build(action: 'infill', useCurated: true);
 
-    expect(full.body['model'], NovelAIService.v5FullInpaintingModel);
-    expect(curated.body['model'], NovelAIService.v4_5CuratedInpaintingModel);
+    expect(full.body['model'], 'nai-diffusion-5-full-inpainting');
+    expect(curated.body['model'], 'nai-diffusion-4-5-curated-inpainting');
   });
 }
