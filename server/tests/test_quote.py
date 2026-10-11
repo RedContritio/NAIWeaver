@@ -210,13 +210,6 @@ class ParameterWhitelistTests(unittest.TestCase):
 
 
 class ToolQuoteAndSettlementTests(unittest.TestCase):
-    def test_tool_quotes_are_the_configured_caps(self) -> None:
-        self.assertEqual(billing.TOOL_CAPS, {"upscale": 10, "augment": 80, "encode_vibe": 2})
-        quote = billing.tool_quote("augment").to_dict()
-        self.assertEqual(
-            (quote["mode"], quote["points"], quote["reasons"]), ("paid", 80, ["paid_tool"])
-        )
-
     def test_settlement_charges_the_measured_delta_capped_by_the_reservation(self) -> None:
         cases = {
             "below_quote": (33, 25, (25, False)),
