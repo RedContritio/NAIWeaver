@@ -251,7 +251,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get gatewayErrInterrupted =>
-      'The task was interrupted by a server restart and its points were released.';
+      'The task was interrupted by a server restart. You were not charged; you can retry.';
 
   @override
   String get gatewayErrNotFound => 'The requested item was not found.';
@@ -3944,6 +3944,31 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get serverHistoryBatchDeleteConfirm =>
       'Hide every image in this batch from your history?';
+
+  @override
+  String serverHistoryDeleteFailed(String error) {
+    return 'Delete failed: $error';
+  }
+
+  @override
+  String get serverHistoryDeleteActive =>
+      'Still queued or running; it can be deleted once it finishes.';
+
+  @override
+  String serverHistoryLoadFailed(String error) {
+    return 'Could not load history: $error';
+  }
+
+  @override
+  String get serverHistoryRetry => 'Retry';
+
+  @override
+  String get serverHistoryUsersUnavailable =>
+      'The user list could not be loaded, so the user filter is unavailable.';
+
+  @override
+  String get serverHistoryItemCancelled =>
+      'The task was cancelled. You were not charged.';
 
   @override
   String quotePointsTooltipFree(int points) {

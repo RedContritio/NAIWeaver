@@ -237,7 +237,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get gatewayErrUpstream => 'NovelAI 未能完成请求，请稍后重试。';
 
   @override
-  String get gatewayErrInterrupted => '任务因服务重启而中断，已退还预留点数。';
+  String get gatewayErrInterrupted => '任务因服务重启而中断，没有扣费，可以重试。';
 
   @override
   String get gatewayErrNotFound => '未找到请求的内容。';
@@ -3824,6 +3824,28 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get serverHistoryBatchDeleteConfirm => '从你的历史中隐藏这一组的全部图片？';
+
+  @override
+  String serverHistoryDeleteFailed(String error) {
+    return '删除失败：$error';
+  }
+
+  @override
+  String get serverHistoryDeleteActive => '仍在排队或生成中，完成后才能删除。';
+
+  @override
+  String serverHistoryLoadFailed(String error) {
+    return '无法加载历史：$error';
+  }
+
+  @override
+  String get serverHistoryRetry => '重试';
+
+  @override
+  String get serverHistoryUsersUnavailable => '无法加载用户列表，用户筛选暂不可用。';
+
+  @override
+  String get serverHistoryItemCancelled => '任务已取消，没有扣费。';
 
   @override
   String quotePointsTooltipFree(int points) {
