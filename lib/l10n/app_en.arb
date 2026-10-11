@@ -519,6 +519,7 @@
   "@styleOverwriteConfirm": { "placeholders": { "name": { "type": "String" } } },
 
   "refPreciseReferences": "PRECISE REFERENCES",
+  "refShortLabel": "REF",
   "refVibeTransfer": "VIBE TRANSFER",
   "refDialogCancel": "CANCEL",
   "refDialogSave": "SAVE",

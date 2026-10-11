@@ -519,6 +519,7 @@
   "@styleOverwriteConfirm": { "placeholders": { "name": { "type": "String" } } },
 
   "refPreciseReferences": "精准参考",
+  "refShortLabel": "参考",
   "refVibeTransfer": "氛围迁移",
   "refDialogCancel": "取消",
   "refDialogSave": "保存",

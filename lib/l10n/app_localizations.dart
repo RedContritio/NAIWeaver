@@ -2854,6 +2854,12 @@ abstract class AppLocalizations {
   /// **'PRECISE REFERENCES'**
   String get refPreciseReferences;
 
+  /// No description provided for @refShortLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'REF'**
+  String get refShortLabel;
+
   /// No description provided for @refVibeTransfer.
   ///
   /// In en, this message translates to:

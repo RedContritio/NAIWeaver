@@ -1483,6 +1483,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get refPreciseReferences => 'プリサイスリファレンス';
 
   @override
+  String get refShortLabel => '参照';
+
+  @override
   String get refVibeTransfer => 'バイブトランスファー';
 
   @override

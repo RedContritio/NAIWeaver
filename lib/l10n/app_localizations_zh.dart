@@ -1470,6 +1470,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get refPreciseReferences => '精准参考';
 
   @override
+  String get refShortLabel => '参考';
+
+  @override
   String get refVibeTransfer => '氛围迁移';
 
   @override

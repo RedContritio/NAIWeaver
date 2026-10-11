@@ -1532,6 +1532,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get refPreciseReferences => 'PRECISE REFERENCES';
 
   @override
+  String get refShortLabel => 'REF';
+
+  @override
   String get refVibeTransfer => 'VIBE TRANSFER';
 
   @override

@@ -484,6 +484,7 @@
   "styleOverwriteConfirm": "「{name}」という名前のスタイルが既に存在します。上書きしますか？",
 
   "refPreciseReferences": "プリサイスリファレンス",
+  "refShortLabel": "参照",
   "refVibeTransfer": "バイブトランスファー",
   "refDialogCancel": "キャンセル",
   "refDialogSave": "保存",

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/vision_metrics.dart';
 import '../../../core/widgets/enabled_toggle.dart';
 import '../../../core/widgets/manager_list_tile.dart';
 import '../models/director_reference.dart';
@@ -48,13 +49,12 @@ class _DirectorRefEditorSheetState extends State<DirectorRefEditorSheet> {
     final t = context.t;
     final l = context.l;
     final accent = refTypeColor(t, _type);
-    return Container(
-      color: t.surfaceMid,
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-        left: 24,
-        right: 24,
-        top: 16,
+    // showAppSheet supplies the background, keyboard inset and scrolling.
+    return Padding(
+      padding: const EdgeInsets.only(
+        left: VisionMetrics.space24,
+        right: VisionMetrics.space24,
+        top: VisionMetrics.space8,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

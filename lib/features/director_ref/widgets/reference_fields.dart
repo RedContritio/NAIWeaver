@@ -219,7 +219,7 @@ class ReferenceItemCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final thumbSize = isMobile(context) ? 64.0 : 80.0;
+    final thumbSize = windowSizeClassOf(context).isTouchSized ? 64.0 : 80.0;
     final paused = pausedReason;
     final opacity = enabled && paused == null ? 1.0 : disabledOpacity;
 
