@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/l10n/l10n_extensions.dart';
 import '../../../../core/ml/ml_device_capabilities.dart';
 import '../../../../core/ml/ml_model_entry.dart';
 import '../../../../core/ml/ml_model_registry.dart';
 import '../../../../core/ml/ml_notifier.dart';
 import '../../../../core/services/download_manager.dart';
 import '../../../../core/theme/theme_extensions.dart';
+import '../../../../core/theme/vision_metrics.dart';
+import '../../../../core/widgets/ui/app_pill.dart';
+import '../../../../core/widgets/ui/app_sheet.dart';
+import '../../../../core/widgets/ui/app_tone.dart';
 import '../../../../l10n/app_localizations.dart';
 
 /// Bottom sheet for picking an ML model of a given type.
@@ -30,13 +35,11 @@ class MLModelPicker extends StatelessWidget {
     required String? selectedModelId,
     required ValueChanged<String?> onSelected,
   }) {
-    return showModalBottomSheet(
+    return showAppSheet<void>(
       context: context,
-      backgroundColor: context.tRead.surfaceHigh,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-      ),
-      isScrollControlled: true,
+      draggable: true,
+      initialSize: 0.5,
+      maxSize: 0.8,
       builder: (_) => ChangeNotifierProvider.value(
         value: context.read<MLNotifier>(),
         child: MLModelPicker(
@@ -51,115 +54,70 @@ class MLModelPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ml = context.watch<MLNotifier>();
-    final t = context.t;
+    final l = context.l;
     final caps = ml.deviceCapabilities;
 
     final models = MLModelRegistry.byType(modelType);
 
     final title = switch (modelType) {
-      MLModelType.backgroundRemoval => 'BACKGROUND REMOVAL',
-      MLModelType.upscale => 'UPSCALING',
-      MLModelType.segmentation => 'SEGMENTATION',
+      MLModelType.backgroundRemoval => l.mlBgRemoval,
+      MLModelType.upscale => l.mlUpscaling,
+      MLModelType.segmentation => l.mlSegmentation,
     };
 
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.5,
-      minChildSize: 0.3,
-      maxChildSize: 0.8,
-      builder: (_, controller) => Column(
+    return AppPickerSheet(
+      title: title,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Handle + title
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: Column(
-              children: [
-                Center(
-                  child: Container(
-                    width: 32,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: t.textMinimal,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
+          if (caps != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: VisionMetrics.space8),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: AppPill(
+                  text: caps.deviceInfoLabel,
+                  tone: caps.hasGpuAcceleration
+                      ? AppTone.success
+                      : AppTone.warning,
+                  dense: true,
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        color: t.textSecondary,
-                        fontSize: t.fontSize(11),
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 2,
-                      ),
-                    ),
-                    const Spacer(),
-                    if (caps != null)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: caps.hasGpuAcceleration
-                              ? Colors.green.withValues(alpha: 0.15)
-                              : Colors.orange.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          caps.deviceInfoLabel,
-                          style: TextStyle(
-                            color: caps.hasGpuAcceleration
-                                ? Colors.green
-                                : Colors.orange,
-                            fontSize: t.fontSize(7),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ],
+              ),
             ),
-          ),
-          Divider(height: 1, color: t.borderSubtle),
-          // Model list
-          Expanded(
-            child: ListView.builder(
-              controller: controller,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: models.length,
-              itemBuilder: (_, index) {
-                final entry = models[index];
-                final rec = caps?.recommendation(entry);
-                final isUnavailable = rec == MLRecommendationLevel.unavailable;
-                return _ModelPickerCard(
-                  entry: entry,
-                  isSelected: entry.id == selectedModelId,
-                  isDownloaded: ml.isModelDownloaded(entry.id),
-                  downloadState: ml.downloadState(entry.id),
-                  deviceCaps: caps,
-                  recommendation: rec,
-                  isUnavailable: isUnavailable,
-                  onTap: isUnavailable
-                      ? null
-                      : () {
-                          if (ml.isModelDownloaded(entry.id)) {
-                            onSelected(entry.id);
-                            Navigator.pop(context);
-                          } else {
-                            ml.downloadModel(entry);
-                          }
-                        },
-                  onDownload: isUnavailable ? null : () => ml.downloadModel(entry),
-                  onCancel: () => ml.cancelDownload(entry.id),
-                );
-              },
-            ),
-          ),
+          for (final entry in models) ...[_buildCard(context, ml, entry, caps)],
         ],
       ),
+    );
+  }
+
+  Widget _buildCard(
+    BuildContext context,
+    MLNotifier ml,
+    MLModelEntry entry,
+    MLDeviceCapabilities? caps,
+  ) {
+    final rec = caps?.recommendation(entry);
+    final isUnavailable = rec == MLRecommendationLevel.unavailable;
+    return _ModelPickerCard(
+      entry: entry,
+      isSelected: entry.id == selectedModelId,
+      isDownloaded: ml.isModelDownloaded(entry.id),
+      downloadState: ml.downloadState(entry.id),
+      deviceCaps: caps,
+      recommendation: rec,
+      isUnavailable: isUnavailable,
+      onTap: isUnavailable
+          ? null
+          : () {
+              if (ml.isModelDownloaded(entry.id)) {
+                onSelected(entry.id);
+                Navigator.pop(context);
+              } else {
+                ml.downloadModel(entry);
+              }
+            },
+      onDownload: isUnavailable ? null : () => ml.downloadModel(entry),
+      onCancel: () => ml.cancelDownload(entry.id),
     );
   }
 }
@@ -189,32 +147,39 @@ class _ModelPickerCard extends StatelessWidget {
     required this.onCancel,
   });
 
-  Color _tierColor(MLPerformanceTier tier) => switch (tier) {
-        MLPerformanceTier.fast => Colors.green,
-        MLPerformanceTier.balanced => Colors.blue,
-        MLPerformanceTier.quality => Colors.purple,
+  AppTone _tierTone(MLPerformanceTier tier) => switch (tier) {
+    MLPerformanceTier.fast => AppTone.success,
+    MLPerformanceTier.balanced => AppTone.info,
+    MLPerformanceTier.quality => AppTone.warning,
+  };
+
+  String _tierLabel(AppLocalizations l, MLPerformanceTier tier) =>
+      switch (tier) {
+        MLPerformanceTier.fast => l.mlTierFast,
+        MLPerformanceTier.balanced => l.mlTierBalanced,
+        MLPerformanceTier.quality => l.mlTierQuality,
       };
 
-  String _tierLabel(MLPerformanceTier tier) => switch (tier) {
-        MLPerformanceTier.fast => 'FAST',
-        MLPerformanceTier.balanced => 'BALANCED',
-        MLPerformanceTier.quality => 'QUALITY',
-      };
+  AppTone _recommendationTone(MLRecommendationLevel level) => switch (level) {
+    MLRecommendationLevel.recommended => AppTone.success,
+    MLRecommendationLevel.slow => AppTone.warning,
+    MLRecommendationLevel.notRecommended => AppTone.error,
+    MLRecommendationLevel.unavailable => AppTone.error,
+  };
 
-  Color _recommendationColor(MLRecommendationLevel level) => switch (level) {
-        MLRecommendationLevel.recommended => Colors.green,
-        MLRecommendationLevel.slow => Colors.orange,
-        MLRecommendationLevel.notRecommended => Colors.red,
-        MLRecommendationLevel.unavailable => Colors.red,
-      };
-
-  String _recommendationLabel(BuildContext context, MLRecommendationLevel level, MLDeviceCapabilities caps, MLModelEntry entry) {
-    final l = AppLocalizations.of(context);
+  String _recommendationLabel(
+    AppLocalizations l,
+    MLRecommendationLevel level,
+    MLDeviceCapabilities caps,
+    MLModelEntry entry,
+  ) {
     if (level == MLRecommendationLevel.unavailable) {
-      if (caps.isDesktopOnlyOnMobile(entry)) return 'DESKTOP ONLY \u2014 MAY CRASH';
+      if (caps.isDesktopOnlyOnMobile(entry)) return l.mlDesktopOnlyMayCrash;
       return l.mlNotAvailableOnPlatform;
     }
-    if (level == MLRecommendationLevel.notRecommended && caps.isLowRam(entry)) return l.mlLowRamWarning;
+    if (level == MLRecommendationLevel.notRecommended && caps.isLowRam(entry)) {
+      return l.mlLowRamWarning;
+    }
     return switch (level) {
       MLRecommendationLevel.recommended => l.mlRecommended,
       MLRecommendationLevel.slow => l.mlMayBeSlow,
@@ -226,195 +191,186 @@ class _ModelPickerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final isDownloading =
-        downloadState.status == DownloadStatus.downloading;
+    final l = context.l;
+    final isDownloading = downloadState.status == DownloadStatus.downloading;
     final hasError = downloadState.status == DownloadStatus.error;
 
     return Opacity(
-      opacity: isUnavailable ? 0.45 : 1.0,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? t.accentEdit.withValues(alpha: 0.15)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isSelected ? t.accentEdit : t.borderSubtle,
-              width: isSelected ? 1.5 : 1,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  // Selection indicator
-                  if (isDownloaded)
-                    Icon(
-                      isSelected
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_off,
-                      size: 16,
-                      color: isSelected ? t.accentEdit : t.textMinimal,
-                    )
-                  else
-                    const SizedBox(width: 16),
-                  const SizedBox(width: 8),
-                  // Model name
-                  Expanded(
-                    child: Text(
-                      entry.name,
-                      style: TextStyle(
-                        color: t.textPrimary,
-                        fontSize: t.fontSize(10),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  // Tier badge
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: _tierColor(entry.tier).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                    child: Text(
-                      _tierLabel(entry.tier),
-                      style: TextStyle(
-                        color: _tierColor(entry.tier),
-                        fontSize: t.fontSize(7),
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ],
+      opacity: isUnavailable ? VisionMetrics.opacityDisabled : 1.0,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: VisionMetrics.space4),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(VisionMetrics.radius8),
+          child: Container(
+            padding: const EdgeInsets.all(VisionMetrics.space12),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? t.accentEdit.withValues(alpha: VisionMetrics.opacityPressed)
+                  : null,
+              borderRadius: BorderRadius.circular(VisionMetrics.radius8),
+              border: Border.all(
+                color: isSelected ? t.accentEdit : t.borderSubtle,
+                width: isSelected ? 2 : VisionMetrics.borderWidth,
               ),
-              const SizedBox(height: 4),
-              // Description + size
-              Padding(
-                padding: const EdgeInsets.only(left: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Text(
-                      entry.description,
-                      style: TextStyle(
-                        color: t.textTertiary,
-                        fontSize: t.fontSize(8),
+                    // Selection indicator
+                    if (isDownloaded)
+                      Icon(
+                        isSelected
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_off,
+                        size: VisionMetrics.iconMedium,
+                        color: isSelected ? t.accentEdit : t.textMinimal,
+                      )
+                    else
+                      const SizedBox(width: VisionMetrics.iconMedium),
+                    const SizedBox(width: VisionMetrics.space8),
+                    // Model name
+                    Expanded(
+                      child: Text(
+                        entry.name,
+                        style: TextStyle(
+                          color: t.textPrimary,
+                          fontSize: t.fontSize(10),
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Text(
-                          entry.fileSizeLabel,
-                          style: TextStyle(
-                            color: t.textMinimal,
-                            fontSize: t.fontSize(7),
-                          ),
-                        ),
-                        if (recommendation != null) ...[
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: Text(
-                              _recommendationLabel(context, recommendation!, deviceCaps!, entry),
-                              style: TextStyle(
-                                color: _recommendationColor(recommendation!),
-                                fontSize: t.fontSize(7),
-                                fontWeight: FontWeight.bold,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ],
+                    AppPill(
+                      text: _tierLabel(l, entry.tier),
+                      tone: _tierTone(entry.tier),
+                      dense: true,
                     ),
-                    // Download progress
-                    if (isDownloading) ...[
-                      const SizedBox(height: 6),
+                  ],
+                ),
+                const SizedBox(height: VisionMetrics.space4),
+                // Description + size
+                Padding(
+                  padding: const EdgeInsets.only(left: VisionMetrics.space24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        entry.description,
+                        style: TextStyle(
+                          color: t.textTertiary,
+                          fontSize: t.fontSize(9),
+                        ),
+                      ),
+                      const SizedBox(height: VisionMetrics.space4),
                       Row(
                         children: [
-                          Expanded(
-                            child: LinearProgressIndicator(
-                              value: downloadState.progress,
-                              backgroundColor: t.borderSubtle,
-                              valueColor: AlwaysStoppedAnimation(t.accentEdit),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
                           Text(
-                            '${(downloadState.progress * 100).toStringAsFixed(0)}%',
+                            entry.fileSizeLabel,
                             style: TextStyle(
                               color: t.textMinimal,
-                              fontSize: t.fontSize(7),
+                              fontSize: t.fontSize(8),
                             ),
                           ),
-                          const SizedBox(width: 4),
-                          GestureDetector(
-                            onTap: onCancel,
-                            child: Icon(Icons.close, size: 14, color: t.textMinimal),
-                          ),
-                        ],
-                      ),
-                    ],
-                    // Error
-                    if (hasError)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Row(
-                          children: [
-                            Icon(Icons.error_outline,
-                                size: 12, color: t.accentDanger),
-                            const SizedBox(width: 4),
-                            Text(
-                              downloadState.errorMessage ?? 'Download failed',
-                              style: TextStyle(
-                                color: t.accentDanger,
-                                fontSize: t.fontSize(7),
-                              ),
-                            ),
-                            const Spacer(),
-                            GestureDetector(
-                              onTap: onDownload,
+                          if (recommendation != null) ...[
+                            const SizedBox(width: VisionMetrics.space8),
+                            Flexible(
                               child: Text(
-                                'RETRY',
+                                _recommendationLabel(
+                                  l,
+                                  recommendation!,
+                                  deviceCaps!,
+                                  entry,
+                                ),
                                 style: TextStyle(
-                                  color: t.accentEdit,
-                                  fontSize: t.fontSize(7),
+                                  color: _recommendationTone(
+                                    recommendation!,
+                                  ).color(t),
+                                  fontSize: t.fontSize(8),
                                   fontWeight: FontWeight.bold,
                                 ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      // Download progress
+                      if (isDownloading)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: LinearProgressIndicator(
+                                value: downloadState.progress,
+                                backgroundColor: t.borderSubtle,
+                                valueColor: AlwaysStoppedAnimation(
+                                  t.accentEdit,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: VisionMetrics.space8),
+                            Text(
+                              '${(downloadState.progress * 100).toStringAsFixed(0)}%',
+                              style: TextStyle(
+                                color: t.textMinimal,
+                                fontSize: t.fontSize(8),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: onCancel,
+                              tooltip: l.mlCancel,
+                              icon: Icon(
+                                Icons.close,
+                                size: VisionMetrics.iconSmall,
+                                color: t.textMinimal,
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    // Download button (if not downloaded)
-                    if (!isDownloaded && !isDownloading && !hasError && !isUnavailable)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: GestureDetector(
-                          onTap: onDownload,
-                          child: Text(
-                            'DOWNLOAD',
-                            style: TextStyle(
-                              color: t.accentEdit,
-                              fontSize: t.fontSize(8),
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1,
+                      // Error
+                      if (hasError)
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: VisionMetrics.iconSmall,
+                              color: t.accentDanger,
                             ),
+                            const SizedBox(width: VisionMetrics.space4),
+                            Expanded(
+                              child: Text(
+                                downloadState.errorMessage ??
+                                    l.mlDownloadFailed,
+                                style: TextStyle(
+                                  color: t.accentDanger,
+                                  fontSize: t.fontSize(8),
+                                ),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: onDownload,
+                              child: Text(l.mlRetry),
+                            ),
+                          ],
+                        ),
+                      // Download button (if not downloaded)
+                      if (!isDownloaded &&
+                          !isDownloading &&
+                          !hasError &&
+                          !isUnavailable)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton(
+                            onPressed: onDownload,
+                            child: Text(l.mlDownload),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

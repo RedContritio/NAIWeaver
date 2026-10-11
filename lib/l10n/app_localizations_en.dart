@@ -3171,6 +3171,52 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mlRemovePoint => 'REMOVE';
 
   @override
+  String get mlBack => 'BACK';
+
+  @override
+  String get mlEncodingImage => 'Encoding image...';
+
+  @override
+  String get mlTapToSelect => 'Tap on the image to select a region';
+
+  @override
+  String get mlUndoPoint => 'Undo last point';
+
+  @override
+  String get mlClearPoints => 'Clear all points';
+
+  @override
+  String mlPointCount(int count) {
+    return '$count points';
+  }
+
+  @override
+  String get mlOpacity => 'OPACITY';
+
+  @override
+  String get mlEdgeRefine => 'EDGE REFINE';
+
+  @override
+  String get mlThreshold => 'THRESHOLD';
+
+  @override
+  String get mlFeather => 'FEATHER';
+
+  @override
+  String get mlDone => 'DONE';
+
+  @override
+  String get mlUpscaleCompare => 'UPSCALE COMPARE';
+
+  @override
+  String get mlSaved => 'SAVED';
+
+  @override
+  String mlSavedFile(String name) {
+    return 'SAVED: $name';
+  }
+
+  @override
   String get mlTierFast => 'FAST';
 
   @override
@@ -3208,6 +3254,87 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mlLowRamWarning => 'LOW RAM — MAY CRASH';
+
+  @override
+  String get mlDesktopOnlyMayCrash => 'DESKTOP ONLY — MAY CRASH';
+
+  @override
+  String get mlDownloadFailed => 'Download failed';
+
+  @override
+  String get mlManagerSubtitle =>
+      'Download and manage on-device ML models for background removal and upscaling.';
+
+  @override
+  String get mlNoModelsDownloaded => 'No models downloaded';
+
+  @override
+  String mlModelsDownloaded(int count, String size) {
+    return 'Models downloaded: $count · $size';
+  }
+
+  @override
+  String get mlMobileApiNote =>
+      'On mobile devices, upscaling and background removal use the NovelAI API. Local ML models are only available on desktop.';
+
+  @override
+  String get mlSegmentationNote =>
+      'Interactive object selection using SAM. Downloads both encoder and decoder.';
+
+  @override
+  String get mlUnknownModels => 'UNKNOWN MODELS';
+
+  @override
+  String get mlUnknownModelsNote =>
+      'Legacy or unrecognized .onnx/.ort files. Delete to free disk space.';
+
+  @override
+  String mlDeleteModelTitle(String name) {
+    return 'Delete $name?';
+  }
+
+  @override
+  String mlDeleteModelMessage(String size) {
+    return 'This will free $size of disk space.';
+  }
+
+  @override
+  String get mlRecommendedForDevice => 'RECOMMENDED FOR YOUR DEVICE';
+
+  @override
+  String get mlSlowOnDevice => 'MAY BE SLOW ON THIS DEVICE';
+
+  @override
+  String get mlNaiApiUpscale => 'NOVELAI API UPSCALE';
+
+  @override
+  String get mlNaiApiUpscaleDesc =>
+      'Up to 4x server-side upscaling via NovelAI API. Requires API key. No download needed.';
+
+  @override
+  String get mlNaiApiBgRemoval => 'NOVELAI API BG REMOVAL';
+
+  @override
+  String get mlNaiApiBgRemovalDesc =>
+      'Server-side background removal via NovelAI API. Requires API key. No download needed.';
+
+  @override
+  String get mlCloud => 'CLOUD';
+
+  @override
+  String get mlNoApiKey => 'NO API KEY SET';
+
+  @override
+  String get mlTierQualityShort => 'HQ';
+
+  @override
+  String get mlDeviceMobile => 'MOBILE';
+
+  @override
+  String get mlDeviceDesktop => 'DESKTOP';
+
+  @override
+  String get mlDeviceBoth => 'BOTH';
 
   @override
   String get mlBgRemovedAndSaved => 'BG REMOVED & SAVED';

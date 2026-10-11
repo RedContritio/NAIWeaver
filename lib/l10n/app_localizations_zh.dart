@@ -3076,6 +3076,52 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mlRemovePoint => '移除';
 
   @override
+  String get mlBack => '返回';
+
+  @override
+  String get mlEncodingImage => '正在编码图像…';
+
+  @override
+  String get mlTapToSelect => '点按图像以选择区域';
+
+  @override
+  String get mlUndoPoint => '撤销上一个点';
+
+  @override
+  String get mlClearPoints => '清除所有点';
+
+  @override
+  String mlPointCount(int count) {
+    return '$count 个点';
+  }
+
+  @override
+  String get mlOpacity => '不透明度';
+
+  @override
+  String get mlEdgeRefine => '边缘优化';
+
+  @override
+  String get mlThreshold => '阈值';
+
+  @override
+  String get mlFeather => '羽化';
+
+  @override
+  String get mlDone => '完成';
+
+  @override
+  String get mlUpscaleCompare => '放大对比';
+
+  @override
+  String get mlSaved => '已保存';
+
+  @override
+  String mlSavedFile(String name) {
+    return '已保存：$name';
+  }
+
+  @override
   String get mlTierFast => '快速';
 
   @override
@@ -3113,6 +3159,83 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get mlLowRamWarning => '内存不足 — 可能崩溃';
+
+  @override
+  String get mlDesktopOnlyMayCrash => '仅限桌面端——可能崩溃';
+
+  @override
+  String get mlDownloadFailed => '下载失败';
+
+  @override
+  String get mlManagerSubtitle => '下载并管理用于背景移除和放大的本地 ML 模型。';
+
+  @override
+  String get mlNoModelsDownloaded => '尚未下载任何模型';
+
+  @override
+  String mlModelsDownloaded(int count, String size) {
+    return '已下载 $count 个模型 · $size';
+  }
+
+  @override
+  String get mlMobileApiNote => '在移动设备上，放大和背景移除使用 NovelAI API。本地 ML 模型仅适用于桌面端。';
+
+  @override
+  String get mlSegmentationNote => '使用 SAM 的交互式对象选择。会同时下载编码器和解码器。';
+
+  @override
+  String get mlUnknownModels => '未知模型';
+
+  @override
+  String get mlUnknownModelsNote => '旧版或无法识别的 .onnx/.ort 文件。删除可释放磁盘空间。';
+
+  @override
+  String mlDeleteModelTitle(String name) {
+    return '删除 $name？';
+  }
+
+  @override
+  String mlDeleteModelMessage(String size) {
+    return '这将释放 $size 磁盘空间。';
+  }
+
+  @override
+  String get mlRecommendedForDevice => '适合你的设备';
+
+  @override
+  String get mlSlowOnDevice => '在此设备上可能较慢';
+
+  @override
+  String get mlNaiApiUpscale => 'NOVELAI API 放大';
+
+  @override
+  String get mlNaiApiUpscaleDesc =>
+      '通过 NovelAI API 在服务器端放大至 4 倍。需要 API 密钥，无需下载。';
+
+  @override
+  String get mlNaiApiBgRemoval => 'NOVELAI API 背景移除';
+
+  @override
+  String get mlNaiApiBgRemovalDesc =>
+      '通过 NovelAI API 在服务器端移除背景。需要 API 密钥，无需下载。';
+
+  @override
+  String get mlCloud => '云端';
+
+  @override
+  String get mlNoApiKey => '未设置 API 密钥';
+
+  @override
+  String get mlTierQualityShort => '高质';
+
+  @override
+  String get mlDeviceMobile => '移动端';
+
+  @override
+  String get mlDeviceDesktop => '桌面端';
+
+  @override
+  String get mlDeviceBoth => '通用';
 
   @override
   String get mlBgRemovedAndSaved => '背景已移除并保存';

@@ -3094,6 +3094,52 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mlRemovePoint => '除去';
 
   @override
+  String get mlBack => '戻る';
+
+  @override
+  String get mlEncodingImage => '画像をエンコード中…';
+
+  @override
+  String get mlTapToSelect => '画像をタップして領域を選択';
+
+  @override
+  String get mlUndoPoint => '最後の点を取り消す';
+
+  @override
+  String get mlClearPoints => 'すべての点をクリア';
+
+  @override
+  String mlPointCount(int count) {
+    return '$count 点';
+  }
+
+  @override
+  String get mlOpacity => '不透明度';
+
+  @override
+  String get mlEdgeRefine => 'エッジ補正';
+
+  @override
+  String get mlThreshold => 'しきい値';
+
+  @override
+  String get mlFeather => 'ぼかし';
+
+  @override
+  String get mlDone => '完了';
+
+  @override
+  String get mlUpscaleCompare => 'アップスケール比較';
+
+  @override
+  String get mlSaved => '保存済み';
+
+  @override
+  String mlSavedFile(String name) {
+    return '保存しました: $name';
+  }
+
+  @override
   String get mlTierFast => '高速';
 
   @override
@@ -3131,6 +3177,86 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get mlLowRamWarning => 'メモリ不足 — クラッシュの恐れ';
+
+  @override
+  String get mlDesktopOnlyMayCrash => 'デスクトップ専用 — クラッシュの可能性';
+
+  @override
+  String get mlDownloadFailed => 'ダウンロードに失敗しました';
+
+  @override
+  String get mlManagerSubtitle => '背景除去とアップスケール用のオンデバイス ML モデルをダウンロード・管理します。';
+
+  @override
+  String get mlNoModelsDownloaded => 'ダウンロード済みのモデルはありません';
+
+  @override
+  String mlModelsDownloaded(int count, String size) {
+    return 'ダウンロード済みモデル: $count 個 · $size';
+  }
+
+  @override
+  String get mlMobileApiNote =>
+      'モバイルでは、アップスケールと背景除去に NovelAI API を使用します。ローカル ML モデルはデスクトップのみ対応です。';
+
+  @override
+  String get mlSegmentationNote =>
+      'SAM によるインタラクティブな物体選択。エンコーダーとデコーダーの両方をダウンロードします。';
+
+  @override
+  String get mlUnknownModels => '不明なモデル';
+
+  @override
+  String get mlUnknownModelsNote =>
+      '旧形式または認識できない .onnx/.ort ファイルです。削除するとディスク容量を空けられます。';
+
+  @override
+  String mlDeleteModelTitle(String name) {
+    return '$name を削除しますか？';
+  }
+
+  @override
+  String mlDeleteModelMessage(String size) {
+    return '$size のディスク容量を空けます。';
+  }
+
+  @override
+  String get mlRecommendedForDevice => 'お使いのデバイスにおすすめ';
+
+  @override
+  String get mlSlowOnDevice => 'このデバイスでは遅い可能性があります';
+
+  @override
+  String get mlNaiApiUpscale => 'NOVELAI API アップスケール';
+
+  @override
+  String get mlNaiApiUpscaleDesc =>
+      'NovelAI API によるサーバー側の最大 4 倍アップスケール。API キーが必要で、ダウンロードは不要です。';
+
+  @override
+  String get mlNaiApiBgRemoval => 'NOVELAI API 背景除去';
+
+  @override
+  String get mlNaiApiBgRemovalDesc =>
+      'NovelAI API によるサーバー側の背景除去。API キーが必要で、ダウンロードは不要です。';
+
+  @override
+  String get mlCloud => 'クラウド';
+
+  @override
+  String get mlNoApiKey => 'API キー未設定';
+
+  @override
+  String get mlTierQualityShort => '高品質';
+
+  @override
+  String get mlDeviceMobile => 'モバイル';
+
+  @override
+  String get mlDeviceDesktop => 'デスクトップ';
+
+  @override
+  String get mlDeviceBoth => '両対応';
 
   @override
   String get mlBgRemovedAndSaved => '背景除去して保存しました';

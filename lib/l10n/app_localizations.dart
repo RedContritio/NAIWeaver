@@ -5858,6 +5858,90 @@ abstract class AppLocalizations {
   /// **'REMOVE'**
   String get mlRemovePoint;
 
+  /// No description provided for @mlBack.
+  ///
+  /// In en, this message translates to:
+  /// **'BACK'**
+  String get mlBack;
+
+  /// No description provided for @mlEncodingImage.
+  ///
+  /// In en, this message translates to:
+  /// **'Encoding image...'**
+  String get mlEncodingImage;
+
+  /// No description provided for @mlTapToSelect.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap on the image to select a region'**
+  String get mlTapToSelect;
+
+  /// No description provided for @mlUndoPoint.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo last point'**
+  String get mlUndoPoint;
+
+  /// No description provided for @mlClearPoints.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all points'**
+  String get mlClearPoints;
+
+  /// No description provided for @mlPointCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} points'**
+  String mlPointCount(int count);
+
+  /// No description provided for @mlOpacity.
+  ///
+  /// In en, this message translates to:
+  /// **'OPACITY'**
+  String get mlOpacity;
+
+  /// No description provided for @mlEdgeRefine.
+  ///
+  /// In en, this message translates to:
+  /// **'EDGE REFINE'**
+  String get mlEdgeRefine;
+
+  /// No description provided for @mlThreshold.
+  ///
+  /// In en, this message translates to:
+  /// **'THRESHOLD'**
+  String get mlThreshold;
+
+  /// No description provided for @mlFeather.
+  ///
+  /// In en, this message translates to:
+  /// **'FEATHER'**
+  String get mlFeather;
+
+  /// No description provided for @mlDone.
+  ///
+  /// In en, this message translates to:
+  /// **'DONE'**
+  String get mlDone;
+
+  /// No description provided for @mlUpscaleCompare.
+  ///
+  /// In en, this message translates to:
+  /// **'UPSCALE COMPARE'**
+  String get mlUpscaleCompare;
+
+  /// No description provided for @mlSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'SAVED'**
+  String get mlSaved;
+
+  /// No description provided for @mlSavedFile.
+  ///
+  /// In en, this message translates to:
+  /// **'SAVED: {name}'**
+  String mlSavedFile(String name);
+
   /// No description provided for @mlTierFast.
   ///
   /// In en, this message translates to:
@@ -5935,6 +6019,144 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'LOW RAM — MAY CRASH'**
   String get mlLowRamWarning;
+
+  /// No description provided for @mlDesktopOnlyMayCrash.
+  ///
+  /// In en, this message translates to:
+  /// **'DESKTOP ONLY — MAY CRASH'**
+  String get mlDesktopOnlyMayCrash;
+
+  /// No description provided for @mlDownloadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Download failed'**
+  String get mlDownloadFailed;
+
+  /// No description provided for @mlManagerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Download and manage on-device ML models for background removal and upscaling.'**
+  String get mlManagerSubtitle;
+
+  /// No description provided for @mlNoModelsDownloaded.
+  ///
+  /// In en, this message translates to:
+  /// **'No models downloaded'**
+  String get mlNoModelsDownloaded;
+
+  /// No description provided for @mlModelsDownloaded.
+  ///
+  /// In en, this message translates to:
+  /// **'Models downloaded: {count} · {size}'**
+  String mlModelsDownloaded(int count, String size);
+
+  /// No description provided for @mlMobileApiNote.
+  ///
+  /// In en, this message translates to:
+  /// **'On mobile devices, upscaling and background removal use the NovelAI API. Local ML models are only available on desktop.'**
+  String get mlMobileApiNote;
+
+  /// No description provided for @mlSegmentationNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Interactive object selection using SAM. Downloads both encoder and decoder.'**
+  String get mlSegmentationNote;
+
+  /// No description provided for @mlUnknownModels.
+  ///
+  /// In en, this message translates to:
+  /// **'UNKNOWN MODELS'**
+  String get mlUnknownModels;
+
+  /// No description provided for @mlUnknownModelsNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Legacy or unrecognized .onnx/.ort files. Delete to free disk space.'**
+  String get mlUnknownModelsNote;
+
+  /// No description provided for @mlDeleteModelTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {name}?'**
+  String mlDeleteModelTitle(String name);
+
+  /// No description provided for @mlDeleteModelMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This will free {size} of disk space.'**
+  String mlDeleteModelMessage(String size);
+
+  /// No description provided for @mlRecommendedForDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'RECOMMENDED FOR YOUR DEVICE'**
+  String get mlRecommendedForDevice;
+
+  /// No description provided for @mlSlowOnDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'MAY BE SLOW ON THIS DEVICE'**
+  String get mlSlowOnDevice;
+
+  /// No description provided for @mlNaiApiUpscale.
+  ///
+  /// In en, this message translates to:
+  /// **'NOVELAI API UPSCALE'**
+  String get mlNaiApiUpscale;
+
+  /// No description provided for @mlNaiApiUpscaleDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Up to 4x server-side upscaling via NovelAI API. Requires API key. No download needed.'**
+  String get mlNaiApiUpscaleDesc;
+
+  /// No description provided for @mlNaiApiBgRemoval.
+  ///
+  /// In en, this message translates to:
+  /// **'NOVELAI API BG REMOVAL'**
+  String get mlNaiApiBgRemoval;
+
+  /// No description provided for @mlNaiApiBgRemovalDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Server-side background removal via NovelAI API. Requires API key. No download needed.'**
+  String get mlNaiApiBgRemovalDesc;
+
+  /// No description provided for @mlCloud.
+  ///
+  /// In en, this message translates to:
+  /// **'CLOUD'**
+  String get mlCloud;
+
+  /// No description provided for @mlNoApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'NO API KEY SET'**
+  String get mlNoApiKey;
+
+  /// No description provided for @mlTierQualityShort.
+  ///
+  /// In en, this message translates to:
+  /// **'HQ'**
+  String get mlTierQualityShort;
+
+  /// No description provided for @mlDeviceMobile.
+  ///
+  /// In en, this message translates to:
+  /// **'MOBILE'**
+  String get mlDeviceMobile;
+
+  /// No description provided for @mlDeviceDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'DESKTOP'**
+  String get mlDeviceDesktop;
+
+  /// No description provided for @mlDeviceBoth.
+  ///
+  /// In en, this message translates to:
+  /// **'BOTH'**
+  String get mlDeviceBoth;
 
   /// No description provided for @mlBgRemovedAndSaved.
   ///

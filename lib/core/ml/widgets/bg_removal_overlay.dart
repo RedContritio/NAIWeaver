@@ -1,12 +1,15 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../l10n/l10n_extensions.dart';
 import '../../theme/theme_extensions.dart';
+import '../../theme/vision_metrics.dart';
 import '../../widgets/vision_slider.dart';
 import '../../utils/responsive.dart';
 import '../ml_model_entry.dart';
 import '../ml_model_registry.dart';
 import '../ml_notifier.dart';
+import 'checkerboard_painter.dart';
 
 class BGRemovalOverlay extends StatefulWidget {
   final Uint8List resultImage;
@@ -84,7 +87,8 @@ class _BGRemovalOverlayState extends State<BGRemovalOverlay> {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final mobile = isMobile(context);
+    final l = context.l;
+    final mobile = isTouchSized(context);
     final isMatte = _isMatteMode;
 
     return Column(
@@ -97,15 +101,17 @@ class _BGRemovalOverlayState extends State<BGRemovalOverlay> {
               fit: StackFit.expand,
               children: [
                 // Checkerboard pattern behind transparent areas
-                CustomPaint(painter: _CheckerboardPainter()),
+                CustomPaint(
+                  painter: CheckerboardPainter(
+                    light: t.surfaceHigh,
+                    dark: t.surfaceMid,
+                  ),
+                ),
                 // Result image
                 if (_previewImage != null)
                   FittedBox(
                     fit: BoxFit.contain,
-                    child: Image.memory(
-                      _previewImage!,
-                      gaplessPlayback: true,
-                    ),
+                    child: Image.memory(_previewImage!, gaplessPlayback: true),
                   ),
               ],
             ),
@@ -128,7 +134,7 @@ class _BGRemovalOverlayState extends State<BGRemovalOverlay> {
               if (isMatte) ...[
                 // Opacity slider (matte mode)
                 _SliderRow(
-                  label: 'OPACITY',
+                  label: l.mlOpacity,
                   value: _opacityMultiplier,
                   min: 0.0,
                   max: 1.0,
@@ -140,7 +146,7 @@ class _BGRemovalOverlayState extends State<BGRemovalOverlay> {
                 ),
                 // Edge refinement slider (matte mode)
                 _SliderRow(
-                  label: 'EDGE REFINE',
+                  label: l.mlEdgeRefine,
                   value: _edgeRefinement,
                   min: 0,
                   max: 20,
@@ -154,7 +160,7 @@ class _BGRemovalOverlayState extends State<BGRemovalOverlay> {
               ] else ...[
                 // Threshold slider (binary mask mode)
                 _SliderRow(
-                  label: 'THRESHOLD',
+                  label: l.mlThreshold,
                   value: _threshold,
                   min: 0.0,
                   max: 1.0,
@@ -166,7 +172,7 @@ class _BGRemovalOverlayState extends State<BGRemovalOverlay> {
                 ),
                 // Feather slider (binary mask mode)
                 _SliderRow(
-                  label: 'FEATHER',
+                  label: l.mlFeather,
                   value: _featherRadius,
                   min: 0,
                   max: 20,
@@ -178,7 +184,7 @@ class _BGRemovalOverlayState extends State<BGRemovalOverlay> {
                   },
                 ),
               ],
-              const SizedBox(height: 8),
+              const SizedBox(height: VisionMetrics.space8),
               // Action buttons
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -189,7 +195,7 @@ class _BGRemovalOverlayState extends State<BGRemovalOverlay> {
                       widget.onDiscard();
                     },
                     child: Text(
-                      'DISCARD',
+                      l.mlDiscard,
                       style: TextStyle(
                         color: t.textDisabled,
                         fontSize: t.fontSize(mobile ? 10 : 8),
@@ -199,10 +205,12 @@ class _BGRemovalOverlayState extends State<BGRemovalOverlay> {
                     ),
                   ),
                   if (widget.onSendToCanvas != null) ...[
-                    const SizedBox(width: 8),
+                    const SizedBox(width: VisionMetrics.space8),
                     OutlinedButton(
                       onPressed: () {
-                        widget.onSendToCanvas!(_previewImage ?? widget.resultImage);
+                        widget.onSendToCanvas!(
+                          _previewImage ?? widget.resultImage,
+                        );
                       },
                       style: OutlinedButton.styleFrom(
                         foregroundColor: t.accentEdit,
@@ -212,13 +220,19 @@ class _BGRemovalOverlayState extends State<BGRemovalOverlay> {
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1,
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: VisionMetrics.space12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            VisionMetrics.radius4,
+                          ),
+                        ),
                       ),
-                      child: const Text('CANVAS'),
+                      child: Text(l.mlCanvas),
                     ),
                   ],
-                  const SizedBox(width: 8),
+                  const SizedBox(width: VisionMetrics.space8),
                   ElevatedButton(
                     onPressed: () {
                       widget.onSave(_previewImage ?? widget.resultImage);
@@ -232,10 +246,14 @@ class _BGRemovalOverlayState extends State<BGRemovalOverlay> {
                         letterSpacing: 1,
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 20),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                          VisionMetrics.radius4,
+                        ),
+                      ),
                       elevation: 0,
                     ),
-                    child: Text(widget.autoSave ? 'DONE' : 'SAVE'),
+                    child: Text(widget.autoSave ? l.mlDone : l.mlSave),
                   ),
                 ],
               ),
@@ -269,7 +287,7 @@ class _SliderRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final mobile = isMobile(context);
+    final mobile = isTouchSized(context);
 
     return Row(
       children: [
@@ -313,26 +331,4 @@ class _SliderRow extends StatelessWidget {
       ],
     );
   }
-}
-
-class _CheckerboardPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    const cellSize = 12.0;
-    final lightPaint = Paint()..color = const Color(0xFF3A3A3A);
-    final darkPaint = Paint()..color = const Color(0xFF2A2A2A);
-
-    for (double y = 0; y < size.height; y += cellSize) {
-      for (double x = 0; x < size.width; x += cellSize) {
-        final isLight = ((x ~/ cellSize) + (y ~/ cellSize)) % 2 == 0;
-        canvas.drawRect(
-          Rect.fromLTWH(x, y, cellSize, cellSize),
-          isLight ? lightPaint : darkPaint,
-        );
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
