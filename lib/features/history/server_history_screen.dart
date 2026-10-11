@@ -12,11 +12,16 @@ import '../../core/services/backend_auth_api.dart';
 import '../../core/services/backend_history_api.dart';
 import '../../core/services/client_diagnostics.dart';
 import '../../core/theme/theme_extensions.dart';
+import '../../core/theme/vision_metrics.dart';
 import '../../core/utils/app_snackbar.dart';
 import '../../core/utils/responsive.dart';
 import '../../core/utils/web_download.dart';
 import '../../core/widgets/confirm_dialog.dart';
 import '../../core/widgets/card_action_layout.dart';
+import '../../core/widgets/ui/app_panel.dart';
+import '../../core/widgets/ui/app_pill.dart';
+import '../../core/widgets/ui/app_states.dart';
+import '../../core/widgets/ui/overlay_action_button.dart';
 import '../../l10n/app_localizations.dart';
 import '../auth/backend_auth_notifier.dart';
 import '../generation/providers/generation_notifier.dart';
@@ -203,26 +208,27 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<BackendAuthNotifier>();
     final t = context.t;
-    final mobile = isMobile(context);
+    final touch = windowSizeClassOf(context).isTouchSized;
     return Scaffold(
       backgroundColor: t.background,
       appBar: AppBar(
         backgroundColor: t.background,
         elevation: 0,
-        toolbarHeight: mobile ? 48 : 32,
+        toolbarHeight: context.touchSize,
         leading: IconButton(
           icon: Icon(
             Icons.arrow_back,
-            size: mobile ? 20 : 14,
+            size: touch ? VisionMetrics.iconLarge : VisionMetrics.iconMedium,
             color: t.secondaryText,
           ),
+          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           context.l.serverHistoryTitle.toUpperCase(),
           style: TextStyle(
             color: t.headerText,
-            fontSize: t.titleSize(mobile ? 12 : 10),
+            fontSize: t.titleSize(touch ? 12 : 10),
             fontWeight: FontWeight.w900,
             letterSpacing: 3,
           ),
@@ -230,7 +236,7 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
         actions: [
           if (auth.user?.isAdmin == true)
             ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: mobile ? 150 : 220),
+              constraints: BoxConstraints(maxWidth: touch ? 150 : 220),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<int?>(
                   value: _selectedUserId,
@@ -262,7 +268,7 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
           IconButton(
             icon: Icon(
               Icons.refresh,
-              size: mobile ? 20 : 16,
+              size: touch ? VisionMetrics.iconLarge : VisionMetrics.iconMedium,
               color: t.secondaryText,
             ),
             tooltip: context.l.serverHistoryRefresh,
@@ -275,30 +281,16 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
   }
 
   Widget _buildBody(BuildContext context) {
-    final t = context.t;
     if (_loading && _items.isEmpty) {
-      return Center(
-        child: CircularProgressIndicator(strokeWidth: 2, color: t.accent),
-      );
+      return const LoadingState();
     }
     final error = _error;
     if (error != null && _items.isEmpty && _totalItems == 0) {
-      return Column(
-        children: [
-          _HistoryErrorBanner(
-            message: backendErrorMessage(context.l, error),
-            onRetry: _loading ? null : () => _load(pageIndex: _errorPageIndex),
-          ),
-        ],
-      );
+      return Column(children: [_buildErrorBanner(context, error)]);
     }
     return Column(
       children: [
-        if (error != null)
-          _HistoryErrorBanner(
-            message: backendErrorMessage(context.l, error),
-            onRetry: _loading ? null : () => _load(pageIndex: _errorPageIndex),
-          ),
+        if (error != null) _buildErrorBanner(context, error),
         Expanded(
           child: RefreshIndicator(
             onRefresh: () => _load(),
@@ -321,6 +313,19 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
                 : () => _load(pageIndex: _pageIndex + 1),
           ),
       ],
+    );
+  }
+
+  Widget _buildErrorBanner(BuildContext context, Object error) {
+    return Padding(
+      padding: const EdgeInsets.all(VisionMetrics.space8),
+      child: ErrorBanner(
+        message: context.l.serverHistoryLoadFailed(
+          backendErrorMessage(context.l, error),
+        ),
+        retryLabel: context.l.serverHistoryRetry,
+        onRetry: _loading ? null : () => _load(pageIndex: _errorPageIndex),
+      ),
     );
   }
 
@@ -356,20 +361,20 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
   }
 
   Widget _buildEmptyList(BuildContext context) {
-    final t = context.t;
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      children: [
-        const SizedBox(height: 96),
-        Icon(Icons.history, size: 48, color: t.textDisabled),
-        const SizedBox(height: 16),
-        Center(
-          child: Text(
-            context.l.serverHistoryEmpty,
-            style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(12)),
+    // A scrollable root keeps pull-to-refresh working on an empty page.
+    return LayoutBuilder(
+      builder: (context, constraints) => ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(
+            height: constraints.maxHeight,
+            child: EmptyState(
+              icon: Icons.history,
+              message: context.l.serverHistoryEmpty,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -406,13 +411,12 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
     required String message,
     required Future<void> Function() delete,
   }) async {
-    final t = context.tRead;
     final confirm = await showConfirmDialog(
       context,
       title: title,
       message: message,
       confirmLabel: context.l.commonDelete,
-      confirmColor: t.accentDanger,
+      cancelLabel: context.l.commonCancel,
     );
     if (!mounted || confirm != true) return false;
     try {
@@ -435,7 +439,7 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
   void _openEntry(_HistoryEntry entry) {
     showGeneralDialog<void>(
       context: context,
-      barrierColor: Colors.black,
+      barrierColor: context.tRead.background,
       barrierDismissible: true,
       barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       transitionDuration: const Duration(milliseconds: 120),
@@ -637,7 +641,7 @@ class _HistoryPaginationBar extends StatelessWidget {
     return Material(
       color: t.background,
       child: Container(
-        height: 44,
+        height: context.hitSize + VisionMetrics.space4,
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           border: Border(top: BorderSide(color: t.borderSubtle)),
@@ -652,9 +656,9 @@ class _HistoryPaginationBar extends StatelessWidget {
                   icon: Icon(Icons.chevron_left, size: 18, color: t.headerText),
                   tooltip: localizations.previousPageTooltip,
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 32,
-                    minHeight: 32,
+                  constraints: BoxConstraints(
+                    minWidth: context.hitSize,
+                    minHeight: context.hitSize,
                   ),
                   onPressed: loading ? null : onPrevious,
                 ),
@@ -695,9 +699,9 @@ class _HistoryPaginationBar extends StatelessWidget {
                         ),
                         tooltip: localizations.nextPageTooltip,
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: 32,
-                          minHeight: 32,
+                        constraints: BoxConstraints(
+                          minWidth: context.hitSize,
+                          minHeight: context.hitSize,
                         ),
                         onPressed: onNext,
                       ),
@@ -778,7 +782,7 @@ class _HistoryEntryCard extends StatelessWidget {
     return Material(
       key: ValueKey<String>('history-entry-${entry.key}'),
       color: t.surfaceMid,
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: BorderRadius.circular(VisionMetrics.radius8),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onOpen,
@@ -810,27 +814,29 @@ class _HistoryEntryThumbnail extends StatelessWidget {
   Widget build(BuildContext context) {
     final items = entry.items.where((item) => item.hasImage).take(4).toList();
     if (items.isEmpty) return _PlaceholderIcon(item: entry.lead);
-    if (!entry.isBatch || items.length == 1) return _image(items.first);
+    if (!entry.isBatch || items.length == 1) {
+      return _image(context, items.first);
+    }
     if (items.length == 2) {
       return Row(
         children: [
-          Expanded(child: _image(items[0])),
+          Expanded(child: _image(context, items[0])),
           const SizedBox(width: 1),
-          Expanded(child: _image(items[1])),
+          Expanded(child: _image(context, items[1])),
         ],
       );
     }
     if (items.length == 3) {
       return Row(
         children: [
-          Expanded(child: _image(items[0])),
+          Expanded(child: _image(context, items[0])),
           const SizedBox(width: 1),
           Expanded(
             child: Column(
               children: [
-                Expanded(child: _image(items[1])),
+                Expanded(child: _image(context, items[1])),
                 const SizedBox(height: 1),
-                Expanded(child: _image(items[2])),
+                Expanded(child: _image(context, items[2])),
               ],
             ),
           ),
@@ -842,9 +848,9 @@ class _HistoryEntryThumbnail extends StatelessWidget {
         Expanded(
           child: Row(
             children: [
-              Expanded(child: _image(items[0])),
+              Expanded(child: _image(context, items[0])),
               const SizedBox(width: 1),
-              Expanded(child: _image(items[1])),
+              Expanded(child: _image(context, items[1])),
             ],
           ),
         ),
@@ -852,9 +858,9 @@ class _HistoryEntryThumbnail extends StatelessWidget {
         Expanded(
           child: Row(
             children: [
-              Expanded(child: _image(items[2])),
+              Expanded(child: _image(context, items[2])),
               const SizedBox(width: 1),
-              Expanded(child: _image(items[3])),
+              Expanded(child: _image(context, items[3])),
             ],
           ),
         ),
@@ -862,10 +868,10 @@ class _HistoryEntryThumbnail extends StatelessWidget {
     );
   }
 
-  Widget _image(ServerHistoryItem item) {
+  Widget _image(BuildContext context, ServerHistoryItem item) {
     return ColoredBox(
       key: ValueKey<String>('history-collage-${entry.key}-${item.id}'),
-      color: Colors.black,
+      color: context.t.background,
       child: SizedBox.expand(
         child: Image.network(
           item.thumbnailUrl,
@@ -886,32 +892,7 @@ class _HistoryBatchBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.t;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: t.background.withValues(alpha: 0.84),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: t.borderSubtle),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.layers_outlined, size: 12, color: t.accent),
-            const SizedBox(width: 5),
-            Text(
-              '$count',
-              style: TextStyle(
-                color: t.headerText,
-                fontSize: t.fontSize(9),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    return AppPill(icon: Icons.layers_outlined, text: '$count', dense: true);
   }
 }
 
@@ -946,7 +927,8 @@ class _HistoryResultSetDialogState extends State<_HistoryResultSetDialog> {
   @override
   Widget build(BuildContext context) {
     if (_items.isEmpty) return const SizedBox.shrink();
-    final mobile = isMobile(context);
+    final t = context.t;
+    final compact = windowSizeClassOf(context) == WindowSizeClass.compact;
     final viewItems = <ResultSetViewItem>[
       for (var index = 0; index < _items.length; index += 1)
         ResultSetViewItem(
@@ -975,13 +957,13 @@ class _HistoryResultSetDialogState extends State<_HistoryResultSetDialog> {
       (candidate) => candidate.id == _selectedId,
     );
     return Material(
-      color: Colors.black,
+      color: t.background,
       child: SafeArea(
         child: ResultSetWorkspace(
           items: viewItems,
           selectedId: _selectedId,
           onSelect: (id) => setState(() => _selectedId = id),
-          mobile: mobile,
+          mobile: compact,
           pulseAnimation: const AlwaysStoppedAnimation<double>(0),
           headerLeading: _HistoryViewerLeading(
             onClose: () => Navigator.of(context).pop(),
@@ -1050,7 +1032,7 @@ class _HistoryViewerLeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _HistoryIconButton(
+    return OverlayActionButton(
       icon: Icons.close,
       tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
       onPressed: onClose,
@@ -1083,11 +1065,13 @@ class _HistoryMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.t;
     final l = context.l;
-    final iconSize = batch ? 16.0 : 14.0;
+    const iconSize = VisionMetrics.iconMedium;
     return PopupMenuButton<String>(
       tooltip: MaterialLocalizations.of(context).moreButtonTooltip,
       color: t.surfaceHigh,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(VisionMetrics.radius8),
+      ),
       padding: EdgeInsets.zero,
       constraints: BoxConstraints(minWidth: batch ? 176 : 148),
       icon: Icon(Icons.more_horiz, size: iconSize, color: t.headerText),
@@ -1184,34 +1168,6 @@ class _HistoryMenuItem extends StatelessWidget {
   }
 }
 
-class _HistoryIconButton extends StatelessWidget {
-  const _HistoryIconButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    return Material(
-      color: t.background.withValues(alpha: 0.82),
-      borderRadius: BorderRadius.circular(4),
-      child: IconButton(
-        icon: Icon(icon, size: 13, color: t.headerText),
-        tooltip: tooltip,
-        padding: const EdgeInsets.all(4),
-        constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-        onPressed: onPressed,
-      ),
-    );
-  }
-}
-
 class _PlaceholderIcon extends StatelessWidget {
   const _PlaceholderIcon({required this.item});
 
@@ -1259,41 +1215,4 @@ String? _historyFailureMessage(AppLocalizations l, ServerHistoryItem item) {
     return l.serverHistoryItemCancelled;
   }
   return taskItemFailureMessage(l, item.status, item.errorCode);
-}
-
-class _HistoryErrorBanner extends StatelessWidget {
-  const _HistoryErrorBanner({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback? onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    return Material(
-      color: t.accentDanger.withValues(alpha: 0.12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: Row(
-          children: [
-            Icon(Icons.error_outline, size: 16, color: t.accentDanger),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                context.l.serverHistoryLoadFailed(message),
-                style: TextStyle(
-                  color: t.accentDanger,
-                  fontSize: t.fontSize(11),
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: onRetry,
-              child: Text(context.l.serverHistoryRetry),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
