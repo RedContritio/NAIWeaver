@@ -13,6 +13,8 @@ import '../services/update_download_service.dart';
 import '../services/update_service.dart';
 import '../theme/theme_extensions.dart';
 import '../theme/vision_tokens.dart';
+import '../utils/app_snackbar.dart';
+import 'ui/app_tone.dart';
 
 /// Non-intrusive launch-time prompt: a SnackBar offering to update now or skip.
 /// Falls back to the manual flow (download dialog) which itself falls back to
@@ -23,27 +25,21 @@ void showUpdatePrompt(BuildContext context, UpdateCheckResult result) {
   final version = result.latestVersion;
   if (version == null) return;
 
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-    content: Text(
-      l.settingsUpdateAvailableDesc(version),
-      style: TextStyle(color: t.accent, fontSize: t.fontSize(11)),
-    ),
-    backgroundColor: const Color(0xFF0A1A0A),
-    behavior: SnackBarBehavior.floating,
+  showAppSnackBar(
+    context,
+    l.settingsUpdateAvailableDesc(version),
+    tone: AppTone.info,
     duration: const Duration(seconds: 8),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(4),
-      side: BorderSide(color: t.accent.withValues(alpha: 0.3)),
-    ),
     action: SnackBarAction(
-      label: (UpdateDownloadService.isSupported
-              ? l.settingsUpdateDownload
-              : l.settingsUpdateOpenInBrowser)
-          .toUpperCase(),
+      label:
+          (UpdateDownloadService.isSupported
+                  ? l.settingsUpdateDownload
+                  : l.settingsUpdateOpenInBrowser)
+              .toUpperCase(),
       textColor: t.accent,
       onPressed: () => startUpdate(context, result),
     ),
-  ));
+  );
 }
 
 /// Entry point shared by the launch prompt and the settings button. Picks the
@@ -54,8 +50,11 @@ Future<void> startUpdate(BuildContext context, UpdateCheckResult result) async {
   final locale = context.read<LocaleNotifier>().locale.languageCode;
   final asset = suffix == null
       ? null
-      : UpdateService.selectAsset(result.assets,
-          platformSuffix: suffix, localeCode: locale);
+      : UpdateService.selectAsset(
+          result.assets,
+          platformSuffix: suffix,
+          localeCode: locale,
+        );
 
   if (asset == null) {
     // Unsupported platform or no matching asset — open the release page.
@@ -182,7 +181,8 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
     final t = context.tRead;
     final l = context.l;
     final isError = _phase == UpdatePhase.error;
-    final indeterminate = _fraction == null || _phase != UpdatePhase.downloading;
+    final indeterminate =
+        _fraction == null || _phase != UpdatePhase.downloading;
 
     return PopScope(
       canPop: isError,
@@ -212,20 +212,30 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
               value: indeterminate ? null : _fraction,
               backgroundColor: t.borderMedium,
               valueColor: AlwaysStoppedAnimation<Color>(
-                  isError ? t.accentDanger : t.accent),
+                isError ? t.accentDanger : t.accent,
+              ),
             ),
             if (_phase == UpdatePhase.downloading && _total > 0) ...[
               const SizedBox(height: 8),
               Text(
-                l.settingsUpdateProgress(_fmtBytes(_received), _fmtBytes(_total)),
-                style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(10)),
+                l.settingsUpdateProgress(
+                  _fmtBytes(_received),
+                  _fmtBytes(_total),
+                ),
+                style: TextStyle(
+                  color: t.textSecondary,
+                  fontSize: t.fontSize(10),
+                ),
               ),
             ],
             if (Platform.isWindows && !isError) ...[
               const SizedBox(height: 12),
               Text(
                 l.settingsUpdateRestartPrompt,
-                style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(10)),
+                style: TextStyle(
+                  color: t.textSecondary,
+                  fontSize: t.fontSize(10),
+                ),
               ),
             ],
           ],

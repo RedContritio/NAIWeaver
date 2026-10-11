@@ -92,14 +92,15 @@ class _ComparisonSliderState extends State<ComparisonSlider> {
   }
 
   void _updateSliderFromGlobal(
-      Offset globalPosition, BoxConstraints constraints) {
+    Offset globalPosition,
+    BoxConstraints constraints,
+  ) {
     final renderBox =
         _viewportKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
     final local = renderBox.globalToLocal(globalPosition);
     setState(() {
-      _sliderPosition =
-          (local.dx / constraints.maxWidth).clamp(0.0, 1.0);
+      _sliderPosition = (local.dx / constraints.maxWidth).clamp(0.0, 1.0);
     });
   }
 
@@ -138,15 +139,14 @@ class _ComparisonSliderState extends State<ComparisonSlider> {
       _transformController.removeListener(_onTransformChanged);
       _transformController.value =
           Matrix4.translationValues(dx, dy, 0) *
-              Matrix4.diagonal3Values(scale, scale, 1);
+          Matrix4.diagonal3Values(scale, scale, 1);
       _transformController.addListener(_onTransformChanged);
     }
 
     // Convert screen-space slider to content-space fraction
     final inverse = _transformController.value.clone()..invert();
     final screenX = _sliderPosition * constraints.maxWidth;
-    final contentX =
-        MatrixUtils.transformPoint(inverse, Offset(screenX, 0)).dx;
+    final contentX = MatrixUtils.transformPoint(inverse, Offset(screenX, 0)).dx;
     final contentFraction = (contentX / canvasW).clamp(0.0, 1.0);
 
     // Narrow slider hit area centered on handle
@@ -220,6 +220,8 @@ class _ComparisonSliderState extends State<ComparisonSlider> {
     );
   }
 
+  // Black/white here are drawn over the compared images (label chips, divider
+  // and handle) and must stay legible on any picture, so they are not themed.
   Widget _buildLabel(String text, VisionTokens t) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -258,7 +260,11 @@ class _ComparisonPainter extends CustomPainter {
     final paint = Paint()..filterQuality = FilterQuality.none;
 
     final afterSrc = Rect.fromLTWH(
-        0, 0, after.width.toDouble(), after.height.toDouble());
+      0,
+      0,
+      after.width.toDouble(),
+      after.height.toDouble(),
+    );
     final afterDst = Rect.fromLTWH(0, 0, size.width, size.height);
 
     // Draw after as the full background (right side)
@@ -270,7 +276,11 @@ class _ComparisonPainter extends CustomPainter {
     canvas.clipRect(Rect.fromLTWH(0, 0, splitX, size.height));
 
     final beforeSrc = Rect.fromLTWH(
-        0, 0, before.width.toDouble(), before.height.toDouble());
+      0,
+      0,
+      before.width.toDouble(),
+      before.height.toDouble(),
+    );
     final beforeDst = Rect.fromLTWH(0, 0, size.width, size.height);
     canvas.drawImageRect(before, beforeSrc, beforeDst, paint);
 
@@ -316,14 +326,26 @@ class _SliderLinePainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     // Left arrow
     canvas.drawLine(
-        Offset(x - 5, center.dy), Offset(x - 2, center.dy - 4), arrowPaint);
+      Offset(x - 5, center.dy),
+      Offset(x - 2, center.dy - 4),
+      arrowPaint,
+    );
     canvas.drawLine(
-        Offset(x - 5, center.dy), Offset(x - 2, center.dy + 4), arrowPaint);
+      Offset(x - 5, center.dy),
+      Offset(x - 2, center.dy + 4),
+      arrowPaint,
+    );
     // Right arrow
     canvas.drawLine(
-        Offset(x + 5, center.dy), Offset(x + 2, center.dy - 4), arrowPaint);
+      Offset(x + 5, center.dy),
+      Offset(x + 2, center.dy - 4),
+      arrowPaint,
+    );
     canvas.drawLine(
-        Offset(x + 5, center.dy), Offset(x + 2, center.dy + 4), arrowPaint);
+      Offset(x + 5, center.dy),
+      Offset(x + 2, center.dy + 4),
+      arrowPaint,
+    );
   }
 
   @override

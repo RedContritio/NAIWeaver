@@ -35,8 +35,8 @@ class CharacterEditorSheet extends StatefulWidget {
 
 class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
   late TextEditingController _nameController;
-  late TextEditingController _promptController;
-  late TextEditingController _ucController;
+  late SyntaxHighlightController _promptController;
+  late SyntaxHighlightController _ucController;
   late FocusNode _promptFocusNode;
   late FocusNode _ucFocusNode;
   late NaiCoordinate _coordinate;
@@ -171,6 +171,9 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
+    final highlight = SyntaxHighlightColors.fromTokens(t);
+    _promptController.colors = highlight;
+    _ucController.colors = highlight;
     final genNotifier = context.read<GenerationNotifier>();
     final autoPositioning = genNotifier.state.autoPositioning;
 

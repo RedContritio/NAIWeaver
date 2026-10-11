@@ -2,11 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:naiweaver/core/widgets/syntax_highlight_controller.dart';
 
+const _colors = SyntaxHighlightColors(
+  emphasisUp: Color(0xFFFFA726),
+  emphasisDown: Color(0xFF42A5F5),
+  strength: Color(0xFF66BB6A),
+);
+
 void main() {
   /// Builds the span tree for [text] and returns the flattened plain text of
   /// each leaf span in order.
   List<TextSpan> spansFor(WidgetTester tester, String text) {
-    final controller = SyntaxHighlightController(text: text);
+    final controller = SyntaxHighlightController(text: text, colors: _colors);
     final context = tester.element(find.byType(SizedBox));
     final root = controller.buildTextSpan(
       context: context,
@@ -32,8 +38,9 @@ void main() {
     expect(joined(spansFor(tester, text)), text);
   });
 
-  testWidgets('highlights the full N::tag:: unit including closing delimiter',
-      (tester) async {
+  testWidgets('highlights the full N::tag:: unit including closing delimiter', (
+    tester,
+  ) async {
     await pump(tester);
     const text = '2::black hair::, smile';
     final spans = spansFor(tester, text);
@@ -53,13 +60,17 @@ void main() {
     for (final text in ['-1::glasses::', '1.5::smile::', '-0.5::blur::']) {
       final spans = spansFor(tester, text);
       expect(joined(spans), text);
-      expect(spans.first.style?.color, isNot(Colors.white),
-          reason: 'weight prefix of "$text" should be highlighted');
+      expect(
+        spans.first.style?.color,
+        isNot(Colors.white),
+        reason: 'weight prefix of "$text" should be highlighted',
+      );
     }
   });
 
-  testWidgets('leaves an unterminated weight prefix as prefix-only highlight',
-      (tester) async {
+  testWidgets('leaves an unterminated weight prefix as prefix-only highlight', (
+    tester,
+  ) async {
     await pump(tester);
     const text = '2::black ha';
     final spans = spansFor(tester, text);
@@ -79,8 +90,11 @@ void main() {
       '{{nested, 2::deep::}}',
       '{2::unterminated',
     ]) {
-      expect(joined(spansFor(tester, text)), text,
-          reason: '"$text" should render all characters exactly once');
+      expect(
+        joined(spansFor(tester, text)),
+        text,
+        reason: '"$text" should render all characters exactly once',
+      );
     }
   });
 
@@ -94,8 +108,11 @@ void main() {
 
   testWidgets('disabled controller returns unstyled text', (tester) async {
     await pump(tester);
-    final controller =
-        SyntaxHighlightController(text: '2::tag::', enabled: false);
+    final controller = SyntaxHighlightController(
+      text: '2::tag::',
+      enabled: false,
+      colors: _colors,
+    );
     final context = tester.element(find.byType(SizedBox));
     final root = controller.buildTextSpan(
       context: context,

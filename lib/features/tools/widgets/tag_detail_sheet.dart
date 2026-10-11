@@ -16,7 +16,7 @@ import '../../../core/widgets/manager_list_tile.dart';
 import '../../../core/widgets/ui/app_sheet.dart';
 import '../../../core/widgets/ui/app_states.dart';
 import '../../../l10n/app_localizations.dart';
-import 'tag_category_color.dart';
+import '../../../core/utils/tag_category_color.dart';
 
 /// Detail sheet for a single tag — shows the Danbooru wiki description,
 /// other_names chips, and tappable [[wiki_link]] spans that re-open the
