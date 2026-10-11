@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../l10n/l10n_extensions.dart';
 import '../theme/theme_extensions.dart';
+import '../theme/vision_metrics.dart';
 import '../utils/responsive.dart';
 import 'manager_list_tile.dart';
 
@@ -148,7 +149,7 @@ class ManagerMasterDetailShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final mobile = isMobile(context);
+    final mobile = windowSizeClassOf(context) == WindowSizeClass.compact;
     final detailOpen = mobile && showDetail;
     final divider = Divider(height: 1, color: t.textMinimal);
 
@@ -253,8 +254,13 @@ class ManagerHeader extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: compact
-          ? const EdgeInsets.symmetric(horizontal: 4, vertical: 4)
-          : const EdgeInsets.fromLTRB(16, 12, 8, 12),
+          ? const EdgeInsets.all(VisionMetrics.space4)
+          : const EdgeInsets.fromLTRB(
+              VisionMetrics.space16,
+              VisionMetrics.space12,
+              VisionMetrics.space8,
+              VisionMetrics.space12,
+            ),
       color: compact ? t.surfaceMid : t.surfaceHigh,
       child: Row(
         children: [
@@ -264,7 +270,7 @@ class ManagerHeader extends StatelessWidget {
               tooltip: MaterialLocalizations.of(context).backButtonTooltip,
               onPressed: onBack,
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: VisionMetrics.space4),
           ],
           Expanded(
             child: subtitle == null
@@ -274,7 +280,7 @@ class ManagerHeader extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       titleText,
-                      const SizedBox(height: 6),
+                      const SizedBox(height: VisionMetrics.space4),
                       Text(
                         subtitle!,
                         maxLines: 2,
@@ -288,7 +294,10 @@ class ManagerHeader extends StatelessWidget {
                     ],
                   ),
           ),
-          if (actions.isNotEmpty) ...[const SizedBox(width: 8), ...actions],
+          if (actions.isNotEmpty) ...[
+            const SizedBox(width: VisionMetrics.space8),
+            ...actions,
+          ],
         ],
       ),
     );
@@ -306,7 +315,11 @@ class ManagerSaveChangesButton extends StatelessWidget {
     final t = context.t;
     return TextButton.icon(
       onPressed: onPressed,
-      icon: Icon(Icons.save_outlined, size: 14, color: t.textPrimary),
+      icon: Icon(
+        Icons.save_outlined,
+        size: VisionMetrics.iconSmall,
+        color: t.textPrimary,
+      ),
       label: Text(
         context.l.commonSaveChanges,
         style: TextStyle(
@@ -317,7 +330,7 @@ class ManagerSaveChangesButton extends StatelessWidget {
       ),
       style: TextButton.styleFrom(
         backgroundColor: t.borderSubtle,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: VisionMetrics.space16),
       ),
     );
   }
@@ -345,7 +358,10 @@ class ManagerCountToolbar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       key: toolbarKey,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.symmetric(
+        horizontal: VisionMetrics.space16,
+        vertical: VisionMetrics.space4,
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
@@ -354,7 +370,7 @@ class ManagerCountToolbar extends StatelessWidget {
               onPressed: onClear,
               child: Text(clearLabel!, style: clearStyle),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: VisionMetrics.space8),
           ],
           Flexible(
             child: Text(

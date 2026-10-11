@@ -5,7 +5,9 @@ import '../../../core/gateway/backend_error_messages.dart';
 import '../../../core/gateway/backend_gateway.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/vision_metrics.dart';
 import '../../../core/utils/app_snackbar.dart';
+import '../../../core/widgets/ui/app_states.dart';
 import '../backend_auth_notifier.dart';
 
 class BackendAuthGate extends StatefulWidget {
@@ -94,35 +96,37 @@ class _BackendAuthGateState extends State<BackendAuthGate> {
     final error = auth.error;
     // A failed load is retried; only a missing session needs the sign-in.
     final canRetry = error != null && !error.isNotAuthenticated;
-    return Scaffold(
-      backgroundColor: context.t.background,
-      body: Center(
-        child: auth.isLoading
-            ? const CircularProgressIndicator(strokeWidth: 2)
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (error != null || auth.loginLaunchFailed)
-                    Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        error != null
-                            ? backendErrorMessage(l, error)
-                            : l.gatewayLoginOpenFailed,
-                      ),
-                    ),
-                  if (canRetry)
-                    FilledButton(
-                      onPressed: auth.initialize,
-                      child: Text(l.gatewayAuthRetry),
-                    ),
-                  TextButton(
-                    onPressed: auth.login,
-                    child: Text(l.gatewayAuthContinue),
+    final failure = error != null
+        ? backendErrorMessage(l, error)
+        : auth.loginLaunchFailed
+        ? l.gatewayLoginOpenFailed
+        : null;
+    final Widget body;
+    if (auth.isLoading) {
+      body = const LoadingState();
+    } else {
+      final signIn = TextButton(
+        onPressed: auth.login,
+        child: Text(l.gatewayAuthContinue),
+      );
+      body = failure == null
+          ? Center(child: signIn)
+          : Column(
+              children: [
+                Expanded(
+                  child: ErrorState(
+                    message: failure,
+                    onRetry: canRetry ? auth.initialize : null,
+                    retryLabel: l.gatewayAuthRetry,
                   ),
-                ],
-              ),
-      ),
-    );
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: VisionMetrics.space24),
+                  child: signIn,
+                ),
+              ],
+            );
+    }
+    return Scaffold(backgroundColor: context.t.background, body: body);
   }
 }

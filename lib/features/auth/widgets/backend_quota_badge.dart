@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/l10n/l10n_extensions.dart';
-import '../../../core/theme/theme_extensions.dart';
-import '../../../core/utils/responsive.dart';
+import '../../../core/theme/vision_metrics.dart';
+import '../../../core/widgets/ui/app_pill.dart';
+import '../../../core/widgets/ui/app_tone.dart';
 import '../../../core/services/backend_auth_api.dart';
 import '../backend_auth_notifier.dart';
 
@@ -27,8 +28,6 @@ class BackendQuotaBadge extends StatelessWidget {
             quota.free.greenPointLimit != null);
     final showRed = quota.paid.enabled && !quota.paid.unlimited;
     if (!showGreen && !showRed) return const SizedBox.shrink();
-    final mobile = isMobile(context);
-    final t = context.t;
     final green = _remainingText(context, quota.free);
     final red = _remainingText(context, quota.paid);
     final tooltip = [
@@ -40,57 +39,35 @@ class BackendQuotaBadge extends StatelessWidget {
     ].join('\n');
 
     return Padding(
-      padding: const EdgeInsets.only(right: 4),
+      padding: const EdgeInsets.only(right: VisionMetrics.space4),
       child: Tooltip(
         message: tooltip,
         child: InkWell(
           onTap: () => context.read<BackendAuthNotifier>().refreshSession(),
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: mobile ? 10 : 8,
-              vertical: mobile ? 4 : 2,
-            ),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: t.borderMedium),
-              color: t.borderSubtle,
+          borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              minHeight: VisionMetrics.minHitTarget,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.account_balance_wallet_outlined,
-                  size: mobile ? 14 : 11,
-                  color: t.headerText,
-                ),
-                const SizedBox(width: 4),
-                RichText(
-                  text: TextSpan(
-                    style: TextStyle(
-                      fontSize: t.fontSize(mobile ? 10 : 8),
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
-                    children: [
-                      if (showGreen)
-                        TextSpan(
-                          text: green,
-                          style: TextStyle(color: t.accentSuccess),
-                        ),
-                      if (showGreen && showRed)
-                        TextSpan(
-                          text: '/',
-                          style: TextStyle(color: t.secondaryText),
-                        ),
-                      if (showRed)
-                        TextSpan(
-                          text: red,
-                          style: TextStyle(color: t.accentDanger),
-                        ),
-                    ],
+                if (showGreen)
+                  AppPill(
+                    icon: Icons.account_balance_wallet_outlined,
+                    text: green,
+                    tone: AppTone.success,
                   ),
-                ),
+                if (showGreen && showRed)
+                  const SizedBox(width: VisionMetrics.space4),
+                if (showRed)
+                  AppPill(
+                    icon: showGreen
+                        ? null
+                        : Icons.account_balance_wallet_outlined,
+                    text: red,
+                    tone: AppTone.error,
+                  ),
               ],
             ),
           ),
