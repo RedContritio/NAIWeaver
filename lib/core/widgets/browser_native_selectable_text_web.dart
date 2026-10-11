@@ -1,8 +1,18 @@
-import 'dart:ui_web' as ui_web;
+import 'dart:js_interop';
 
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
+import 'web_style_bridge.dart';
+
+/// Read-only text rendered as a DOM element, so selection handles, the
+/// long-press menu and copy are the browser's own rather than Flutter's
+/// canvas-drawn selection overlay.
+///
+/// Without an explicit [height] the widget is as tall as the browser lays the
+/// text out: a `ResizeObserver` reports the element's real height back to
+/// Flutter, so the last line is never clipped by a Flutter-side estimate made
+/// with a different font engine.
 class BrowserNativeSelectableText extends StatefulWidget {
   const BrowserNativeSelectableText({
     super.key,
@@ -20,92 +30,140 @@ class BrowserNativeSelectableText extends StatefulWidget {
       _BrowserNativeSelectableTextState();
 }
 
+/// Inline styles that never change for the lifetime of the element.
+const Map<String, String> _staticSelectableCss = {
+  'width': '100%',
+  'margin': '0',
+  'padding': '0',
+  'box-sizing': 'border-box',
+  'white-space': 'pre-wrap',
+  'overflow-wrap': 'anywhere',
+  'cursor': 'text',
+  '-webkit-user-select': 'text',
+  'user-select': 'text',
+  '-webkit-touch-callout': 'default',
+  // Touch drags have to reach Flutter, which scrolls the surrounding list.
+  // With `auto` the browser claims the pan, cancels the pointer stream Flutter
+  // is tracking, and then finds nothing in the DOM it could scroll. Wheel
+  // events bubble to Flutter's view element either way.
+  'touch-action': 'none',
+};
+
+/// Content-sized layout, measured by the browser.
+const Map<String, String> _autoHeightCss = {
+  'display': 'block',
+  'height': 'auto',
+  'overflow': 'visible',
+};
+
+/// Fixed-height layout, vertically centered like the non-Web fallback.
+const Map<String, String> _fixedHeightCss = {
+  'display': 'flex',
+  'align-items': 'center',
+  'height': '100%',
+  'overflow': 'hidden',
+};
+
 class _BrowserNativeSelectableTextState
     extends State<BrowserNativeSelectableText> {
-  static int _nextViewId = 0;
-
-  late final String _viewType;
   web.HTMLDivElement? _element;
+  web.Text? _textNode;
+  web.ResizeObserver? _resizeObserver;
+  String _renderedText = '';
+  double? _measuredHeight;
+  Map<String, String> _css = const {};
+  Map<String, String> _appliedCss = const {};
 
   @override
-  void initState() {
-    super.initState();
-    _viewType = 'naiweaver-native-selectable-${_nextViewId++}';
-    ui_web.platformViewRegistry.registerViewFactory(_viewType, _createElement);
-  }
-
-  @override
-  void didUpdateWidget(BrowserNativeSelectableText oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final element = _element;
-    if (element != null) _apply(element);
+  void dispose() {
+    _detachElement();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final style = DefaultTextStyle.of(context).style.merge(widget.style);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final painter =
-            TextPainter(
-              text: TextSpan(text: widget.text, style: style),
-              textDirection: Directionality.of(context),
-              textScaler: MediaQuery.textScalerOf(context),
-            )..layout(
-              maxWidth: constraints.maxWidth.isFinite
-                  ? constraints.maxWidth
-                  : MediaQuery.sizeOf(context).width,
-            );
-        final effectiveHeight =
-            widget.height ??
-            (painter.height + 4).clamp(24.0, 100000.0).toDouble();
-        return SizedBox(
-          height: effectiveHeight,
-          child: HtmlElementView(viewType: _viewType),
-        );
-      },
+    final textCss = BrowserTextCss.fromTextStyle(
+      style,
+      textScaler: MediaQuery.textScalerOf(context),
+    );
+    _css = {
+      ...textCss.properties,
+      ...(widget.height == null ? _autoHeightCss : _fixedHeightCss),
+    };
+    final element = _element;
+    if (element != null) {
+      _applyCss(element);
+      _syncText();
+    }
+    // Until the browser has measured the element, reserve a single line.
+    final height =
+        widget.height ??
+        _measuredHeight ??
+        (textCss.fontSize * (style.height ?? 1.2)).ceilToDouble();
+    return SizedBox(
+      height: height,
+      child: HtmlElementView.fromTagName(
+        tagName: 'div',
+        onElementCreated: _attachElement,
+      ),
     );
   }
 
-  web.HTMLDivElement _createElement(int _) {
-    final element = web.HTMLDivElement();
-    element.style
-      ..width = '100%'
-      ..height = '100%'
-      ..boxSizing = 'border-box'
-      ..display = 'block'
-      ..whiteSpace = 'pre-wrap'
-      ..overflowWrap = 'anywhere'
-      ..overflow = 'hidden'
-      ..cursor = 'text';
-    element.style.setProperty('-webkit-user-select', 'text');
-    element.style.setProperty('user-select', 'text');
-    element.style.setProperty('-webkit-touch-callout', 'default');
-    _element = element;
-    _apply(element);
-    return element;
+  void _applyCss(web.HTMLDivElement element) {
+    final style = element.style;
+    for (final MapEntry(:key, :value) in _css.entries) {
+      if (_appliedCss[key] != value) style.setProperty(key, value);
+    }
+    _appliedCss = _css;
   }
 
-  void _apply(web.HTMLDivElement element) {
-    final style = DefaultTextStyle.of(context).style.merge(widget.style);
-    element.textContent = widget.text;
-    element.style
-      ..fontFamily = style.fontFamily ?? 'sans-serif'
-      ..fontSize = '${style.fontSize ?? 14}px'
-      ..fontWeight = '${style.fontWeight?.value ?? 400}'
-      ..fontStyle = style.fontStyle == FontStyle.italic ? 'italic' : 'normal'
-      ..letterSpacing = '${style.letterSpacing ?? 0}px'
-      ..lineHeight = '${style.height ?? 1.2}'
-      ..paddingTop = widget.height == null ? '0' : '8px'
-      ..color = _cssColor(style.color ?? Colors.black);
+  void _attachElement(Object element) {
+    if (!mounted) return;
+    final div = element as web.HTMLDivElement;
+    _detachElement();
+    _element = div;
+    for (final MapEntry(:key, :value) in _staticSelectableCss.entries) {
+      div.style.setProperty(key, value);
+    }
+    _applyCss(div);
+    final node = web.document.createTextNode(widget.text);
+    div.appendChild(node);
+    _textNode = node;
+    _renderedText = widget.text;
+    final observer = web.ResizeObserver(
+      ((JSArray<web.ResizeObserverEntry> entries, web.ResizeObserver _) {
+        if (!mounted || widget.height != null) return;
+        final height = entries.toDart.last.contentRect.height.ceilToDouble();
+        // A detached element reports zero; keep the last real measurement.
+        if (height <= 0 || height == _measuredHeight) return;
+        setState(() => _measuredHeight = height);
+      }).toJS,
+    );
+    observer.observe(div);
+    _resizeObserver = observer;
   }
-}
 
-String _cssColor(Color color) {
-  final argb = color.toARGB32();
-  final alpha = ((argb >> 24) & 0xff) / 255;
-  final red = (argb >> 16) & 0xff;
-  final green = (argb >> 8) & 0xff;
-  final blue = argb & 0xff;
-  return 'rgba($red, $green, $blue, $alpha)';
+  void _detachElement() {
+    _resizeObserver?.disconnect();
+    _resizeObserver = null;
+    _element = null;
+    _textNode = null;
+    _appliedCss = const {};
+    _renderedText = '';
+  }
+
+  void _syncText() {
+    final node = _textNode;
+    final text = widget.text;
+    if (node == null || text == _renderedText) return;
+    if (text.length > _renderedText.length && text.startsWith(_renderedText)) {
+      // Streamed output only ever grows; extending the existing text node
+      // avoids rebuilding the whole node for every token.
+      node.appendData(text.substring(_renderedText.length));
+    } else {
+      node.data = text;
+    }
+    _renderedText = text;
+  }
 }
