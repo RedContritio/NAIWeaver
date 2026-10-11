@@ -1407,9 +1407,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get refApiKeyMissing => '缺少或无效的 API Key';
 
   @override
-  String refVibeEncodeFailed(String error) {
-    return '氛围编码失败：$error';
-  }
+  String get refImageProcessFailed => '无法读取该图片，请换一张试试。';
+
+  @override
+  String get refVibeNoPermission => '当前账号没有编码氛围的权限。';
+
+  @override
+  String get refErrorPointsInsufficient => '点数不足，无法编码该氛围。';
+
+  @override
+  String get refErrorSessionExpired => '登录已失效，请重新登录。';
+
+  @override
+  String get refErrorNetwork => '网络连接失败，请检查网络后重试。';
+
+  @override
+  String get refErrorServiceUnavailable => '服务繁忙或暂时不可用，请稍后重试。';
+
+  @override
+  String get refVibeEncodeFailed => '氛围编码失败，请稍后重试。';
 
   @override
   String get refLoadSaved => '加载已保存';
@@ -1422,6 +1438,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get refNoSavedRefs => '暂无已保存的参考';
+
+  @override
+  String get refRemove => '移除';
+
+  @override
+  String get refLibrarySaved => '已保存到素材库';
+
+  @override
+  String get refLibrarySaveFailed => '无法写入素材库，存储空间可能已满。';
 
   @override
   String get packTitle => 'NAIWeaver 资源包';

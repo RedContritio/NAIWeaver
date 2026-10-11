@@ -85,6 +85,25 @@ class ReferenceLibrary {
       );
 }
 
+/// One of the two lists kept in a [ReferenceLibrary], so library UI can be
+/// written once for both kinds of entry.
+class ReferenceLibrarySlot<T> {
+  const ReferenceLibrarySlot._(this.read, this.write);
+
+  final List<T> Function(ReferenceLibrary library) read;
+  final void Function(ReferenceLibrary library, List<T> entries) write;
+
+  static final directorRefs = ReferenceLibrarySlot<SavedDirectorRef>._(
+    (library) => library.directorRefs,
+    (library, entries) => library.directorRefs = entries,
+  );
+
+  static final vibeTransfers = ReferenceLibrarySlot<SavedVibeTransfer>._(
+    (library) => library.vibeTransfers,
+    (library, entries) => library.vibeTransfers = entries,
+  );
+}
+
 class ReferenceLibraryService {
   /// Web builds before IndexedDB kept the library under this
   /// SharedPreferences key; it is still read as a fallback and dropped after

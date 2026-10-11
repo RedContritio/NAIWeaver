@@ -1412,9 +1412,26 @@ class AppLocalizationsJa extends AppLocalizations {
   String get refApiKeyMissing => 'APIキーが未設定または無効です';
 
   @override
-  String refVibeEncodeFailed(String error) {
-    return 'バイブのエンコードに失敗: $error';
-  }
+  String get refImageProcessFailed => 'この画像を読み込めませんでした。別のファイルをお試しください。';
+
+  @override
+  String get refVibeNoPermission => 'このアカウントにはバイブをエンコードする権限がありません。';
+
+  @override
+  String get refErrorPointsInsufficient => 'ポイントが不足しているため、バイブをエンコードできません。';
+
+  @override
+  String get refErrorSessionExpired => 'セッションの有効期限が切れました。再度ログインしてください。';
+
+  @override
+  String get refErrorNetwork => 'ネットワークエラーです。接続を確認して再試行してください。';
+
+  @override
+  String get refErrorServiceUnavailable =>
+      'サービスが混雑しているか利用できません。しばらくしてから再試行してください。';
+
+  @override
+  String get refVibeEncodeFailed => 'バイブのエンコードに失敗しました。しばらくしてから再試行してください。';
 
   @override
   String get refLoadSaved => '保存済みを読込';
@@ -1427,6 +1444,15 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get refNoSavedRefs => '保存されたリファレンスがありません';
+
+  @override
+  String get refRemove => '外す';
+
+  @override
+  String get refLibrarySaved => 'ライブラリに保存しました';
+
+  @override
+  String get refLibrarySaveFailed => 'ライブラリを更新できませんでした。ストレージがいっぱいの可能性があります。';
 
   @override
   String get packTitle => 'NAIWEAVERパック';
