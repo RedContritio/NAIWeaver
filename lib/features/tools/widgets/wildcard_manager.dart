@@ -10,6 +10,7 @@ import '../../../core/utils/responsive.dart';
 import '../../../core/utils/app_snackbar.dart';
 import '../../../core/widgets/confirm_dialog.dart';
 import '../../../core/widgets/tag_suggestion_overlay.dart';
+import '../../../core/widgets/text_input_dialog.dart';
 import '../../../core/services/wildcard_processor.dart';
 import '../providers/wildcard_notifier.dart';
 import 'manager_shell.dart';
@@ -129,7 +130,7 @@ class _WildcardManagerState extends State<WildcardManager> {
                     ],
                     IconButton(
                       icon: Icon(Icons.add, size: 14, color: t.secondaryText),
-                      onPressed: () => _showCreateDialog(context, notifier, t),
+                      onPressed: () => _showCreateDialog(context, notifier),
                       tooltip: context.l.wildcardNew,
                       constraints: const BoxConstraints(),
                       padding: EdgeInsets.zero,
@@ -200,7 +201,7 @@ class _WildcardManagerState extends State<WildcardManager> {
                           _actionButton(
                             icon: Icons.drive_file_rename_outline,
                             color: t.textSecondary,
-                            onPressed: () => _showRenameDialog(context, notifier, file, fileName, t),
+                            onPressed: () => _showRenameDialog(context, notifier, file, fileName),
                           ),
                           const SizedBox(width: 2),
                           _actionButton(
@@ -578,93 +579,35 @@ class _WildcardManagerState extends State<WildcardManager> {
     }
   }
 
-  void _showRenameDialog(
+  Future<void> _showRenameDialog(
     BuildContext context,
     WildcardNotifier notifier,
     File file,
     String currentName,
-    VisionTokens t,
-  ) {
-    final controller = TextEditingController(text: currentName);
+  ) async {
     final l = context.l;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: t.surfaceHigh,
-        title: Text(
-          l.wildcardRenameTitle,
-          style: TextStyle(fontSize: t.fontSize(10), letterSpacing: 2, color: t.textSecondary),
-        ),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(13)),
-          decoration: InputDecoration(
-            hintText: l.wildcardFileName,
-            hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9)),
-            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: t.borderMedium)),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l.commonCancel.toUpperCase(), style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9))),
-          ),
-          TextButton(
-            onPressed: () async {
-              final success = await notifier.renameFile(file, controller.text);
-              if (ctx.mounted) {
-                if (success) {
-                  Navigator.pop(ctx);
-                } else {
-                  showAppSnackBar(ctx, l.wildcardRenameExists, color: const Color(0xFFFFC107));
-                }
-              }
-            },
-            child: Text(l.commonRename.toUpperCase(), style: TextStyle(color: t.accent, fontSize: t.fontSize(9))),
-          ),
-        ],
-      ),
+    final name = await showTextInputDialog(
+      context,
+      title: l.wildcardRenameTitle,
+      confirmLabel: l.commonRename,
+      hintText: l.wildcardFileName,
+      initialValue: currentName,
     );
+    if (name == null || name == currentName) return;
+    final success = await notifier.renameFile(file, name);
+    if (!success && context.mounted) {
+      showErrorSnackBar(context, l.wildcardRenameExists);
+    }
   }
 
-  void _showCreateDialog(BuildContext context, WildcardNotifier notifier, VisionTokens t) {
-    final TextEditingController nameController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) {
-        final l = context.l;
-        return AlertDialog(
-          backgroundColor: t.surfaceHigh,
-          title: Text(l.wildcardCreateTitle, style: TextStyle(fontSize: t.fontSize(10), letterSpacing: 2, color: t.textSecondary)),
-          content: TextField(
-            controller: nameController,
-            autofocus: true,
-            style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(13)),
-            decoration: InputDecoration(
-              hintText: l.wildcardFileName,
-              hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9)),
-              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: t.borderMedium)),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(l.commonCancel, style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9))),
-            ),
-            TextButton(
-              onPressed: () {
-                final sanitized = nameController.text.trim().replaceAll(' ', '.');
-                if (sanitized.isNotEmpty) {
-                  notifier.createFile(sanitized);
-                  Navigator.pop(context);
-                }
-              },
-              child: Text(l.commonCreate, style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(9))),
-            ),
-          ],
-        );
-      },
+  Future<void> _showCreateDialog(BuildContext context, WildcardNotifier notifier) async {
+    final l = context.l;
+    final name = await showTextInputDialog(
+      context,
+      title: l.wildcardCreateTitle,
+      confirmLabel: l.commonCreate,
+      hintText: l.wildcardFileName,
     );
+    if (name != null) await notifier.createFile(name.replaceAll(' ', '.'));
   }
 }

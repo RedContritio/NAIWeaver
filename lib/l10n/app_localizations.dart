@@ -172,6 +172,12 @@ abstract class AppLocalizations {
   /// **'SAVE CHANGES'**
   String get commonSaveChanges;
 
+  /// No description provided for @commonNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Name cannot be empty'**
+  String get commonNameRequired;
+
   /// No description provided for @mainGallery.
   ///
   /// In en, this message translates to:

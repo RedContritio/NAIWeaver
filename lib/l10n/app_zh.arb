@@ -13,6 +13,7 @@
   "commonExport": "导出",
   "commonOverwrite": "覆盖",
   "commonSaveChanges": "保存更改",
+  "commonNameRequired": "名称不能为空",
 
   "mainGallery": "图库",
   "mainResultsGrid": "网格",

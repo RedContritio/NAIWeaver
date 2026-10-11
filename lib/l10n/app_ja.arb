@@ -13,6 +13,7 @@
   "commonExport": "エクスポート",
   "commonOverwrite": "上書き",
   "commonSaveChanges": "変更を保存",
+  "commonNameRequired": "名前を入力してください",
 
   "mainGallery": "ギャラリー",
   "mainResultsGrid": "グリッド",

@@ -45,6 +45,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonSaveChanges => 'SAVE CHANGES';
 
   @override
+  String get commonNameRequired => 'Name cannot be empty';
+
+  @override
   String get mainGallery => 'Gallery';
 
   @override

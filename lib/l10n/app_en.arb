@@ -13,6 +13,7 @@
   "commonExport": "Export",
   "commonOverwrite": "OVERWRITE",
   "commonSaveChanges": "SAVE CHANGES",
+  "commonNameRequired": "Name cannot be empty",
 
   "mainGallery": "Gallery",
   "mainResultsGrid": "Grid",

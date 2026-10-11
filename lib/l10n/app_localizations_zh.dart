@@ -45,6 +45,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get commonSaveChanges => '保存更改';
 
   @override
+  String get commonNameRequired => '名称不能为空';
+
+  @override
   String get mainGallery => '图库';
 
   @override

@@ -45,6 +45,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get commonSaveChanges => '変更を保存';
 
   @override
+  String get commonNameRequired => '名前を入力してください';
+
+  @override
   String get mainGallery => 'ギャラリー';
 
   @override
