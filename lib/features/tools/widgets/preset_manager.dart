@@ -638,8 +638,9 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
                                   );
                                 })
                                 .where((i) {
-                                  if (i.type == InteractionType.mutual)
+                                  if (i.type == InteractionType.mutual) {
                                     return i.sourceCharacterIndices.isNotEmpty;
+                                  }
                                   return i.sourceCharacterIndices.isNotEmpty &&
                                       i.targetCharacterIndices.isNotEmpty;
                                 })
