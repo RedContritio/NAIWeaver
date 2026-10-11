@@ -1,124 +1,61 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
 import secrets
 
-from .main import (
-    DEFAULT_ADMIN_RED_POINTS,
-    DEFAULT_GREEN_POINT_LIMIT,
-    DEFAULT_RED_POINTS,
-    db_connect,
-    hash_password,
-    init_db,
-    now_iso,
-)
-
-
-def role_defaults(role: str) -> dict[str, object]:
-    if role == "admin":
-        return {
-            "is_admin": 1,
-            "green_point_discount": 100,
-            "can_generate_paid": 1,
-            "can_text_generate": 1,
-            "can_image_upscale": 1,
-            "can_image_augment": 1,
-            "can_image_encode_vibe": 1,
-            "green_point_limit": DEFAULT_GREEN_POINT_LIMIT,
-            "red_points": DEFAULT_ADMIN_RED_POINTS,
-        }
-    if role == "paid":
-        return {
-            "is_admin": 0,
-            "green_point_discount": 0,
-            "can_generate_paid": 1,
-            "can_text_generate": 1,
-            "can_image_upscale": 1,
-            "can_image_augment": 1,
-            "can_image_encode_vibe": 1,
-            "green_point_limit": DEFAULT_GREEN_POINT_LIMIT,
-            "red_points": DEFAULT_RED_POINTS,
-        }
-    return {
-        "is_admin": 0,
-        "green_point_discount": 0,
-        "can_generate_paid": 0,
-        "can_text_generate": 1,
-        "can_image_upscale": 0,
-        "can_image_augment": 0,
-        "can_image_encode_vibe": 0,
-        "green_point_limit": DEFAULT_GREEN_POINT_LIMIT,
-        "red_points": 0,
-    }
+from .main import db_connect, hash_password, init_db, now_iso
+from .roles import POINT_TOTAL_FIELDS, ROLES, role_defaults
 
 
 def cmd_create_user(args: argparse.Namespace) -> None:
     init_db()
-    defaults = role_defaults(args.role)
-    if args.green_points is not None:
-        defaults["green_point_limit"] = args.green_points
-    with db_connect() as db:
+    with closing(db_connect()) as db:
         existing = db.execute(
             "SELECT id FROM users WHERE username = ?", (args.username,)
         ).fetchone()
         if existing and not args.update:
             raise SystemExit(f"User already exists: {args.username}")
-        password_hash = hash_password(secrets.token_urlsafe(32))
         if existing:
-            db.execute(
-                """
-                UPDATE users
-                SET is_admin = ?, disabled = 0, green_point_discount = ?,
-                    can_generate_paid = ?, can_text_generate = ?,
-                    can_image_upscale = ?, can_image_augment = ?,
-                    can_image_encode_vibe = ?, green_point_limit = ?,
-                    red_points = ?
-                WHERE username = ?
-                """,
-                (
-                    defaults["is_admin"],
-                    defaults["green_point_discount"],
-                    defaults["can_generate_paid"],
-                    defaults["can_text_generate"],
-                    defaults["can_image_upscale"],
-                    defaults["can_image_augment"],
-                    defaults["can_image_encode_vibe"],
-                    defaults["green_point_limit"],
-                    defaults["red_points"],
-                    args.username,
-                ),
-            )
-            action = "updated"
-        else:
-            db.execute(
-                """
-                INSERT INTO users(
-                  username, password_hash, is_admin, disabled,
-                  green_point_discount, can_generate_paid, can_text_generate,
-                  can_image_upscale, can_image_augment, can_image_encode_vibe,
-                  green_point_limit, red_points,
-                  green_point_used, red_points_used, created_at
+            # Change only what was passed: a role re-applies its permissions,
+            # while point totals (including earlier grants) stay as they are.
+            changes = {}
+            if args.role:
+                changes.update(
+                    (name, value)
+                    for name, value in role_defaults(args.role).items()
+                    if name not in POINT_TOTAL_FIELDS
                 )
-                VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?)
-                """,
-                (
-                    args.username,
-                    password_hash,
-                    defaults["is_admin"],
-                    defaults["green_point_discount"],
-                    defaults["can_generate_paid"],
-                    defaults["can_text_generate"],
-                    defaults["can_image_upscale"],
-                    defaults["can_image_augment"],
-                    defaults["can_image_encode_vibe"],
-                    defaults["green_point_limit"],
-                    defaults["red_points"],
-                    now_iso(),
-                ),
+            if args.green_points is not None:
+                changes["green_point_limit"] = args.green_points
+            if not changes:
+                print(f"unchanged: {args.username}")
+                return
+            assignments = ", ".join(f"{name} = ?" for name in changes)
+            db.execute(
+                f"UPDATE users SET {assignments} WHERE id = ?",
+                (*changes.values(), existing["id"]),
             )
-            action = "created"
+            db.commit()
+            print(f"updated: {args.username} ({', '.join(changes)})")
+            return
+        role = args.role or "free"
+        values = role_defaults(role)
+        if args.green_points is not None:
+            values["green_point_limit"] = args.green_points
+        columns = {
+            "username": args.username,
+            "password_hash": hash_password(secrets.token_urlsafe(32)),
+            **values,
+            "created_at": now_iso(),
+        }
+        db.execute(
+            f"INSERT INTO users({', '.join(columns)}) "
+            f"VALUES ({', '.join('?' for _ in columns)})",
+            tuple(columns.values()),
+        )
         db.commit()
-    print(f"{action}: {args.username} ({args.role})")
+    print(f"created: {args.username} ({role})")
 
 
 def user_row_or_exit(db, username: str):
@@ -131,7 +68,7 @@ def user_row_or_exit(db, username: str):
 def cmd_user_state(args: argparse.Namespace) -> None:
     init_db()
     disabled = int(args.state == "disable")
-    with db_connect() as db:
+    with closing(db_connect()) as db:
         user_row_or_exit(db, args.username)
         db.execute("UPDATE users SET disabled = ? WHERE username = ?", (disabled, args.username))
         db.commit()
@@ -141,7 +78,7 @@ def cmd_user_state(args: argparse.Namespace) -> None:
 def cmd_green_discount(args: argparse.Namespace) -> None:
     init_db()
     discount = max(0, min(100, int(args.percent)))
-    with db_connect() as db:
+    with closing(db_connect()) as db:
         user_row_or_exit(db, args.username)
         db.execute(
             "UPDATE users SET green_point_discount = ? WHERE username = ?",
@@ -153,18 +90,26 @@ def cmd_green_discount(args: argparse.Namespace) -> None:
 
 def cmd_points_show(args: argparse.Namespace) -> None:
     init_db()
-    with db_connect() as db:
+    with closing(db_connect()) as db:
         user = user_row_or_exit(db, args.username)
         green_limit = int(user["green_point_limit"])
         green_used = int(user["green_point_used"])
+        green_reserved = int(user["green_points_reserved"])
         green_discount = int(user["green_point_discount"])
         red_limit = int(user["red_points"] or 0)
         red_used = int(user["red_points_used"])
+        red_reserved = int(user["red_points_reserved"])
+    # Reserved points belong to queued or running work and cannot be spent again.
     print(f"user: {args.username}")
     if green_discount < 100:
-        print(f"green: {max(0, green_limit - green_used)} remaining / {green_limit} total")
+        green_remaining = max(0, green_limit - green_used - green_reserved)
+        print(
+            f"green: {green_remaining} remaining / {green_limit} total"
+            f" ({green_reserved} reserved)"
+        )
         print(f"green discount: {green_discount}%")
-    print(f"red: {max(0, red_limit - red_used)} remaining / {red_limit} total")
+    red_remaining = max(0, red_limit - red_used - red_reserved)
+    print(f"red: {red_remaining} remaining / {red_limit} total ({red_reserved} reserved)")
 
 
 def cmd_points_grant(args: argparse.Namespace) -> None:
@@ -172,7 +117,7 @@ def cmd_points_grant(args: argparse.Namespace) -> None:
     if red == 0:
         raise SystemExit("Specify a positive --red amount")
     init_db()
-    with db_connect() as db:
+    with closing(db_connect()) as db:
         user = user_row_or_exit(db, args.username)
         red_limit = int(user["red_points"] or 0)
         db.execute(
@@ -191,13 +136,21 @@ def build_parser() -> argparse.ArgumentParser:
     user_sub = user.add_subparsers(dest="user_command", required=True)
     create = user_sub.add_parser("create")
     create.add_argument("username")
-    create.add_argument("--role", choices=["free", "paid", "admin"], default="free")
+    create.add_argument(
+        "--role",
+        choices=ROLES,
+        help="new users default to free; with --update, re-applies the role's permissions",
+    )
     create.add_argument(
         "--green-points",
         type=lambda value: max(0, int(value)),
         help="override the role's permanent green-point total",
     )
-    create.add_argument("--update", action="store_true")
+    create.add_argument(
+        "--update",
+        action="store_true",
+        help="update an existing user, changing only the options given",
+    )
     create.set_defaults(func=cmd_create_user)
 
     for state in ("enable", "disable"):
