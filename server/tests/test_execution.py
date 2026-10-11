@@ -478,5 +478,99 @@ class InterruptionTests(ExecutionTestCase):
         self.assertFalse(state.upstream_lane.held)
 
 
+class CancelQueuedTests(ExecutionTestCase):
+    async def cancel(self, user, task_id: str) -> dict:
+        return await generation.cancel_generation_task(
+            task_id=task_id, user=user, db=self.db
+        )
+
+    async def test_cancelling_releases_the_reservation_and_the_worker_skips_it(
+        self,
+    ) -> None:
+        user = support.create_user(self.db, "free-user")
+        submitted = await support.submit(
+            self.db, user, support.generation_request(), [1, 2]
+        )
+        self.assertGreater(self.account(user)["green_points_reserved"], 0)
+
+        payload = await self.cancel(user, submitted["task_id"])
+
+        self.assertEqual(payload["status"], "cancelled")
+        self.assertEqual(
+            [item["status"] for item in payload["items"]], ["cancelled", "cancelled"]
+        )
+        self.assertEqual(self.account(user)["green_points_reserved"], 0)
+        self.assertEqual(self.account(user)["green_point_used"], 0)
+        self.assertEqual(state.pending_jobs, [])
+
+        self.start_worker()
+        await asyncio.sleep(0.05)
+        self.assertEqual(self.fake.calls, [])
+
+        # Cancelling again changes nothing.
+        again = await self.cancel(user, submitted["task_id"])
+        self.assertEqual(again["status"], "cancelled")
+        self.assertEqual(self.account(user)["green_points_reserved"], 0)
+
+    async def test_paid_reservations_are_released_in_red_points(self) -> None:
+        user = support.create_user(self.db, "paid-user", "paid")
+        submitted = await support.submit(
+            self.db, user, support.generation_request(steps=50), [1]
+        )
+        self.assertEqual(self.account(user)["red_points_reserved"], 33)
+
+        await self.cancel(user, submitted["task_id"])
+
+        self.assertEqual(self.account(user)["red_points_reserved"], 0)
+
+    async def test_another_users_task_cannot_be_cancelled(self) -> None:
+        owner = support.create_user(self.db, "owner")
+        other = support.create_user(self.db, "other")
+        admin = support.create_user(self.db, "root", "admin")
+        submitted = await support.submit(
+            self.db, owner, support.generation_request(), [1]
+        )
+        reserved = self.account(owner)["green_points_reserved"]
+
+        for caller in (other, admin):
+            with self.assertRaises(HTTPException) as raised:
+                await self.cancel(caller, submitted["task_id"])
+            self.assertEqual(support.error_detail(raised)["code"], "not_found")
+
+        self.assertEqual(
+            [row["status"] for row in support.item_rows(self.db, submitted["task_id"])],
+            ["queued"],
+        )
+        self.assertEqual(self.account(owner)["green_points_reserved"], reserved)
+
+    async def test_a_running_item_is_not_cancelled(self) -> None:
+        user = support.create_user(self.db, "free-user")
+        self.fake.gate = asyncio.Event()
+        submitted = await support.submit(
+            self.db, user, support.generation_request(), [1, 2]
+        )
+        self.start_worker()
+        await support.wait_until(lambda: self.fake.in_flight == 1)
+
+        payload = await self.cancel(user, submitted["task_id"])
+
+        self.assertEqual(
+            [item["status"] for item in payload["items"]], ["running", "cancelled"]
+        )
+        # Only the running item's share stays reserved.
+        per_image = support.quote_for(
+            self.db, user, support.generation_request(), 1
+        ).points
+        self.assertEqual(self.account(user)["green_points_reserved"], per_image)
+
+        self.fake.gate.set()
+        await self.run_until_final(submitted["task_id"])
+
+        statuses = [row["status"] for row in support.item_rows(self.db, submitted["task_id"])]
+        self.assertEqual(statuses, ["success", "cancelled"])
+        self.assertEqual(len(self.fake.calls), 1)
+        self.assertEqual(self.account(user)["green_points_reserved"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()

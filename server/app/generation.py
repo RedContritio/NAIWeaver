@@ -208,6 +208,31 @@ def fail_generation_item(
     return batch_id
 
 
+def cancel_queued_item(db: sqlite3.Connection, item_id: str) -> None:
+    """Mark a queued item cancelled and release its reservation.
+
+    The caller holds the write transaction and has checked the item is queued.
+    """
+    item = db.execute(
+        "SELECT user_id, mode, reserved_points FROM generation_tasks WHERE id = ?",
+        (item_id,),
+    ).fetchone()
+    release_points(
+        db,
+        int(item["user_id"]),
+        point_kind_for_mode(item["mode"]),
+        int(item["reserved_points"] or 0),
+    )
+    db.execute(
+        """
+        UPDATE generation_tasks
+        SET status = 'cancelled', completed_at = ?
+        WHERE id = ? AND status = 'queued'
+        """,
+        (now_iso(), item_id),
+    )
+
+
 async def restore_generation_queue() -> None:
     """Restore queued work after a restart; interrupted work is never re-run."""
     assert state.queue_condition is not None
@@ -1207,6 +1232,49 @@ def generation_task_status(
         raise api_error(status.HTTP_404_NOT_FOUND, "not_found", "Task not found")
     if task["user_id"] != user["id"] and not user["is_admin"]:
         raise permission_denied("history.all", "This task belongs to another user")
+    payload = submission_task_payload(db, task, user)
+    if payload is None:
+        raise api_error(status.HTTP_404_NOT_FOUND, "not_found", "Task not found")
+    return payload
+
+
+@router.post("/api/generation-tasks/{task_id}/cancel")
+async def cancel_generation_task(
+    task_id: str,
+    user: sqlite3.Row = Depends(require_user),
+    db: sqlite3.Connection = Depends(get_db),
+):
+    """Cancel the items of the caller's own submission that have not started.
+
+    Running and finished items are left alone, so cancelling is safe to repeat
+    and to race with the worker.
+    """
+    assert state.queue_condition is not None
+    task = db.execute(
+        "SELECT * FROM generation_submission_tasks WHERE id = ? AND user_id = ?",
+        (task_id, user["id"]),
+    ).fetchone()
+    if task is None:
+        raise api_error(status.HTTP_404_NOT_FOUND, "not_found", "Task not found")
+    # The worker takes a job off the queue and marks it running without
+    # yielding, so holding the queue here means an item is either still
+    # queued (cancelled below, never executed) or already running (untouched).
+    async with state.queue_condition:
+        queued = {
+            str(row["id"])
+            for row in db.execute(
+                "SELECT id FROM generation_tasks WHERE batch_id = ? AND status = 'queued'",
+                (task_id,),
+            ).fetchall()
+        }
+        state.pending_jobs[:] = [job for job in state.pending_jobs if job.task_id not in queued]
+        with immediate_transaction(db):
+            for item_id in queued:
+                cancel_queued_item(db, item_id)
+            refresh_submission_task(db, task_id)
+    task = db.execute(
+        "SELECT * FROM generation_submission_tasks WHERE id = ?", (task_id,)
+    ).fetchone()
     payload = submission_task_payload(db, task, user)
     if payload is None:
         raise api_error(status.HTTP_404_NOT_FOUND, "not_found", "Task not found")
