@@ -1,4 +1,5 @@
 import '../../../../core/utils/file_picker_helper.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/jukebox/models/game_score.dart';
@@ -412,14 +413,18 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
     final l = context.l;
     return Row(
       children: [
-        IconButton(
-          onPressed: () => _importSong(jukebox),
-          icon: Icon(Icons.file_open, size: 20, color: t.accent),
-          tooltip: l.jukeboxImportTooltip,
-          constraints: const BoxConstraints(),
-          padding: const EdgeInsets.all(VisionMetrics.space8),
-        ),
-        const SizedBox(width: VisionMetrics.space4),
+        // Custom songs are copied into the app's data directory, which the
+        // Web has no file system for.
+        if (!kIsWeb) ...[
+          IconButton(
+            onPressed: () => _importSong(jukebox),
+            icon: Icon(Icons.file_open, size: 20, color: t.accent),
+            tooltip: l.jukeboxImportTooltip,
+            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.all(VisionMetrics.space8),
+          ),
+          const SizedBox(width: VisionMetrics.space4),
+        ],
         IconButton(
           onPressed: () {
             final songs = filteredSongs(jukebox, _selectedCategory);
@@ -516,12 +521,14 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
 
     return Row(
       children: [
-        actionButton(
-          () => _importSong(jukebox),
-          Icons.file_open,
-          l.jukeboxImport,
-        ),
-        const SizedBox(width: VisionMetrics.space8),
+        if (!kIsWeb) ...[
+          actionButton(
+            () => _importSong(jukebox),
+            Icons.file_open,
+            l.jukeboxImport,
+          ),
+          const SizedBox(width: VisionMetrics.space8),
+        ],
         actionButton(
           () {
             final songs = filteredSongs(jukebox, _selectedCategory);
@@ -1055,6 +1062,7 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
   // ─────────────────────────────────────────
 
   Future<void> _importSong(JukeboxNotifier jukebox) async {
+    if (kIsWeb) return;
     final result = await pickCustomFiles(
       allowedExtensions: ['kar', 'mid', 'midi'],
     );

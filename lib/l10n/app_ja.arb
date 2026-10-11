@@ -1681,5 +1681,6 @@
   "photoshootStylePhotoreal": "フォトリアル",
   "photoshootStyleSketch": "スケッチ",
   "photoshootStyleWatercolor": "水彩",
-  "photoshootStyleInk": "インク"
+  "photoshootStyleInk": "インク",
+  "startupFailedTitle": "NAIWeaver を起動できませんでした"
 }

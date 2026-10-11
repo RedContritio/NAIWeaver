@@ -86,6 +86,10 @@ class NovelAIService {
   final BackendClient _client;
   final bool _gateway;
 
+  /// Waits between the resends of a submission whose response never arrived;
+  /// its length is the number of resends.
+  final List<Duration> submitRetryDelays;
+
   /// Requests go through the gateway, which prices and queues them.
   bool get viaGateway => _gateway;
 
@@ -107,9 +111,13 @@ class NovelAIService {
     return null;
   }
 
-  NovelAIService(this._apiKey, {BackendClient? client, bool? gateway})
-    : _client = client ?? BackendClient.shared,
-      _gateway = gateway ?? useBackendGateway {
+  NovelAIService(
+    this._apiKey, {
+    BackendClient? client,
+    bool? gateway,
+    this.submitRetryDelays = const [Duration(seconds: 1), Duration(seconds: 2)],
+  }) : _client = client ?? BackendClient.shared,
+       _gateway = gateway ?? useBackendGateway {
     _dio.options.connectTimeout = const Duration(seconds: 60);
     _dio.options.receiveTimeout = const Duration(minutes: 5);
     if (kDebugMode) {
@@ -449,15 +457,38 @@ class NovelAIService {
     required String clientRequestId,
     required Map<String, dynamic> expectedQuote,
   }) async {
-    final response = await _client.post<dynamic>(
-      '/api/generation-tasks',
-      data: {
-        'client_request_id': clientRequestId,
-        'request': request.body,
-        'seeds': seeds,
-        'expected_quote': expectedQuote,
-      },
-    );
+    final body = {
+      'client_request_id': clientRequestId,
+      'request': request.body,
+      'seeds': seeds,
+      'expected_quote': expectedQuote,
+    };
+    // The POST may have reached the gateway (points reserved, task queued)
+    // with only the response lost. The gateway answers a repeated
+    // `client_request_id` with the original submission, so the same body is
+    // resent a bounded number of times; it can not be charged twice. Any
+    // answer from the gateway (4xx/5xx) is final and never resent.
+    BackendException? lost;
+    Response<dynamic>? response;
+    for (var attempt = 0; response == null; attempt++) {
+      try {
+        response = await _client.post<dynamic>(
+          '/api/generation-tasks',
+          data: body,
+        );
+      } on BackendException catch (error) {
+        if (error.statusCode != null || !error.isNetworkError) rethrow;
+        lost = error;
+        if (attempt >= submitRetryDelays.length) break;
+        await Future<void>.delayed(submitRetryDelays[attempt]);
+      }
+    }
+    if (response == null) {
+      // Still no answer: the submission may exist anyway.
+      final found = await _findLostSubmission(seeds);
+      if (found != null) return found;
+      throw lost!;
+    }
     final data = response.data;
     const invalid = BackendException(
       statusCode: null,
@@ -481,6 +512,42 @@ class NovelAIService {
         .toList(growable: false);
     if (taskId.isEmpty || items.length != seeds.length) throw invalid;
     return GatewayGenerationSubmission(taskId: taskId, items: items);
+  }
+
+  /// The submission of this account's current task when it holds exactly
+  /// [seeds] (random seeds make that a reliable match), or null. Used after a
+  /// submit whose response was lost.
+  Future<GatewayGenerationSubmission?> _findLostSubmission(
+    List<int> seeds,
+  ) async {
+    try {
+      final task = await BackendHistoryApi(client: _client).fetchCurrentTask();
+      if (task == null ||
+          task.id.isEmpty ||
+          task.items.length != seeds.length) {
+        return null;
+      }
+      final items = task.items.toList()
+        ..sort((a, b) => (a.batchIndex ?? 0).compareTo(b.batchIndex ?? 0));
+      for (var index = 0; index < seeds.length; index++) {
+        if (items[index].seed != seeds[index] || items[index].id.isEmpty) {
+          return null;
+        }
+      }
+      return GatewayGenerationSubmission(
+        taskId: task.id,
+        items: [
+          for (var index = 0; index < items.length; index++)
+            GatewayGenerationItem(
+              id: items[index].id,
+              batchIndex: items[index].batchIndex ?? index + 1,
+              status: items[index].status,
+            ),
+        ],
+      );
+    } on Object {
+      return null;
+    }
   }
 
   /// Submits [request] with the price computed from the rules (loaded when not

@@ -106,15 +106,17 @@ class OverlayActionButton extends StatelessWidget {
                         size: VisionMetrics.iconMedium,
                         color: foreground,
                       ),
-                      Text(
-                        text.toUpperCase(),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: foreground,
-                          fontSize: t.fontSize(10),
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
+                      Flexible(
+                        child: Text(
+                          text.toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: foreground,
+                            fontSize: t.fontSize(10),
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1,
+                          ),
                         ),
                       ),
                     ],

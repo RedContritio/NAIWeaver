@@ -119,5 +119,8 @@ String? paidToolCapLabel(BuildContext context, PaidTool tool, {int count = 1}) {
 int backendImageBatchLimit(BuildContext context) {
   if (!useBackendGateway) return 10;
   // The gateway resolves the limit per user (docs/GATEWAY_CONTRACT.md §2).
-  return context.watch<BackendAuthNotifier>().rules?.batchLimit ?? 1;
+  // GenerationNotifier.clampBatchCount caps every batch at 10, so the UI does
+  // too.
+  final limit = context.watch<BackendAuthNotifier>().rules?.batchLimit ?? 1;
+  return limit > 10 ? 10 : limit;
 }

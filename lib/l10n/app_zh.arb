@@ -1754,5 +1754,6 @@
   "photoshootStylePhotoreal": "照片写实",
   "photoshootStyleSketch": "素描",
   "photoshootStyleWatercolor": "水彩",
-  "photoshootStyleInk": "墨水"
+  "photoshootStyleInk": "墨水",
+  "startupFailedTitle": "NAIWeaver 启动失败"
 }
