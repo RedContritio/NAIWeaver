@@ -1,40 +1,64 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:naiweaver/core/services/preferences_service.dart';
+import 'package:naiweaver/core/theme/theme_notifier.dart';
 import 'package:naiweaver/features/generation/widgets/generation_mobile_sheet.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  late PreferencesService preferences;
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    preferences = PreferencesService(
+      await SharedPreferences.getInstance(),
+      const FlutterSecureStorage(),
+    );
+  });
+
+  Widget themed(Widget app) {
+    return ChangeNotifierProvider(
+      create: (_) => ThemeNotifier(preferences),
+      child: app,
+    );
+  }
+
   Widget buildSheet(
     GlobalKey<GenerationMobileSheetState> key, {
     Widget? prompt,
   }) {
-    return MaterialApp(
-      home: MediaQuery(
-        data: const MediaQueryData(
-          size: Size(390, 700),
-          viewPadding: EdgeInsets.only(bottom: 20),
-        ),
-        child: Scaffold(
-          body: GenerationMobileSheet(
-            key: key,
-            promptLabel: 'PROMPT',
-            inputsLabel: 'INPUTS',
-            parametersLabel: 'PARAMETERS',
-            inputCount: 2,
-            compactPrompt: const Text('COMPACT PROMPT'),
-            compactActions: const SizedBox(width: 42, child: Text('GO')),
-            prompt:
-                prompt ??
-                const ColoredBox(
-                  color: Colors.red,
-                  child: Center(child: Text('PROMPT BODY')),
-                ),
-            inputs: const ColoredBox(
-              color: Colors.green,
-              child: Center(child: Text('INPUT BODY')),
-            ),
-            parameters: const ColoredBox(
-              color: Colors.blue,
-              child: Center(child: Text('PARAMETER BODY')),
+    return themed(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(
+            size: Size(390, 700),
+            viewPadding: EdgeInsets.only(bottom: 20),
+          ),
+          child: Scaffold(
+            body: GenerationMobileSheet(
+              key: key,
+              promptLabel: 'PROMPT',
+              inputsLabel: 'INPUTS',
+              parametersLabel: 'PARAMETERS',
+              inputCount: 2,
+              compactPrompt: const Text('COMPACT PROMPT'),
+              compactActions: const SizedBox(width: 42, child: Text('GO')),
+              prompt:
+                  prompt ??
+                  const ColoredBox(
+                    color: Colors.red,
+                    child: Center(child: Text('PROMPT BODY')),
+                  ),
+              inputs: const ColoredBox(
+                color: Colors.green,
+                child: Center(child: Text('INPUT BODY')),
+              ),
+              parameters: const ColoredBox(
+                color: Colors.blue,
+                child: Center(child: Text('PARAMETER BODY')),
+              ),
             ),
           ),
         ),
@@ -69,6 +93,24 @@ void main() {
     await collapse;
     expect(find.byKey(GenerationMobileSheet.compactKey), findsOneWidget);
     expect(find.byKey(GenerationMobileSheet.tabsKey), findsNothing);
+  });
+
+  testWidgets('panel and input counters follow the theme tokens', (
+    tester,
+  ) async {
+    final key = GlobalKey<GenerationMobileSheetState>();
+    await tester.pumpWidget(buildSheet(key));
+    final tokens = ThemeNotifier(preferences).tokens;
+
+    final panel = tester.widget<Material>(
+      find.byKey(GenerationMobileSheet.panelKey),
+    );
+    expect(panel.color, tokens.surfaceHigh);
+    expect(tester.widget<Text>(find.text('2')).style?.color, tokens.accent);
+
+    await tester.tap(find.byKey(GenerationMobileSheet.compactKey));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Text>(find.text('2')).style?.color, tokens.accent);
   });
 
   testWidgets('compact height includes safe area without an extra footer', (

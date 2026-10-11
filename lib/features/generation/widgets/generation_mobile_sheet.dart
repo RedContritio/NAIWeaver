@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/services/client_diagnostics.dart';
+import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/vision_tokens.dart';
 
 enum GenerationMobileTab { prompt, inputs, parameters }
 
@@ -169,7 +171,7 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
 
   @override
   Widget build(BuildContext context) {
-    final t = Theme.of(context);
+    final t = context.t;
     final media = MediaQuery.of(context);
     final safeBottom = media.viewPadding.bottom;
 
@@ -245,16 +247,14 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
                 builder: (context, scrollController) {
                   return Material(
                     key: GenerationMobileSheet.panelKey,
-                    color: t.colorScheme.surface,
+                    color: t.surfaceHigh,
                     elevation: 18,
                     clipBehavior: Clip.antiAlias,
                     shape: RoundedRectangleBorder(
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(12),
                       ),
-                      side: BorderSide(
-                        color: t.dividerColor.withValues(alpha: 0.75),
-                      ),
+                      side: BorderSide(color: t.borderStrong),
                     ),
                     child: LayoutBuilder(
                       builder: (context, sheetConstraints) {
@@ -270,7 +270,7 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
                                   SizedBox(
                                     height:
                                         GenerationMobileSheet.peekContentHeight,
-                                    child: _buildHeader(context, expanded),
+                                    child: _buildHeader(t, expanded),
                                   ),
                                   if (expanded)
                                     Expanded(
@@ -319,8 +319,7 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
     );
   }
 
-  Widget _buildHeader(BuildContext context, bool expanded) {
-    final colors = Theme.of(context).colorScheme;
+  Widget _buildHeader(VisionTokens t, bool expanded) {
     return Column(
       children: [
         const SizedBox(height: 7),
@@ -328,7 +327,7 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
           width: 36,
           height: 4,
           decoration: BoxDecoration(
-            color: colors.onSurface.withValues(alpha: 0.28),
+            color: t.textDisabled,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -359,24 +358,7 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
                             ),
                             if (widget.inputCount > 0) ...[
                               const SizedBox(width: 5),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 5,
-                                  vertical: 1,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: colors.primary.withValues(alpha: 0.18),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  '${widget.inputCount}',
-                                  style: TextStyle(
-                                    color: colors.primary,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
+                              _InputCountBadge(count: widget.inputCount),
                             ],
                           ],
                         ),
@@ -394,34 +376,9 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
                           Expanded(child: widget.compactPrompt),
                           if (widget.inputCount > 0) ...[
                             const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colors.primary.withValues(alpha: 0.14),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.image_outlined,
-                                    size: 13,
-                                    color: colors.primary,
-                                  ),
-                                  const SizedBox(width: 3),
-                                  Text(
-                                    '${widget.inputCount}',
-                                    style: TextStyle(
-                                      color: colors.primary,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                            _InputCountBadge(
+                              count: widget.inputCount,
+                              icon: Icons.image_outlined,
                             ),
                           ],
                           const SizedBox(width: 8),
@@ -433,6 +390,44 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Active reference-input counter, shared by the compact bar (with an icon,
+/// since the bar has no label) and the inputs tab label.
+class _InputCountBadge extends StatelessWidget {
+  const _InputCountBadge({required this.count, this.icon});
+
+  final int count;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: t.accent.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 13, color: t.accent),
+            const SizedBox(width: 3),
+          ],
+          Text(
+            '$count',
+            style: TextStyle(
+              color: t.accent,
+              fontSize: t.fontSize(10),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
