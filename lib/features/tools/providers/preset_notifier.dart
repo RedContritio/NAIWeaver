@@ -30,11 +30,14 @@ class PresetState {
     List<DanbooruTag>? tagSuggestions,
     String? currentTagQuery,
     bool? isModified,
+    bool clearSelection = false,
   }) {
     return PresetState(
       presets: presets ?? this.presets,
-      selectedPreset: selectedPreset ?? this.selectedPreset,
-      originalName: originalName ?? this.originalName,
+      selectedPreset: clearSelection
+          ? null
+          : selectedPreset ?? this.selectedPreset,
+      originalName: clearSelection ? null : originalName ?? this.originalName,
       tagSuggestions: tagSuggestions ?? this.tagSuggestions,
       currentTagQuery: currentTagQuery ?? this.currentTagQuery,
       isModified: isModified ?? this.isModified,
@@ -75,6 +78,7 @@ class PresetNotifier extends ChangeNotifier {
       originalName: preset?.name,
       isModified: false,
       tagSuggestions: [],
+      clearSelection: preset == null,
     );
 
     if (preset != null) {

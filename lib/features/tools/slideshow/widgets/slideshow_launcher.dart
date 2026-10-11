@@ -18,6 +18,7 @@ import '../../../../core/jukebox/jukebox_registry.dart';
 import '../../../../core/jukebox/models/jukebox_song.dart';
 import '../../jukebox/widgets/jukebox_panel.dart';
 import '../../widgets/shelf_toggle.dart';
+import '../../widgets/synced_text_field.dart';
 import 'image_source_selector.dart';
 import 'slideshow_player.dart';
 import '../../../../core/theme/vision_metrics.dart';
@@ -503,11 +504,25 @@ class _SlideshowLauncherState extends State<SlideshowLauncher> {
     required ValueChanged<String> onChanged,
     required VisionTokens t,
   }) {
-    return _NameField(
+    return SyncedTextField(
       // A different config gets a fresh field; edits of the same one keep it.
       key: ValueKey(context.read<SlideshowNotifier>().activeConfig?.id),
       value: value,
       onChanged: onChanged,
+      style: TextStyle(
+        color: t.textSecondary,
+        fontSize: t.fontSize(13),
+        height: 1.5,
+      ),
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: t.borderSubtle,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding: const EdgeInsets.all(VisionMetrics.space12),
+      ),
     );
   }
 
@@ -762,62 +777,5 @@ class _SlideshowLauncherState extends State<SlideshowLauncher> {
       notifier.deleteConfig(config.id);
       _save(context, notifier);
     }
-  }
-}
-
-/// Name input that owns its controller, so typing is never reset by rebuilds.
-class _NameField extends StatefulWidget {
-  const _NameField({super.key, required this.value, required this.onChanged});
-
-  final String value;
-  final ValueChanged<String> onChanged;
-
-  @override
-  State<_NameField> createState() => _NameFieldState();
-}
-
-class _NameFieldState extends State<_NameField> {
-  late final TextEditingController _controller = TextEditingController(
-    text: widget.value,
-  );
-
-  @override
-  void didUpdateWidget(_NameField old) {
-    super.didUpdateWidget(old);
-    if (widget.value != _controller.text) {
-      _controller.value = TextEditingValue(
-        text: widget.value,
-        selection: TextSelection.collapsed(offset: widget.value.length),
-      );
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    return TextField(
-      controller: _controller,
-      onChanged: widget.onChanged,
-      style: TextStyle(
-        color: t.textSecondary,
-        fontSize: t.fontSize(13),
-        height: 1.5,
-      ),
-      decoration: InputDecoration(
-        filled: true,
-        fillColor: t.borderSubtle,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(VisionMetrics.radius4),
-          borderSide: BorderSide.none,
-        ),
-        contentPadding: const EdgeInsets.all(VisionMetrics.space12),
-      ),
-    );
   }
 }

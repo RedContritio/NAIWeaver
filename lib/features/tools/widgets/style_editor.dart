@@ -6,11 +6,16 @@ import '../../../core/theme/vision_tokens.dart';
 import '../../../core/widgets/confirm_dialog.dart';
 import '../../../core/widgets/manager_list_tile.dart';
 import '../../../core/widgets/manager_shell.dart';
+import '../../../core/widgets/section_title.dart';
+import '../../../core/widgets/ui/app_states.dart';
+import '../../../core/widgets/ui/app_tabs.dart';
+import 'shelf_toggle.dart';
 import '../../../core/widgets/tag_suggestion_overlay.dart';
 import '../../../core/services/styles.dart';
 import '../../generation/providers/generation_notifier.dart';
 import '../../characters/providers/character_library_notifier.dart';
 import '../providers/style_notifier.dart';
+import '../../../core/theme/vision_metrics.dart';
 
 class StyleEditor extends StatelessWidget {
   final String? initialStyleName;
@@ -81,7 +86,8 @@ class _StyleEditorContentState extends State<_StyleEditorContent> {
   /// Opens the editor on [style], or on a fresh style when it is null, after
   /// pending edits on another style are saved or discarded.
   Future<void> _openEditor(StyleNotifier notifier, [PromptStyle? style]) async {
-    final editing = notifier.state.selectedStyle != null &&
+    final editing =
+        notifier.state.selectedStyle != null &&
         style != null &&
         notifier.state.originalName == style.name;
     if (!editing) {
@@ -127,7 +133,11 @@ class _StyleEditorContentState extends State<_StyleEditorContent> {
     );
   }
 
-  Widget _buildStyleList(BuildContext context, StyleNotifier notifier, VisionTokens t) {
+  Widget _buildStyleList(
+    BuildContext context,
+    StyleNotifier notifier,
+    VisionTokens t,
+  ) {
     final l = context.l;
     final state = notifier.state;
     return ColoredBox(
@@ -170,7 +180,7 @@ class _StyleEditorContentState extends State<_StyleEditorContent> {
               proxyDecorator: (child, index, animation) {
                 return Material(
                   color: t.surfaceHigh,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(VisionMetrics.radius4),
                   elevation: 4,
                   child: child,
                 );
@@ -200,7 +210,8 @@ class _StyleEditorContentState extends State<_StyleEditorContent> {
                       label: l.commonDelete,
                       icon: Icons.delete_outline,
                       destructive: true,
-                      onSelected: () => _showDeleteConfirm(context, notifier, style, t),
+                      onSelected: () =>
+                          _showDeleteConfirm(context, notifier, style, t),
                     ),
                   ],
                 );
@@ -212,24 +223,30 @@ class _StyleEditorContentState extends State<_StyleEditorContent> {
     );
   }
 
-  Widget _buildEditor(BuildContext context, StyleNotifier notifier, VisionTokens t) {
+  Widget _buildEditor(
+    BuildContext context,
+    StyleNotifier notifier,
+    VisionTokens t,
+  ) {
     final state = notifier.state;
     if (state.selectedStyle == null) {
-      return Center(
-        child: Text(
-          context.l.styleSelectToEdit,
-          style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9), letterSpacing: 2),
-        ),
-      );
+      return EmptyState(message: context.l.styleSelectToEdit);
     }
 
-    final bool isPrefix = state.selectedStyle!.prefix.isNotEmpty || state.selectedStyle!.suffix.isEmpty;
+    final bool isPrefix =
+        state.selectedStyle!.prefix.isNotEmpty ||
+        state.selectedStyle!.suffix.isEmpty;
 
     return Column(
       children: [
         if (state.tagSuggestions.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+            padding: const EdgeInsets.fromLTRB(
+              VisionMetrics.space24,
+              VisionMetrics.space8,
+              VisionMetrics.space24,
+              0,
+            ),
             child: TagSuggestionOverlay(
               suggestions: state.tagSuggestions,
               onTagSelected: notifier.applyTagSuggestion,
@@ -237,54 +254,34 @@ class _StyleEditorContentState extends State<_StyleEditorContent> {
           ),
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(VisionMetrics.space24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildSectionTitle(context.l.styleIdentity, t),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: _buildTextField(
-                        controller: notifier.nameController,
-                        label: context.l.styleName,
-                        onChanged: (val) => notifier.updateCurrentStyle(name: val),
-                        t: t,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(context.l.styleDefaultOnLaunch,
-                            style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(8), letterSpacing: 1)),
-                        const SizedBox(height: 4),
-                        Container(
-                          height: 42,
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: t.borderSubtle,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Switch(
-                            value: state.selectedStyle?.isDefault ?? false,
-                            onChanged: (val) => notifier.updateCurrentStyle(isDefault: val),
-                            activeThumbColor: t.textPrimary,
-                            activeTrackColor: t.textDisabled,
-                            inactiveThumbColor: t.textMinimal,
-                            inactiveTrackColor: t.background,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                _buildTextField(
+                  controller: notifier.nameController,
+                  label: context.l.styleName,
+                  onChanged: (val) => notifier.updateCurrentStyle(name: val),
+                  t: t,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: VisionMetrics.space12),
+                ShelfToggle(
+                  label: context.l.styleDefaultOnLaunch,
+                  value: state.selectedStyle?.isDefault ?? false,
+                  onChanged: (val) =>
+                      notifier.updateCurrentStyle(isDefault: val),
+                ),
+                const SizedBox(height: VisionMetrics.space24),
                 _buildSectionTitle(context.l.styleTargetPrompt, t),
                 _buildTargetSelector(notifier, t),
-                const SizedBox(height: 24),
-                _buildSectionTitle(state.isEditingNegative ? context.l.styleNegativeContent : context.l.stylePositiveContent, t),
+                const SizedBox(height: VisionMetrics.space24),
+                _buildSectionTitle(
+                  state.isEditingNegative
+                      ? context.l.styleNegativeContent
+                      : context.l.stylePositiveContent,
+                  t,
+                ),
                 Focus(
                   onFocusChange: (hasFocus) {
                     if (!hasFocus) {
@@ -298,18 +295,21 @@ class _StyleEditorContentState extends State<_StyleEditorContent> {
                     label: context.l.styleContent,
                     maxLines: 4,
                     onChanged: (val) {
-                      notifier.handleTagSuggestions(val, notifier.contentController.selection);
+                      notifier.handleTagSuggestions(
+                        val,
+                        notifier.contentController.selection,
+                      );
                       notifier.updateCurrentStyle(content: val);
                     },
                     t: t,
                   ),
                 ),
                 if (!state.isEditingNegative) ...[
-                  const SizedBox(height: 24),
+                  const SizedBox(height: VisionMetrics.space24),
                   _buildSectionTitle(context.l.stylePlacement, t),
                   _buildPlacementSelector(notifier, isPrefix, t),
                 ],
-                const SizedBox(height: 40),
+                const SizedBox(height: VisionMetrics.space24),
               ],
             ),
           ),
@@ -318,15 +318,8 @@ class _StyleEditorContentState extends State<_StyleEditorContent> {
     );
   }
 
-  Widget _buildSectionTitle(String title, VisionTokens t) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Text(
-        title,
-        style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(8), letterSpacing: 2, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
+  Widget _buildSectionTitle(String title, VisionTokens t) =>
+      SectionTitle(title, t: t);
 
   Widget _buildTextField({
     required TextEditingController controller,
@@ -338,18 +331,32 @@ class _StyleEditorContentState extends State<_StyleEditorContent> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(8), letterSpacing: 1)),
-        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: t.textMinimal,
+            fontSize: t.fontSize(8),
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: VisionMetrics.space4),
         TextField(
           controller: controller,
           maxLines: maxLines,
           onChanged: onChanged,
-          style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(13), height: 1.5),
+          style: TextStyle(
+            color: t.textSecondary,
+            fontSize: t.fontSize(13),
+            height: 1.5,
+          ),
           decoration: InputDecoration(
             filled: true,
             fillColor: t.borderSubtle,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
-            contentPadding: const EdgeInsets.all(12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.all(VisionMetrics.space12),
           ),
         ),
       ],
@@ -357,116 +364,37 @@ class _StyleEditorContentState extends State<_StyleEditorContent> {
   }
 
   Widget _buildTargetSelector(StyleNotifier notifier, VisionTokens t) {
-    return Row(
-      children: [
-        _buildTargetOption(
-          label: context.l.stylePositive,
-          isActive: !notifier.state.isEditingNegative,
-          onTap: () => notifier.setEditingNegative(false),
-          t: t,
-        ),
-        const SizedBox(width: 12),
-        _buildTargetOption(
-          label: context.l.styleNegative,
-          isActive: notifier.state.isEditingNegative,
-          onTap: () => notifier.setEditingNegative(true),
-          t: t,
-        ),
+    return AppSegmented<bool>(
+      options: [
+        AppOption(value: false, label: context.l.stylePositive),
+        AppOption(value: true, label: context.l.styleNegative),
       ],
+      selected: notifier.state.isEditingNegative,
+      onChanged: notifier.setEditingNegative,
     );
   }
 
-  Widget _buildTargetOption({
-    required String label,
-    required bool isActive,
-    required VoidCallback onTap,
-    required VisionTokens t,
-  }) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isActive ? t.borderSubtle : Colors.transparent,
-            border: Border.all(
-              color: isActive ? t.textDisabled : t.textMinimal,
-              width: 1,
-            ),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: isActive ? t.textPrimary : t.textDisabled,
-                fontSize: t.fontSize(9),
-                letterSpacing: 1,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPlacementSelector(StyleNotifier notifier, bool isPrefix, VisionTokens t) {
-    return Row(
-      children: [
-        _buildPlacementOption(
-          label: context.l.styleBeginningPrefix,
-          isActive: isPrefix,
-          onTap: () => notifier.updateCurrentStyle(isPrefix: true),
-          t: t,
-        ),
-        const SizedBox(width: 12),
-        _buildPlacementOption(
-          label: context.l.styleEndSuffix,
-          isActive: !isPrefix,
-          onTap: () => notifier.updateCurrentStyle(isPrefix: false),
-          t: t,
-        ),
+  Widget _buildPlacementSelector(
+    StyleNotifier notifier,
+    bool isPrefix,
+    VisionTokens t,
+  ) {
+    return AppSegmented<bool>(
+      options: [
+        AppOption(value: true, label: context.l.styleBeginningPrefix),
+        AppOption(value: false, label: context.l.styleEndSuffix),
       ],
+      selected: isPrefix,
+      onChanged: (prefix) => notifier.updateCurrentStyle(isPrefix: prefix),
     );
   }
 
-  Widget _buildPlacementOption({
-    required String label,
-    required bool isActive,
-    required VoidCallback onTap,
-    required VisionTokens t,
-  }) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isActive ? t.borderSubtle : Colors.transparent,
-            border: Border.all(
-              color: isActive ? t.textDisabled : t.textMinimal,
-              width: 1,
-            ),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: isActive ? t.textPrimary : t.textDisabled,
-                fontSize: t.fontSize(9),
-                letterSpacing: 1,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _showDeleteConfirm(BuildContext context, StyleNotifier notifier, PromptStyle style, VisionTokens t) async {
+  Future<void> _showDeleteConfirm(
+    BuildContext context,
+    StyleNotifier notifier,
+    PromptStyle style,
+    VisionTokens t,
+  ) async {
     final l = context.l;
     final confirm = await showConfirmDialog(
       context,

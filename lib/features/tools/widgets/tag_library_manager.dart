@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -9,31 +10,21 @@ import '../../../core/theme/vision_tokens.dart';
 import '../../../core/widgets/confirm_dialog.dart';
 import '../../../core/widgets/manager_list_tile.dart';
 import '../../../core/widgets/manager_shell.dart';
+import '../../../core/widgets/section_title.dart';
+import '../../../core/widgets/ui/app_sheet.dart';
+import '../../../core/widgets/ui/app_states.dart';
+import '../../../core/widgets/ui/overlay_action_button.dart';
 import '../../../core/widgets/vision_slider.dart';
 import '../../../core/utils/app_snackbar.dart';
 import '../../generation/providers/generation_notifier.dart';
 import '../../../core/services/tag_service.dart';
 import '../providers/tag_library_notifier.dart';
+import 'tag_category_color.dart';
 import 'tag_detail_sheet.dart';
+import '../../../core/theme/vision_metrics.dart';
 
 class TagLibraryManager extends StatelessWidget {
   const TagLibraryManager({super.key});
-
-  Color _getCategoryColor(String? category) {
-    if (category == null) return Colors.white;
-    switch (category.toLowerCase()) {
-      case 'copyright':
-        return const Color(0xFFD880FF); // Purple
-      case 'character':
-        return const Color(0xFF00AD00); // Green
-      case 'artist':
-        return const Color(0xFFFF5858); // Red
-      case 'meta':
-        return const Color(0xFFFF9229); // Orange
-      default:
-        return Colors.white;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,14 +36,16 @@ class TagLibraryManager extends StatelessWidget {
         _buildHeader(context, notifier, t),
         _buildFilters(context, notifier, t),
         Divider(height: 1, color: t.textMinimal),
-        Expanded(
-          child: _buildTagList(context, notifier, t),
-        ),
+        Expanded(child: _buildTagList(context, notifier, t)),
       ],
     );
   }
 
-  Widget _buildHeader(BuildContext context, TagLibraryNotifier notifier, VisionTokens t) {
+  Widget _buildHeader(
+    BuildContext context,
+    TagLibraryNotifier notifier,
+    VisionTokens t,
+  ) {
     final l = context.l;
     return Column(
       children: [
@@ -73,18 +66,33 @@ class TagLibraryManager extends StatelessWidget {
           ],
         ),
         Container(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          padding: const EdgeInsets.fromLTRB(
+            VisionMetrics.space16,
+            0,
+            VisionMetrics.space16,
+            VisionMetrics.space8,
+          ),
           color: t.surfaceHigh,
           child: TextField(
             onChanged: notifier.setSearchQuery,
             style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(11)),
             decoration: InputDecoration(
               hintText: l.tagLibSearchTags,
-              hintStyle: TextStyle(color: t.borderMedium, fontSize: t.fontSize(9), letterSpacing: 2),
+              hintStyle: TextStyle(
+                color: t.borderMedium,
+                fontSize: t.fontSize(9),
+                letterSpacing: 2,
+              ),
               isDense: true,
-              contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: VisionMetrics.space8,
+              ),
               border: InputBorder.none,
-              prefixIcon: Icon(Icons.search, size: 14, color: t.borderMedium),
+              prefixIcon: Icon(
+                Icons.search,
+                size: VisionMetrics.iconSmall,
+                color: t.borderMedium,
+              ),
             ),
           ),
         ),
@@ -92,12 +100,19 @@ class TagLibraryManager extends StatelessWidget {
     );
   }
 
-  Widget _buildFilters(BuildContext context, TagLibraryNotifier notifier, VisionTokens t) {
+  Widget _buildFilters(
+    BuildContext context,
+    TagLibraryNotifier notifier,
+    VisionTokens t,
+  ) {
     final state = notifier.state;
     final categories = notifier.getCategories();
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: VisionMetrics.space16,
+        vertical: VisionMetrics.space8,
+      ),
       color: t.surfaceMid,
       child: Column(
         children: [
@@ -106,9 +121,12 @@ class TagLibraryManager extends StatelessWidget {
             child: Row(
               children: [
                 _buildFilterChip(
+                  context: context,
                   label: context.l.tagLibAll,
-                  isSelected: state.selectedCategory == null && !state.showFavoritesOnly,
-                  color: Colors.white,
+                  isSelected:
+                      state.selectedCategory == null &&
+                      !state.showFavoritesOnly,
+                  color: t.textPrimary,
                   onSelected: () {
                     if (state.showFavoritesOnly) notifier.toggleFavoritesOnly();
                     notifier.setCategory(null);
@@ -116,6 +134,7 @@ class TagLibraryManager extends StatelessWidget {
                   t: t,
                 ),
                 _buildFilterChip(
+                  context: context,
                   label: context.l.tagLibFavorites,
                   isSelected: state.showFavoritesOnly,
                   color: t.accentDanger,
@@ -123,41 +142,87 @@ class TagLibraryManager extends StatelessWidget {
                   t: t,
                 ),
                 _buildFilterChip(
+                  context: context,
                   label: context.l.tagLibImages,
                   isSelected: state.showWithExamplesOnly,
-                  color: Colors.blueAccent,
+                  color: t.accentEdit,
                   onSelected: () => notifier.toggleWithExamplesOnly(),
                   t: t,
                 ),
-                ...categories.map((cat) => _buildFilterChip(
-                      label: cat.toUpperCase(),
-                      isSelected: state.selectedCategory == cat,
-                      color: _getCategoryColor(cat),
-                      onSelected: () => notifier.setCategory(cat),
-                      t: t,
-                    )),
+                ...categories.map(
+                  (cat) => _buildFilterChip(
+                    context: context,
+                    label: cat.toUpperCase(),
+                    isSelected: state.selectedCategory == cat,
+                    color: tagCategoryColor(t, cat),
+                    onSelected: () => notifier.setCategory(cat),
+                    t: t,
+                  ),
+                ),
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: VisionMetrics.space8),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
                 Text(
                   context.l.tagLibSort,
-                  style: TextStyle(color: t.textPrimary.withValues(alpha: 0.2), fontSize: t.fontSize(8), letterSpacing: 2),
+                  style: TextStyle(
+                    color: t.textPrimary.withValues(
+                      alpha: VisionMetrics.opacityPressed,
+                    ),
+                    fontSize: t.fontSize(8),
+                    letterSpacing: 2,
+                  ),
                 ),
-                const SizedBox(width: 8),
-                _buildSortOption(notifier, TagSort.countDesc, context.l.tagLibSortCountDesc, t),
-                _buildSortOption(notifier, TagSort.countAsc, context.l.tagLibSortCountAsc, t),
-                _buildSortOption(notifier, TagSort.alphaAsc, context.l.tagLibSortAZ, t),
-                _buildSortOption(notifier, TagSort.alphaDesc, context.l.tagLibSortZA, t),
-                _buildSortOption(notifier, TagSort.favoritesFirst, context.l.tagLibSortFavsFirst, t),
-                const SizedBox(width: 16),
+                const SizedBox(width: VisionMetrics.space8),
+                _buildSortOption(
+                  context,
+                  notifier,
+                  TagSort.countDesc,
+                  context.l.tagLibSortCountDesc,
+                  t,
+                ),
+                _buildSortOption(
+                  context,
+                  notifier,
+                  TagSort.countAsc,
+                  context.l.tagLibSortCountAsc,
+                  t,
+                ),
+                _buildSortOption(
+                  context,
+                  notifier,
+                  TagSort.alphaAsc,
+                  context.l.tagLibSortAZ,
+                  t,
+                ),
+                _buildSortOption(
+                  context,
+                  notifier,
+                  TagSort.alphaDesc,
+                  context.l.tagLibSortZA,
+                  t,
+                ),
+                _buildSortOption(
+                  context,
+                  notifier,
+                  TagSort.favoritesFirst,
+                  context.l.tagLibSortFavsFirst,
+                  t,
+                ),
+                const SizedBox(width: VisionMetrics.space16),
                 Text(
                   context.l.tagLibTagCount(state.tags.length),
-                  style: TextStyle(color: t.textPrimary.withValues(alpha: 0.2), fontSize: t.fontSize(8), letterSpacing: 2),
+                  style: TextStyle(
+                    color: t.textPrimary.withValues(
+                      alpha: VisionMetrics.opacityPressed,
+                    ),
+                    fontSize: t.fontSize(8),
+                    letterSpacing: 2,
+                  ),
                 ),
               ],
             ),
@@ -168,23 +233,34 @@ class TagLibraryManager extends StatelessWidget {
   }
 
   Widget _buildFilterChip({
+    required BuildContext context,
     required String label,
     required bool isSelected,
     required Color color,
     required VoidCallback onSelected,
     required VisionTokens t,
   }) {
-    final activeColor = isSelected ? color : color.withValues(alpha: 0.2);
+    final activeColor = isSelected
+        ? color
+        : color.withValues(alpha: VisionMetrics.opacityPressed);
     return Padding(
-      padding: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.only(right: VisionMetrics.space8),
       child: InkWell(
         onTap: onSelected,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          constraints: BoxConstraints(minHeight: context.hitSize),
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: VisionMetrics.space8),
           decoration: BoxDecoration(
-            color: isSelected ? color.withValues(alpha: 0.1) : Colors.transparent,
-            border: Border.all(color: isSelected ? color.withValues(alpha: 0.3) : color.withValues(alpha: 0.1)),
-            borderRadius: BorderRadius.circular(2),
+            color: isSelected
+                ? color.withValues(alpha: VisionMetrics.opacityHover)
+                : Colors.transparent,
+            border: Border.all(
+              color: isSelected
+                  ? color.withValues(alpha: VisionMetrics.opacityDisabled)
+                  : color.withValues(alpha: VisionMetrics.opacityHover),
+            ),
+            borderRadius: BorderRadius.circular(VisionMetrics.radius2),
           ),
           child: Text(
             label,
@@ -200,29 +276,44 @@ class TagLibraryManager extends StatelessWidget {
     );
   }
 
-  Widget _buildSortOption(TagLibraryNotifier notifier, TagSort sort, String label, VisionTokens t) {
+  Widget _buildSortOption(
+    BuildContext context,
+    TagLibraryNotifier notifier,
+    TagSort sort,
+    String label,
+    VisionTokens t,
+  ) {
     final isSelected = notifier.state.sort == sort;
     return Padding(
-      padding: const EdgeInsets.only(right: 12),
+      padding: const EdgeInsets.only(right: VisionMetrics.space12),
       child: InkWell(
         onTap: () => notifier.setSort(sort),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? t.textPrimary : t.textDisabled,
-            fontSize: t.fontSize(8),
-            letterSpacing: 1,
-            decoration: isSelected ? TextDecoration.underline : null,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: context.hitSize),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? t.textPrimary : t.textDisabled,
+                fontSize: t.fontSize(8),
+                letterSpacing: 1,
+                decoration: isSelected ? TextDecoration.underline : null,
+              ),
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildTagList(BuildContext context, TagLibraryNotifier notifier, VisionTokens t) {
+  Widget _buildTagList(
+    BuildContext context,
+    TagLibraryNotifier notifier,
+    VisionTokens t,
+  ) {
     final state = notifier.state;
     if (state.isLoading) {
-      return Center(child: CircularProgressIndicator(strokeWidth: 2, color: t.textMinimal));
+      return const LoadingState();
     }
 
     final l = context.l;
@@ -241,7 +332,7 @@ class TagLibraryManager extends StatelessWidget {
         final tag = state.tags[index];
         return _TagRow(
           tag: tag,
-          color: _getCategoryColor(tag.typeName),
+          color: tagCategoryColor(t, tag.typeName),
           onTapDetail: () => TagDetailSheet.show(context, tag),
           onTapExample: () => _showExamplesOverlay(context, tag),
           onToggleFavorite: () => notifier.toggleFavorite(tag),
@@ -263,7 +354,12 @@ class TagLibraryManager extends StatelessWidget {
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, TagLibraryNotifier notifier, dynamic tag, VisionTokens t) async {
+  Future<void> _confirmDelete(
+    BuildContext context,
+    TagLibraryNotifier notifier,
+    dynamic tag,
+    VisionTokens t,
+  ) async {
     final l = context.l;
     final confirm = await showConfirmDialog(
       context,
@@ -286,10 +382,8 @@ class TagLibraryManager extends StatelessWidget {
   }
 
   void _showPreviewSettings(BuildContext context, TagLibraryNotifier notifier) {
-    showModalBottomSheet(
+    showAppSheet<void>(
       context: context,
-      backgroundColor: context.tRead.surfaceHigh,
-      isScrollControlled: true,
       builder: (context) => _TagPreviewSettingsPanel(notifier: notifier),
     );
   }
@@ -301,78 +395,139 @@ class TagLibraryManager extends StatelessWidget {
     );
   }
 
-  void _showAddTagDialog(BuildContext context, TagLibraryNotifier notifier, VisionTokens t) {
-    final nameController = TextEditingController();
-    final countController = TextEditingController(text: '0');
-    String selectedCategory = 'general';
-
-    showDialog(
+  void _showAddTagDialog(
+    BuildContext context,
+    TagLibraryNotifier notifier,
+    VisionTokens t,
+  ) {
+    showDialog<void>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
-          final l = context.l;
-          return AlertDialog(
-          backgroundColor: t.surfaceHigh,
-          title: Text(l.tagLibAddNewTag, style: TextStyle(fontSize: t.fontSize(10), letterSpacing: 2, color: t.textSecondary)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                autofocus: true,
-                style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(13)),
-                decoration: InputDecoration(
-                  hintText: l.tagLibTagName,
-                  hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9)),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: countController,
-                keyboardType: TextInputType.number,
-                style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(13)),
-                decoration: InputDecoration(
-                  hintText: l.tagLibCount,
-                  hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9)),
-                ),
-              ),
-              const SizedBox(height: 16),
-              DropdownButton<String>(
-                value: selectedCategory,
-                isExpanded: true,
-                dropdownColor: t.background,
-                style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11)),
-                items: ['general', 'character', 'copyright', 'meta', 'artist']
-                    .map((cat) => DropdownMenuItem(value: cat, child: Text(cat.toUpperCase())))
-                    .toList(),
-                onChanged: (val) {
-                  if (val != null) setState(() => selectedCategory = val);
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(l.commonCancel, style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9))),
-            ),
-            TextButton(
-              onPressed: () {
-                if (nameController.text.isNotEmpty) {
-                  notifier.addTag(
-                    nameController.text,
-                    int.tryParse(countController.text) ?? 0,
-                    selectedCategory,
-                  );
-                  Navigator.pop(context);
-                }
-              },
-              child: Text(l.tagLibAddTagBtn, style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(9))),
-            ),
-          ],
-        );
-        },
+      builder: (_) => _AddTagDialog(notifier: notifier),
+    );
+  }
+}
+
+/// Add-tag form. It owns its controllers (released with the dialog) and
+/// refuses a blank name instead of silently ignoring the press.
+class _AddTagDialog extends StatefulWidget {
+  const _AddTagDialog({required this.notifier});
+
+  final TagLibraryNotifier notifier;
+
+  @override
+  State<_AddTagDialog> createState() => _AddTagDialogState();
+}
+
+class _AddTagDialogState extends State<_AddTagDialog> {
+  final _nameController = TextEditingController();
+  final _countController = TextEditingController(text: '0');
+  String _category = 'general';
+  String? _nameError;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _countController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      setState(() => _nameError = context.l.commonNameRequired);
+      return;
+    }
+    widget.notifier.addTag(
+      name,
+      int.tryParse(_countController.text.trim()) ?? 0,
+      _category,
+    );
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    final l = context.l;
+    return AlertDialog(
+      backgroundColor: t.surfaceHigh,
+      title: Text(
+        l.tagLibAddNewTag,
+        style: TextStyle(
+          fontSize: t.titleSize(10),
+          letterSpacing: 2,
+          color: t.textSecondary,
+        ),
       ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _nameController,
+            autofocus: true,
+            onChanged: (_) {
+              if (_nameError != null) setState(() => _nameError = null);
+            },
+            onSubmitted: (_) => _submit(),
+            style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(13)),
+            decoration: InputDecoration(
+              hintText: l.tagLibTagName,
+              hintStyle: TextStyle(
+                color: t.textMinimal,
+                fontSize: t.fontSize(9),
+              ),
+              errorText: _nameError,
+            ),
+          ),
+          const SizedBox(height: VisionMetrics.space16),
+          TextField(
+            controller: _countController,
+            keyboardType: TextInputType.number,
+            style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(13)),
+            decoration: InputDecoration(
+              hintText: l.tagLibCount,
+              hintStyle: TextStyle(
+                color: t.textMinimal,
+                fontSize: t.fontSize(9),
+              ),
+            ),
+          ),
+          const SizedBox(height: VisionMetrics.space16),
+          DropdownButton<String>(
+            value: _category,
+            isExpanded: true,
+            dropdownColor: t.background,
+            style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11)),
+            items: ['general', 'character', 'copyright', 'meta', 'artist']
+                .map(
+                  (cat) => DropdownMenuItem(
+                    value: cat,
+                    child: Text(cat.toUpperCase()),
+                  ),
+                )
+                .toList(),
+            onChanged: (val) {
+              if (val != null) setState(() => _category = val);
+            },
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(
+            l.commonCancel,
+            style: TextStyle(color: t.textDisabled, fontSize: t.buttonSize(9)),
+          ),
+        ),
+        TextButton(
+          onPressed: _submit,
+          child: Text(
+            l.tagLibAddTagBtn,
+            style: TextStyle(color: t.textPrimary, fontSize: t.buttonSize(9)),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -386,10 +541,12 @@ class _TagExamplesOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final notifier = context.read<TagLibraryNotifier>();
     final t = context.t;
-    final color = const TagLibraryManager()._getCategoryColor(tag.typeName);
+    final color = tagCategoryColor(t, tag.typeName);
 
     return Dialog.fullscreen(
-      backgroundColor: t.background.withValues(alpha: 0.9),
+      backgroundColor: t.background.withValues(
+        alpha: VisionMetrics.opacityOverlay,
+      ),
       child: Column(
         children: [
           AppBar(
@@ -397,16 +554,22 @@ class _TagExamplesOverlay extends StatelessWidget {
             elevation: 0,
             title: Text(
               tag.tag.toUpperCase(),
-              style: TextStyle(color: color, fontSize: t.fontSize(12), letterSpacing: 4, fontWeight: FontWeight.w900),
+              style: TextStyle(
+                color: color,
+                fontSize: t.fontSize(12),
+                letterSpacing: 4,
+                fontWeight: FontWeight.w900,
+              ),
             ),
             leading: IconButton(
               icon: Icon(Icons.close, color: t.textPrimary),
+              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
               onPressed: () => Navigator.pop(context),
             ),
           ),
           Expanded(
             child: GridView.builder(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(VisionMetrics.space24),
               gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                 maxCrossAxisExtent: 400,
                 mainAxisSpacing: 24,
@@ -426,15 +589,20 @@ class _TagExamplesOverlay extends StatelessWidget {
                       child: File(path).existsSync()
                           ? Image.file(File(path), fit: BoxFit.contain)
                           : Center(
-                              child: Icon(Icons.broken_image_outlined,
-                                  color: t.textMinimal, size: 32),
+                              child: Icon(
+                                Icons.broken_image_outlined,
+                                color: t.textMinimal,
+                                size: 32,
+                              ),
                             ),
                     ),
                     Positioned(
                       top: 8,
                       right: 8,
-                      child: IconButton(
-                        icon: Icon(Icons.delete, color: t.accentDanger),
+                      child: OverlayActionButton(
+                        icon: Icons.delete,
+                        tooltip: context.l.tagLibDeleteExample,
+                        color: t.accentDanger,
                         onPressed: () async {
                           final l = context.l;
                           final confirm = await showConfirmDialog(
@@ -485,45 +653,47 @@ class TagPreviewResponsiveLayout extends StatelessWidget {
         final availableHeight = constraints.maxHeight.isFinite
             ? constraints.maxHeight
             : viewportHeight * 0.85;
-        final dialogHeight =
-            availableHeight > 640 ? 640.0 : availableHeight;
-        final previewMaxHeight =
-            (dialogHeight - 180).clamp(120.0, 450.0);
+        final dialogHeight = math.min(availableHeight, 640.0);
+        final previewMaxHeight = (dialogHeight - 180).clamp(120.0, 450.0);
 
-        return SizedBox(
-          width: 400,
-          height: dialogHeight,
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                header,
-                const SizedBox(height: 16),
-                Flexible(
-                  child: SingleChildScrollView(
-                    key: const ValueKey('quick-tag-preview-scroll-view'),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Center(
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxWidth: 300,
-                              maxHeight: previewMaxHeight,
-                            ),
-                            child: AspectRatio(
-                              aspectRatio: 2 / 3,
-                              child: preview,
+        // Sized by its content; the cap keeps tall previews scrollable.
+        return ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: dialogHeight),
+          child: SizedBox(
+            width: 400,
+            child: Padding(
+              padding: const EdgeInsets.all(VisionMetrics.space24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  header,
+                  const SizedBox(height: VisionMetrics.space16),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      key: const ValueKey('quick-tag-preview-scroll-view'),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Center(
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: 300,
+                                maxHeight: previewMaxHeight,
+                              ),
+                              child: AspectRatio(
+                                aspectRatio: 2 / 3,
+                                child: preview,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        footer,
-                      ],
+                          const SizedBox(height: VisionMetrics.space16),
+                          footer,
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -555,8 +725,10 @@ class _QuickTagPreviewDialogState extends State<_QuickTagPreviewDialog> {
   Future<void> _generate() async {
     final genNotifier = context.read<GenerationNotifier>();
     final libNotifier = context.read<TagLibraryNotifier>();
-    final bytes = await genNotifier.generateQuickPreview(widget.tag,
-        previewSettings: libNotifier.state.previewSettings);
+    final bytes = await genNotifier.generateQuickPreview(
+      widget.tag,
+      previewSettings: libNotifier.state.previewSettings,
+    );
 
     if (mounted) {
       setState(() {
@@ -592,11 +764,10 @@ class _QuickTagPreviewDialogState extends State<_QuickTagPreviewDialog> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            IconButton(
-              icon: Icon(Icons.close, size: 16, color: t.textDisabled),
+            ManagerIconButton(
+              icon: Icons.close,
+              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
               onPressed: () => Navigator.pop(context),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
             ),
           ],
         ),
@@ -606,41 +777,10 @@ class _QuickTagPreviewDialogState extends State<_QuickTagPreviewDialog> {
             border: Border.all(color: t.textMinimal),
           ),
           child: _isLoading
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: t.textMinimal,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        l.tagLibGeneratingPreview,
-                        style: TextStyle(
-                          color: t.textMinimal,
-                          fontSize: t.fontSize(8),
-                          letterSpacing: 2,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
+              ? LoadingState(label: l.tagLibGeneratingPreview)
               : _error != null
-                  ? Center(
-                      child: Text(
-                        _error!,
-                        style: TextStyle(
-                          color: t.accentDanger,
-                          fontSize: t.fontSize(9),
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    )
-                  : Image.memory(
-                      _imageBytes!,
-                      fit: BoxFit.contain,
-                    ),
+              ? ErrorState(message: _error!)
+              : Image.memory(_imageBytes!, fit: BoxFit.contain),
         ),
         footer: Column(
           mainAxisSize: MainAxisSize.min,
@@ -650,17 +790,31 @@ class _QuickTagPreviewDialogState extends State<_QuickTagPreviewDialog> {
                 width: double.infinity,
                 child: TextButton.icon(
                   onPressed: () async {
-                    await context.read<TagLibraryNotifier>().saveExample(widget.tag, _imageBytes!);
+                    await context.read<TagLibraryNotifier>().saveExample(
+                      widget.tag,
+                      _imageBytes!,
+                    );
                     if (context.mounted) {
                       showAppSnackBar(context, context.l.tagLibExampleSaved);
                     }
                   },
-                  icon: Icon(Icons.save, size: 14, color: t.accentSuccess),
-                  label: Text(l.tagLibSaveAsExample, style: TextStyle(color: t.accentSuccess, fontSize: t.fontSize(10), letterSpacing: 2)),
+                  icon: Icon(
+                    Icons.save,
+                    size: VisionMetrics.iconSmall,
+                    color: t.accentSuccess,
+                  ),
+                  label: Text(
+                    l.tagLibSaveAsExample,
+                    style: TextStyle(
+                      color: t.accentSuccess,
+                      fontSize: t.fontSize(10),
+                      letterSpacing: 2,
+                    ),
+                  ),
                   style: TextButton.styleFrom(backgroundColor: t.borderSubtle),
                 ),
               ),
-            const SizedBox(height: 16),
+            const SizedBox(height: VisionMetrics.space16),
             Consumer<TagLibraryNotifier>(
               builder: (context, notifier, child) {
                 final settings = notifier.state.previewSettings;
@@ -697,6 +851,7 @@ class _TagPreviewSettingsPanel extends StatefulWidget {
 class _TagPreviewSettingsPanelState extends State<_TagPreviewSettingsPanel> {
   late TextEditingController _posController;
   late TextEditingController _negController;
+  late TextEditingController _seedController;
   late TagPreviewSettings _current;
 
   @override
@@ -705,12 +860,16 @@ class _TagPreviewSettingsPanelState extends State<_TagPreviewSettingsPanel> {
     _current = widget.notifier.state.previewSettings;
     _posController = TextEditingController(text: _current.positivePrompt);
     _negController = TextEditingController(text: _current.negativePrompt);
+    _seedController = TextEditingController(
+      text: _current.seed?.toString() ?? '',
+    );
   }
 
   @override
   void dispose() {
     _posController.dispose();
     _negController.dispose();
+    _seedController.dispose();
     super.dispose();
   }
 
@@ -724,34 +883,27 @@ class _TagPreviewSettingsPanelState extends State<_TagPreviewSettingsPanel> {
     final t = context.t;
     final l = context.l;
 
-    return Container(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-        top: 24,
-        left: 24,
-        right: 24,
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: VisionMetrics.space24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            l.tagLibPreviewSettingsTitle,
-            style: TextStyle(
-                color: t.textPrimary,
-                fontSize: t.fontSize(10),
-                letterSpacing: 4,
-                fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 24),
+          SectionTitle(l.tagLibPreviewSettingsTitle, t: t),
           _buildTextField(l.tagLibPositivePromptBase, _posController, (val) {
             _update(_current.copyWith(positivePrompt: val));
           }, t),
-          const SizedBox(height: 16),
-          _buildTextField(l.tagLibNegativePrompt, _negController, (val) {
-            _update(_current.copyWith(negativePrompt: val));
-          }, t, maxLines: 3),
-          const SizedBox(height: 24),
+          const SizedBox(height: VisionMetrics.space16),
+          _buildTextField(
+            l.tagLibNegativePrompt,
+            _negController,
+            (val) {
+              _update(_current.copyWith(negativePrompt: val));
+            },
+            t,
+            maxLines: 3,
+          ),
+          const SizedBox(height: VisionMetrics.space24),
           Row(
             children: [
               Expanded(
@@ -763,52 +915,79 @@ class _TagPreviewSettingsPanelState extends State<_TagPreviewSettingsPanel> {
                     "k_euler",
                     "k_dpmpp_2s_ancestral",
                     "k_dpmpp_2m",
-                    "k_dpmpp_sde"
+                    "k_dpmpp_sde",
                   ],
                   (val) => _update(_current.copyWith(sampler: val)),
                   t,
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: VisionMetrics.space16),
               Expanded(
-                child: _buildNumberInput(l.tagLibSteps, _current.steps.toDouble(),
-                    (val) => _update(_current.copyWith(steps: val.toInt())),
-                    t: t, min: 1, max: 50),
+                child: _buildNumberInput(
+                  l.tagLibSteps,
+                  _current.steps.toDouble(),
+                  (val) => _update(_current.copyWith(steps: val.toInt())),
+                  t: t,
+                  min: 1,
+                  max: 50,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: VisionMetrics.space16),
           Row(
             children: [
               Expanded(
-                child: _buildNumberInput(l.tagLibWidth, _current.width,
-                    (val) => _update(_current.copyWith(width: val)),
-                    t: t, min: 64, max: 2048, step: 64),
+                child: _buildNumberInput(
+                  l.tagLibWidth,
+                  _current.width,
+                  (val) => _update(_current.copyWith(width: val)),
+                  t: t,
+                  min: 64,
+                  max: 2048,
+                  step: 64,
+                ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: VisionMetrics.space16),
               Expanded(
-                child: _buildNumberInput(l.tagLibHeight, _current.height,
-                    (val) => _update(_current.copyWith(height: val)),
-                    t: t, min: 64, max: 2048, step: 64),
+                child: _buildNumberInput(
+                  l.tagLibHeight,
+                  _current.height,
+                  (val) => _update(_current.copyWith(height: val)),
+                  t: t,
+                  min: 64,
+                  max: 2048,
+                  step: 64,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: VisionMetrics.space16),
           Row(
             children: [
               Expanded(
-                child: _buildNumberInput(l.tagLibScale, _current.scale,
-                    (val) => _update(_current.copyWith(scale: val)),
-                    t: t, min: 1, max: 31),
+                child: _buildNumberInput(
+                  l.tagLibScale,
+                  _current.scale,
+                  (val) => _update(_current.copyWith(scale: val)),
+                  t: t,
+                  min: 1,
+                  max: 31,
+                ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: VisionMetrics.space16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(l.tagLibSeed,
-                        style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(8))),
-                    const SizedBox(height: 4),
+                    Text(
+                      l.tagLibSeed,
+                      style: TextStyle(
+                        color: t.textDisabled,
+                        fontSize: t.fontSize(8),
+                      ),
+                    ),
+                    const SizedBox(height: VisionMetrics.space4),
                     TextField(
                       onChanged: (val) {
                         final s = int.tryParse(val);
@@ -818,14 +997,21 @@ class _TagPreviewSettingsPanelState extends State<_TagPreviewSettingsPanel> {
                           _update(_current.copyWith(seed: s));
                         }
                       },
-                      controller: TextEditingController(
-                          text: _current.seed?.toString() ?? ""),
-                      style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11)),
+                      controller: _seedController,
+                      style: TextStyle(
+                        color: t.textPrimary,
+                        fontSize: t.fontSize(11),
+                      ),
                       decoration: InputDecoration(
                         hintText: l.tagLibRandom,
-                        hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9)),
+                        hintStyle: TextStyle(
+                          color: t.textMinimal,
+                          fontSize: t.fontSize(9),
+                        ),
                         isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: VisionMetrics.space8,
+                        ),
                       ),
                     ),
                   ],
@@ -839,13 +1025,20 @@ class _TagPreviewSettingsPanelState extends State<_TagPreviewSettingsPanel> {
   }
 
   Widget _buildTextField(
-      String label, TextEditingController controller, Function(String) onChanged, VisionTokens t,
-      {int maxLines = 1}) {
+    String label,
+    TextEditingController controller,
+    Function(String) onChanged,
+    VisionTokens t, {
+    int maxLines = 1,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(8))),
-        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(8)),
+        ),
+        const SizedBox(height: VisionMetrics.space4),
         TextField(
           controller: controller,
           onChanged: onChanged,
@@ -853,22 +1046,34 @@ class _TagPreviewSettingsPanelState extends State<_TagPreviewSettingsPanel> {
           style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11)),
           decoration: InputDecoration(
             isDense: true,
-            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: VisionMetrics.space8,
+            ),
             enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: t.textMinimal)),
+              borderSide: BorderSide(color: t.textMinimal),
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildNumberInput(String label, double value, Function(double) onChanged,
-      {required VisionTokens t, double min = 0, double max = 100, double step = 1}) {
+  Widget _buildNumberInput(
+    String label,
+    double value,
+    Function(double) onChanged, {
+    required VisionTokens t,
+    double min = 0,
+    double max = 100,
+    double step = 1,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("$label: ${value.toStringAsFixed(0)}",
-            style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(8))),
+        Text(
+          "$label: ${value.toStringAsFixed(0)}",
+          style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(8)),
+        ),
         VisionSlider(
           value: value.clamp(min, max),
           onChanged: onChanged,
@@ -887,21 +1092,37 @@ class _TagPreviewSettingsPanelState extends State<_TagPreviewSettingsPanel> {
   }
 
   Widget _buildDropdown<T>(
-      String label, T value, List<T> items, Function(T?) onChanged, VisionTokens t) {
+    String label,
+    T value,
+    List<T> items,
+    Function(T?) onChanged,
+    VisionTokens t,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(8))),
+        Text(
+          label,
+          style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(8)),
+        ),
         DropdownButton<T>(
           value: value,
           isExpanded: true,
           dropdownColor: t.background,
           underline: Container(height: 1, color: t.textMinimal),
-          icon: Icon(Icons.arrow_drop_down, size: 14, color: t.textDisabled),
+          icon: Icon(
+            Icons.arrow_drop_down,
+            size: VisionMetrics.iconSmall,
+            color: t.textDisabled,
+          ),
           style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11)),
           items: items
-              .map((i) => DropdownMenuItem(
-                  value: i, child: Text(i.toString().toUpperCase())))
+              .map(
+                (i) => DropdownMenuItem(
+                  value: i,
+                  child: Text(i.toString().toUpperCase()),
+                ),
+              )
               .toList(),
           onChanged: onChanged,
         ),
@@ -932,11 +1153,13 @@ class _TagRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.t;
     final l = context.l;
-    final example = tag.examplePaths.isEmpty ? null : File(tag.examplePaths.first);
+    final example = tag.examplePaths.isEmpty
+        ? null
+        : File(tag.examplePaths.first);
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: t.textMinimal, width: 0.5)),
+        border: Border(bottom: BorderSide(color: t.textMinimal)),
       ),
       child: ManagerListTile(
         title: tag.tag,
@@ -945,8 +1168,11 @@ class _TagRow extends StatelessWidget {
           fontFamily: 'monospace',
           letterSpacing: 0,
         ),
-        subtitle: '${tag.typeName.toUpperCase()}  ·  ${NumberFormat.compact().format(tag.count)}',
-        subtitleStyle: TextStyle(color: color.withValues(alpha: 0.5)),
+        subtitle:
+            '${tag.typeName.toUpperCase()}  ·  ${NumberFormat.compact().format(tag.count)}',
+        subtitleStyle: TextStyle(
+          color: color.withValues(alpha: VisionMetrics.opacityScrim),
+        ),
         leading: SizedBox.square(
           dimension: kManagerTouchTarget,
           child: example == null
@@ -955,13 +1181,20 @@ class _TagRow extends StatelessWidget {
                   onTap: onTapExample,
                   child: Center(
                     child: Container(
-                      width: 24,
-                      height: 24,
+                      width: VisionMetrics.iconLarge,
+                      height: VisionMetrics.iconLarge,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: color.withValues(alpha: 0.5), width: 1),
+                        border: Border.all(
+                          color: color.withValues(
+                            alpha: VisionMetrics.opacityScrim,
+                          ),
+                        ),
                         image: example.existsSync()
-                            ? DecorationImage(image: FileImage(example), fit: BoxFit.cover)
+                            ? DecorationImage(
+                                image: FileImage(example),
+                                fit: BoxFit.cover,
+                              )
                             : null,
                       ),
                     ),
@@ -972,7 +1205,9 @@ class _TagRow extends StatelessWidget {
         inlineActions: [
           ManagerIconButton(
             icon: tag.isFavorite ? Icons.favorite : Icons.favorite_border,
-            tooltip: tag.isFavorite ? l.commonRemoveFavorite : l.commonAddFavorite,
+            tooltip: tag.isFavorite
+                ? l.commonRemoveFavorite
+                : l.commonAddFavorite,
             color: tag.isFavorite ? color : t.textDisabled,
             onPressed: onToggleFavorite,
           ),
