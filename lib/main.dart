@@ -1328,9 +1328,6 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
         .vibes
         .where((vibe) => vibe.enabled)
         .length;
-    final reservedHeight =
-        GenerationMobileSheet.peekContentHeight +
-        MediaQuery.viewPaddingOf(context).bottom;
 
     void manageStyles() {
       String? activeStyle;
@@ -1368,7 +1365,8 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
     }
 
     return GenerationPageLayout(
-      overlayReservedHeight: reservedHeight,
+      // Resolved inside the layout, where the sheet measures itself.
+      overlayReservedHeightOf: GenerationMobileSheet.collapsedHeightOf,
       results: _buildDefaultResultsArea(context, notifier, state, mobile),
       footer: const SizedBox.shrink(),
       overlay: Positioned.fill(

@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:naiweaver/core/services/preferences_service.dart';
 import 'package:naiweaver/core/theme/theme_notifier.dart';
 import 'package:naiweaver/features/generation/widgets/generation_mobile_sheet.dart';
+import 'package:naiweaver/features/generation/widgets/generation_page_layout.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -50,7 +51,6 @@ void main() {
   GenerationMobileSheet sheet(
     GlobalKey<GenerationMobileSheetState> key, {
     Widget? prompt,
-    Widget? inputs,
     Widget? parameters,
   }) {
     return GenerationMobileSheet(
@@ -67,12 +67,10 @@ void main() {
             color: Colors.red,
             child: Center(child: Text('PROMPT BODY')),
           ),
-      inputs:
-          inputs ??
-          const ColoredBox(
-            color: Colors.green,
-            child: Center(child: Text('INPUT BODY')),
-          ),
+      inputs: const ColoredBox(
+        color: Colors.green,
+        child: Center(child: Text('INPUT BODY')),
+      ),
       parameters:
           parameters ??
           const ColoredBox(
@@ -515,6 +513,86 @@ void main() {
       tester.getRect(find.byKey(pageKey)).bottom,
       panelRect(tester).bottom - 20,
     );
+  });
+
+  group('the collapsed sheet and the results area', () {
+    // The mobile generation page: results above, the sheet as an overlay.
+    Widget generationPage(GlobalKey<GenerationMobileSheetState> key) {
+      return app(
+        GenerationPageLayout(
+          overlayReservedHeightOf: GenerationMobileSheet.collapsedHeightOf,
+          results: const ColoredBox(color: Colors.black),
+          footer: const SizedBox.shrink(),
+          overlay: Positioned.fill(child: sheet(key)),
+        ),
+      );
+    }
+
+    // Neither overlapping nor leaving a gap: the results end exactly where
+    // the collapsed sheet starts.
+    void expectResultsMeetSheet(WidgetTester tester) {
+      final results = tester.getRect(
+        find.byKey(GenerationPageLayout.resultsRegionKey),
+      );
+      final panel = panelRect(tester);
+      expect(results.overlaps(panel), isFalse, reason: '$results / $panel');
+      expect(results.bottom, closeTo(panel.top, 1e-6));
+    }
+
+    for (final height in [360.0, 520.0, 700.0, 900.0, 1200.0, 1600.0]) {
+      for (final safeBottom in [0.0, 34.0]) {
+        testWidgets('meet in a ${height.toInt()}px window with a '
+            '${safeBottom.toInt()}px safe area', (tester) async {
+          setUpView(tester, size: Size(400, height), safeBottom: safeBottom);
+          final key = GlobalKey<GenerationMobileSheetState>();
+          await tester.pumpWidget(generationPage(key));
+          expectResultsMeetSheet(tester);
+
+          unawaited(key.currentState!.openTab(GenerationMobileTab.inputs));
+          await tester.pumpAndSettle();
+          unawaited(key.currentState!.collapse());
+          await tester.pumpAndSettle();
+          expectResultsMeetSheet(tester);
+        });
+      }
+    }
+
+    testWidgets('meet while the keyboard hides the safe area', (tester) async {
+      setUpView(
+        tester,
+        size: const Size(390, 844),
+        safeBottom: 34,
+        keyboard: 300,
+      );
+      final key = GlobalKey<GenerationMobileSheetState>();
+      await tester.pumpWidget(generationPage(key));
+
+      expectResultsMeetSheet(tester);
+      expect(panelRect(tester).height, GenerationMobileSheet.peekContentHeight);
+    });
+
+    testWidgets('meet again after the window changes size', (tester) async {
+      setUpView(tester, size: const Size(800, 360), safeBottom: 24);
+      final key = GlobalKey<GenerationMobileSheetState>();
+      await tester.pumpWidget(generationPage(key));
+      // Once moved, the sheet keeps its size as a fraction of the height.
+      unawaited(key.currentState!.openTab(GenerationMobileTab.prompt));
+      await tester.pumpAndSettle();
+      unawaited(key.currentState!.collapse());
+      await tester.pumpAndSettle();
+
+      for (final size in const [
+        Size(390, 844),
+        Size(800, 360),
+        Size(390, 1600),
+        Size(390, 640),
+      ]) {
+        tester.view.physicalSize = size;
+        await tester.pumpAndSettle();
+        expectResultsMeetSheet(tester);
+        expect(key.currentState!.isExpanded, isFalse);
+      }
+    });
   });
 
   testWidgets('main prompt participates in prompt page scrolling', (

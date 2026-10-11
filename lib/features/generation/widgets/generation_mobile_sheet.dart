@@ -52,6 +52,17 @@ class GenerationMobileSheet extends StatefulWidget {
   });
 
   static const double peekContentHeight = 56;
+
+  /// Height of the collapsed sheet: the summary bar plus the bottom safe area
+  /// seen from [context]. The sheet sizes itself with this. A layout that
+  /// keeps its content clear of the sheet should resolve it in the context
+  /// the sheet is built in, as `GenerationPageLayout.overlayReservedHeightOf`
+  /// does, because a [Scaffold] body drops the safe area while the keyboard
+  /// is up.
+  static double collapsedHeightOf(BuildContext context) {
+    return peekContentHeight + MediaQuery.viewPaddingOf(context).bottom;
+  }
+
   static const compactKey = ValueKey<String>('generation-mobile-sheet-compact');
   static const panelKey = ValueKey<String>('generation-mobile-sheet-panel');
   static const tabsKey = ValueKey<String>('generation-mobile-sheet-tabs');
@@ -260,17 +271,24 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
 
   void _applyExtents(double minimum, double middle) {
     if (minimum == _minimumExtent && middle == _middleExtent) return;
+    // Judged by the old stops, before they change.
+    final wasCollapsed = !_expanded.value;
     if (middle != _middleExtent) {
       _snapSizes = middle < 1 ? <double>[middle] : const <double>[];
     }
     _minimumExtent = minimum;
     _middleExtent = middle;
-    // The sheet clamps its size into the new range without notifying; bring
-    // the listeners up to date once it has been laid out with it.
+    // Once moved, the sheet keeps its old fraction of the new height (only
+    // clamped into the new range) and does not notify. After it has been
+    // laid out with the new range, put a collapsed sheet back on its
+    // collapsed size, which is exactly what the page reserves for it, and
+    // bring the listeners up to date.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _sheetController.isAttached) {
-        _setExtent(_sheetController.size);
+      if (!mounted || !_sheetController.isAttached) return;
+      if (wasCollapsed && _sheetController.size != _minimumExtent) {
+        _sheetController.jumpTo(_minimumExtent);
       }
+      _setExtent(_sheetController.size);
     });
   }
 
@@ -285,8 +303,7 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
     final t = context.t;
     final media = MediaQuery.of(context);
     final safeBottom = media.viewPadding.bottom;
-    final collapsedHeight =
-        GenerationMobileSheet.peekContentHeight + safeBottom;
+    final collapsedHeight = GenerationMobileSheet.collapsedHeightOf(context);
 
     return LayoutBuilder(
       builder: (context, constraints) {
