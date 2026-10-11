@@ -381,7 +381,7 @@ Pages are built from tokens and shared components, never from ad-hoc styling.
   - Icon sizes: `iconSmall` 14, `iconMedium` 18, `iconLarge` 24. Border width: `borderWidth` 1.
 - `ThemeData` (built in `ThemeNotifier._buildThemeData`) themes bottom sheets, snack bars, dialogs, tab bars, popup menus, tooltips, icon/text/elevated buttons, chips and sliders from the tokens, so a bare Material widget already looks right.
 
-**Breakpoints** (`lib/core/utils/responsive.dart`): `WindowSizeClass` is compact (<600), medium (600-839), expanded (840-1199), large (1200-1599), xlarge (>=1600). Use `windowSizeClassOf(context)`, or `windowSizeClassForWidth(constraints.maxWidth)` inside a `LayoutBuilder`. `isTouchSized` (compact/medium) selects touch controls and, on the generation page, the bottom-sheet layout; expanded uses the regular layout; large and up (`isSidebarCapable`) may use the sidebar. `isMobile`, `isWidescreenLayout` and `touchTarget` are deprecated.
+**Breakpoints** (`lib/core/utils/responsive.dart`): `WindowSizeClass` is compact (<600), medium (600-839), expanded (840-1199), large (1200-1599), xlarge (>=1600). Use `windowSizeClassOf(context)`, or `windowSizeClassForWidth(constraints.maxWidth)` inside a `LayoutBuilder`. `isTouchSized` (compact/medium) selects touch controls and, on the generation page, the bottom-sheet layout; expanded uses the regular layout; large and up (`isSidebarCapable`) may use the sidebar.
 
 **Which component for which concept** (shared components live in `lib/core/widgets/` and `lib/core/widgets/ui/`)
 
