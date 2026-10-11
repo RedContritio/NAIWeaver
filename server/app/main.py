@@ -71,16 +71,6 @@ app = FastAPI(
     **api_docs_urls(config.PRODUCTION),
 )
 
-if config.CORS_ORIGINS:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=config.CORS_ORIGINS,
-        allow_credentials=True,
-        allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["Content-Type", "Authorization"],
-    )
-
-
 @app.middleware("http")
 async def same_origin_writes(request: Request, call_next):
     if config.PRODUCTION and request.url.path.startswith("/api/") and request.method not in {
@@ -101,9 +91,31 @@ async def same_origin_writes(request: Request, call_next):
     return await call_next(request)
 
 
-# Added last so it is the outermost layer: it counts the bytes every inner
-# layer reads, including chunked uploads without Content-Length.
-app.add_middleware(BodySizeLimitMiddleware, max_bytes=config.MAX_REQUEST_BODY_BYTES)
+# The size limit counts the bytes every inner layer reads, including chunked
+# uploads without Content-Length, so it sits outside everything that reads the
+# body. CORS never reads the body, so it is added after (outermost) and the
+# limiter's 413 and 400 responses still carry CORS headers.
+def install_edge_middleware(app: FastAPI) -> None:
+    app.add_middleware(BodySizeLimitMiddleware, max_bytes=config.MAX_REQUEST_BODY_BYTES)
+    if config.CORS_ORIGINS:
+        # Cross-origin development (flutter run -d chrome against a local gateway).
+        # Every method and header the client sends must be listed or preflights fail.
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=config.CORS_ORIGINS,
+            allow_credentials=True,
+            allow_methods=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+            allow_headers=[
+                "Accept",
+                "Authorization",
+                "Content-Type",
+                "Idempotency-Key",
+                "X-NAIWeaver-Expected-Points",
+            ],
+        )
+
+
+install_edge_middleware(app)
 install_error_handlers(app)
 
 # The web router holds the catch-all, so it is included last.

@@ -8,6 +8,7 @@ import unittest
 from unittest import mock
 
 import httpx
+from fastapi import FastAPI, Request
 
 from app import auth, config, main, proxy, state
 from tests import support
@@ -308,6 +309,55 @@ class HistoryDtoTests(HttpContractTestCase):
         self.assertError(
             await self.client.get("/api/generation-tasks/older-batch"), 404, "not_found"
         )
+
+
+class CorsTests(unittest.IsolatedAsyncioTestCase):
+    """Cross-origin development: preflights pass and 413s still carry CORS."""
+
+    async def asyncSetUp(self) -> None:
+        origin = "http://localhost:5555"
+        patcher = mock.patch.object(config, "CORS_ORIGINS", [origin])
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.origin = origin
+        app = FastAPI()
+        main.install_edge_middleware(app)
+
+        @app.post("/echo")
+        async def echo(request: Request):
+            return {"size": len(await request.body())}
+
+        self.client = httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://gateway"
+        )
+        self.addAsyncCleanup(self.client.aclose)
+
+    async def test_preflight_allows_the_headers_and_methods_the_client_sends(self) -> None:
+        response = await self.client.options(
+            "/echo",
+            headers={
+                "Origin": self.origin,
+                "Access-Control-Request-Method": "DELETE",
+                "Access-Control-Request-Headers": "idempotency-key,x-naiweaver-expected-points",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("DELETE", response.headers["access-control-allow-methods"])
+        allowed = response.headers["access-control-allow-headers"].lower()
+        self.assertIn("idempotency-key", allowed)
+        self.assertIn("x-naiweaver-expected-points", allowed)
+
+    async def test_oversized_body_is_413_with_cors_headers(self) -> None:
+        response = await self.client.post(
+            "/echo",
+            content=b"x",
+            headers={
+                "Origin": self.origin,
+                "Content-Length": str(config.MAX_REQUEST_BODY_BYTES + 1),
+            },
+        )
+        self.assertEqual(response.status_code, 413)
+        self.assertEqual(response.headers["access-control-allow-origin"], self.origin)
 
 
 if __name__ == "__main__":
