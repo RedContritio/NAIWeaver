@@ -2062,6 +2062,15 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get img2imgClearMaskTitle => 'マスクを消去しますか？';
+
+  @override
+  String get img2imgClearMaskMessage => 'すべてのマスクストロークが削除されます。この操作は元に戻せません。';
+
+  @override
+  String get img2imgClearMaskConfirm => '消去';
+
+  @override
   String get img2imgNoMask => 'マスクなし（全体IMG2IMG）';
 
   @override

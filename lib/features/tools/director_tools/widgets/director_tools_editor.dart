@@ -119,8 +119,10 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
             tooltip: context.l.directorToolsSettingsTooltip,
             onPressed: () => showToolConfigBottomSheet(
               context: context,
-              listenable: notifier,
-              contentBuilder: (_) => _buildConfigPanel(context, notifier),
+              contentBuilder: (sheetContext) => _buildConfigPanel(
+                sheetContext,
+                sheetContext.watch<DirectorToolsNotifier>(),
+              ),
             ),
           ),
       ],

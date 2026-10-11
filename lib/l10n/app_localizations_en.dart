@@ -2101,6 +2101,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get img2imgClearMaskTitle => 'Clear mask?';
+
+  @override
+  String get img2imgClearMaskMessage =>
+      'All mask strokes will be removed. This cannot be undone.';
+
+  @override
+  String get img2imgClearMaskConfirm => 'Clear';
+
+  @override
   String get img2imgNoMask => 'NO MASK (full img2img)';
 
   @override

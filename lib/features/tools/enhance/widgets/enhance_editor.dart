@@ -120,8 +120,10 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
             tooltip: context.l.enhanceSettingsTooltip,
             onPressed: () => showToolConfigBottomSheet(
               context: context,
-              listenable: notifier,
-              contentBuilder: (_) => _buildConfigPanel(context, notifier),
+              contentBuilder: (sheetContext) => _buildConfigPanel(
+                sheetContext,
+                sheetContext.watch<EnhanceNotifier>(),
+              ),
             ),
           ),
       ],

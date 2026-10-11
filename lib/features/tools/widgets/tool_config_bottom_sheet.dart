@@ -2,49 +2,40 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/theme_extensions.dart';
 
+/// Shows a tool's settings in a draggable bottom sheet.
+///
+/// [contentBuilder] runs with the sheet's own context, so content that
+/// watches a notifier there rebuilds while the sheet is open.
 Future<void> showToolConfigBottomSheet({
   required BuildContext context,
   required WidgetBuilder contentBuilder,
-  Listenable? listenable,
 }) {
   final t = context.tRead;
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: t.surfaceHigh,
-    builder: (sheetContext) => DraggableScrollableSheet(
-      initialChildSize: 0.6,
-      maxChildSize: 0.9,
-      minChildSize: 0.3,
-      expand: false,
-      builder: (sheetContext, scrollController) {
-        Widget content = SingleChildScrollView(
+    // Lift the whole sheet above the keyboard so a focused field stays
+    // visible instead of only padding the scrollable content.
+    builder: (sheetContext) => AnimatedPadding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+      ),
+      duration: const Duration(milliseconds: 150),
+      curve: Curves.easeOut,
+      child: DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        maxChildSize: 0.9,
+        minChildSize: 0.3,
+        expand: false,
+        builder: (context, scrollController) => SingleChildScrollView(
           controller: scrollController,
           padding: EdgeInsets.only(
-            bottom:
-                MediaQuery.viewInsetsOf(sheetContext).bottom +
-                MediaQuery.viewPaddingOf(sheetContext).bottom +
-                24,
+            bottom: MediaQuery.viewPaddingOf(context).bottom + 24,
           ),
-          child: contentBuilder(sheetContext),
-        );
-        if (listenable != null) {
-          content = ListenableBuilder(
-            listenable: listenable,
-            builder: (_, _) => SingleChildScrollView(
-              controller: scrollController,
-              padding: EdgeInsets.only(
-                bottom:
-                    MediaQuery.viewInsetsOf(sheetContext).bottom +
-                    MediaQuery.viewPaddingOf(sheetContext).bottom +
-                    24,
-              ),
-              child: contentBuilder(sheetContext),
-            ),
-          );
-        }
-        return content;
-      },
+          child: Builder(builder: contentBuilder),
+        ),
+      ),
     ),
   );
 }

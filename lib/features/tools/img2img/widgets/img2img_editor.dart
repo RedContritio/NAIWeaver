@@ -17,6 +17,7 @@ import '../../ml/widgets/segmentation_overlay.dart';
 import '../../widgets/tool_config_bottom_sheet.dart';
 import 'mask_canvas.dart';
 import 'mask_toolbar.dart';
+import 'img2img_header.dart';
 import 'img2img_settings_panel.dart';
 import 'source_image_picker.dart';
 
@@ -289,233 +290,39 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
     GenerationNotifier genNotifier,
     bool isLoading,
   ) {
-    final t = context.t;
-    final l = context.l;
-    final session = img2imgNotifier.session;
-    final hasResult = session?.resultImageBytes != null;
+    final hasResult = img2imgNotifier.session?.resultImageBytes != null;
     final ml = context.watch<MLNotifier>();
     final mobile = isMobile(context);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: t.surfaceHigh,
-        border: Border(bottom: BorderSide(color: t.borderSubtle)),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: Icon(Icons.arrow_back, size: 16, color: t.textDisabled),
-            onPressed: () => _backToPicker(img2imgNotifier, genNotifier),
-            tooltip: l.img2imgBackToPicker,
-          ),
-          const Spacer(),
-
-          if (mobile)
-            IconButton(
-              onPressed: () => showToolConfigBottomSheet(
-                context: context,
-                contentBuilder: (_) => Img2ImgSettingsPanel(
-                  promptController: _promptController,
-                  negativePromptController: _negativePromptController,
-                ),
-              ),
-              icon: const Icon(Icons.tune, size: 17),
-              tooltip: l.img2imgSettings,
-              style: IconButton.styleFrom(foregroundColor: t.accentEdit),
-            ),
-
-          // Edit in Canvas button (only when session exists)
-          if (session != null) ...[
-            SizedBox(
-              height: 36,
-              child: isMobile(context)
-                  ? IconButton(
-                      onPressed: () =>
-                          _openCanvasEditor(context, img2imgNotifier),
-                      icon: const Icon(Icons.palette, size: 14),
-                      tooltip: l.canvasEditInCanvas,
-                      style: IconButton.styleFrom(
-                        foregroundColor: t.accentEdit,
-                      ),
-                    )
-                  : TextButton.icon(
-                      onPressed: () =>
-                          _openCanvasEditor(context, img2imgNotifier),
-                      icon: Icon(Icons.palette, size: 14),
-                      label: Text(l.canvasEditInCanvas),
-                      style: TextButton.styleFrom(
-                        foregroundColor: t.accentEdit,
-                        textStyle: TextStyle(
-                          fontSize: t.fontSize(10),
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    ),
-            ),
-            const SizedBox(width: 4),
-          ],
-
-          // ML: Remove BG button
-          if (session != null && ml.hasBgRemovalModel) ...[
-            SizedBox(
-              height: 36,
-              child: ml.isProcessing
-                  ? const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8),
-                      child: SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    )
-                  : TextButton.icon(
-                      onPressed: () => _handleMLRemoveBg(img2imgNotifier),
-                      icon: Icon(Icons.content_cut, size: 14),
-                      label: isMobile(context)
-                          ? const SizedBox.shrink()
-                          : Text(context.l.mlRemoveBg.toUpperCase()),
-                      style: TextButton.styleFrom(
-                        foregroundColor: t.accent,
-                        textStyle: TextStyle(
-                          fontSize: t.fontSize(10),
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    ),
-            ),
-            const SizedBox(width: 4),
-          ],
-
-          // ML: Upscale button (only when result exists)
-          if (hasResult && ml.hasUpscaleModel) ...[
-            SizedBox(
-              height: 36,
-              child: ml.isProcessing
-                  ? const SizedBox.shrink()
-                  : TextButton.icon(
-                      onPressed: () => _handleMLUpscale(img2imgNotifier),
-                      icon: Icon(Icons.zoom_out_map, size: 14),
-                      label: isMobile(context)
-                          ? const SizedBox.shrink()
-                          : Text(context.l.mlUpscale.toUpperCase()),
-                      style: TextButton.styleFrom(
-                        foregroundColor: t.accent,
-                        textStyle: TextStyle(
-                          fontSize: t.fontSize(10),
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    ),
-            ),
-            const SizedBox(width: 4),
-          ],
-
-          // ML: Segment button
-          if (session != null && ml.selectedSegmentationModelId != null) ...[
-            SizedBox(
-              height: 36,
-              child: ml.isProcessing
-                  ? const SizedBox.shrink()
-                  : TextButton.icon(
-                      onPressed: () => _handleMLSegment(img2imgNotifier),
-                      icon: const Icon(Icons.auto_awesome, size: 14),
-                      label: isMobile(context)
-                          ? const SizedBox.shrink()
-                          : Text(context.l.mlSegment.toUpperCase()),
-                      style: TextButton.styleFrom(
-                        foregroundColor: t.accent,
-                        textStyle: TextStyle(
-                          fontSize: t.fontSize(10),
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    ),
-            ),
-            const SizedBox(width: 4),
-          ],
-
-          // Result / Canvas toggle (only when result exists)
-          if (hasResult) ...[
-            SizedBox(
-              height: 36,
-              child: IconButton(
-                onPressed: () => setState(() => _showResult = !_showResult),
-                icon: Icon(Icons.swap_horiz, size: 18),
-                tooltip: _showResult ? l.img2imgCanvas : l.img2imgResult,
-                style: IconButton.styleFrom(foregroundColor: t.textTertiary),
-              ),
-            ),
-            const SizedBox(width: 4),
-          ],
-
-          // Generate button — icon-only on mobile
-          if (isMobile(context))
-            SizedBox(
-              height: 36,
-              child: IconButton(
-                onPressed: isLoading
-                    ? null
-                    : () => _generate(img2imgNotifier, genNotifier),
-                icon: isLoading
-                    ? SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: t.background,
-                        ),
-                      )
-                    : const Icon(Icons.auto_awesome, size: 14),
-                tooltip: isLoading ? l.img2imgGenerating : l.img2imgGenerate,
-                style: IconButton.styleFrom(
-                  backgroundColor: t.accent,
-                  foregroundColor: t.background,
-                ),
+    return Img2ImgHeader(
+      mobile: mobile,
+      onBack: () => _backToPicker(img2imgNotifier, genNotifier),
+      onOpenSettings: mobile
+          ? () => showToolConfigBottomSheet(
+              context: context,
+              contentBuilder: (_) => Img2ImgSettingsPanel(
+                promptController: _promptController,
+                negativePromptController: _negativePromptController,
               ),
             )
-          else
-            SizedBox(
-              height: 36,
-              child: ElevatedButton.icon(
-                onPressed: isLoading
-                    ? null
-                    : () => _generate(img2imgNotifier, genNotifier),
-                icon: isLoading
-                    ? SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: t.background,
-                        ),
-                      )
-                    : const Icon(Icons.auto_awesome, size: 14),
-                label: Text(
-                  isLoading ? l.img2imgGenerating : l.img2imgGenerate,
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: t.accent,
-                  foregroundColor: t.background,
-                  textStyle: TextStyle(
-                    fontSize: t.fontSize(10),
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  elevation: 0,
-                ),
-              ),
-            ),
-        ],
-      ),
+          : null,
+      onOpenCanvas: () => _openCanvasEditor(context, img2imgNotifier),
+      mlProcessing: ml.isProcessing,
+      onRemoveBackground: ml.hasBgRemovalModel
+          ? () => _handleMLRemoveBg(img2imgNotifier)
+          : null,
+      onUpscale: hasResult && ml.hasUpscaleModel
+          ? () => _handleMLUpscale(img2imgNotifier)
+          : null,
+      onSegment: ml.selectedSegmentationModelId != null
+          ? () => _handleMLSegment(img2imgNotifier)
+          : null,
+      showingResult: _showResult,
+      onToggleResult: hasResult
+          ? () => setState(() => _showResult = !_showResult)
+          : null,
+      isLoading: isLoading,
+      onGenerate: () => _generate(img2imgNotifier, genNotifier),
     );
   }
 

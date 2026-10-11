@@ -2055,6 +2055,15 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get img2imgClearMaskTitle => '清除蒙版？';
+
+  @override
+  String get img2imgClearMaskMessage => '将移除全部蒙版笔画，此操作无法撤销。';
+
+  @override
+  String get img2imgClearMaskConfirm => '清除';
+
+  @override
   String get img2imgNoMask => '无蒙版（全图生图）';
 
   @override

@@ -3910,6 +3910,24 @@ abstract class AppLocalizations {
   /// **'MASK: {count} strokes'**
   String img2imgMaskStrokes(int count);
 
+  /// No description provided for @img2imgClearMaskTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear mask?'**
+  String get img2imgClearMaskTitle;
+
+  /// No description provided for @img2imgClearMaskMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'All mask strokes will be removed. This cannot be undone.'**
+  String get img2imgClearMaskMessage;
+
+  /// No description provided for @img2imgClearMaskConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get img2imgClearMaskConfirm;
+
   /// No description provided for @img2imgNoMask.
   ///
   /// In en, this message translates to:
