@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../../features/director_ref/models/director_reference.dart';
 import '../../features/vibe_transfer/models/vibe_transfer.dart';
-import 'kv_store.dart';
+import 'reference_library_store_web.dart'
+    if (dart.library.io) 'reference_library_store_io.dart'
+    as store;
 
 class SavedDirectorRef {
   final String name;
@@ -84,32 +86,59 @@ class ReferenceLibrary {
 }
 
 class ReferenceLibraryService {
-  static const String _prefsKey = 'saved_reference_library';
+  /// Web builds before IndexedDB kept the library under this
+  /// SharedPreferences key; it is still read as a fallback and dropped after
+  /// the first successful save.
+  static const String _legacyPrefsKey = 'saved_reference_library';
 
+  static Future<ReferenceLibrary> _read(String filePath) async {
+    final raw = await store.readLibrary(filePath, _legacyPrefsKey);
+    if (raw == null) return ReferenceLibrary();
+    return ReferenceLibrary.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+  }
+
+  /// Loads the library for display; an unreadable library shows as empty.
   static Future<ReferenceLibrary> load(String filePath) async {
     try {
-      final raw = await KvStore.readString(
-        path: filePath,
-        prefsKey: _prefsKey,
-      );
-      if (raw == null) return ReferenceLibrary();
-      final json = jsonDecode(raw) as Map<String, dynamic>;
-      return ReferenceLibrary.fromJson(json);
+      return await _read(filePath);
     } catch (e) {
       debugPrint('ReferenceLibraryService: load error: $e');
       return ReferenceLibrary();
     }
   }
 
-  static Future<void> save(String filePath, ReferenceLibrary library) async {
+  /// Writes [library]; returns false when it could not be stored (e.g. the
+  /// storage quota is exhausted), so callers never report a lost save as
+  /// saved.
+  static Future<bool> save(String filePath, ReferenceLibrary library) async {
     try {
-      await KvStore.writeString(
-        path: filePath,
-        prefsKey: _prefsKey,
-        value: jsonEncode(library.toJson()),
+      await store.writeLibrary(
+        filePath,
+        _legacyPrefsKey,
+        jsonEncode(library.toJson()),
       );
+      return true;
     } catch (e) {
       debugPrint('ReferenceLibraryService: save error: $e');
+      return false;
     }
+  }
+
+  /// Loads the stored library, applies [change] and saves it. Returns the
+  /// saved library, or null when it could not be read or written; an
+  /// unreadable library is never overwritten.
+  static Future<ReferenceLibrary?> update(
+    String filePath,
+    void Function(ReferenceLibrary library) change,
+  ) async {
+    final ReferenceLibrary library;
+    try {
+      library = await _read(filePath);
+    } catch (e) {
+      debugPrint('ReferenceLibraryService: update read error: $e');
+      return null;
+    }
+    change(library);
+    return await save(filePath, library) ? library : null;
   }
 }
