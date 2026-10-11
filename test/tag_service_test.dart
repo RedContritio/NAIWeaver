@@ -159,6 +159,20 @@ void main() {
       expect(service.resolveAliases('[原神]'), '[genshin_impact]');
     });
 
+    test('keeps spaces inside brackets', () {
+      expect(service.resolveAliases('{ 长发 }'), '{ long_hair }');
+      expect(service.resolveAliases('[ 原神]'), '[ genshin_impact]');
+    });
+
+    test('resolves tags inside N:: weight syntax and keeps its structure', () {
+      expect(service.resolveAliases('1.2::长发::'), '1.2::long_hair::');
+      expect(
+        service.resolveAliases('1.5::原神, 长发 ::, smile'),
+        '1.5::genshin_impact, long_hair ::, smile',
+      );
+      expect(service.resolveAliases('-1::长发::'), '-1::long_hair::');
+    });
+
     test('known English tags and unknown text pass through unchanged', () {
       const prompt = '1girl, Long_Hair, something unknown, {red_hair}';
       expect(service.resolveAliases(prompt), prompt);

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:naiweaver/core/services/wildcard_processor.dart';
@@ -21,8 +22,12 @@ void main() {
   Future<void> write(String name, String content) =>
       File(p.join(dir.path, '$name.txt')).writeAsString(content);
 
-  WildcardProcessor processor([WildcardService? service]) =>
-      WildcardProcessor(wildcardDir: dir.path, wildcardService: service);
+  WildcardProcessor processor([WildcardService? service, Random? random]) =>
+      WildcardProcessor(
+        wildcardDir: dir.path,
+        wildcardService: service,
+        random: random,
+      );
 
   group('expansion', () {
     test('text without wildcard tokens is returned untouched', () async {
@@ -147,6 +152,37 @@ void main() {
       // A fresh processor starts from the top again: same inputs, same output.
       final second = processor(service);
       expect(await second.process('__a__'), 'a1');
+    });
+
+    test('sequential hands out values left to right within one prompt', () async {
+      await write('c', 'one\ntwo\nthree');
+      final service = WildcardService(wildcardDir: dir.path);
+      await service.setMode('c', WildcardMode.sequential);
+      expect(
+        await processor(service).process('__c__ __c__ __c__'),
+        'one two three',
+      );
+    });
+
+    test('an injected Random makes the expansion reproducible', () async {
+      await write('pick', 'a\nb\nc\nd\ne\nf');
+      Future<List<String>> draw(int seed) async {
+        final proc = processor(null, Random(seed));
+        return [for (var i = 0; i < 12; i++) await proc.process('__pick__')];
+      }
+
+      expect(await draw(7), await draw(7));
+    });
+
+    test('weighted mode with all-zero weights picks uniformly', () async {
+      await write('w', '0::a\n0::b');
+      final service = WildcardService(wildcardDir: dir.path);
+      await service.setMode('w', WildcardMode.weighted);
+      final proc = processor(service, Random(3));
+      final seen = {
+        for (var i = 0; i < 40; i++) await proc.process('__w__'),
+      };
+      expect(seen, {'a', 'b'});
     });
 
     test('shuffle uses every entry once before repeating', () async {
