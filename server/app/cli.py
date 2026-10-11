@@ -3,12 +3,10 @@ from __future__ import annotations
 import argparse
 from contextlib import closing
 from pathlib import Path
-import secrets
 
 from . import config, db_upgrade
 
 from .db import SchemaVersionError, db_connect, init_db, now_iso
-from .security import hash_password
 from .roles import POINT_TOTAL_FIELDS, ROLES, role_defaults
 
 
@@ -49,7 +47,7 @@ def cmd_create_user(args: argparse.Namespace) -> None:
             values["green_point_limit"] = args.green_points
         columns = {
             "username": args.username,
-            "password_hash": hash_password(secrets.token_urlsafe(32)),
+            "password_hash": "",  # unused column, see db.SCHEMA
             **values,
             "created_at": now_iso(),
         }

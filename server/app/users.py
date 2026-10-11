@@ -1,11 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-import secrets
 import sqlite3
 from typing import Any
-
-from fastapi import Response
 
 from . import config
 from .billing import (
@@ -14,33 +10,6 @@ from .billing import (
     green_point_discount_for,
     remaining_points,
 )
-from .db import now_iso
-from .security import create_jwt
-
-def session_response(
-    response: Response, db: sqlite3.Connection, user: sqlite3.Row
-) -> dict[str, Any]:
-    session_id = secrets.token_urlsafe(24)
-    expires_at = datetime.now(timezone.utc) + timedelta(seconds=config.SESSION_TTL_SECONDS)
-    db.execute(
-        "INSERT INTO sessions(id, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)",
-        (session_id, user["id"], expires_at.isoformat(), now_iso()),
-    )
-    db.commit()
-    token = create_jwt(
-        {"sub": int(user["id"]), "jti": session_id}, config.SECRET_KEY, config.SESSION_TTL_SECONDS
-    )
-    response.set_cookie(
-        "access_token",
-        token,
-        httponly=True,
-        secure=config.COOKIE_SECURE,
-        samesite="strict" if config.PRODUCTION else "lax",
-        max_age=config.SESSION_TTL_SECONDS,
-        path="/",
-    )
-    return {"user": user_to_dict(user), "quota": quota_for_user(user)}
-
 
 def image_generation_allowed(user: Any, mode: str) -> bool:
     """The only rule for "may this user generate images in this mode".

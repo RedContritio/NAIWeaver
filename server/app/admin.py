@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import secrets
 import sqlite3
 from typing import Any, Literal
 
@@ -30,7 +29,6 @@ from .roles import (
     DEFAULT_RED_POINTS,
     role_defaults,
 )
-from .security import hash_password
 from .users import user_admin_dict
 
 router = APIRouter()
@@ -39,7 +37,6 @@ router = APIRouter()
 class UserUpdateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    password: str | None = Field(default=None, min_length=1, max_length=256)
     is_admin: bool | None = None
     disabled: bool | None = None
     green_point_discount: int | None = Field(default=None, ge=0, le=100)
@@ -58,7 +55,6 @@ class UserCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     username: str = Field(min_length=1, max_length=80)
-    password: str | None = Field(default=None, min_length=1, max_length=256)
     # The role supplies every default; fields left out take its values.
     role: Literal["free", "paid", "admin"] = "free"
     is_admin: bool | None = None
@@ -231,7 +227,7 @@ def admin_create_user(
         values["green_point_discount"] = 100
     columns = {
         "username": payload.username,
-        "password_hash": hash_password(payload.password or secrets.token_urlsafe(32)),
+        "password_hash": "",  # unused column, see db.SCHEMA
         **{name: int(value) for name, value in values.items()},
         "disabled": int(payload.disabled),
         "green_point_used": payload.green_point_used,
@@ -286,11 +282,7 @@ def admin_update_user(
         # Administrators are always unlimited, as when one is created.
         fields.add("green_point_discount")
     for field in sorted(fields):
-        if field == "password":
-            if payload.password:
-                assignments.append("password_hash = ?")
-                values.append(hash_password(payload.password))
-        elif field in bool_fields:
+        if field in bool_fields:
             assignments.append(f"{field} = ?")
             values.append(int(bool(getattr(payload, field))))
         elif field in int_fields:

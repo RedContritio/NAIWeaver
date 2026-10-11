@@ -1116,7 +1116,7 @@ async def submit_generation_task(
         max_age=60 * 60 * 24 * 14,
         httponly=True,
         samesite="lax",
-        secure=config.COOKIE_SECURE,
+        secure=config.PRODUCTION,
     )
     return response
 
