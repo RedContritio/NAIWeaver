@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -17,6 +17,7 @@ import '../../../core/utils/responsive.dart';
 import '../../../core/utils/tag_suggestion_helper.dart';
 import '../../../core/widgets/tag_suggestion_overlay.dart';
 import '../../../core/widgets/browser_native_text_area.dart';
+import '../../../core/widgets/web_style_bridge.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/theme/vision_metrics.dart';
@@ -1370,13 +1371,17 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
   }
 
   Widget _buildNegativePrompt(GenerationNotifier notifier, VisionTokens t) {
-    final mobile = _touch;
-    // iOS Safari zooms focused form controls whose font size is below 16px.
-    // Keep the native Web control at a mobile-safe size; the Flutter fallback
-    // below retains the regular theme scale.
-    final nativeFontSize = mobile && t.fontSize(11) < 16
-        ? 16.0
-        : t.fontSize(11);
+    // The native Web control renders at the bridge's mobile-safe size (iOS
+    // Safari zooms focused controls below 16px, whatever the window size);
+    // size the box from that same value.
+    final nativeFontSize = t.fontSize(11);
+    final renderedFontSize = supportsBrowserNativeTextArea
+        ? browserInputFontSize(
+            t.fontSize(11),
+            textScaler: MediaQuery.textScalerOf(context),
+            platform: defaultTargetPlatform,
+          )
+        : nativeFontSize;
     final nativeBackground = Color.alphaBlend(t.borderSubtle, t.surfaceHigh);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1409,7 +1414,7 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
               t.background,
             ),
             padding: const EdgeInsets.all(VisionMetrics.space16),
-            height: nativeFontSize * 1.4 * 3 + 32,
+            height: renderedFontSize * 1.4 * 3 + 32,
             onChanged: (_) => _onNegativePromptChanged(),
             fallback: ScrollConfiguration(
               behavior: ScrollConfiguration.of(context).copyWith(

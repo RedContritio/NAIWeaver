@@ -218,6 +218,99 @@ void main() {
     });
   });
 
+  group('cycle style', () {
+    test('needs plain Alt/Option, no Shift, Ctrl or Cmd', () {
+      for (final platform in TargetPlatform.values) {
+        expect(
+          promptIntentFor(
+            const PromptChord(PromptKey.arrowRight, alt: true),
+            platform: platform,
+          ),
+          isA<CycleStyleIntent>(),
+        );
+        for (final chord in const [
+          PromptChord(PromptKey.arrowLeft, alt: true, shift: true),
+          PromptChord(PromptKey.arrowLeft, alt: true, control: true),
+          PromptChord(PromptKey.arrowLeft, alt: true, meta: true),
+          PromptChord(PromptKey.arrowLeft),
+        ]) {
+          expect(promptIntentFor(chord, platform: platform), isNull);
+        }
+      }
+    });
+
+    Future<List<bool>> pressOptionLeft(
+      WidgetTester tester, {
+      required bool inEditor,
+    }) async {
+      final cycled = <bool>[];
+      await pumpHarness(
+        tester,
+        GenerationShortcuts(
+          onGenerate: () {},
+          onCycleStyle: cycled.add,
+          child: Column(
+            children: [
+              const TextField(key: ValueKey('field')),
+              TextButton(
+                key: const ValueKey('button'),
+                autofocus: !inEditor,
+                onPressed: () {},
+                child: const Text('b'),
+              ),
+            ],
+          ),
+        ),
+        size: const Size(900, 700),
+      );
+      if (inEditor) await tester.tap(find.byKey(const ValueKey('field')));
+      await tester.pump();
+      await _chord(
+        tester,
+        LogicalKeyboardKey.altLeft,
+        LogicalKeyboardKey.arrowLeft,
+      );
+      return cycled;
+    }
+
+    testWidgets('Option+Arrow keeps word movement in an editor on a Mac', (
+      tester,
+    ) async {
+      await _onPlatform(TargetPlatform.macOS, () async {
+        expect(await pressOptionLeft(tester, inEditor: true), isEmpty);
+      });
+    });
+
+    testWidgets('Option+Arrow cycles on a Mac outside an editor', (
+      tester,
+    ) async {
+      await _onPlatform(TargetPlatform.macOS, () async {
+        expect(await pressOptionLeft(tester, inEditor: false), [false]);
+      });
+    });
+
+    testWidgets('Alt+Arrow cycles in an editor elsewhere', (tester) async {
+      await _onPlatform(TargetPlatform.windows, () async {
+        expect(await pressOptionLeft(tester, inEditor: true), [false]);
+      });
+    });
+  });
+
+  test('a Safari keyCode 229 keydown counts as IME composition', () {
+    expect(
+      const BrowserNativeKeyEvent(key: 'Enter', keyCode: 229).imeActive,
+      isTrue,
+    );
+    expect(
+      const BrowserNativeKeyEvent(key: 'Enter', isComposing: true).imeActive,
+      isTrue,
+    );
+    expect(
+      const BrowserNativeKeyEvent(key: 'Enter', keyCode: 13).imeActive,
+      isFalse,
+    );
+  });
+
   group('browser textarea keydown', () {
     testWidgets('runs the same mapping as the Flutter keys', (tester) async {
       await _onPlatform(TargetPlatform.macOS, () async {

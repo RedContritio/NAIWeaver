@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../../core/widgets/browser_native_key_event.dart';
+import '../../../core/widgets/browser_native_text_area.dart';
 
 /// One keyboard vocabulary for every prompt editor.
 ///
@@ -160,9 +161,11 @@ Intent? promptIntentFor(PromptChord chord, {TargetPlatform? platform}) {
       );
     case PromptKey.arrowLeft:
     case PromptKey.arrowRight:
-      // Alt+Arrow leaves the OS word-by-word selection (Ctrl/Cmd+Shift+Arrow)
-      // free.
-      if (!chord.alt || !noCommand) return null;
+      // Plain Alt/Option+Arrow only: with Shift, Ctrl or Cmd the chord is the
+      // OS word/line selection. Apple platforms additionally keep plain
+      // Option+Arrow (word move) while a text editor has focus, see
+      // [cycleStyleYieldsToEditor].
+      if (!chord.alt || chord.shift || !noCommand) return null;
       return CycleStyleIntent(forward: chord.key == PromptKey.arrowRight);
     case PromptKey.tab:
       if (!noCommand || chord.alt) return null;
@@ -173,6 +176,30 @@ Intent? promptIntentFor(PromptChord chord, {TargetPlatform? platform}) {
       if (!noCommand || chord.alt || chord.shift) return null;
       return const DismissSuggestionsIntent();
   }
+}
+
+/// True when [intent] is cycle style and the platform's text editors use
+/// Option+Arrow for word movement (Apple platforms). The shortcut then only
+/// applies while focus is outside a text editor.
+bool cycleStyleYieldsToEditor(Intent intent, [TargetPlatform? platform]) =>
+    intent is CycleStyleIntent && usesCommandKey(platform);
+
+/// True while the primary focus sits in an [EditableText] or the browser-native
+/// textarea.
+bool _primaryFocusInTextEditor() {
+  final context = FocusManager.instance.primaryFocus?.context;
+  if (context == null) return false;
+  bool isEditor(Widget w) => w is EditableText || w is BrowserNativeTextArea;
+  if (isEditor(context.widget)) return true;
+  var found = false;
+  context.visitAncestorElements((element) {
+    if (isEditor(element.widget)) {
+      found = true;
+      return false;
+    }
+    return true;
+  });
+  return found;
 }
 
 /// Runs [intent] on the nearest action above [context]. Returns false when
@@ -251,7 +278,11 @@ class GenerationShortcuts extends StatelessWidget {
             if (intent is! GenerateIntent && intent is! CycleStyleIntent) {
               return KeyEventResult.ignored;
             }
-            return dispatchPromptIntent(scope, intent!)
+            if (cycleStyleYieldsToEditor(intent!) &&
+                _primaryFocusInTextEditor()) {
+              return KeyEventResult.ignored;
+            }
+            return dispatchPromptIntent(scope, intent)
                 ? KeyEventResult.handled
                 : KeyEventResult.ignored;
           },
@@ -270,6 +301,14 @@ class GenerationShortcuts extends StatelessWidget {
 /// editor's completion actions. Generate and cycle style come from the
 /// enclosing [GenerationShortcuts]. Enter and Tab are never taken while an
 /// input method is composing.
+///
+/// On the Web the DOM keydown of the native textarea is the single path that
+/// runs these shortcuts: it syncs the DOM selection first and knows about IME
+/// composition. The engine delivers the same key to Flutter first (see
+/// `browser_native_text_area_key_policy.dart`), so the Flutter handler there
+/// only stops the chords the DOM path will handle from reaching ancestor
+/// shortcuts, and leaves them unhandled so the engine does not preventDefault.
+/// Everywhere else (the `TextField` fallback) the Flutter handler runs them.
 class PromptKeyScope extends StatelessWidget {
   const PromptKeyScope({
     super.key,
@@ -305,8 +344,11 @@ class PromptKeyScope extends StatelessWidget {
             if (_isCompositionKey(chord) && isImeComposing(controller)) {
               return KeyEventResult.skipRemainingHandlers;
             }
-            final intent = promptIntentFor(chord);
+            final intent = _scopeIntent(chord);
             if (intent == null) return KeyEventResult.ignored;
+            if (supportsBrowserNativeTextArea) {
+              return KeyEventResult.skipRemainingHandlers;
+            }
             return dispatchPromptIntent(scope, intent)
                 ? KeyEventResult.handled
                 : KeyEventResult.ignored;
@@ -315,16 +357,23 @@ class PromptKeyScope extends StatelessWidget {
             final chord = PromptChord.fromBrowserEvent(event);
             if (chord == null) return false;
             if (_isCompositionKey(chord) &&
-                (event.isComposing || isImeComposing(controller))) {
+                (event.imeActive || isImeComposing(controller))) {
               return false;
             }
-            final intent = promptIntentFor(chord);
+            final intent = _scopeIntent(chord);
             return intent != null && dispatchPromptIntent(scope, intent);
           }),
         ),
       ),
     );
   }
+}
+
+/// The intent [chord] triggers inside a prompt editor. Cycle style is left to
+/// the editor on Apple platforms (word navigation).
+Intent? _scopeIntent(PromptChord chord) {
+  final intent = promptIntentFor(chord);
+  return intent != null && cycleStyleYieldsToEditor(intent) ? null : intent;
 }
 
 /// Moves the weight of the comma-delimited tag under the caret by [delta]

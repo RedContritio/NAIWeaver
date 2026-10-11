@@ -1,8 +1,11 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 
 import '../../../core/utils/resizable_lines.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/widgets/browser_native_text_area.dart';
 import '../../../core/widgets/line_resize_handle.dart';
+import '../../../core/widgets/web_style_bridge.dart';
 
 /// Which arrangement the generation page uses.
 enum GenerationLayoutMode {
@@ -200,9 +203,7 @@ class GenerationComposerRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scaledFontSize = MediaQuery.textScalerOf(
-      context,
-    ).scale(promptFontSize);
+    final scaledFontSize = _inputFontSize(context, promptFontSize);
     final extent = scaledFontSize * lineHeight * promptLines + verticalPadding;
     return SizedBox(
       height: extent,
@@ -260,9 +261,7 @@ class ResizableGenerationComposer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scaledFontSize = MediaQuery.textScalerOf(
-      context,
-    ).scale(promptFontSize);
+    final scaledFontSize = _inputFontSize(context, promptFontSize);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -297,4 +296,17 @@ class ResizableGenerationComposer extends StatelessWidget {
       ],
     );
   }
+}
+
+/// The rendered font size of the prompt input: the browser-native textarea
+/// raises it to the mobile floor, so the row height must follow.
+double _inputFontSize(BuildContext context, double fontSize) {
+  final scaler = MediaQuery.textScalerOf(context);
+  return supportsBrowserNativeTextArea
+      ? browserInputFontSize(
+          fontSize,
+          textScaler: scaler,
+          platform: defaultTargetPlatform,
+        )
+      : scaler.scale(fontSize);
 }
