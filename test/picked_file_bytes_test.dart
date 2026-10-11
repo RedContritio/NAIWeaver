@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:naiweaver/core/services/preferences_service.dart';
@@ -10,6 +11,7 @@ import 'package:naiweaver/core/theme/theme_notifier.dart';
 import 'package:naiweaver/features/gallery/services/gallery_import_service.dart';
 import 'package:naiweaver/features/tools/img2img/providers/img2img_notifier.dart';
 import 'package:naiweaver/features/tools/img2img/widgets/mask_toolbar.dart';
+import 'package:naiweaver/l10n/app_localizations.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -88,7 +90,16 @@ void main() {
           ChangeNotifierProvider(create: (_) => ThemeNotifier(preferences)),
           ChangeNotifierProvider<Img2ImgNotifier>.value(value: notifier),
         ],
-        child: const MaterialApp(home: Scaffold(body: MaskToolbar())),
+        child: const MaterialApp(
+          localizationsDelegates: [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(body: MaskToolbar()),
+        ),
       ),
     );
     await tester.tap(find.byTooltip('Load mask'));

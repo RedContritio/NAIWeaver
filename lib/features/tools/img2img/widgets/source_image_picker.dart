@@ -4,6 +4,7 @@ import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
 import '../../../../core/l10n/l10n_extensions.dart';
 import '../../../../core/theme/theme_extensions.dart';
+import '../../../../core/theme/vision_metrics.dart';
 import '../../../../core/widgets/custom_resolution_dialog.dart';
 import '../../../generation/providers/generation_notifier.dart';
 import '../../../generation/widgets/settings_panel.dart';
@@ -23,11 +24,10 @@ class SourceImagePicker extends StatelessWidget {
     final t = context.t;
     return ToolSourcePicker(
       icon: Icons.image_search,
-      title: 'SELECT SOURCE IMAGE',
-      description:
-          'Choose an image to use as the base for img2img or inpainting',
-      useCurrentLabel: 'USE CURRENT GENERATION',
-      useCurrentDescription: 'Use the last generated image as source',
+      title: context.l.img2imgPickerTitle,
+      description: context.l.img2imgPickerDesc,
+      useCurrentLabel: context.l.img2imgUseCurrent,
+      useCurrentDescription: context.l.img2imgUseCurrentDesc,
       promptImport: ToolSourcePromptImport.preferenceGated,
       onSelected: (selection) =>
           context.read<Img2ImgNotifier>().loadSourceImage(
@@ -71,7 +71,12 @@ void _showBlankCanvasDialog(BuildContext context) {
       return StatefulBuilder(
         builder: (ctx, setDialogState) {
           // Build items, including ad-hoc custom if present
-          final allOptions = [...resOptions, if (adHocCustom != null && !resOptions.any((o) => o.value == adHocCustom!.value)) adHocCustom!];
+          final allOptions = [
+            ...resOptions,
+            if (adHocCustom != null &&
+                !resOptions.any((o) => o.value == adHocCustom!.value))
+              adHocCustom!,
+          ];
 
           return AlertDialog(
             backgroundColor: t.surfaceHigh,
@@ -85,10 +90,13 @@ void _showBlankCanvasDialog(BuildContext context) {
               ),
             ),
             content: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              padding: const EdgeInsets.symmetric(
+                horizontal: VisionMetrics.space12,
+                vertical: VisionMetrics.space4,
+              ),
               decoration: BoxDecoration(
                 color: t.borderSubtle,
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(VisionMetrics.radius4),
               ),
               child: DropdownButton<String>(
                 value: selectedValue,
@@ -116,19 +124,32 @@ void _showBlankCanvasDialog(BuildContext context) {
                   }
                 },
                 items: [
-                  ...allOptions.map((opt) => DropdownMenuItem<String>(
-                        value: opt.value,
-                        child: Text(opt.displayLabel,
-                            style: TextStyle(fontSize: t.fontSize(10))),
-                      )),
+                  ...allOptions.map(
+                    (opt) => DropdownMenuItem<String>(
+                      value: opt.value,
+                      child: Text(
+                        opt.displayLabel,
+                        style: TextStyle(fontSize: t.fontSize(10)),
+                      ),
+                    ),
+                  ),
                   DropdownMenuItem<String>(
                     value: '__custom__',
                     child: Row(
                       children: [
-                        Icon(Icons.add, size: 14, color: t.accentSuccess),
-                        const SizedBox(width: 8),
-                        Text(l.resCustomEntry.toUpperCase(),
-                            style: TextStyle(fontSize: t.fontSize(10), color: t.accentSuccess)),
+                        Icon(
+                          Icons.add,
+                          size: VisionMetrics.iconSmall,
+                          color: t.accentSuccess,
+                        ),
+                        const SizedBox(width: VisionMetrics.space8),
+                        Text(
+                          l.resCustomEntry.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: t.fontSize(10),
+                            color: t.accentSuccess,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -141,7 +162,9 @@ void _showBlankCanvasDialog(BuildContext context) {
                 child: Text(
                   l.commonCancel.toUpperCase(),
                   style: TextStyle(
-                      color: t.textDisabled, fontSize: t.fontSize(9)),
+                    color: t.textDisabled,
+                    fontSize: t.fontSize(9),
+                  ),
                 ),
               ),
               TextButton(
@@ -152,7 +175,9 @@ void _showBlankCanvasDialog(BuildContext context) {
                 child: Text(
                   l.commonConfirm.toUpperCase(),
                   style: TextStyle(
-                      color: t.accentSuccess, fontSize: t.fontSize(9)),
+                    color: t.accentSuccess,
+                    fontSize: t.fontSize(9),
+                  ),
                 ),
               ),
             ],

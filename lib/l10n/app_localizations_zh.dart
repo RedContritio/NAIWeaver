@@ -282,6 +282,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get gatewayErrDirectForbidden => 'NovelAI 拒绝了当前账号的此次请求。';
 
   @override
+  String get toolErrApiKeyRejected => 'NovelAI 拒绝了该 API 密钥，请在设置中检查。';
+
+  @override
   String get gatewaySessionExpiredTitle => '登录已失效';
 
   @override
@@ -2197,6 +2200,54 @@ class AppLocalizationsZh extends AppLocalizations {
   String get img2imgClearMaskConfirm => '清除';
 
   @override
+  String get img2imgMaskUndoStroke => '撤销笔画';
+
+  @override
+  String get img2imgMaskClearTooltip => '清除遮罩';
+
+  @override
+  String get img2imgBrushRound => '圆形笔刷';
+
+  @override
+  String get img2imgBrushSquare => '方形笔刷';
+
+  @override
+  String get img2imgBrushSize => '大小';
+
+  @override
+  String get img2imgMaskDisplay => '遮罩显示设置';
+
+  @override
+  String get img2imgMaskSave => '保存遮罩';
+
+  @override
+  String get img2imgMaskLoad => '加载遮罩';
+
+  @override
+  String get img2imgMaskSaved => '遮罩已保存';
+
+  @override
+  String get img2imgMaskColor => '颜色';
+
+  @override
+  String get img2imgMaskOpacity => '不透明度';
+
+  @override
+  String get img2imgMaskPatternSolid => '实心';
+
+  @override
+  String get img2imgMaskPatternStripe => '条纹';
+
+  @override
+  String get img2imgMaskPatternCross => '网格';
+
+  @override
+  String get img2imgMaskBorder => '边框';
+
+  @override
+  String get img2imgMaskBorderTooltip => '显示遮罩边框';
+
+  @override
   String get img2imgNoMask => '无蒙版（全图生图）';
 
   @override
@@ -2219,6 +2270,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get img2imgBlankCanvasSize => '画布尺寸';
+
+  @override
+  String get img2imgPickerTitle => '选择源图像';
+
+  @override
+  String get img2imgPickerDesc => '选择一张图像作为图生图或局部重绘的基础';
+
+  @override
+  String get img2imgUseCurrent => '使用当前生成图';
+
+  @override
+  String get img2imgUseCurrentDesc => '将最近生成的图像作为源图像';
 
   @override
   String get slideshowTitle => '幻灯片';
@@ -3112,6 +3175,96 @@ class AppLocalizationsZh extends AppLocalizations {
   String get directorToolsMood => '氛围';
 
   @override
+  String get directorToolBgRemoval => '移除背景';
+
+  @override
+  String get directorToolLineart => '线稿';
+
+  @override
+  String get directorToolSketch => '草图';
+
+  @override
+  String get directorToolColorize => '上色';
+
+  @override
+  String get directorToolEmotion => '表情';
+
+  @override
+  String get directorToolDeclutter => '清理杂物';
+
+  @override
+  String get moodNeutral => '平静';
+
+  @override
+  String get moodHappy => '开心';
+
+  @override
+  String get moodSad => '悲伤';
+
+  @override
+  String get moodAngry => '愤怒';
+
+  @override
+  String get moodScared => '害怕';
+
+  @override
+  String get moodSurprised => '惊讶';
+
+  @override
+  String get moodTired => '疲倦';
+
+  @override
+  String get moodExcited => '激动';
+
+  @override
+  String get moodNervous => '紧张';
+
+  @override
+  String get moodThinking => '思考';
+
+  @override
+  String get moodConfused => '困惑';
+
+  @override
+  String get moodShy => '害羞';
+
+  @override
+  String get moodDisgusted => '厌恶';
+
+  @override
+  String get moodSmug => '得意';
+
+  @override
+  String get moodBored => '无聊';
+
+  @override
+  String get moodLaughing => '大笑';
+
+  @override
+  String get moodIrritated => '烦躁';
+
+  @override
+  String get moodAroused => '动情';
+
+  @override
+  String get moodEmbarrassed => '尴尬';
+
+  @override
+  String get moodWorried => '担忧';
+
+  @override
+  String get moodLove => '爱意';
+
+  @override
+  String get moodDetermined => '坚定';
+
+  @override
+  String get moodHurt => '受伤';
+
+  @override
+  String get moodPlayful => '俏皮';
+
+  @override
   String get directorToolsPrompt => '提示词';
 
   @override
@@ -3149,6 +3302,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get enhanceNoise => '噪声';
+
+  @override
+  String get enhanceResolutionScale => '分辨率缩放';
 
   @override
   String get enhanceSaved => '增强图像已保存到图库';
@@ -3779,6 +3935,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get textGenOutputEmpty => '生成的文本将显示在这里。';
+
+  @override
+  String get textGenErrNoToken => '尚未设置 NovelAI 令牌，请在设置中添加。';
+
+  @override
+  String get textGenErrEmptyInput => '请输入要续写的文本。';
+
+  @override
+  String get textGenClearConfirmTitle => '清除输出？';
+
+  @override
+  String get textGenClearConfirmMessage => '生成的文本及其推理内容将被移除。如需保留，请先复制。';
 
   @override
   String get textGenHistory => '历史';

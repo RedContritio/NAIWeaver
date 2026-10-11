@@ -5,6 +5,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../../../core/theme/theme_extensions.dart';
+import '../../../../core/theme/vision_metrics.dart';
 import '../../../../core/utils/canvas_zoom_math.dart';
 import '../models/img2img_session.dart';
 import '../providers/img2img_notifier.dart';
@@ -29,7 +31,8 @@ class _MaskCanvasState extends State<MaskCanvas> {
   final FocusNode _keyboardFocusNode = FocusNode();
   bool _spaceHeld = false;
   bool _middleMouseHeld = false;
-  final GlobalKey<_CursorPreviewState> _cursorKey = GlobalKey<_CursorPreviewState>();
+  final GlobalKey<_CursorPreviewState> _cursorKey =
+      GlobalKey<_CursorPreviewState>();
 
   // Committed-stroke raster cache
   ui.Image? _committedMaskCache;
@@ -52,7 +55,8 @@ class _MaskCanvasState extends State<MaskCanvas> {
   bool _handleGlobalKey(KeyEvent event) {
     if (event is! KeyDownEvent) return false;
     if (!mounted) return false;
-    final ctrl = HardwareKeyboard.instance.isControlPressed ||
+    final ctrl =
+        HardwareKeyboard.instance.isControlPressed ||
         HardwareKeyboard.instance.isMetaPressed;
     if (ctrl && event.logicalKey == LogicalKeyboardKey.keyZ) {
       _notifierRef?.undoLastStroke();
@@ -72,9 +76,15 @@ class _MaskCanvasState extends State<MaskCanvas> {
   }
 
   String _buildCacheKey(
-    List<MaskStroke> strokes, Rect imageRect,
-    int sourceWidth, int sourceHeight, int maskColor, double maskOpacity,
-    bool maskShowBorder, MaskPattern maskPattern, bool brushRound,
+    List<MaskStroke> strokes,
+    Rect imageRect,
+    int sourceWidth,
+    int sourceHeight,
+    int maskColor,
+    double maskOpacity,
+    bool maskShowBorder,
+    MaskPattern maskPattern,
+    bool brushRound,
   ) {
     return '${identityHashCode(strokes)}:${strokes.length}:$maskColor:$maskOpacity:$maskShowBorder'
         ':$maskPattern:$brushRound:$imageRect:$sourceWidth:$sourceHeight';
@@ -106,24 +116,48 @@ class _MaskCanvasState extends State<MaskCanvas> {
 
     // Check if we can do an incremental update (only new strokes appended,
     // same visual settings). If so, draw the old cache + only the new strokes.
-    final canIncrement = _committedMaskCache != null &&
+    final canIncrement =
+        _committedMaskCache != null &&
         _committedCachedStrokeCount > 0 &&
         _committedCachedStrokeCount < strokes.length;
 
     final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder, Offset.zero & Size(width.toDouble(), height.toDouble()));
+    final canvas = Canvas(
+      recorder,
+      Offset.zero & Size(width.toDouble(), height.toDouble()),
+    );
 
     if (canIncrement) {
       // Draw old committed cache as base
       canvas.drawImage(_committedMaskCache!, Offset.zero, Paint());
       // Only render strokes beyond what the cache already covers
       final newStrokes = strokes.sublist(_committedCachedStrokeCount);
-      _drawStrokeList(canvas, newStrokes, imageRect, sourceWidth, sourceHeight,
-          maskColor, maskOpacity, maskShowBorder, maskPattern, brushRound);
+      _drawStrokeList(
+        canvas,
+        newStrokes,
+        imageRect,
+        sourceWidth,
+        sourceHeight,
+        maskColor,
+        maskOpacity,
+        maskShowBorder,
+        maskPattern,
+        brushRound,
+      );
     } else {
       // Full re-render (first time, undo, settings change, etc.)
-      _drawStrokeList(canvas, strokes, imageRect, sourceWidth, sourceHeight,
-          maskColor, maskOpacity, maskShowBorder, maskPattern, brushRound);
+      _drawStrokeList(
+        canvas,
+        strokes,
+        imageRect,
+        sourceWidth,
+        sourceHeight,
+        maskColor,
+        maskOpacity,
+        maskShowBorder,
+        maskPattern,
+        brushRound,
+      );
     }
 
     final strokeCount = strokes.length;
@@ -145,9 +179,16 @@ class _MaskCanvasState extends State<MaskCanvas> {
 
   /// Render a list of strokes onto the canvas with full compositing.
   void _drawStrokeList(
-    Canvas canvas, List<MaskStroke> strokes, Rect imageRect,
-    int sourceWidth, int sourceHeight, int maskColor, double maskOpacity,
-    bool maskShowBorder, MaskPattern maskPattern, bool brushRound,
+    Canvas canvas,
+    List<MaskStroke> strokes,
+    Rect imageRect,
+    int sourceWidth,
+    int sourceHeight,
+    int maskColor,
+    double maskOpacity,
+    bool maskShowBorder,
+    MaskPattern maskPattern,
+    bool brushRound,
   ) {
     final paintStrokes = strokes.where((s) => !s.isErase).toList();
     if (paintStrokes.isNotEmpty) {
@@ -160,7 +201,15 @@ class _MaskCanvasState extends State<MaskCanvas> {
         ..style = PaintingStyle.fill
         ..isAntiAlias = false;
       for (final stroke in paintStrokes) {
-        _drawStrokeGeometryImpl(canvas, stroke, brush, imageRect, sourceWidth, sourceHeight, brushRound);
+        _drawStrokeGeometryImpl(
+          canvas,
+          stroke,
+          brush,
+          imageRect,
+          sourceWidth,
+          sourceHeight,
+          brushRound,
+        );
       }
       if (maskPattern != MaskPattern.solid) {
         _drawPatternImpl(canvas, paintStrokes, imageRect, maskPattern);
@@ -174,7 +223,14 @@ class _MaskCanvasState extends State<MaskCanvas> {
           ..strokeWidth = 1.5
           ..isAntiAlias = true;
         for (final stroke in paintStrokes) {
-          _drawStrokeBorderImpl(canvas, stroke, borderBrush, imageRect, sourceWidth, sourceHeight);
+          _drawStrokeBorderImpl(
+            canvas,
+            stroke,
+            borderBrush,
+            imageRect,
+            sourceWidth,
+            sourceHeight,
+          );
         }
       }
     }
@@ -183,14 +239,23 @@ class _MaskCanvasState extends State<MaskCanvas> {
     if (eraseStrokes.isNotEmpty) {
       canvas.saveLayer(
         null,
-        Paint()..color = Color.fromARGB((maskOpacity * 0.66 * 255).round(), 0, 0, 0),
+        Paint()
+          ..color = Color.fromARGB((maskOpacity * 0.66 * 255).round(), 0, 0, 0),
       );
       final brush = Paint()
         ..color = const Color(0xFF000000)
         ..style = PaintingStyle.fill
         ..isAntiAlias = false;
       for (final stroke in eraseStrokes) {
-        _drawStrokeGeometryImpl(canvas, stroke, brush, imageRect, sourceWidth, sourceHeight, brushRound);
+        _drawStrokeGeometryImpl(
+          canvas,
+          stroke,
+          brush,
+          imageRect,
+          sourceWidth,
+          sourceHeight,
+          brushRound,
+        );
       }
       canvas.restore();
     }
@@ -213,15 +278,26 @@ class _MaskCanvasState extends State<MaskCanvas> {
     if (width <= 0 || height <= 0) return;
 
     final strokeId = identityHashCode(stroke);
-    final prevCount = (strokeId == _activeCachedStrokeId) ? _activeCachedPointCount : 0;
+    final prevCount = (strokeId == _activeCachedStrokeId)
+        ? _activeCachedPointCount
+        : 0;
     final totalPoints = stroke.points.length;
-    if (totalPoints <= prevCount && _activeStrokeCache != null && strokeId == _activeCachedStrokeId) return;
+    if (totalPoints <= prevCount &&
+        _activeStrokeCache != null &&
+        strokeId == _activeCachedStrokeId) {
+      return;
+    }
 
     final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder, Offset.zero & Size(width.toDouble(), height.toDouble()));
+    final canvas = Canvas(
+      recorder,
+      Offset.zero & Size(width.toDouble(), height.toDouble()),
+    );
 
     // Draw previous cache as base
-    if (_activeStrokeCache != null && prevCount > 0 && strokeId == _activeCachedStrokeId) {
+    if (_activeStrokeCache != null &&
+        prevCount > 0 &&
+        strokeId == _activeCachedStrokeId) {
       canvas.drawImage(_activeStrokeCache!, Offset.zero, Paint());
     }
 
@@ -229,23 +305,50 @@ class _MaskCanvasState extends State<MaskCanvas> {
     final newStartIdx = (strokeId == _activeCachedStrokeId) ? prevCount : 0;
 
     if (!stroke.isErase) {
-      canvas.saveLayer(null, Paint()..color = Color.fromARGB((maskOpacity * 255).round(), 0, 0, 0));
+      canvas.saveLayer(
+        null,
+        Paint()..color = Color.fromARGB((maskOpacity * 255).round(), 0, 0, 0),
+      );
       final brush = Paint()
         ..color = Color(maskColor)
         ..style = PaintingStyle.fill
         ..isAntiAlias = false;
-      _drawStrokePointsRange(canvas, stroke, brush, imageRect, sourceWidth, sourceHeight, brushRound, newStartIdx, totalPoints);
+      _drawStrokePointsRange(
+        canvas,
+        stroke,
+        brush,
+        imageRect,
+        sourceWidth,
+        sourceHeight,
+        brushRound,
+        newStartIdx,
+        totalPoints,
+      );
       if (maskPattern != MaskPattern.solid) {
         _drawPatternImpl(canvas, [stroke], imageRect, maskPattern);
       }
       canvas.restore();
     } else {
-      canvas.saveLayer(null, Paint()..color = Color.fromARGB((maskOpacity * 0.66 * 255).round(), 0, 0, 0));
+      canvas.saveLayer(
+        null,
+        Paint()
+          ..color = Color.fromARGB((maskOpacity * 0.66 * 255).round(), 0, 0, 0),
+      );
       final brush = Paint()
         ..color = const Color(0xFF000000)
         ..style = PaintingStyle.fill
         ..isAntiAlias = false;
-      _drawStrokePointsRange(canvas, stroke, brush, imageRect, sourceWidth, sourceHeight, brushRound, newStartIdx, totalPoints);
+      _drawStrokePointsRange(
+        canvas,
+        stroke,
+        brush,
+        imageRect,
+        sourceWidth,
+        sourceHeight,
+        brushRound,
+        newStartIdx,
+        totalPoints,
+      );
       canvas.restore();
     }
 
@@ -295,10 +398,15 @@ class _MaskCanvasState extends State<MaskCanvas> {
 
         // Manage committed-stroke raster cache
         final committedCacheKey = _buildCacheKey(
-          session.maskStrokes, _imageRect,
-          session.sourceWidth, session.sourceHeight,
-          notifier.maskColor, notifier.maskOpacity,
-          notifier.maskShowBorder, notifier.maskPattern, notifier.maskBrushRound,
+          session.maskStrokes,
+          _imageRect,
+          session.sourceWidth,
+          session.sourceHeight,
+          notifier.maskColor,
+          notifier.maskOpacity,
+          notifier.maskShowBorder,
+          notifier.maskPattern,
+          notifier.maskBrushRound,
         );
         if (committedCacheKey != _committedCacheKey) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -322,8 +430,11 @@ class _MaskCanvasState extends State<MaskCanvas> {
         final active = notifier.activeStroke;
         if (active != null && active.points.isNotEmpty) {
           final activeId = identityHashCode(active);
-          final cachedCount = (activeId == _activeCachedStrokeId) ? _activeCachedPointCount : 0;
-          if (active.points.length > cachedCount || activeId != _activeCachedStrokeId) {
+          final cachedCount = (activeId == _activeCachedStrokeId)
+              ? _activeCachedPointCount
+              : 0;
+          if (active.points.length > cachedCount ||
+              activeId != _activeCachedStrokeId) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (!mounted) return;
               _updateActiveStrokeCache(
@@ -358,7 +469,8 @@ class _MaskCanvasState extends State<MaskCanvas> {
               return;
             }
             if (event is! KeyDownEvent) return;
-            final ctrl = HardwareKeyboard.instance.isControlPressed ||
+            final ctrl =
+                HardwareKeyboard.instance.isControlPressed ||
                 HardwareKeyboard.instance.isMetaPressed;
             if (ctrl && event.logicalKey == LogicalKeyboardKey.keyZ) {
               notifier.undoLastStroke();
@@ -463,10 +575,16 @@ class _MaskCanvasState extends State<MaskCanvas> {
                               strokes: session.maskStrokes,
                               activeStroke: notifier.activeStroke,
                               committedCache: _committedMaskCache,
-                              committedCacheValid: committedCacheKey == _committedCacheKey,
-                              committedCachedStrokeCount: _committedCachedStrokeCount,
+                              committedCacheValid:
+                                  committedCacheKey == _committedCacheKey,
+                              committedCachedStrokeCount:
+                                  _committedCachedStrokeCount,
                               activeStrokeCache: _activeStrokeCache,
-                              activeStrokeCacheValid: active != null && identityHashCode(active) == _activeCachedStrokeId && _activeCachedPointCount > 0,
+                              activeStrokeCacheValid:
+                                  active != null &&
+                                  identityHashCode(active) ==
+                                      _activeCachedStrokeId &&
+                                  _activeCachedPointCount > 0,
                               imageRect: _imageRect,
                               sourceWidth: session.sourceWidth,
                               sourceHeight: session.sourceHeight,
@@ -538,7 +656,10 @@ class _MaskCanvasState extends State<MaskCanvas> {
   bool _ignoreSyntheticInteraction = false;
 
   void _onInteractionStart(
-      ScaleStartDetails details, Img2ImgNotifier notifier, bool isPanMode) {
+    ScaleStartDetails details,
+    Img2ImgNotifier notifier,
+    bool isPanMode,
+  ) {
     if (details.pointerCount == 0) {
       _ignoreSyntheticInteraction = true;
       return;
@@ -559,7 +680,10 @@ class _MaskCanvasState extends State<MaskCanvas> {
   }
 
   void _onInteractionUpdate(
-      ScaleUpdateDetails details, Img2ImgNotifier notifier, bool isPanMode) {
+    ScaleUpdateDetails details,
+    Img2ImgNotifier notifier,
+    bool isPanMode,
+  ) {
     if (_ignoreSyntheticInteraction) return;
     // A second finger landed mid-stroke → this became a pinch. Abandon the
     // partial one-finger stroke and let the viewer scale.
@@ -605,7 +729,9 @@ class _MaskCanvasState extends State<MaskCanvas> {
   /// MouseRegion); the preview overlay lives *inside* the viewer's transformed
   /// child, so it must be drawn in scene space — convert before handing it over.
   void _updateCursorPreview(Offset viewportPoint) {
-    _cursorKey.currentState?.updatePosition(_zoomController.toScene(viewportPoint));
+    _cursorKey.currentState?.updatePosition(
+      _zoomController.toScene(viewportPoint),
+    );
   }
 }
 
@@ -622,12 +748,22 @@ class _BrushParams {
   final bool brushRound;
 
   _BrushParams({
-    required this.gridW, required this.gridH, required this.r,
-    required this.rCells, required this.limitSq, required this.imageRect,
+    required this.gridW,
+    required this.gridH,
+    required this.r,
+    required this.rCells,
+    required this.limitSq,
+    required this.imageRect,
     required this.brushRound,
   });
 
-  factory _BrushParams.from(MaskStroke stroke, Rect imageRect, int sourceWidth, int sourceHeight, bool brushRound) {
+  factory _BrushParams.from(
+    MaskStroke stroke,
+    Rect imageRect,
+    int sourceWidth,
+    int sourceHeight,
+    bool brushRound,
+  ) {
     const grid = 8;
     final gridW = grid / sourceWidth * imageRect.width;
     final gridH = grid / sourceHeight * imageRect.height;
@@ -635,13 +771,29 @@ class _BrushParams {
     final rCells = ((rawR / gridW).ceil()).clamp(1, sourceWidth);
     final r = rCells * gridW;
     final limit = rCells + 0.5;
-    return _BrushParams(gridW: gridW, gridH: gridH, r: r, rCells: rCells, limitSq: limit * limit, imageRect: imageRect, brushRound: brushRound);
+    return _BrushParams(
+      gridW: gridW,
+      gridH: gridH,
+      r: r,
+      rCells: rCells,
+      limitSq: limit * limit,
+      imageRect: imageRect,
+      brushRound: brushRound,
+    );
   }
 }
 
-void _drawBrushAt(Canvas canvas, double cx, double cy, Paint paint, _BrushParams p) {
-  final px = p.imageRect.left + ((cx - p.imageRect.left) / p.gridW).floor() * p.gridW;
-  final py = p.imageRect.top + ((cy - p.imageRect.top) / p.gridH).floor() * p.gridH;
+void _drawBrushAt(
+  Canvas canvas,
+  double cx,
+  double cy,
+  Paint paint,
+  _BrushParams p,
+) {
+  final px =
+      p.imageRect.left + ((cx - p.imageRect.left) / p.gridW).floor() * p.gridW;
+  final py =
+      p.imageRect.top + ((cy - p.imageRect.top) / p.gridH).floor() * p.gridH;
 
   if (!p.brushRound) {
     canvas.drawRect(Rect.fromLTWH(px - p.r, py - p.r, p.r * 2, p.r * 2), paint);
@@ -660,7 +812,13 @@ void _drawBrushAt(Canvas canvas, double cx, double cy, Paint paint, _BrushParams
   }
 }
 
-void _drawPointAndInterp(Canvas canvas, MaskStroke stroke, Paint paint, _BrushParams p, int i) {
+void _drawPointAndInterp(
+  Canvas canvas,
+  MaskStroke stroke,
+  Paint paint,
+  _BrushParams p,
+  int i,
+) {
   final point = stroke.points[i];
   final rawPx = p.imageRect.left + point.dx * p.imageRect.width;
   final rawPy = p.imageRect.top + point.dy * p.imageRect.height;
@@ -671,13 +829,25 @@ void _drawPointAndInterp(Canvas canvas, MaskStroke stroke, Paint paint, _BrushPa
     final prev = stroke.points[i - 1];
     final rawX1 = p.imageRect.left + prev.dx * p.imageRect.width;
     final rawY1 = p.imageRect.top + prev.dy * p.imageRect.height;
-    final x1 = p.imageRect.left + ((rawX1 - p.imageRect.left) / p.gridW).floor() * p.gridW;
-    final y1 = p.imageRect.top + ((rawY1 - p.imageRect.top) / p.gridH).floor() * p.gridH;
-    final x2 = p.imageRect.left + ((rawPx - p.imageRect.left) / p.gridW).floor() * p.gridW;
-    final y2 = p.imageRect.top + ((rawPy - p.imageRect.top) / p.gridH).floor() * p.gridH;
+    final x1 =
+        p.imageRect.left +
+        ((rawX1 - p.imageRect.left) / p.gridW).floor() * p.gridW;
+    final y1 =
+        p.imageRect.top +
+        ((rawY1 - p.imageRect.top) / p.gridH).floor() * p.gridH;
+    final x2 =
+        p.imageRect.left +
+        ((rawPx - p.imageRect.left) / p.gridW).floor() * p.gridW;
+    final y2 =
+        p.imageRect.top +
+        ((rawPy - p.imageRect.top) / p.gridH).floor() * p.gridH;
     final dx = x2 - x1;
     final dy = y2 - y1;
-    final steps = [dx.abs(), dy.abs(), 1.0].reduce((a, b) => a > b ? a : b).ceil();
+    final steps = [
+      dx.abs(),
+      dy.abs(),
+      1.0,
+    ].reduce((a, b) => a > b ? a : b).ceil();
     for (int s = 1; s < steps; s++) {
       final t = s / steps;
       _drawBrushAt(canvas, x1 + dx * t, y1 + dy * t, paint, p);
@@ -686,10 +856,21 @@ void _drawPointAndInterp(Canvas canvas, MaskStroke stroke, Paint paint, _BrushPa
 }
 
 void _drawStrokeGeometryImpl(
-  Canvas canvas, MaskStroke stroke, Paint paint,
-  Rect imageRect, int sourceWidth, int sourceHeight, bool brushRound,
+  Canvas canvas,
+  MaskStroke stroke,
+  Paint paint,
+  Rect imageRect,
+  int sourceWidth,
+  int sourceHeight,
+  bool brushRound,
 ) {
-  final p = _BrushParams.from(stroke, imageRect, sourceWidth, sourceHeight, brushRound);
+  final p = _BrushParams.from(
+    stroke,
+    imageRect,
+    sourceWidth,
+    sourceHeight,
+    brushRound,
+  );
   for (int i = 0; i < stroke.points.length; i++) {
     _drawPointAndInterp(canvas, stroke, paint, p, i);
   }
@@ -697,11 +878,23 @@ void _drawStrokeGeometryImpl(
 
 /// Draw only points in range [startIdx, endIdx) and their interpolation segments.
 void _drawStrokePointsRange(
-  Canvas canvas, MaskStroke stroke, Paint paint,
-  Rect imageRect, int sourceWidth, int sourceHeight, bool brushRound,
-  int startIdx, int endIdx,
+  Canvas canvas,
+  MaskStroke stroke,
+  Paint paint,
+  Rect imageRect,
+  int sourceWidth,
+  int sourceHeight,
+  bool brushRound,
+  int startIdx,
+  int endIdx,
 ) {
-  final p = _BrushParams.from(stroke, imageRect, sourceWidth, sourceHeight, brushRound);
+  final p = _BrushParams.from(
+    stroke,
+    imageRect,
+    sourceWidth,
+    sourceHeight,
+    brushRound,
+  );
   final start = startIdx.clamp(0, stroke.points.length);
   final end = endIdx.clamp(start, stroke.points.length);
   // Always start from at least max(start, 0) — but include interpolation from start-1 if start > 0
@@ -712,8 +905,10 @@ void _drawStrokePointsRange(
 }
 
 void _drawPatternImpl(
-  Canvas canvas, List<MaskStroke> paintStrokes,
-  Rect imageRect, MaskPattern maskPattern,
+  Canvas canvas,
+  List<MaskStroke> paintStrokes,
+  Rect imageRect,
+  MaskPattern maskPattern,
 ) {
   canvas.saveLayer(null, Paint()..blendMode = BlendMode.dstIn);
   final patternPaint = Paint()
@@ -746,8 +941,12 @@ void _drawPatternImpl(
 }
 
 void _drawStrokeBorderImpl(
-  Canvas canvas, MaskStroke stroke, Paint paint,
-  Rect imageRect, int sourceWidth, int sourceHeight,
+  Canvas canvas,
+  MaskStroke stroke,
+  Paint paint,
+  Rect imageRect,
+  int sourceWidth,
+  int sourceHeight,
 ) {
   const grid = 8;
   final gridW = grid / sourceWidth * imageRect.width;
@@ -758,8 +957,10 @@ void _drawStrokeBorderImpl(
   for (final point in stroke.points) {
     final rawPx = imageRect.left + point.dx * imageRect.width;
     final rawPy = imageRect.top + point.dy * imageRect.height;
-    final px = imageRect.left + ((rawPx - imageRect.left) / gridW).floor() * gridW;
-    final py = imageRect.top + ((rawPy - imageRect.top) / gridH).floor() * gridH;
+    final px =
+        imageRect.left + ((rawPx - imageRect.left) / gridW).floor() * gridW;
+    final py =
+        imageRect.top + ((rawPy - imageRect.top) / gridH).floor() * gridH;
     canvas.drawRect(Rect.fromLTWH(px - r, py - r, r * 2, r * 2), paint);
   }
 }
@@ -812,7 +1013,9 @@ class _MaskOverlayPainter extends CustomPainter {
     if (committedCache != null && committedCacheValid) {
       // Cache is fully up-to-date
       canvas.drawImage(committedCache!, Offset.zero, Paint());
-    } else if (committedCache != null && committedCachedStrokeCount > 0 && strokes.isNotEmpty) {
+    } else if (committedCache != null &&
+        committedCachedStrokeCount > 0 &&
+        strokes.isNotEmpty) {
       // Cache is stale but covers some strokes — draw cache + only the delta
       canvas.drawImage(committedCache!, Offset.zero, Paint());
       if (committedCachedStrokeCount < strokes.length) {
@@ -846,7 +1049,15 @@ class _MaskOverlayPainter extends CustomPainter {
         ..style = PaintingStyle.fill
         ..isAntiAlias = false;
       for (final stroke in paintStrokes) {
-        _drawStrokeGeometryImpl(canvas, stroke, brush, imageRect, sourceWidth, sourceHeight, brushRound);
+        _drawStrokeGeometryImpl(
+          canvas,
+          stroke,
+          brush,
+          imageRect,
+          sourceWidth,
+          sourceHeight,
+          brushRound,
+        );
       }
       if (maskPattern != MaskPattern.solid) {
         _drawPatternImpl(canvas, paintStrokes, imageRect, maskPattern);
@@ -860,7 +1071,14 @@ class _MaskOverlayPainter extends CustomPainter {
           ..strokeWidth = 1.5
           ..isAntiAlias = true;
         for (final stroke in paintStrokes) {
-          _drawStrokeBorderImpl(canvas, stroke, borderBrush, imageRect, sourceWidth, sourceHeight);
+          _drawStrokeBorderImpl(
+            canvas,
+            stroke,
+            borderBrush,
+            imageRect,
+            sourceWidth,
+            sourceHeight,
+          );
         }
       }
     }
@@ -869,14 +1087,23 @@ class _MaskOverlayPainter extends CustomPainter {
     if (eraseStrokes.isNotEmpty) {
       canvas.saveLayer(
         null,
-        Paint()..color = Color.fromARGB((maskOpacity * 0.66 * 255).round(), 0, 0, 0),
+        Paint()
+          ..color = Color.fromARGB((maskOpacity * 0.66 * 255).round(), 0, 0, 0),
       );
       final brush = Paint()
         ..color = const Color(0xFF000000)
         ..style = PaintingStyle.fill
         ..isAntiAlias = false;
       for (final stroke in eraseStrokes) {
-        _drawStrokeGeometryImpl(canvas, stroke, brush, imageRect, sourceWidth, sourceHeight, brushRound);
+        _drawStrokeGeometryImpl(
+          canvas,
+          stroke,
+          brush,
+          imageRect,
+          sourceWidth,
+          sourceHeight,
+          brushRound,
+        );
       }
       canvas.restore();
     }
@@ -893,7 +1120,15 @@ class _MaskOverlayPainter extends CustomPainter {
         ..color = Color(maskColor)
         ..style = PaintingStyle.fill
         ..isAntiAlias = false;
-      _drawStrokeGeometryImpl(canvas, stroke, brush, imageRect, sourceWidth, sourceHeight, brushRound);
+      _drawStrokeGeometryImpl(
+        canvas,
+        stroke,
+        brush,
+        imageRect,
+        sourceWidth,
+        sourceHeight,
+        brushRound,
+      );
       if (maskPattern != MaskPattern.solid) {
         _drawPatternImpl(canvas, [stroke], imageRect, maskPattern);
       }
@@ -905,18 +1140,34 @@ class _MaskOverlayPainter extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.5
           ..isAntiAlias = true;
-        _drawStrokeBorderImpl(canvas, stroke, borderBrush, imageRect, sourceWidth, sourceHeight);
+        _drawStrokeBorderImpl(
+          canvas,
+          stroke,
+          borderBrush,
+          imageRect,
+          sourceWidth,
+          sourceHeight,
+        );
       }
     } else {
       canvas.saveLayer(
         null,
-        Paint()..color = Color.fromARGB((maskOpacity * 0.66 * 255).round(), 0, 0, 0),
+        Paint()
+          ..color = Color.fromARGB((maskOpacity * 0.66 * 255).round(), 0, 0, 0),
       );
       final brush = Paint()
         ..color = const Color(0xFF000000)
         ..style = PaintingStyle.fill
         ..isAntiAlias = false;
-      _drawStrokeGeometryImpl(canvas, stroke, brush, imageRect, sourceWidth, sourceHeight, brushRound);
+      _drawStrokeGeometryImpl(
+        canvas,
+        stroke,
+        brush,
+        imageRect,
+        sourceWidth,
+        sourceHeight,
+        brushRound,
+      );
       canvas.restore();
     }
   }
@@ -990,6 +1241,7 @@ class _CursorPreviewState extends State<_CursorPreview> {
         sourceHeight: widget.sourceHeight,
         maskColor: widget.maskColor,
         brushRound: widget.brushRound,
+        outlineColor: context.t.textPrimary,
       ),
     );
   }
@@ -1005,6 +1257,9 @@ class _CursorPainter extends CustomPainter {
   final int maskColor;
   final bool brushRound;
 
+  /// Erase-brush outline and crosshair; follows the theme's text color.
+  final Color outlineColor;
+
   _CursorPainter({
     this.position,
     required this.rawRadius,
@@ -1014,6 +1269,7 @@ class _CursorPainter extends CustomPainter {
     required this.sourceHeight,
     this.maskColor = 0xFFFF0066,
     this.brushRound = true,
+    required this.outlineColor,
   });
 
   @override
@@ -1031,11 +1287,15 @@ class _CursorPainter extends CustomPainter {
     // Snap cursor position to grid
     final rawPx = position!.dx;
     final rawPy = position!.dy;
-    final px = imageRect.left + ((rawPx - imageRect.left) / gridW).floor() * gridW;
-    final py = imageRect.top + ((rawPy - imageRect.top) / gridH).floor() * gridH;
+    final px =
+        imageRect.left + ((rawPx - imageRect.left) / gridW).floor() * gridW;
+    final py =
+        imageRect.top + ((rawPy - imageRect.top) / gridH).floor() * gridH;
 
     final paint = Paint()
-      ..color = isErase ? Colors.white70 : Color(maskColor).withValues(alpha: 0.67)
+      ..color = isErase
+          ? outlineColor.withValues(alpha: VisionMetrics.opacityOverlay)
+          : Color(maskColor).withValues(alpha: 0.67)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
 
@@ -1048,7 +1308,7 @@ class _CursorPainter extends CustomPainter {
 
     // Small crosshair at snapped center
     final crossPaint = Paint()
-      ..color = Colors.white54
+      ..color = outlineColor.withValues(alpha: VisionMetrics.opacityScrim)
       ..strokeWidth = 0.5;
     canvas.drawLine(Offset(px - 4, py), Offset(px + 4, py), crossPaint);
     canvas.drawLine(Offset(px, py - 4), Offset(px, py + 4), crossPaint);
@@ -1059,5 +1319,6 @@ class _CursorPainter extends CustomPainter {
       position != oldDelegate.position ||
       rawRadius != oldDelegate.rawRadius ||
       isErase != oldDelegate.isErase ||
-      brushRound != oldDelegate.brushRound;
+      brushRound != oldDelegate.brushRound ||
+      outlineColor != oldDelegate.outlineColor;
 }

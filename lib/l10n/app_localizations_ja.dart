@@ -290,6 +290,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get gatewayErrDirectForbidden => 'NovelAI がこのアカウントのリクエストを拒否しました。';
 
   @override
+  String get toolErrApiKeyRejected => 'NovelAI が API キーを拒否しました。設定で確認してください。';
+
+  @override
   String get gatewaySessionExpiredTitle => 'セッションの期限切れ';
 
   @override
@@ -2214,6 +2217,54 @@ class AppLocalizationsJa extends AppLocalizations {
   String get img2imgClearMaskConfirm => '消去';
 
   @override
+  String get img2imgMaskUndoStroke => 'ストロークを元に戻す';
+
+  @override
+  String get img2imgMaskClearTooltip => 'マスクをクリア';
+
+  @override
+  String get img2imgBrushRound => '丸ブラシ';
+
+  @override
+  String get img2imgBrushSquare => '角ブラシ';
+
+  @override
+  String get img2imgBrushSize => 'サイズ';
+
+  @override
+  String get img2imgMaskDisplay => 'マスク表示設定';
+
+  @override
+  String get img2imgMaskSave => 'マスクを保存';
+
+  @override
+  String get img2imgMaskLoad => 'マスクを読み込む';
+
+  @override
+  String get img2imgMaskSaved => 'マスクを保存しました';
+
+  @override
+  String get img2imgMaskColor => '色';
+
+  @override
+  String get img2imgMaskOpacity => '不透明度';
+
+  @override
+  String get img2imgMaskPatternSolid => 'ベタ';
+
+  @override
+  String get img2imgMaskPatternStripe => 'ストライプ';
+
+  @override
+  String get img2imgMaskPatternCross => 'クロス';
+
+  @override
+  String get img2imgMaskBorder => '枠線';
+
+  @override
+  String get img2imgMaskBorderTooltip => 'マスクの枠線を表示';
+
+  @override
   String get img2imgNoMask => 'マスクなし（全体IMG2IMG）';
 
   @override
@@ -2236,6 +2287,18 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get img2imgBlankCanvasSize => 'キャンバスサイズ';
+
+  @override
+  String get img2imgPickerTitle => '元画像を選択';
+
+  @override
+  String get img2imgPickerDesc => 'img2img またはインペイントのベースにする画像を選択';
+
+  @override
+  String get img2imgUseCurrent => '現在の生成画像を使用';
+
+  @override
+  String get img2imgUseCurrentDesc => '最後に生成した画像を元画像にする';
 
   @override
   String get slideshowTitle => 'スライドショー';
@@ -3130,6 +3193,96 @@ class AppLocalizationsJa extends AppLocalizations {
   String get directorToolsMood => 'ムード';
 
   @override
+  String get directorToolBgRemoval => '背景除去';
+
+  @override
+  String get directorToolLineart => '線画';
+
+  @override
+  String get directorToolSketch => 'スケッチ';
+
+  @override
+  String get directorToolColorize => 'カラー化';
+
+  @override
+  String get directorToolEmotion => '感情';
+
+  @override
+  String get directorToolDeclutter => '不要物除去';
+
+  @override
+  String get moodNeutral => 'ニュートラル';
+
+  @override
+  String get moodHappy => 'うれしい';
+
+  @override
+  String get moodSad => '悲しい';
+
+  @override
+  String get moodAngry => '怒り';
+
+  @override
+  String get moodScared => '怖い';
+
+  @override
+  String get moodSurprised => '驚き';
+
+  @override
+  String get moodTired => '疲れ';
+
+  @override
+  String get moodExcited => 'ワクワク';
+
+  @override
+  String get moodNervous => '緊張';
+
+  @override
+  String get moodThinking => '考え中';
+
+  @override
+  String get moodConfused => '困惑';
+
+  @override
+  String get moodShy => '恥ずかしい';
+
+  @override
+  String get moodDisgusted => '嫌悪';
+
+  @override
+  String get moodSmug => 'ドヤ顔';
+
+  @override
+  String get moodBored => '退屈';
+
+  @override
+  String get moodLaughing => '笑い';
+
+  @override
+  String get moodIrritated => 'イライラ';
+
+  @override
+  String get moodAroused => '興奮';
+
+  @override
+  String get moodEmbarrassed => '照れ';
+
+  @override
+  String get moodWorried => '心配';
+
+  @override
+  String get moodLove => '愛';
+
+  @override
+  String get moodDetermined => '決意';
+
+  @override
+  String get moodHurt => '傷心';
+
+  @override
+  String get moodPlayful => 'いたずら';
+
+  @override
   String get directorToolsPrompt => 'プロンプト';
 
   @override
@@ -3167,6 +3320,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get enhanceNoise => 'ノイズ';
+
+  @override
+  String get enhanceResolutionScale => '解像度スケール';
 
   @override
   String get enhanceSaved => 'エンハンス画像をギャラリーに保存しました';
@@ -3801,6 +3957,19 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get textGenOutputEmpty => '生成されたテキストがここに表示されます。';
+
+  @override
+  String get textGenErrNoToken => 'NovelAI トークンが設定されていません。設定で追加してください。';
+
+  @override
+  String get textGenErrEmptyInput => '続きを生成する元のテキストを入力してください。';
+
+  @override
+  String get textGenClearConfirmTitle => '出力をクリアしますか？';
+
+  @override
+  String get textGenClearConfirmMessage =>
+      '生成したテキストと推論内容が削除されます。必要なら先にコピーしてください。';
 
   @override
   String get textGenHistory => '履歴';

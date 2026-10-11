@@ -304,6 +304,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'NovelAI refused this request for your account.';
 
   @override
+  String get toolErrApiKeyRejected =>
+      'NovelAI rejected the API key. Check it in Settings.';
+
+  @override
   String get gatewaySessionExpiredTitle => 'Session expired';
 
   @override
@@ -2278,6 +2282,54 @@ class AppLocalizationsEn extends AppLocalizations {
   String get img2imgClearMaskConfirm => 'Clear';
 
   @override
+  String get img2imgMaskUndoStroke => 'Undo stroke';
+
+  @override
+  String get img2imgMaskClearTooltip => 'Clear mask';
+
+  @override
+  String get img2imgBrushRound => 'Round brush';
+
+  @override
+  String get img2imgBrushSquare => 'Square brush';
+
+  @override
+  String get img2imgBrushSize => 'SIZE';
+
+  @override
+  String get img2imgMaskDisplay => 'Mask display settings';
+
+  @override
+  String get img2imgMaskSave => 'Save mask';
+
+  @override
+  String get img2imgMaskLoad => 'Load mask';
+
+  @override
+  String get img2imgMaskSaved => 'Mask saved';
+
+  @override
+  String get img2imgMaskColor => 'COLOR';
+
+  @override
+  String get img2imgMaskOpacity => 'OPACITY';
+
+  @override
+  String get img2imgMaskPatternSolid => 'Solid';
+
+  @override
+  String get img2imgMaskPatternStripe => 'Stripe';
+
+  @override
+  String get img2imgMaskPatternCross => 'Cross';
+
+  @override
+  String get img2imgMaskBorder => 'BORDER';
+
+  @override
+  String get img2imgMaskBorderTooltip => 'Show mask border';
+
+  @override
   String get img2imgNoMask => 'NO MASK (full img2img)';
 
   @override
@@ -2302,6 +2354,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get img2imgBlankCanvasSize => 'CANVAS SIZE';
+
+  @override
+  String get img2imgPickerTitle => 'SELECT SOURCE IMAGE';
+
+  @override
+  String get img2imgPickerDesc =>
+      'Choose an image to use as the base for img2img or inpainting';
+
+  @override
+  String get img2imgUseCurrent => 'USE CURRENT GENERATION';
+
+  @override
+  String get img2imgUseCurrentDesc => 'Use the last generated image as source';
 
   @override
   String get slideshowTitle => 'SLIDESHOW';
@@ -3208,6 +3273,96 @@ class AppLocalizationsEn extends AppLocalizations {
   String get directorToolsMood => 'MOOD';
 
   @override
+  String get directorToolBgRemoval => 'Remove BG';
+
+  @override
+  String get directorToolLineart => 'Line Art';
+
+  @override
+  String get directorToolSketch => 'Sketch';
+
+  @override
+  String get directorToolColorize => 'Colorize';
+
+  @override
+  String get directorToolEmotion => 'Emotion';
+
+  @override
+  String get directorToolDeclutter => 'Declutter';
+
+  @override
+  String get moodNeutral => 'Neutral';
+
+  @override
+  String get moodHappy => 'Happy';
+
+  @override
+  String get moodSad => 'Sad';
+
+  @override
+  String get moodAngry => 'Angry';
+
+  @override
+  String get moodScared => 'Scared';
+
+  @override
+  String get moodSurprised => 'Surprised';
+
+  @override
+  String get moodTired => 'Tired';
+
+  @override
+  String get moodExcited => 'Excited';
+
+  @override
+  String get moodNervous => 'Nervous';
+
+  @override
+  String get moodThinking => 'Thinking';
+
+  @override
+  String get moodConfused => 'Confused';
+
+  @override
+  String get moodShy => 'Shy';
+
+  @override
+  String get moodDisgusted => 'Disgusted';
+
+  @override
+  String get moodSmug => 'Smug';
+
+  @override
+  String get moodBored => 'Bored';
+
+  @override
+  String get moodLaughing => 'Laughing';
+
+  @override
+  String get moodIrritated => 'Irritated';
+
+  @override
+  String get moodAroused => 'Aroused';
+
+  @override
+  String get moodEmbarrassed => 'Embarrassed';
+
+  @override
+  String get moodWorried => 'Worried';
+
+  @override
+  String get moodLove => 'Love';
+
+  @override
+  String get moodDetermined => 'Determined';
+
+  @override
+  String get moodHurt => 'Hurt';
+
+  @override
+  String get moodPlayful => 'Playful';
+
+  @override
   String get directorToolsPrompt => 'PROMPT';
 
   @override
@@ -3246,6 +3401,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get enhanceNoise => 'NOISE';
+
+  @override
+  String get enhanceResolutionScale => 'RESOLUTION SCALE';
 
   @override
   String get enhanceSaved => 'ENHANCED IMAGE SAVED TO GALLERY';
@@ -3897,6 +4055,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get textGenOutputEmpty => 'Generated text will appear here.';
+
+  @override
+  String get textGenErrNoToken =>
+      'No NovelAI token is set. Add it in Settings.';
+
+  @override
+  String get textGenErrEmptyInput => 'Enter some text to continue from.';
+
+  @override
+  String get textGenClearConfirmTitle => 'Clear output?';
+
+  @override
+  String get textGenClearConfirmMessage =>
+      'The generated text and its reasoning will be removed. Copy it first if you need it.';
 
   @override
   String get textGenHistory => 'History';
