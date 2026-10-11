@@ -64,11 +64,25 @@ def health():
     return {"ok": True}
 
 
+@router.api_route(
+    "/api",
+    methods=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    include_in_schema=False,
+)
+@router.api_route(
+    "/api/{path:path}",
+    methods=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    include_in_schema=False,
+)
+def unknown_api(path: str = ""):
+    # Unknown API paths are JSON 404s for every method, never a 405 from the
+    # page catch-all and never a redirect to the IdP. This router is included
+    # last, so real API routes always match first.
+    raise api_error(status.HTTP_404_NOT_FOUND, "not_found", "Not found")
+
+
 @router.get("/{path:path}")
 async def serve_web(path: str, request: Request):
-    # Unknown API paths are JSON errors, never a redirect to the IdP.
-    if path == "api" or path.startswith("api/"):
-        raise api_error(status.HTTP_404_NOT_FOUND, "not_found", "Not found")
     # Authenticate document navigation before loading the Flutter application.
     if only_auth.enabled and (not path or path == "index.html" or "." not in path):
         db = db_connect()

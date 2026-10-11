@@ -91,7 +91,8 @@ class DevUserTests(unittest.TestCase):
         response = self.client("127.0.0.1").post(
             "/api/login", json={"username": "dev", "password": "x"}
         )
-        self.assertIn(response.status_code, (404, 405))  # 405: only the web catch-all GET matches the path
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json()["detail"]["code"], "not_found")
 
     def test_dev_user_pages_do_not_redirect_to_an_identity_provider(self) -> None:
         response = self.client("127.0.0.1").get("/gallery")
