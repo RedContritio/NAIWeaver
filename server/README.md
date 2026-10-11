@@ -38,6 +38,11 @@ exist. Production disables password login and test account bootstrap by default.
 - `free_user / free-test-pass`
 - `paid_user / paid-test-pass`
 
+Each is created with its role's defaults (see below). When
+`NAIWEAVER_ADMIN_PASSWORD` is set, every start resets the existing `admin`
+password and re-applies the admin role's permissions; point totals are left
+alone.
+
 ## Production Auth
 
 Production login uses only WebAuth through OIDC Authorization Code + PKCE.
@@ -73,9 +78,16 @@ Create a user, or apply one of the predefined roles to an existing user:
 .venv/bin/python -m app.cli user create agent_test --role free --green-points 10000
 ```
 
-`--update` changes the role permissions and its default total point limits. It
-does not erase points that have already been consumed. Use it deliberately.
-`--green-points` overrides the selected role's permanent green-point total.
+`--update` changes only what is passed. `--role` re-applies that role's
+permissions and green discount but never its point totals, so earlier grants
+and consumed points are kept; `--green-points` sets the permanent green-point
+total. Without `--update`, an existing user is an error. A new user is created
+with all of the role's defaults, including point totals, and `--green-points`
+overrides the green total.
+
+The admin API (`POST /api/admin/users`) takes the same `role`; fields left out
+take the role's values and explicit fields override them. Administrators always
+get a `100%` green discount, on creation and when promoted by `PATCH`.
 
 `agent_test` is the canonical account for live browser, smoke, and end-to-end
 tests against the deployed service. Keep credentials and WebAuthn enrollment
@@ -122,10 +134,14 @@ provider user IDs to existing local numeric user IDs using
 `NAIWEAVER_AUTH_SUBJECT_MAP`; no username-based matching or account creation
 happens at login. Unmapped users retain their data but cannot sign in.
 
-Browser cookies contain only a random session ID. Tokens stay in process
-memory and are verified on receipt; normal requests check their validity
-locally. Refreshes are serialized per session. Restarting the service requires
-logging in again. Authentication and the one-second return screen are hosted
+Browser cookies contain only a random session ID. Sessions, with their refresh
+tokens, are stored in the gateway's SQLite database under a SHA-256 digest of
+that ID, so they survive restarts. Access tokens are verified on receipt and
+normal requests check their validity locally. Refreshes are serialized per
+session; an identity provider outage keeps the session (`auth_unavailable`),
+while a rejected refresh or an unmapped subject ends it. Unauthenticated page
+loads are redirected to `/auth/login?return_to=...` so login returns to the
+original page. Authentication and the one-second return screen are hosted
 by only WebAuth. Local logout revokes the refresh token but does not end the
 identity provider's session.
 

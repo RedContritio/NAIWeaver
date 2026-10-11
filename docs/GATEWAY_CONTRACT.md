@@ -18,6 +18,9 @@ The client maps `code` to localized text and never shows raw exceptions.
 | code | HTTP | extra fields | meaning |
 |---|---|---|---|
 | `not_authenticated` | 401 | | gateway session missing/expired (never used for upstream 401) |
+| `auth_unavailable` | 503 | | the identity provider is temporarily unavailable (or not configured); any existing session is kept |
+| `login_failed` | 403 | | the identity provider returned an error or the login could not be verified |
+| `account_not_linked` | 403 | | the identity provider subject is not in the account mapping, or the account is disabled |
 | `permission_denied` | 403 | `permission` | user lacks the permission |
 | `invalid_parameters` | 400 | `field` | strict validation failed |
 | `points_insufficient` | 409 | `point_kind` (`green`/`red`), `required`, `remaining` | cannot reserve the quote |
