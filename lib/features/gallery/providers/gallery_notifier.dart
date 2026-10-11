@@ -397,11 +397,11 @@ class GalleryNotifier extends ChangeNotifier {
   }
 
   Future<ImportResult> importFiles(
-    List<String> filePaths, {
+    List<GalleryImportSource> sources, {
     void Function(int current, int total)? onProgress,
   }) {
     return _importService.importFiles(
-      filePaths,
+      sources,
       outputDir: outputDir,
       onFileImported: (file, date) =>
           addFile(file, date, albumId: _activeAlbumId),

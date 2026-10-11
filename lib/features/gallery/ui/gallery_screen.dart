@@ -22,6 +22,7 @@ import '../../../core/utils/image_utils.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/utils/timestamp_utils.dart';
 import '../providers/gallery_notifier.dart';
+import '../services/gallery_import_service.dart';
 import '../../generation/providers/generation_notifier.dart';
 import '../../tools/img2img/providers/img2img_notifier.dart';
 import '../../../core/ml/ml_notifier.dart';
@@ -462,15 +463,10 @@ class _GalleryScreenState extends State<GalleryScreen> {
     final result = await pickImageFiles(allowMultiple: true);
     if (result == null || result.files.isEmpty) return;
 
-    final filePaths = result.files
-        .where((f) => f.path != null)
-        .map((f) => f.path!)
-        .toList();
-    if (filePaths.isEmpty) return;
-
-    final showProgress = filePaths.length >= 3;
+    final sources = result.files.map(GalleryImportSource.picked).toList();
+    final showProgress = sources.length >= 3;
     int currentProgress = 0;
-    int totalProgress = filePaths.length;
+    int totalProgress = sources.length;
     StateSetter? dialogSetState;
 
     if (showProgress && mounted) {
@@ -512,7 +508,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
     try {
       final importResult = await gallery.importFiles(
-        filePaths,
+        sources,
         onProgress: (current, total) {
           currentProgress = current;
           totalProgress = total;
