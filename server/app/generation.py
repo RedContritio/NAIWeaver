@@ -191,8 +191,6 @@ def fail_generation_item(
         """
         UPDATE generation_tasks
         SET status = 'failed', error_message = ?,
-            released_green_points = CASE WHEN mode = 'paid' THEN 0 ELSE reserved_points END,
-            released_red_points = CASE WHEN mode = 'paid' THEN reserved_points ELSE 0 END,
             completed_at = ?
         WHERE id = ?
         """,
@@ -483,8 +481,6 @@ async def enqueue_generation_batch(
         parent_task_id = secrets.token_urlsafe(18)
         item_ids: list[str] = []
         jobs: list[ProxyJob] = []
-        green = quote.per_image if quote.point_kind == "green" else 0
-        red = quote.per_image if quote.point_kind == "red" else 0
         with immediate_transaction(db):
             reserve_points(db, user_id, quote.point_kind, quote.points)
             db.execute(
@@ -515,10 +511,9 @@ async def enqueue_generation_batch(
                     INSERT INTO generation_tasks(
                       id, user_id, mode, queue_class, queue_weight, virtual_finish,
                       status, prompt, negative_prompt, width, height, steps, scale,
-                      sampler, seed, cost, reserved_points, reserved_green_points,
-                      reserved_red_points, batch_id, batch_index, request_fingerprint,
-                      request_json, queued_at, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                      sampler, seed, reserved_points, batch_id, batch_index,
+                      request_fingerprint, request_json, queued_at, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         item_id,
@@ -536,9 +531,6 @@ async def enqueue_generation_batch(
                         params["sampler"],
                         params["seed"],
                         quote.per_image,
-                        quote.per_image,
-                        green,
-                        red,
                         parent_task_id,
                         index,
                         fingerprint,
@@ -795,17 +787,13 @@ def settle_generation_success(
         db.execute(
             """
             UPDATE generation_tasks
-            SET status = 'success', image_path = ?, anlas_before = ?,
-                anlas_after = ?, paid_points_charged = ?,
+            SET status = 'success', image_path = ?,
                 consumed_green_points = ?, consumed_red_points = ?,
                 completed_at = ?
             WHERE id = ?
             """,
             (
                 image_path,
-                call.anlas_before,
-                call.anlas_after,
-                charged if kind == "red" else 0,
                 charged if kind == "green" else 0,
                 charged if kind == "red" else 0,
                 now_iso(),

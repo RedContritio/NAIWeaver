@@ -95,7 +95,6 @@ class GenerationSettlementTests(ExecutionTestCase):
 
                 item = support.item_rows(self.db, submitted["task_id"])[0]
                 self.assertEqual(item["status"], "success")
-                self.assertEqual(item["paid_points_charged"], charged)
                 self.assertEqual(item["consumed_red_points"], charged)
                 self.assertEqual(
                     self.account(user),
@@ -157,7 +156,6 @@ class GenerationSettlementTests(ExecutionTestCase):
             [(row["status"], row["error_code"]) for row in items],
             [("failed", "upstream_error")] * 2,
         )
-        self.assertEqual([row["released_red_points"] for row in items], [33, 33])
         self.assertEqual(self.account(user)["red_points_reserved"], 0)
         self.assertEqual(self.account(user)["red_points_used"], 0)
         task = self.db.execute(
@@ -451,7 +449,6 @@ class InterruptionTests(ExecutionTestCase):
             (rows[running_id]["status"], rows[running_id]["error_code"]),
             ("failed", "interrupted"),
         )
-        self.assertEqual(rows[running_id]["released_red_points"], 33)
         self.assertEqual(rows[queued_id]["status"], "queued")
         self.assertEqual([job.task_id for job in state.pending_jobs], [queued_id])
         self.assertEqual(self.account(user)["red_points_reserved"], 33)

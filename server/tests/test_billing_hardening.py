@@ -29,7 +29,7 @@ class ToolReservationTests(ExecutionTestCase):
 
         # A CLI command running beside the service rebuilds the counters.
         with closing(gwdb.db_connect()) as cli_db:
-            gwdb.migrate_db(cli_db)
+            gwdb.recompute_reserved_points(cli_db)
             cli_db.commit()
         self.assertEqual(self.account(self.user)["red_points_reserved"], 10)
         self.assertEqual(self.account(other)["red_points_reserved"], 0)
@@ -45,7 +45,7 @@ class ToolReservationTests(ExecutionTestCase):
         self.assertEqual(self.account(self.user)["red_points_reserved"], 80)
 
         # Another process runs a CLI command: the hold stays.
-        gwdb.migrate_db(self.db)
+        gwdb.recompute_reserved_points(self.db)
         self.db.commit()
         self.assertEqual(self.account(self.user)["red_points_reserved"], 80)
 
