@@ -12,7 +12,7 @@ import unittest
 
 from fastapi import HTTPException
 
-from app import billing, main
+from app import auth, billing, config, db as gwdb, generation, state, users
 from tests import support
 
 
@@ -30,7 +30,7 @@ class SubmissionContractTests(unittest.IsolatedAsyncioTestCase):
         support.reset_queue_state()
 
     async def post(self, user, envelope: dict) -> dict:
-        response = await main.submit_generation_task(
+        response = await generation.submit_generation_task(
             request=support.make_request(
                 "/api/generation-tasks", json.dumps(envelope).encode()
             ),
@@ -109,7 +109,7 @@ class SubmissionContractTests(unittest.IsolatedAsyncioTestCase):
         )
         submitted = await support.submit(self.db, self.paid, request, [11, 12])
 
-        bodies = {job.task_id: json.loads(job.body) for job in main.pending_jobs}
+        bodies = {job.task_id: json.loads(job.body) for job in state.pending_jobs}
         for item, seed in zip(submitted["items"], (11, 12)):
             forwarded = bodies[item["id"]]
             stored = json.loads(
@@ -179,7 +179,7 @@ class SubmissionContractTests(unittest.IsolatedAsyncioTestCase):
         cases = ((self.free, 4), (self.paid, 8), (self.admin, 10))
         for user, limit in cases:
             with self.subTest(user=user["username"]):
-                rules = main.me(user=user, db=self.db)["rules"]["image"]
+                rules = auth.me(user=user, db=self.db)["rules"]["image"]
                 self.assertEqual(rules["batch_limit"], limit)
                 with self.assertRaises(HTTPException) as raised:
                     await support.submit(
@@ -205,7 +205,7 @@ class SubmissionContractTests(unittest.IsolatedAsyncioTestCase):
         self.db.commit()
         paid = support.fetch_user(self.db, "paid-user")
         request = support.generation_request(steps=50)  # 33 red points each
-        connections = [main.db_connect() for _ in range(2)]
+        connections = [gwdb.db_connect() for _ in range(2)]
         for connection in connections:
             self.addCleanup(connection.close)
 
@@ -218,7 +218,7 @@ class SubmissionContractTests(unittest.IsolatedAsyncioTestCase):
                     "expected_quote": {"mode": "paid", "points": 33},
                 }
             ).encode()
-            return await main.submit_generation_task(
+            return await generation.submit_generation_task(
                 request=support.make_request("/api/generation-tasks", body),
                 user=paid,
                 db=connection,
@@ -298,7 +298,7 @@ class ReservationAtomicityTests(unittest.TestCase):
 
         def reserve() -> None:
             connection = sqlite3.connect(
-                main.DB_PATH, timeout=10, factory=SlowUserReadConnection, check_same_thread=False
+                config.DB_PATH, timeout=10, factory=SlowUserReadConnection, check_same_thread=False
             )
             connection.row_factory = sqlite3.Row
             try:
@@ -364,12 +364,12 @@ class PermissionConsistencyTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_profile_quota_and_admin_views_agree(self) -> None:
         for name, user in self.users.items():
-            profile = main.user_to_dict(user)["permissions"]
-            admin_view = main.user_admin_dict(user)["permissions"]
-            quota = main.quota_for_user(user)
+            profile = users.user_to_dict(user)["permissions"]
+            admin_view = users.user_admin_dict(user)["permissions"]
+            quota = users.quota_for_user(user)
             for mode, expected in self.EXPECTED[name].items():
                 with self.subTest(user=name, mode=mode):
-                    self.assertEqual(main.image_generation_allowed(user, mode), expected)
+                    self.assertEqual(users.image_generation_allowed(user, mode), expected)
                     self.assertEqual(f"image.generate.{mode}" in profile, expected)
                     self.assertEqual(quota[mode]["enabled"], expected)
             self.assertEqual(admin_view, profile)
@@ -405,7 +405,7 @@ class PermissionConsistencyTests(unittest.IsolatedAsyncioTestCase):
         self.db.execute("UPDATE users SET disabled = 1 WHERE id = ?", (free["id"],))
         self.db.commit()
 
-        worker = asyncio.create_task(main.queue_worker())
+        worker = asyncio.create_task(generation.queue_worker())
         try:
             await support.wait_until(
                 lambda: support.items_final(self.db, paid_task["task_id"])

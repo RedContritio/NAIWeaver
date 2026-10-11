@@ -4,7 +4,8 @@ import argparse
 from contextlib import closing
 import secrets
 
-from .main import db_connect, hash_password, init_db, now_iso
+from .db import db_connect, init_db, now_iso
+from .security import hash_password
 from .roles import POINT_TOTAL_FIELDS, ROLES, role_defaults
 
 

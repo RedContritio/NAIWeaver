@@ -8,7 +8,7 @@ import sqlite3
 import unittest
 from unittest import mock
 
-from app import billing, main
+from app import billing, db as gwdb, proxy
 from tests import support
 from tests.test_execution import ExecutionTestCase
 
@@ -28,8 +28,8 @@ class ToolReservationTests(ExecutionTestCase):
         self.assertEqual(self.account(self.user)["red_points_reserved"], 10)
 
         # A CLI command running beside the service rebuilds the counters.
-        with closing(main.db_connect()) as cli_db:
-            main.migrate_db(cli_db)
+        with closing(gwdb.db_connect()) as cli_db:
+            gwdb.migrate_db(cli_db)
             cli_db.commit()
         self.assertEqual(self.account(self.user)["red_points_reserved"], 10)
         self.assertEqual(self.account(other)["red_points_reserved"], 0)
@@ -45,12 +45,12 @@ class ToolReservationTests(ExecutionTestCase):
         self.assertEqual(self.account(self.user)["red_points_reserved"], 80)
 
         # Another process runs a CLI command: the hold stays.
-        main.migrate_db(self.db)
+        gwdb.migrate_db(self.db)
         self.db.commit()
         self.assertEqual(self.account(self.user)["red_points_reserved"], 80)
 
         # The service restarts: nothing can still be running.
-        main.reclaim_tool_reservations(self.db)
+        gwdb.reclaim_tool_reservations(self.db)
         self.db.commit()
         self.assertEqual(self.account(self.user)["red_points_reserved"], 0)
         self.assertEqual(self.db.execute("SELECT COUNT(*) FROM tool_reservations").fetchone()[0], 0)
@@ -106,17 +106,17 @@ class SettlementRetryTests(ExecutionTestCase):
         user = support.create_user(self.db, "retry-user", "paid")
         self.fake.statuses["ai/upscale"] = 401
         with mock.patch.object(
-            main, "release_tool_points", side_effect=sqlite3.OperationalError("locked")
+            proxy, "release_tool_points", side_effect=sqlite3.OperationalError("locked")
         ), self.assertLogs("uvicorn.error.naiweaver", level="ERROR") as logs:
             with self.assertRaises(Exception) as raised:
-                await main.execute_paid_tool(
+                await proxy.execute_paid_tool(
                     self.db, user["id"], path="ai/upscale", tool="upscale", body=b"{}"
                 )
         # The upstream error surfaces, not the release failure.
         self.assertNotIsInstance(raised.exception, sqlite3.Error)
         self.assertTrue(any("tool_reservation_release_failed" in line for line in logs.output))
         self.assertEqual(self.account(user)["red_points_reserved"], 10)
-        main.reclaim_tool_reservations(self.db)
+        gwdb.reclaim_tool_reservations(self.db)
         self.db.commit()
         self.assertEqual(self.account(user)["red_points_reserved"], 0)
 

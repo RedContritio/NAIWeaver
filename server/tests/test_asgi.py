@@ -10,7 +10,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from fastapi.testclient import TestClient
 
-from app import main
+from app import auth, db as gwdb, main
 from tests import support
 
 
@@ -66,11 +66,11 @@ class AsgiWiringTests(unittest.TestCase):
         self.assertEqual(response.json()["detail"]["code"], "auth_unavailable")
 
     def test_signed_out_page_loads_redirect_to_login_with_return_to(self) -> None:
-        with mock.patch.object(main.only_auth, "enabled", True), mock.patch.object(
-            main.only_auth, "connect", main.db_connect
-        ), mock.patch.object(main.only_auth, "_db", None):
+        with mock.patch.object(auth.only_auth, "enabled", True), mock.patch.object(
+            auth.only_auth, "connect", gwdb.db_connect
+        ), mock.patch.object(auth.only_auth, "_db", None):
             response = self.client.get("/gallery", params={"tab": "2"})
-            self.addCleanup(main.only_auth._db.close)
+            self.addCleanup(auth.only_auth._db.close)
         self.assertEqual(response.status_code, 302)
         location = urlsplit(response.headers["location"])
         self.assertEqual(location.path, "/auth/login")
@@ -78,7 +78,7 @@ class AsgiWiringTests(unittest.TestCase):
         self.assertEqual(response.headers["cache-control"], "no-store")
 
     def test_unknown_api_paths_are_json_errors_not_redirects(self) -> None:
-        with mock.patch.object(main.only_auth, "enabled", True):
+        with mock.patch.object(auth.only_auth, "enabled", True):
             response = self.client.get("/api/nope")
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.json()["detail"]["code"], "not_found")

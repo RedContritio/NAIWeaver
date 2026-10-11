@@ -18,7 +18,7 @@ from unittest import mock
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from app import main
+from app import config, db as gwdb, main, state
 from tests import support
 
 
@@ -32,14 +32,14 @@ class AccessControlTestCase(unittest.TestCase):
     def setUp(self) -> None:
         self.db = support.temporary_database(self)
         support.reset_queue_state()
-        main.text_queue_condition = asyncio.Condition()
+        state.text_queue_condition = asyncio.Condition()
         self.addCleanup(support.reset_queue_state)
 
         directory = tempfile.TemporaryDirectory(prefix="naiweaver-files-")
         self.addCleanup(directory.cleanup)
         self.root = Path(directory.name)
         for name in ("IMAGE_DIR", "THUMBNAIL_DIR", "AUDIT_DIR"):
-            patcher = mock.patch.object(main, name, self.root / name.lower())
+            patcher = mock.patch.object(config, name, self.root / name.lower())
             patcher.start()
             self.addCleanup(patcher.stop)
 
@@ -69,8 +69,8 @@ class HistoryFileAccessTests(AccessControlTestCase):
         super().setUp()
         self.image = png_bytes((10, 200, 30))
         image_path = Path("2026-01-01") / "owned.png"
-        (main.IMAGE_DIR / image_path.parent).mkdir(parents=True)
-        (main.IMAGE_DIR / image_path).write_bytes(self.image)
+        (config.IMAGE_DIR / image_path.parent).mkdir(parents=True)
+        (config.IMAGE_DIR / image_path).write_bytes(self.image)
 
         self.db.execute(
             "INSERT INTO generation_submission_tasks(id, user_id, type, status, item_count, "
@@ -133,7 +133,7 @@ class HistoryFileAccessTests(AccessControlTestCase):
                 with self.subTest(user=user["username"], kind=kind):
                     self.assert_error(self.get(user, kind), 404, "not_found")
         # The file itself is not what protects it: it is still on disk.
-        self.assertTrue((main.IMAGE_DIR / "2026-01-01" / "owned.png").exists())
+        self.assertTrue((config.IMAGE_DIR / "2026-01-01" / "owned.png").exists())
 
     def test_an_unknown_task_is_not_found(self) -> None:
         response = self.client_for(self.owner).get("/api/history/nope/image")
@@ -164,15 +164,15 @@ class AuditBodyAccessTests(AccessControlTestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        main.AUDIT_DIR.mkdir(parents=True)
-        (main.AUDIT_DIR / "a1.body").write_bytes(self.BODY)
+        config.AUDIT_DIR.mkdir(parents=True)
+        (config.AUDIT_DIR / "a1.body").write_bytes(self.BODY)
         (self.root / "outside.body").write_bytes(b"outside")
         for audit_id, relative in (("a1", "a1.body"), ("evil", "../outside.body")):
             self.db.execute(
                 "INSERT INTO request_audit_logs(id, user_id, service, path, method, "
                 "request_content_type, request_body_path, created_at) "
                 "VALUES (?, ?, 'image', '/x', 'POST', 'application/json', ?, ?)",
-                (audit_id, self.owner["id"], relative, main.now_iso()),
+                (audit_id, self.owner["id"], relative, gwdb.now_iso()),
             )
         self.db.commit()
 
@@ -255,7 +255,7 @@ class StatusEndpointTests(AccessControlTestCase):
         def job(user_id: int):
             return mock.Mock(user_id=user_id)
 
-        main.pending_jobs.extend(
+        state.pending_jobs.extend(
             [job(int(self.other["id"])), job(int(self.owner["id"])),
              job(int(self.owner["id"]))]
         )
@@ -282,7 +282,7 @@ class StatusEndpointTests(AccessControlTestCase):
         self.db.execute(
             "INSERT INTO generation_submission_tasks(id, user_id, type, status, "
             "item_count, created_at) VALUES ('theirs', ?, 'single', 'running', 1, ?)",
-            (self.other["id"], main.now_iso()),
+            (self.other["id"], gwdb.now_iso()),
         )
         self.db.execute(
             """
@@ -294,7 +294,7 @@ class StatusEndpointTests(AccessControlTestCase):
             ) VALUES ('theirs-item', ?, 'free', 'running', 'p', 'n', 832, 1216, 28, 5,
                       'k_euler', 1, 100, 100, 14, 0, 'theirs', 0, 'fp', '{}', ?)
             """,
-            (self.other["id"], main.now_iso()),
+            (self.other["id"], gwdb.now_iso()),
         )
         self.db.commit()
 

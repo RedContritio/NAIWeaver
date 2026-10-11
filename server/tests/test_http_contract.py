@@ -9,7 +9,7 @@ from unittest import mock
 
 import httpx
 
-from app import main
+from app import auth, config, main, proxy, state
 from tests import support
 
 
@@ -49,7 +49,7 @@ class HttpContractTestCase(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.db = support.temporary_database(self)
         support.reset_queue_state()
-        main.text_queue_condition = asyncio.Condition()
+        state.text_queue_condition = asyncio.Condition()
         self.user = support.create_user(self.db, "http-user")
         self.client = httpx.AsyncClient(
             transport=httpx.ASGITransport(app=main.app),
@@ -71,7 +71,7 @@ class HttpContractTestCase(unittest.IsolatedAsyncioTestCase):
 
 class RequestLimitTests(HttpContractTestCase):
     async def test_chunked_upload_is_counted_on_the_stream(self) -> None:
-        limit = main.MAX_REQUEST_BODY_BYTES
+        limit = config.MAX_REQUEST_BODY_BYTES
         chunk = b" " * (1024 * 1024)
 
         async def oversized():
@@ -110,14 +110,14 @@ class RequestLimitTests(HttpContractTestCase):
         response = await self.client.post(
             "/api/feedback",
             content=b"{}",
-            headers={"content-length": str(main.MAX_REQUEST_BODY_BYTES + 1)},
+            headers={"content-length": str(config.MAX_REQUEST_BODY_BYTES + 1)},
         )
         self.assertError(response, 413, "request_too_large")
 
 
 class ErrorFormatTests(HttpContractTestCase):
     async def test_unknown_api_paths_are_json_404_even_with_web_auth(self) -> None:
-        with mock.patch.object(main.only_auth, "enabled", True):
+        with mock.patch.object(auth.only_auth, "enabled", True):
             api = await self.client.get("/api/does-not-exist")
             page = await self.client.get("/history")
         self.assertError(api, 404, "not_found")
@@ -134,7 +134,7 @@ class ErrorFormatTests(HttpContractTestCase):
         async def unauthorized(service, path, *, method, body=b"", stream=False):
             return 401, {"content-type": "application/json"}, b'{"message":"bad token"}'
 
-        with mock.patch.object(main, "forward_to_novelai", unauthorized):
+        with mock.patch.object(proxy, "forward_to_novelai", unauthorized):
             response = await self.client.post("/api/nai/text/ai/generate", json={"input": "x"})
 
         detail = self.assertError(response, 502, "upstream_error")
