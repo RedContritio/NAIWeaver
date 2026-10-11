@@ -132,18 +132,22 @@ const double kTagWeightStep = 0.1;
 
 /// Maps [chord] to the intent it triggers, or null.
 ///
-/// The command modifier is Cmd on Apple platforms and Ctrl elsewhere; the
+/// The weight modifier is Cmd on Apple platforms and Ctrl elsewhere; the
 /// other one never counts, so the system's own Cmd+Arrow (macOS) and
-/// Ctrl+Arrow (elsewhere) navigation stays distinguishable.
+/// Ctrl+Arrow (elsewhere) navigation stays distinguishable. Generate also
+/// accepts Ctrl+Enter on Apple platforms.
 Intent? promptIntentFor(PromptChord chord, {TargetPlatform? platform}) {
   final apple = usesCommandKey(platform);
   final command = apple
       ? chord.meta && !chord.control
       : chord.control && !chord.meta;
+  final generate = apple
+      ? (chord.meta != chord.control)
+      : chord.control && !chord.meta;
   final noCommand = !chord.control && !chord.meta;
   switch (chord.key) {
     case PromptKey.enter:
-      if (command && !chord.alt) return const GenerateIntent();
+      if (generate && !chord.alt) return const GenerateIntent();
       if (noCommand && !chord.alt && !chord.shift) {
         return const AcceptSuggestionIntent();
       }
@@ -367,7 +371,8 @@ void adjustTagWeight(TextEditingController controller, double delta) {
   final prefix = text.substring(
     start,
     start +
-        (text.substring(start).length - text.substring(start).trimLeft().length),
+        (text.substring(start).length -
+            text.substring(start).trimLeft().length),
   );
   final newText =
       text.substring(0, start) + prefix + result + text.substring(end);
