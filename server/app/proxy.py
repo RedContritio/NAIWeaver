@@ -602,7 +602,7 @@ async def novelai_proxy(
     tool = config.PAID_TOOL_PATHS.get(path) if service == "image" else None
     idempotency_key = paid_tool_idempotency_key(request, tool) if tool else None
     body = await request.body()
-    audit_id = create_audit_log(
+    audit_id = await create_audit_log(
         db,
         user,
         service=service,

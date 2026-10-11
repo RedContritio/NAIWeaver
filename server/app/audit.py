@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 from pathlib import Path
 import secrets
@@ -7,6 +8,7 @@ import sqlite3
 
 from . import config
 from .db import now_iso
+
 
 def audit_request_preview(body: bytes) -> str:
     if not body:
@@ -38,7 +40,30 @@ def write_audit_body_file(
     return relative_path.as_posix(), len(body), hashlib.sha256(body).hexdigest()
 
 
-def create_audit_log(
+def prepare_audit_record(
+    *,
+    audit_id: str,
+    user_id: int,
+    created_at: str,
+    body: bytes,
+    store_body: bool,
+) -> tuple[str, str | None, int, str]:
+    """Blocking part of an audit record: preview, and optionally the body file.
+
+    Runs in a worker thread because bodies reach 25 MB (write + sha256).
+    """
+    preview = audit_request_preview(body)
+    if store_body:
+        body_path, body_bytes, body_sha256 = write_audit_body_file(
+            audit_id=audit_id, user_id=user_id, created_at=created_at, body=body
+        )
+    else:
+        # Metadata only: the size is recorded, the content is not kept.
+        body_path, body_bytes, body_sha256 = None, len(body), ""
+    return preview, body_path, body_bytes, body_sha256
+
+
+async def create_audit_log(
     db: sqlite3.Connection,
     user: sqlite3.Row,
     *,
@@ -47,14 +72,17 @@ def create_audit_log(
     method: str,
     body: bytes,
     content_type: str,
+    store_body: bool = True,
 ) -> str:
     audit_id = secrets.token_urlsafe(18)
     created_at = now_iso()
-    body_path, body_bytes, body_sha256 = write_audit_body_file(
+    preview, body_path, body_bytes, body_sha256 = await asyncio.to_thread(
+        prepare_audit_record,
         audit_id=audit_id,
         user_id=int(user["id"]),
         created_at=created_at,
         body=body,
+        store_body=store_body,
     )
     db.execute(
         """
@@ -72,7 +100,7 @@ def create_audit_log(
             path,
             method,
             content_type,
-            audit_request_preview(body),
+            preview,
             body_path,
             body_bytes,
             body_sha256,

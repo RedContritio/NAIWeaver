@@ -122,7 +122,8 @@ def ensure_history_thumbnail(image_path: str) -> Path:
     return target
 
 
-async def save_history_image(task_id: str, data: bytes) -> str | None:
+def store_history_image(task_id: str, data: bytes) -> str | None:
+    """Blocking part of saving a result: unzip + write the PNG (worker thread)."""
     image = decode_zip_image(data)
     if image is None:
         return None
@@ -130,7 +131,13 @@ async def save_history_image(task_id: str, data: bytes) -> str | None:
     day_dir.mkdir(parents=True, exist_ok=True)
     path = day_dir / f"{task_id}.png"
     path.write_bytes(image)
-    image_path = str(path.relative_to(config.IMAGE_DIR))
+    return str(path.relative_to(config.IMAGE_DIR))
+
+
+async def save_history_image(task_id: str, data: bytes) -> str | None:
+    image_path = await asyncio.to_thread(store_history_image, task_id, data)
+    if image_path is None:
+        return None
     try:
         await asyncio.to_thread(ensure_history_thumbnail, image_path)
     except HTTPException:

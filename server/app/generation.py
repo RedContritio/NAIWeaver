@@ -990,6 +990,39 @@ def submission_response_payload(db: sqlite3.Connection, task_id: str) -> dict[st
     }
 
 
+async def record_submission_audit(
+    db: sqlite3.Connection,
+    user: sqlite3.Row,
+    *,
+    body: bytes,
+    content_type: str,
+    store_body: bool,
+    status_code: int,
+    error_message: str | None = None,
+) -> None:
+    """Audit a submission after its outcome is known.
+
+    A failure to write the audit must not turn an accepted (durably queued)
+    submission into an error, so it is logged instead of raised.
+    """
+    try:
+        audit_id = await create_audit_log(
+            db,
+            user,
+            service="image",
+            path="ai/generate-image",
+            method="POST",
+            body=body,
+            content_type=content_type,
+            store_body=store_body,
+        )
+        complete_audit_log(
+            db, audit_id, status_code=status_code, error_message=error_message
+        )
+    except Exception:
+        config.logger.exception("submission_audit_failed status_code=%s", status_code)
+
+
 @router.post("/api/generation-tasks", status_code=status.HTTP_202_ACCEPTED)
 async def submit_generation_task(
     request: Request,
@@ -998,15 +1031,7 @@ async def submit_generation_task(
 ):
     """Durably accept an image-generation submission (contract §4)."""
     body = await request.body()
-    audit_id = create_audit_log(
-        db,
-        user,
-        service="image",
-        path="ai/generate-image",
-        method="POST",
-        body=body,
-        content_type=request.headers.get("content-type", ""),
-    )
+    content_type = request.headers.get("content-type", "")
     try:
         submission = parse_generation_submission(body)
         replay = existing_submission(
@@ -1036,14 +1061,38 @@ async def submit_generation_task(
             )
     except HTTPException as exc:
         db.rollback()
-        complete_audit_log(
+        # Rejected: keep the metadata, never the full body.
+        await record_submission_audit(
             db,
-            audit_id,
+            user,
+            body=body,
+            content_type=content_type,
+            store_body=False,
             status_code=exc.status_code,
             error_message=str(exc.detail),
         )
         raise
-    complete_audit_log(db, audit_id, status_code=status.HTTP_202_ACCEPTED)
+    except Exception:
+        db.rollback()
+        await record_submission_audit(
+            db,
+            user,
+            body=body,
+            content_type=content_type,
+            store_body=False,
+            status_code=500,
+            error_message="Submission failed",
+        )
+        raise
+    # Accepted: the full body is written only now, off the event loop.
+    await record_submission_audit(
+        db,
+        user,
+        body=body,
+        content_type=content_type,
+        store_body=True,
+        status_code=status.HTTP_202_ACCEPTED,
+    )
     response = JSONResponse(
         submission_response_payload(db, task_id),
         status_code=status.HTTP_202_ACCEPTED,
