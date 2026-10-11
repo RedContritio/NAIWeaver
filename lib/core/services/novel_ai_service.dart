@@ -74,12 +74,33 @@ class NovelAIService {
   static const String v5FullModel = 'nai-diffusion-5-full';
   static const String v5FullInpaintingModel = 'nai-diffusion-5-full-inpainting';
 
-  // NovelAI V5 does not yet provide Curated inpainting or Vibe Transfer.
-  // These are the same compatibility models currently used by novelai.net.
+  // NovelAI V5 does not yet provide Curated inpainting, Vibe Transfer or
+  // Precise Reference. These are the same compatibility models currently used
+  // by novelai.net (see [imageModelFor]).
   static const String v4_5CuratedInpaintingModel =
       'nai-diffusion-4-5-curated-inpainting';
+  static const String v4_5FullInpaintingModel =
+      'nai-diffusion-4-5-full-inpainting';
   static const String v4_5CuratedModel = 'nai-diffusion-4-5-curated';
   static const String v4_5FullModel = 'nai-diffusion-4-5-full';
+
+  /// The model for an image request, as novelai.net routes it (the gateway
+  /// applies the same rule, docs/GATEWAY_CONTRACT.md §3). [references] means
+  /// vibes or Precise Reference images, which V5 does not support yet: those
+  /// requests stay on the V4.5 model their vibes were encoded with
+  /// ([encodeVibeImage]).
+  static String imageModelFor({
+    required String action,
+    required bool curated,
+    required bool references,
+  }) {
+    if (action == 'infill') {
+      if (curated) return v4_5CuratedInpaintingModel;
+      return references ? v4_5FullInpaintingModel : v5FullInpaintingModel;
+    }
+    if (references) return curated ? v4_5CuratedModel : v4_5FullModel;
+    return curated ? v5CuratedModel : v5FullModel;
+  }
 
   final Dio _dio = Dio();
   final String _apiKey;
@@ -431,9 +452,13 @@ class NovelAIService {
 
     final body = <String, dynamic>{
       "input": inputPrompt,
-      "model": action == 'infill'
-          ? (useCurated ? v4_5CuratedInpaintingModel : v5FullInpaintingModel)
-          : (useCurated ? v5CuratedModel : v5FullModel),
+      "model": imageModelFor(
+        action: action,
+        curated: useCurated,
+        references:
+            (vibeTransferImages?.isNotEmpty ?? false) ||
+            (directorRefImages?.isNotEmpty ?? false),
+      ),
       "action": action,
       "parameters": parameters,
     };

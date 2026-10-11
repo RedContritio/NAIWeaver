@@ -104,6 +104,12 @@ Per image:
    booleans or absent, `scale` is a number or absent, and
    `director_reference_images` / `reference_image_multiple` are lists or
    absent. Any violation is `invalid_parameters` naming the `field`.
+   The model is normalized too (client: `NovelAIService.imageModelFor`): V5
+   (`nai-diffusion-5-full` / `-5-curated`, `-5-full-inpainting` for `infill`),
+   except that a request with any vibe or Precise Reference image runs on the
+   matching V4.5 model, because V5 supports neither yet and vibes are encoded
+   with the V4.5 models; Curated `infill` always uses
+   `nai-diffusion-4-5-curated-inpainting`. The model does not change the price.
 2. `free_eligible` = action is `generate` (or absent) and `(width, height)` in
    `free_sizes` and `steps <= free_max_steps` and `sm`/`sm_dyn` falsy and no
    non-empty paid-only parameter (image, mask, strength, noise,

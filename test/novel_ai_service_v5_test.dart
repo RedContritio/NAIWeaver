@@ -7,6 +7,8 @@ void main() {
   ImageGenerationRequest build({
     bool useCurated = false,
     String action = 'generate',
+    List<String>? vibes,
+    List<String>? directorRefs,
   }) {
     return service.buildImageGenerationRequest(
       prompt: '1girl',
@@ -18,6 +20,8 @@ void main() {
       sourceImageBase64: action == 'generate' ? null : 'image',
       maskBase64: action == 'infill' ? 'mask' : null,
       useCurated: useCurated,
+      vibeTransferImages: vibes,
+      directorRefImages: directorRefs,
     );
   }
 
@@ -37,5 +41,21 @@ void main() {
 
     expect(full.body['model'], 'nai-diffusion-5-full-inpainting');
     expect(curated.body['model'], 'nai-diffusion-4-5-curated-inpainting');
+  });
+
+  test('vibes and Precise Reference stay on V4.5, which V5 lacks', () {
+    // Vibes are encoded with the V4.5 models (encodeVibeImage), so their
+    // generation must run there too, as on novelai.net.
+    expect(build(vibes: ['v']).body['model'], 'nai-diffusion-4-5-full');
+    expect(
+      build(vibes: ['v'], useCurated: true).body['model'],
+      'nai-diffusion-4-5-curated',
+    );
+    expect(build(directorRefs: ['d']).body['model'], 'nai-diffusion-4-5-full');
+    expect(
+      build(action: 'infill', vibes: ['v']).body['model'],
+      'nai-diffusion-4-5-full-inpainting',
+    );
+    expect(build(vibes: []).body['model'], 'nai-diffusion-5-full');
   });
 }

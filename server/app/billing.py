@@ -65,6 +65,9 @@ NAI_V5_CURATED_MODEL = "nai-diffusion-5-curated"
 NAI_V5_FULL_MODEL = "nai-diffusion-5-full"
 NAI_V5_FULL_INPAINTING_MODEL = "nai-diffusion-5-full-inpainting"
 NAI_V4_5_CURATED_INPAINTING_MODEL = "nai-diffusion-4-5-curated-inpainting"
+NAI_V4_5_FULL_INPAINTING_MODEL = "nai-diffusion-4-5-full-inpainting"
+NAI_V4_5_CURATED_MODEL = "nai-diffusion-4-5-curated"
+NAI_V4_5_FULL_MODEL = "nai-diffusion-4-5-full"
 
 IMAGE_ACTIONS = (None, "generate", "img2img", "infill")
 IMAGE_INPUT_PARAMETERS = frozenset(
@@ -274,19 +277,29 @@ def _reference_count(params: Mapping[str, Any], key: str) -> int:
 
 
 def _normalize_model(data: dict[str, Any]) -> None:
-    # Keep every gateway client on the same current models as novelai.net,
-    # including older cached web builds that still submit a V4.5 model ID.
-    # NovelAI currently routes Curated inpainting through V4.5 while Full has
-    # a native V5 inpainting model.
+    # Keep every gateway client on the models novelai.net uses, whatever model
+    # ID an older cached build submits. V5 has no Vibe Transfer, Precise
+    # Reference or Curated inpainting yet, so a request using any of them runs
+    # on V4.5 (vibes are encoded with the V4.5 models too); everything else
+    # runs on V5.
+    params = data["parameters"]
     use_curated = "curated" in str(data.get("model", "")).lower()
+    needs_v4_5 = any(
+        nonempty_parameter(params, key)
+        for key in VIBE_PARAMETERS | DIRECTOR_REFERENCE_PARAMETERS
+    )
     if data.get("action") == "infill":
-        data["model"] = (
-            NAI_V4_5_CURATED_INPAINTING_MODEL
-            if use_curated
-            else NAI_V5_FULL_INPAINTING_MODEL
-        )
+        if use_curated:
+            model = NAI_V4_5_CURATED_INPAINTING_MODEL
+        elif needs_v4_5:
+            model = NAI_V4_5_FULL_INPAINTING_MODEL
+        else:
+            model = NAI_V5_FULL_INPAINTING_MODEL
+    elif needs_v4_5:
+        model = NAI_V4_5_CURATED_MODEL if use_curated else NAI_V4_5_FULL_MODEL
     else:
-        data["model"] = NAI_V5_CURATED_MODEL if use_curated else NAI_V5_FULL_MODEL
+        model = NAI_V5_CURATED_MODEL if use_curated else NAI_V5_FULL_MODEL
+    data["model"] = model
 
 
 def classify_and_quote(

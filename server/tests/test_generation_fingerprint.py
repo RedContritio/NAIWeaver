@@ -93,7 +93,9 @@ class GenerationModelNormalizationTests(unittest.TestCase):
         allowance_exhausted=False,
     )
 
-    def request(self, *, model: str, action: str = "generate") -> dict:
+    def request(
+        self, *, model: str, action: str = "generate", **extra: object
+    ) -> dict:
         return {
             "input": "1girl",
             "model": model,
@@ -106,8 +108,34 @@ class GenerationModelNormalizationTests(unittest.TestCase):
                 "scale": 7.0,
                 "sampler": "k_euler_ancestral",
                 "seed": 123,
+                **extra,
             },
         }
+
+    def test_vibes_and_precise_reference_run_on_v4_5(self) -> None:
+        # V5 has no Vibe Transfer or Precise Reference: such requests keep the
+        # V4.5 model their vibes were encoded with.
+        vibes = {"reference_image_multiple": ["dmliZQ=="]}
+        director = {"director_reference_images": ["aW1n"]}
+        cases = [
+            (self.request(model="nai-diffusion-5-full", **vibes),
+             billing.NAI_V4_5_FULL_MODEL),
+            (self.request(model="nai-diffusion-5-curated", **vibes),
+             billing.NAI_V4_5_CURATED_MODEL),
+            (self.request(model="nai-diffusion-5-full", **director),
+             billing.NAI_V4_5_FULL_MODEL),
+            (self.request(model="nai-diffusion-5-full", action="infill", **vibes),
+             billing.NAI_V4_5_FULL_INPAINTING_MODEL),
+            (self.request(model="nai-diffusion-5-curated", action="infill", **vibes),
+             billing.NAI_V4_5_CURATED_INPAINTING_MODEL),
+            # Empty reference lists are no references.
+            (self.request(model="nai-diffusion-5-full", reference_image_multiple=[]),
+             billing.NAI_V5_FULL_MODEL),
+        ]
+        for request, expected in cases:
+            with self.subTest(expected=expected, params=sorted(request["parameters"])):
+                parsed, _ = billing.classify_and_quote(request, self.rules)
+                self.assertEqual(parsed["model"], expected)
 
     def test_old_full_client_is_normalized_to_v5(self) -> None:
         parsed, _ = billing.classify_and_quote(
