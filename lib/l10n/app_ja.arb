@@ -14,6 +14,12 @@
   "commonOverwrite": "上書き",
   "commonSaveChanges": "変更を保存",
   "commonNameRequired": "名前を入力してください",
+  "commonDuplicate": "複製",
+  "commonDiscard": "破棄",
+  "commonAddFavorite": "お気に入りに追加",
+  "commonRemoveFavorite": "お気に入りから削除",
+  "commonUnsavedTitle": "未保存の変更",
+  "commonUnsavedMessage": "未保存の変更があります。続行する前に保存しますか？",
 
   "mainGallery": "ギャラリー",
   "mainResultsGrid": "グリッド",

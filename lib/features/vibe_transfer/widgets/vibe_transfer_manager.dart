@@ -11,7 +11,7 @@ import '../../../core/utils/responsive.dart';
 import '../../../core/services/novel_ai_service.dart';
 import '../models/vibe_transfer.dart';
 import '../providers/vibe_transfer_notifier.dart';
-import '../../tools/widgets/manager_shell.dart';
+import '../../../core/widgets/manager_shell.dart';
 
 class VibeTransferManager extends StatefulWidget {
   const VibeTransferManager({super.key});

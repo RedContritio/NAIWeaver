@@ -14,6 +14,12 @@
   "commonOverwrite": "OVERWRITE",
   "commonSaveChanges": "SAVE CHANGES",
   "commonNameRequired": "Name cannot be empty",
+  "commonDuplicate": "Duplicate",
+  "commonDiscard": "Discard",
+  "commonAddFavorite": "Add to favorites",
+  "commonRemoveFavorite": "Remove from favorites",
+  "commonUnsavedTitle": "Unsaved changes",
+  "commonUnsavedMessage": "You have unsaved changes. Save them before continuing?",
 
   "mainGallery": "Gallery",
   "mainResultsGrid": "Grid",

@@ -48,6 +48,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get commonNameRequired => '名称不能为空';
 
   @override
+  String get commonDuplicate => '复制';
+
+  @override
+  String get commonDiscard => '放弃';
+
+  @override
+  String get commonAddFavorite => '加入收藏';
+
+  @override
+  String get commonRemoveFavorite => '取消收藏';
+
+  @override
+  String get commonUnsavedTitle => '未保存的修改';
+
+  @override
+  String get commonUnsavedMessage => '有尚未保存的修改，继续之前要保存吗？';
+
+  @override
   String get mainGallery => '图库';
 
   @override

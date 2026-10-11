@@ -178,6 +178,42 @@ abstract class AppLocalizations {
   /// **'Name cannot be empty'**
   String get commonNameRequired;
 
+  /// No description provided for @commonDuplicate.
+  ///
+  /// In en, this message translates to:
+  /// **'Duplicate'**
+  String get commonDuplicate;
+
+  /// No description provided for @commonDiscard.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard'**
+  String get commonDiscard;
+
+  /// No description provided for @commonAddFavorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to favorites'**
+  String get commonAddFavorite;
+
+  /// No description provided for @commonRemoveFavorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from favorites'**
+  String get commonRemoveFavorite;
+
+  /// No description provided for @commonUnsavedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsaved changes'**
+  String get commonUnsavedTitle;
+
+  /// No description provided for @commonUnsavedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'You have unsaved changes. Save them before continuing?'**
+  String get commonUnsavedMessage;
+
   /// No description provided for @mainGallery.
   ///
   /// In en, this message translates to:

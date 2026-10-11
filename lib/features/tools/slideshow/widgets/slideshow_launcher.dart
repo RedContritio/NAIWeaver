@@ -4,8 +4,8 @@ import '../../../../core/l10n/l10n_extensions.dart';
 import '../../../../core/services/preferences_service.dart';
 import '../../../../core/theme/theme_extensions.dart';
 import '../../../../core/theme/vision_tokens.dart';
-import '../../../../core/utils/responsive.dart';
 import '../../../../core/widgets/confirm_dialog.dart';
+import '../../../../core/widgets/manager_shell.dart';
 import '../../../../core/widgets/vision_slider.dart';
 import '../../../gallery/providers/gallery_notifier.dart';
 import '../models/slideshow_config.dart';
@@ -29,68 +29,16 @@ class _SlideshowLauncherState extends State<SlideshowLauncher> {
   @override
   Widget build(BuildContext context) {
     final notifier = context.watch<SlideshowNotifier>();
-    final mobile = isMobile(context);
     final t = context.t;
 
-    if (mobile) {
-      return Column(
-        children: [
-          _buildHeader(context, notifier, t),
-          Divider(height: 1, color: t.textMinimal),
-          Expanded(
-            child: _showingEditor && notifier.activeConfig != null
-                ? Column(
-                    children: [
-                      _buildMobileEditorBar(notifier, t),
-                      Expanded(child: _buildEditor(context, notifier, t)),
-                    ],
-                  )
-                : _buildConfigList(context, notifier, t, fullWidth: true),
-          ),
-        ],
-      );
-    }
-
-    return Column(
-      children: [
-        _buildHeader(context, notifier, t),
-        Divider(height: 1, color: t.textMinimal),
-        Expanded(
-          child: Row(
-            children: [
-              _buildConfigList(context, notifier, t),
-              VerticalDivider(width: 1, color: t.textMinimal),
-              Expanded(child: _buildEditor(context, notifier, t)),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMobileEditorBar(SlideshowNotifier notifier, VisionTokens t) {
-    final name = notifier.activeConfig?.name.toUpperCase() ?? '';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      color: t.surfaceMid,
-      child: Row(
-        children: [
-          IconButton(
-            icon: Icon(Icons.arrow_back, size: 18, color: t.textDisabled),
-            onPressed: () => setState(() => _showingEditor = false),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(name,
-                style: TextStyle(
-                    color: t.textSecondary,
-                    fontSize: t.fontSize(11),
-                    letterSpacing: 1,
-                    fontWeight: FontWeight.bold),
-                overflow: TextOverflow.ellipsis),
-          ),
-        ],
-      ),
+    // Every edit is saved immediately, so no unsaved-changes guard is needed.
+    return ManagerMasterDetailShell(
+      showDetail: _showingEditor && notifier.activeConfig != null,
+      masterHeader: _buildHeader(context, notifier, t),
+      detailTitle: notifier.activeConfig?.name.toUpperCase() ?? '',
+      onCloseDetail: () => setState(() => _showingEditor = false),
+      master: _buildConfigList(context, notifier, t),
+      detail: _buildEditor(context, notifier, t),
     );
   }
 
@@ -148,11 +96,9 @@ class _SlideshowLauncherState extends State<SlideshowLauncher> {
   }
 
   Widget _buildConfigList(
-      BuildContext context, SlideshowNotifier notifier, VisionTokens t,
-      {bool fullWidth = false}) {
+      BuildContext context, SlideshowNotifier notifier, VisionTokens t) {
     final l = context.l;
     return Container(
-      width: fullWidth ? double.infinity : 220,
       color: t.surfaceMid,
       child: Column(
         children: [
@@ -172,9 +118,7 @@ class _SlideshowLauncherState extends State<SlideshowLauncher> {
                   onPressed: () {
                     notifier.createNew();
                     _save(context, notifier);
-                    if (isMobile(context)) {
-                      setState(() => _showingEditor = true);
-                    }
+                    setState(() => _showingEditor = true);
                   },
                   tooltip: l.slideshowNewConfig,
                   constraints: const BoxConstraints(),
@@ -209,9 +153,7 @@ class _SlideshowLauncherState extends State<SlideshowLauncher> {
                       return InkWell(
                         onTap: () {
                           notifier.selectConfig(config);
-                          if (isMobile(context)) {
-                            setState(() => _showingEditor = true);
-                          }
+                          setState(() => _showingEditor = true);
                         },
                         child: Container(
                           padding: const EdgeInsets.symmetric(

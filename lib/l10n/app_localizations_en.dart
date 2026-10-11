@@ -48,6 +48,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonNameRequired => 'Name cannot be empty';
 
   @override
+  String get commonDuplicate => 'Duplicate';
+
+  @override
+  String get commonDiscard => 'Discard';
+
+  @override
+  String get commonAddFavorite => 'Add to favorites';
+
+  @override
+  String get commonRemoveFavorite => 'Remove from favorites';
+
+  @override
+  String get commonUnsavedTitle => 'Unsaved changes';
+
+  @override
+  String get commonUnsavedMessage =>
+      'You have unsaved changes. Save them before continuing?';
+
+  @override
   String get mainGallery => 'Gallery';
 
   @override

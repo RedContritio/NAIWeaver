@@ -48,6 +48,24 @@ class AppLocalizationsJa extends AppLocalizations {
   String get commonNameRequired => '名前を入力してください';
 
   @override
+  String get commonDuplicate => '複製';
+
+  @override
+  String get commonDiscard => '破棄';
+
+  @override
+  String get commonAddFavorite => 'お気に入りに追加';
+
+  @override
+  String get commonRemoveFavorite => 'お気に入りから削除';
+
+  @override
+  String get commonUnsavedTitle => '未保存の変更';
+
+  @override
+  String get commonUnsavedMessage => '未保存の変更があります。続行する前に保存しますか？';
+
+  @override
   String get mainGallery => 'ギャラリー';
 
   @override

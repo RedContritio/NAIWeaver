@@ -14,6 +14,12 @@
   "commonOverwrite": "覆盖",
   "commonSaveChanges": "保存更改",
   "commonNameRequired": "名称不能为空",
+  "commonDuplicate": "复制",
+  "commonDiscard": "放弃",
+  "commonAddFavorite": "加入收藏",
+  "commonRemoveFavorite": "取消收藏",
+  "commonUnsavedTitle": "未保存的修改",
+  "commonUnsavedMessage": "有尚未保存的修改，继续之前要保存吗？",
 
   "mainGallery": "图库",
   "mainResultsGrid": "网格",

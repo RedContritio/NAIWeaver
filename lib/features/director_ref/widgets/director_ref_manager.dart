@@ -9,7 +9,7 @@ import '../../../core/widgets/vision_slider.dart';
 import '../../../core/utils/responsive.dart';
 import '../models/director_reference.dart';
 import '../providers/director_ref_notifier.dart';
-import '../../tools/widgets/manager_shell.dart';
+import '../../../core/widgets/manager_shell.dart';
 
 class DirectorRefManager extends StatefulWidget {
   const DirectorRefManager({super.key});

@@ -4,13 +4,13 @@ import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../../core/theme/vision_tokens.dart';
 import '../../../core/widgets/confirm_dialog.dart';
-import '../../../core/utils/responsive.dart';
+import '../../../core/widgets/manager_list_tile.dart';
+import '../../../core/widgets/manager_shell.dart';
 import '../../../core/widgets/tag_suggestion_overlay.dart';
 import '../../../core/services/styles.dart';
 import '../../generation/providers/generation_notifier.dart';
 import '../../characters/providers/character_library_notifier.dart';
 import '../providers/style_notifier.dart';
-import 'manager_shell.dart';
 
 class StyleEditor extends StatelessWidget {
   final String? initialStyleName;
@@ -55,155 +55,111 @@ class _StyleEditorContentState extends State<_StyleEditorContent> {
     }
   }
 
+  UnsavedChangesGuard _guard(StyleNotifier notifier) => UnsavedChangesGuard(
+    hasChanges: notifier.state.isModified,
+    onSave: () => _save(notifier),
+    onDiscard: () => _discard(notifier),
+  );
+
+  /// Saves the edited style, asking first when its new name is taken.
+  Future<bool> _save(StyleNotifier notifier) async {
+    if (notifier.hasNameConflict() && !await _confirmOverwrite(notifier)) {
+      return false;
+    }
+    await notifier.saveStyle();
+    return true;
+  }
+
+  /// Drops pending edits by reloading the stored version, if there is one.
+  void _discard(StyleNotifier notifier) {
+    final state = notifier.state;
+    notifier.selectStyle(
+      state.styles.where((s) => s.name == state.originalName).firstOrNull,
+    );
+  }
+
+  /// Opens the editor on [style], or on a fresh style when it is null, after
+  /// pending edits on another style are saved or discarded.
+  Future<void> _openEditor(StyleNotifier notifier, [PromptStyle? style]) async {
+    final editing = notifier.state.selectedStyle != null &&
+        style != null &&
+        notifier.state.originalName == style.name;
+    if (!editing) {
+      if (!await _guard(notifier).resolve(context) || !mounted) return;
+      style == null ? notifier.createNewStyle() : notifier.selectStyle(style);
+    }
+    setState(() => _showingEditor = true);
+  }
+
   @override
   Widget build(BuildContext context) {
     final notifier = context.watch<StyleNotifier>();
-    final mobile = isMobile(context);
     final t = context.t;
-
-    final showDetail = _showingEditor && notifier.state.selectedStyle != null;
-    return ManagerMasterDetailShell(
-      mobile: mobile,
-      showDetail: showDetail,
-      masterHeader: _buildHeader(context, notifier, t),
-      detailHeader: _buildMobileEditorBar(notifier, t),
-      master: _buildStyleList(context, notifier, t, fullWidth: mobile),
-      detail: _buildEditor(context, notifier, t),
-      dividerColor: t.textMinimal,
-      showMasterHeaderOnMobile: false,
-    );
-  }
-
-  Widget _buildMobileEditorBar(StyleNotifier notifier, VisionTokens t) {
-    final name = notifier.state.selectedStyle?.name.toUpperCase() ?? '';
-    return ManagerDetailHeader(
-      title: name,
-      backgroundColor: t.surfaceMid,
-      iconColor: t.textDisabled,
-      textStyle: TextStyle(color: t.textSecondary, fontSize: t.fontSize(11), letterSpacing: 1, fontWeight: FontWeight.bold),
-      onBack: () => setState(() => _showingEditor = false),
-      actions: [
-        if (notifier.state.isModified)
-          IconButton(
-            key: const ValueKey<String>('style-mobile-save'),
-            icon: Icon(Icons.save_outlined, size: 20, color: t.textPrimary),
-            tooltip: context.l.commonSave,
-            onPressed: () {
-              if (notifier.hasNameConflict()) {
-                _showOverwriteConfirm(context, notifier, t);
-              } else {
-                notifier.saveStyle();
-              }
-            },
-          ),
-      ],
-    );
-  }
-
-  Widget _buildHeader(BuildContext context, StyleNotifier notifier, VisionTokens t) {
     final l = context.l;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      width: double.infinity,
-      color: t.surfaceHigh,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l.styleEditor,
-                  style: TextStyle(
-                    color: t.textPrimary,
-                    fontSize: t.fontSize(16),
-                    letterSpacing: 4,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  l.styleManageDesc,
-                  style: TextStyle(color: t.hintText, fontSize: t.fontSize(9), letterSpacing: 2),
-                ),
-              ],
-            ),
-          ),
-          if (notifier.state.isModified) ...[
-            const SizedBox(width: 12),
-            TextButton.icon(
-              onPressed: () {
-                if (notifier.hasNameConflict()) {
-                  _showOverwriteConfirm(context, notifier, t);
-                } else {
-                  notifier.saveStyle();
-                }
-              },
-              icon: Icon(Icons.save_outlined, size: 14, color: t.textPrimary),
-              label: Text(l.commonSaveChanges, style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(10), letterSpacing: 1)),
-              style: TextButton.styleFrom(
-                backgroundColor: t.borderSubtle,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-              ),
-            ),
-          ],
+    final selected = notifier.state.selectedStyle;
+    final modified = notifier.state.isModified;
+
+    return ManagerMasterDetailShell(
+      showDetail: _showingEditor && selected != null,
+      masterHeader: ManagerHeader(
+        title: l.styleEditor,
+        subtitle: l.styleManageDesc,
+        actions: [
+          if (modified)
+            ManagerSaveChangesButton(onPressed: () => _save(notifier)),
         ],
       ),
+      detailTitle: selected?.name.toUpperCase() ?? '',
+      detailActions: [
+        if (modified)
+          ManagerIconButton(
+            key: const ValueKey<String>('style-mobile-save'),
+            icon: Icons.save_outlined,
+            tooltip: l.commonSave,
+            color: t.textPrimary,
+            onPressed: () => _save(notifier),
+          ),
+      ],
+      onCloseDetail: () => setState(() => _showingEditor = false),
+      guard: _guard(notifier),
+      master: _buildStyleList(context, notifier, t),
+      detail: _buildEditor(context, notifier, t),
     );
   }
 
-  Widget _buildStyleList(BuildContext context, StyleNotifier notifier, VisionTokens t, {bool fullWidth = false}) {
+  Widget _buildStyleList(BuildContext context, StyleNotifier notifier, VisionTokens t) {
+    final l = context.l;
     final state = notifier.state;
-    return Container(
-      width: fullWidth ? double.infinity : 220,
+    return ColoredBox(
       color: t.surfaceMid,
       child: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  context.l.styleList,
-                  style: TextStyle(color: t.secondaryText, fontSize: t.fontSize(8), letterSpacing: 2, fontWeight: FontWeight.bold),
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.restore, size: 14, color: t.secondaryText),
-                      onPressed: () async {
-                        final confirmed = await showConfirmDialog(
-                          context,
-                          title: context.l.commonConfirm,
-                          message: context.l.styleResetDefaults,
-                          confirmLabel: context.l.commonConfirm,
-                        );
-                        if (confirmed == true) {
-                          await notifier.resetToDefaults();
-                        }
-                      },
-                      tooltip: context.l.styleResetDefaults,
-                      constraints: const BoxConstraints(),
-                      padding: EdgeInsets.zero,
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: Icon(Icons.add, size: 14, color: t.secondaryText),
-                      onPressed: () {
-                        notifier.createNewStyle();
-                        if (isMobile(context)) setState(() => _showingEditor = true);
-                      },
-                      tooltip: context.l.styleNew,
-                      constraints: const BoxConstraints(),
-                      padding: EdgeInsets.zero,
-                    ),
-                  ],
-                ),
-              ],
-            ),
+          ManagerListHeader(
+            title: l.styleList,
+            actions: [
+              ManagerIconButton(
+                icon: Icons.restore,
+                tooltip: l.styleResetDefaults,
+                color: t.secondaryText,
+                onPressed: () async {
+                  final confirmed = await showConfirmDialog(
+                    context,
+                    title: l.commonConfirm,
+                    message: l.styleResetDefaults,
+                    confirmLabel: l.commonConfirm,
+                  );
+                  if (confirmed == true) {
+                    await notifier.resetToDefaults();
+                  }
+                },
+              ),
+              ManagerIconButton(
+                icon: Icons.add,
+                tooltip: l.styleNew,
+                color: t.secondaryText,
+                onPressed: () => _openEditor(notifier),
+              ),
+            ],
           ),
           Divider(height: 1, color: t.textMinimal),
           Expanded(
@@ -223,75 +179,30 @@ class _StyleEditorContentState extends State<_StyleEditorContent> {
                 final style = state.styles[index];
                 final isSelected = state.selectedStyle?.name == style.name;
 
-                return InkWell(
+                return ManagerListTile(
                   key: ValueKey(style.name),
-                  onTap: () {
-                    notifier.selectStyle(style);
-                    if (isMobile(context)) setState(() => _showingEditor = true);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    color: isSelected ? t.borderSubtle : Colors.transparent,
-                    child: Row(
-                      children: [
-                        ReorderableDragStartListener(
-                          index: index,
-                          child: Icon(Icons.drag_handle, size: 14, color: t.textDisabled),
-                        ),
-                        const SizedBox(width: 8),
-                        Icon(
-                          Icons.auto_awesome,
-                          size: 12,
-                          color: isSelected ? t.textPrimary : t.secondaryText,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            style.name.toUpperCase(),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: isSelected ? t.textPrimary : t.secondaryText,
-                              fontSize: t.fontSize(11),
-                              letterSpacing: 1,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            ),
-                          ),
-                        ),
-                        PopupMenuButton<String>(
-                          icon: Icon(Icons.more_vert, size: 14, color: t.textDisabled),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          color: t.surfaceHigh,
-                          itemBuilder: (_) => [
-                            PopupMenuItem(
-                              value: 'edit',
-                              child: Text('EDIT', style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(10), letterSpacing: 1)),
-                            ),
-                            PopupMenuItem(
-                              value: 'duplicate',
-                              child: Text('DUPLICATE', style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(10), letterSpacing: 1)),
-                            ),
-                            PopupMenuItem(
-                              value: 'delete',
-                              child: Text('DELETE', style: TextStyle(color: t.accentDanger, fontSize: t.fontSize(10), letterSpacing: 1)),
-                            ),
-                          ],
-                          onSelected: (action) {
-                            switch (action) {
-                              case 'edit':
-                                notifier.selectStyle(style);
-                                if (isMobile(context)) setState(() => _showingEditor = true);
-                              case 'duplicate':
-                                notifier.duplicateStyle(style);
-                              case 'delete':
-                                _showDeleteConfirm(context, notifier, style, t);
-                            }
-                          },
-                        ),
-                      ],
-                    ),
+                  title: style.name.toUpperCase(),
+                  dragIndex: index,
+                  selected: isSelected,
+                  leading: Icon(
+                    Icons.auto_awesome,
+                    size: 12,
+                    color: isSelected ? t.textPrimary : t.secondaryText,
                   ),
+                  onTap: () => _openEditor(notifier, style),
+                  menuActions: [
+                    ManagerListAction(
+                      label: l.commonDuplicate,
+                      icon: Icons.copy,
+                      onSelected: () => notifier.duplicateStyle(style),
+                    ),
+                    ManagerListAction(
+                      label: l.commonDelete,
+                      icon: Icons.delete_outline,
+                      destructive: true,
+                      onSelected: () => _showDeleteConfirm(context, notifier, style, t),
+                    ),
+                  ],
                 );
               },
             ),
@@ -569,17 +480,15 @@ class _StyleEditorContentState extends State<_StyleEditorContent> {
     }
   }
 
-  Future<void> _showOverwriteConfirm(BuildContext context, StyleNotifier notifier, VisionTokens t) async {
+  Future<bool> _confirmOverwrite(StyleNotifier notifier) async {
     final l = context.l;
     final confirm = await showConfirmDialog(
       context,
       title: l.styleOverwriteTitle,
       message: l.styleOverwriteConfirm(notifier.nameController.text),
       confirmLabel: l.commonOverwrite,
-      confirmColor: t.textPrimary,
+      confirmColor: context.tRead.textPrimary,
     );
-    if (confirm == true) {
-      notifier.saveStyle();
-    }
+    return confirm == true;
   }
 }
