@@ -21,6 +21,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get commonClose => '閉じる';
 
   @override
+  String get commonBack => '戻る';
+
+  @override
+  String get commonHelp => 'ヘルプ';
+
+  @override
   String get commonCreate => '作成';
 
   @override
@@ -3872,6 +3878,27 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get jukeboxToggleVisualizer => 'ビジュアライザー表示を切り替え';
+
+  @override
+  String get jukeboxPrevious => '前へ';
+
+  @override
+  String get jukeboxNext => '次へ';
+
+  @override
+  String get jukeboxPlay => '再生';
+
+  @override
+  String get jukeboxPause => '一時停止';
+
+  @override
+  String get jukeboxMute => 'ミュート';
+
+  @override
+  String get jukeboxUnmute => 'ミュート解除';
+
+  @override
+  String get jukeboxRemoveFromQueue => 'キューから削除';
 
   @override
   String get jukeboxFullscreen => '全画面';

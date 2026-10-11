@@ -440,8 +440,8 @@ class _PianoKeyboardState extends State<PianoKeyboard> {
               ? Text(
                   'C${note ~/ 12}',
                   style: TextStyle(
-                    color: isActive ? Colors.white : t.textMinimal,
-                    fontSize: 9,
+                    color: isActive ? t.textPrimary : t.textMinimal,
+                    fontSize: t.fontSize(9),
                     fontWeight: FontWeight.bold,
                   ),
                 )
@@ -500,7 +500,7 @@ class _PianoKeyboardState extends State<PianoKeyboard> {
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(
+                color: t.background.withValues(
                   alpha: VisionMetrics.opacityDisabled,
                 ),
                 blurRadius: 3,

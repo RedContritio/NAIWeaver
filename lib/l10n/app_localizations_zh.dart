@@ -21,6 +21,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get commonClose => '关闭';
 
   @override
+  String get commonBack => '返回';
+
+  @override
+  String get commonHelp => '帮助';
+
+  @override
   String get commonCreate => '创建';
 
   @override
@@ -3849,6 +3855,27 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get jukeboxToggleVisualizer => '切换可视化显示';
+
+  @override
+  String get jukeboxPrevious => '上一首';
+
+  @override
+  String get jukeboxNext => '下一首';
+
+  @override
+  String get jukeboxPlay => '播放';
+
+  @override
+  String get jukeboxPause => '暂停';
+
+  @override
+  String get jukeboxMute => '静音';
+
+  @override
+  String get jukeboxUnmute => '取消静音';
+
+  @override
+  String get jukeboxRemoveFromQueue => '从队列移除';
 
   @override
   String get jukeboxFullscreen => '全屏';

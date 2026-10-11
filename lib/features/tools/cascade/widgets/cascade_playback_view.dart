@@ -261,6 +261,7 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
             size: mobile ? 16 : 14,
             color: t.textDisabled,
           ),
+          tooltip: context.l.commonHelp,
           onPressed: () => showCascadeHelpDialog(context),
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),

@@ -58,6 +58,7 @@ class CascadeLibraryView extends StatelessWidget {
                   ),
                   if (isTouchSized(context))
                     IconButton(
+                      tooltip: context.l.cascadeNew,
                       onPressed: () => _showCreateDialog(context, notifier),
                       icon: Icon(Icons.add, color: t.background, size: 20),
                       style: IconButton.styleFrom(
@@ -179,6 +180,7 @@ class CascadeLibraryView extends StatelessWidget {
           children: [
             IconButton(
               icon: Icon(Icons.delete_outline, color: t.textDisabled, size: 18),
+              tooltip: context.l.commonDelete,
               onPressed: () => _confirmDelete(context, cascade, notifier),
             ),
             Icon(Icons.chevron_right, color: t.textDisabled),

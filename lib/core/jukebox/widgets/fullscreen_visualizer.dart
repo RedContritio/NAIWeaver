@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/jukebox_notifier.dart';
+import '../../l10n/l10n_extensions.dart';
 import '../../theme/theme_extensions.dart';
 import 'karaoke_overlay.dart';
 import 'karaoke_visualizer.dart';
@@ -27,6 +28,7 @@ class FullscreenVisualizer extends StatelessWidget {
             left: 8,
             child: IconButton(
               icon: const Icon(Icons.close, color: Colors.white70, size: 28),
+              tooltip: context.l.commonClose,
               onPressed: () => Navigator.of(context).pop(),
             ),
           ),
@@ -74,6 +76,7 @@ class FullscreenVisualizer extends StatelessWidget {
                           color: Colors.white70,
                           size: 28,
                         ),
+                        tooltip: context.l.jukeboxPrevious,
                         onPressed: jukebox.previous,
                       ),
                       const SizedBox(width: VisionMetrics.space16),
@@ -85,6 +88,9 @@ class FullscreenVisualizer extends StatelessWidget {
                           color: Colors.white,
                           size: 48,
                         ),
+                        tooltip: jukebox.isPlaying
+                            ? context.l.jukeboxPause
+                            : context.l.jukeboxPlay,
                         onPressed: jukebox.isPlaying
                             ? jukebox.pause
                             : jukebox.resume,
@@ -96,6 +102,7 @@ class FullscreenVisualizer extends StatelessWidget {
                           color: Colors.white70,
                           size: 28,
                         ),
+                        tooltip: context.l.jukeboxNext,
                         onPressed: jukebox.next,
                       ),
                     ],

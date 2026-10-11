@@ -290,6 +290,7 @@ class JukeboxQueue extends StatelessWidget {
             ),
             trailing: IconButton(
               icon: Icon(Icons.close, size: 12, color: t.textMinimal),
+              tooltip: context.l.jukeboxRemoveFromQueue,
               onPressed: () => jukebox.removeFromQueue(index),
               constraints: const BoxConstraints(),
               padding: const EdgeInsets.all(VisionMetrics.space4),

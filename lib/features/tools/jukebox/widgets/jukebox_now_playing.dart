@@ -87,7 +87,7 @@ class JukeboxNowPlaying extends StatelessWidget {
         if (song.artist != null) buildSongArtist(song, t),
         buildSongBadges(context, song, t),
         const SizedBox(height: VisionMetrics.space16),
-        buildTransportControls(jukebox, t),
+        buildTransportControls(context, jukebox, t),
       ],
     );
   }
@@ -167,6 +167,7 @@ class JukeboxNowPlaying extends StatelessWidget {
 
   /// Seek bar + play/pause/skip + volume slider.
   static Widget buildTransportControls(
+    BuildContext context,
     JukeboxNotifier jukebox,
     VisionTokens t,
   ) {
@@ -207,6 +208,7 @@ class JukeboxNowPlaying extends StatelessWidget {
           children: [
             IconButton(
               icon: Icon(Icons.skip_previous, color: t.textSecondary, size: 28),
+              tooltip: context.l.jukeboxPrevious,
               onPressed: jukebox.previous,
             ),
             const SizedBox(width: VisionMetrics.space16),
@@ -218,11 +220,15 @@ class JukeboxNowPlaying extends StatelessWidget {
                 color: t.accent,
                 size: 44,
               ),
+              tooltip: jukebox.isPlaying
+                  ? context.l.jukeboxPause
+                  : context.l.jukeboxPlay,
               onPressed: jukebox.isPlaying ? jukebox.pause : jukebox.resume,
             ),
             const SizedBox(width: VisionMetrics.space16),
             IconButton(
               icon: Icon(Icons.skip_next, color: t.textSecondary, size: 28),
+              tooltip: context.l.jukeboxNext,
               onPressed: jukebox.next,
             ),
           ],
@@ -237,6 +243,9 @@ class JukeboxNowPlaying extends StatelessWidget {
                 size: 16,
                 color: t.textDisabled,
               ),
+              tooltip: jukebox.isMuted
+                  ? context.l.jukeboxUnmute
+                  : context.l.jukeboxMute,
               onPressed: jukebox.toggleMute,
               constraints: const BoxConstraints(),
               padding: const EdgeInsets.all(VisionMetrics.space4),
@@ -458,6 +467,7 @@ class JukeboxMobileNowPlaying extends StatelessWidget {
           ),
           IconButton(
             icon: Icon(Icons.skip_previous, size: 20, color: t.textSecondary),
+            tooltip: context.l.jukeboxPrevious,
             onPressed: jukebox.previous,
             constraints: const BoxConstraints(),
             padding: const EdgeInsets.all(VisionMetrics.space4),
@@ -468,12 +478,16 @@ class JukeboxMobileNowPlaying extends StatelessWidget {
               size: 24,
               color: t.accent,
             ),
+            tooltip: jukebox.isPlaying
+                ? context.l.jukeboxPause
+                : context.l.jukeboxPlay,
             onPressed: jukebox.isPlaying ? jukebox.pause : jukebox.resume,
             constraints: const BoxConstraints(),
             padding: const EdgeInsets.all(VisionMetrics.space4),
           ),
           IconButton(
             icon: Icon(Icons.skip_next, size: 20, color: t.textSecondary),
+            tooltip: context.l.jukeboxNext,
             onPressed: jukebox.next,
             constraints: const BoxConstraints(),
             padding: const EdgeInsets.all(VisionMetrics.space4),
@@ -481,6 +495,7 @@ class JukeboxMobileNowPlaying extends StatelessWidget {
           if (onGamePressed != null && jukebox.currentSong != null)
             IconButton(
               icon: Icon(Icons.sports_esports, size: 20, color: t.accent),
+              tooltip: context.l.jukeboxGameModeTooltip,
               onPressed: onGamePressed,
               constraints: const BoxConstraints(),
               padding: const EdgeInsets.all(VisionMetrics.space4),
@@ -488,6 +503,7 @@ class JukeboxMobileNowPlaying extends StatelessWidget {
           if (jukebox.isPlaying)
             IconButton(
               icon: Icon(Icons.fullscreen, size: 20, color: t.accent),
+              tooltip: context.l.jukeboxFullscreen,
               onPressed: () =>
                   JukeboxNowPlaying.openFullscreenVisualizer(context),
               constraints: const BoxConstraints(),

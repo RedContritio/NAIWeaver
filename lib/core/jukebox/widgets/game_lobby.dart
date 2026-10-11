@@ -88,6 +88,7 @@ class _GameSongBrowserState extends State<GameSongBrowser> {
               ),
               const Spacer(),
               IconButton(
+                tooltip: context.l.commonClose,
                 onPressed: jukebox.closeGameBrowser,
                 icon: Icon(Icons.close, size: 20, color: t.textSecondary),
                 constraints: const BoxConstraints(),
@@ -369,6 +370,7 @@ class _GameSongDetailState extends State<GameSongDetail> {
           child: Row(
             children: [
               IconButton(
+                tooltip: context.l.commonBack,
                 onPressed: jukebox.backToSongBrowser,
                 icon: Icon(Icons.arrow_back, size: 20, color: t.textSecondary),
                 constraints: const BoxConstraints(),

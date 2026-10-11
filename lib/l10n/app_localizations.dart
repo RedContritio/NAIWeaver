@@ -124,6 +124,18 @@ abstract class AppLocalizations {
   /// **'Close'**
   String get commonClose;
 
+  /// No description provided for @commonBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get commonBack;
+
+  /// No description provided for @commonHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Help'**
+  String get commonHelp;
+
   /// No description provided for @commonCreate.
   ///
   /// In en, this message translates to:
@@ -7351,6 +7363,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Toggle visualizer display'**
   String get jukeboxToggleVisualizer;
+
+  /// No description provided for @jukeboxPrevious.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous'**
+  String get jukeboxPrevious;
+
+  /// No description provided for @jukeboxNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get jukeboxNext;
+
+  /// No description provided for @jukeboxPlay.
+  ///
+  /// In en, this message translates to:
+  /// **'Play'**
+  String get jukeboxPlay;
+
+  /// No description provided for @jukeboxPause.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get jukeboxPause;
+
+  /// No description provided for @jukeboxMute.
+  ///
+  /// In en, this message translates to:
+  /// **'Mute'**
+  String get jukeboxMute;
+
+  /// No description provided for @jukeboxUnmute.
+  ///
+  /// In en, this message translates to:
+  /// **'Unmute'**
+  String get jukeboxUnmute;
+
+  /// No description provided for @jukeboxRemoveFromQueue.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from queue'**
+  String get jukeboxRemoveFromQueue;
 
   /// No description provided for @jukeboxFullscreen.
   ///

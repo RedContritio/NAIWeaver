@@ -21,6 +21,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonClose => 'Close';
 
   @override
+  String get commonBack => 'Back';
+
+  @override
+  String get commonHelp => 'Help';
+
+  @override
   String get commonCreate => 'Create';
 
   @override
@@ -3967,6 +3973,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get jukeboxToggleVisualizer => 'Toggle visualizer display';
+
+  @override
+  String get jukeboxPrevious => 'Previous';
+
+  @override
+  String get jukeboxNext => 'Next';
+
+  @override
+  String get jukeboxPlay => 'Play';
+
+  @override
+  String get jukeboxPause => 'Pause';
+
+  @override
+  String get jukeboxMute => 'Mute';
+
+  @override
+  String get jukeboxUnmute => 'Unmute';
+
+  @override
+  String get jukeboxRemoveFromQueue => 'Remove from queue';
 
   @override
   String get jukeboxFullscreen => 'Fullscreen';

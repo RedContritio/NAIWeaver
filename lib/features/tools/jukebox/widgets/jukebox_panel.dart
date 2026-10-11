@@ -382,6 +382,7 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
           children: [
             IconButton(
               icon: Icon(Icons.close, size: 20, color: t.textSecondary),
+              tooltip: context.l.commonClose,
               onPressed: () => Navigator.of(context).pop(),
               constraints: const BoxConstraints(),
               padding: const EdgeInsets.all(VisionMetrics.space8),
@@ -1018,7 +1019,7 @@ class _JukeboxPanelState extends State<JukeboxPanel> {
           const SizedBox(height: VisionMetrics.space16),
 
           // Transport controls
-          JukeboxNowPlaying.buildTransportControls(jukebox, t),
+          JukeboxNowPlaying.buildTransportControls(context, jukebox, t),
 
           // Visualizer
           if (jukebox.showKaraokeInPanel) ...[

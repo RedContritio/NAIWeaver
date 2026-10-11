@@ -183,6 +183,7 @@ class _CascadeEditorState extends State<CascadeEditor> {
               size: mobile ? 18 : 14,
               color: t.textDisabled,
             ),
+            tooltip: context.l.commonHelp,
             onPressed: () => showCascadeHelpDialog(context),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
