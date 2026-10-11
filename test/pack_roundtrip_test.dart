@@ -13,9 +13,10 @@ GenerationPreset _preset(
   String name, {
   List<NaiCharacter> characters = const [],
   List<DirectorReference> refs = const [],
+  String prompt = '1girl, __hair__, {{masterpiece}}',
 }) => GenerationPreset(
   name: name,
-  prompt: '1girl, __hair__, {{masterpiece}}',
+  prompt: prompt,
   negativePrompt: 'lowres, bad anatomy',
   width: 832,
   height: 1216,
@@ -39,6 +40,38 @@ Uint8List _archiveWith(Map<String, String> files) {
 }
 
 void main() {
+  group('duplicate names', () {
+    test('same-named presets and styles all survive a round trip', () {
+      final bytes = PackService.exportPack(
+        name: 'p',
+        presets: [_preset('Dup'), _preset('Dup', prompt: 'other')],
+        styles: [
+          PromptStyle(name: 'Dup', prefix: 'first, '),
+          PromptStyle(name: 'Dup', prefix: 'second, '),
+        ],
+      );
+      final imported = PackService.importPack(bytes);
+
+      expect(imported.presets.map((p) => p.prompt),
+        unorderedEquals(['1girl, __hair__, {{masterpiece}}', 'other']));
+      expect(
+        imported.styles.map((s) => s.prefix),
+        unorderedEquals(['first, ', 'second, ']),
+      );
+    });
+
+    test('a pack written with name-only file names still imports', () {
+      final imported = PackService.importPack(
+        _archiveWith({
+          'presets/Old.json': jsonEncode(_preset('Old').toJson()),
+          'styles/Old.json': jsonEncode(PromptStyle(name: 'Old').toJson()),
+        }),
+      );
+      expect(imported.presets.single.name, 'Old');
+      expect(imported.styles.single.name, 'Old');
+    });
+  });
+
   group('styles', () {
     test('every field survives, including the default flag', () {
       final bytes = PackService.exportPack(
@@ -178,7 +211,7 @@ void main() {
           3,
         );
         final presetJson = utf8.decode(
-          archive.findFile('presets/A.json')!.content as List<int>,
+          archive.findFile('presets/A_0.json')!.content as List<int>,
         );
         expect(presetJson, contains('@ref:'));
         expect(presetJson, isNot(contains(base64Encode(png).substring(0, 40))));

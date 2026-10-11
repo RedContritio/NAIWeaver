@@ -145,13 +145,13 @@ class PackService {
     // Add presets
     for (int i = 0; i < processedPresets.length; i++) {
       final content = utf8.encode(const JsonEncoder.withIndent('  ').convert(processedPresets[i]));
-      archive.addFile(ArchiveFile('presets/${_sanitize(presets[i].name)}.json', content.length, content));
+      archive.addFile(ArchiveFile('presets/${_sanitize(presets[i].name)}_$i.json', content.length, content));
     }
 
     // Add styles
-    for (final style in styles) {
-      final content = utf8.encode(const JsonEncoder.withIndent('  ').convert(style.toJson()));
-      archive.addFile(ArchiveFile('styles/${_sanitize(style.name)}.json', content.length, content));
+    for (int i = 0; i < styles.length; i++) {
+      final content = utf8.encode(const JsonEncoder.withIndent('  ').convert(styles[i].toJson()));
+      archive.addFile(ArchiveFile('styles/${_sanitize(styles[i].name)}_$i.json', content.length, content));
     }
 
     // Add wildcards
