@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/services/preferences_service.dart';
+import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/vision_metrics.dart';
 import '../../../core/utils/resizable_lines.dart';
 import '../../../core/widgets/line_resize_handle.dart';
 import '../../../core/widgets/syntax_highlight_controller.dart';
@@ -51,15 +53,19 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.character.name);
-    _promptController = SyntaxHighlightController(text: widget.character.prompt);
+    _promptController = SyntaxHighlightController(
+      text: widget.character.prompt,
+    );
     _ucController = SyntaxHighlightController(text: widget.character.uc);
     _promptFocusNode = FocusNode();
     _ucFocusNode = FocusNode();
     _coordinate = widget.character.center;
     _promptController.addListener(_updatePromptSuggestions);
     _ucController.addListener(_updateUcSuggestions);
-    _promptLines =
-        Provider.of<PreferencesService>(context, listen: false).uiCharPromptLines;
+    _promptLines = Provider.of<PreferencesService>(
+      context,
+      listen: false,
+    ).uiCharPromptLines;
   }
 
   @override
@@ -73,18 +79,25 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
     if (!mounted) return;
     final text = _promptController.text;
     if (_tagService == null || text.isEmpty) {
-      if (_promptSuggestions.isNotEmpty) setState(() => _promptSuggestions = []);
+      if (_promptSuggestions.isNotEmpty) {
+        setState(() => _promptSuggestions = []);
+      }
       return;
     }
     final parts = text.split(',');
     final lastPart = parts.last.trim();
     final minLength = TagService.containsNonAscii(lastPart) ? 1 : 2;
     if (lastPart.length < minLength) {
-      if (_promptSuggestions.isNotEmpty) setState(() => _promptSuggestions = []);
+      if (_promptSuggestions.isNotEmpty) {
+        setState(() => _promptSuggestions = []);
+      }
       return;
     }
     final charMatches = _characterLibrary?.suggestionTags(lastPart) ?? const [];
-    final suggestions = [...charMatches, ..._tagService!.getSuggestions(lastPart)];
+    final suggestions = [
+      ...charMatches,
+      ..._tagService!.getSuggestions(lastPart),
+    ];
     setState(() => _promptSuggestions = suggestions);
   }
 
@@ -109,8 +122,8 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
   void _onTagSelected(TextEditingController controller, DanbooruTag tag) {
     final insertText = tag.typeName == 'saved_character'
         ? ((tag.expansion != null && tag.expansion!.trim().isNotEmpty)
-            ? tag.expansion!.trim()
-            : tag.tag)
+              ? tag.expansion!.trim()
+              : tag.tag)
         : (tag.matchedAlias ?? tag.tag);
     final currentText = controller.text;
     final parts = currentText.split(',');
@@ -127,12 +140,14 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
   void _saveChanges() {
     if (_saved || _deleted) return;
     _saved = true;
-    widget.onSave(NaiCharacter(
-      name: _nameController.text,
-      prompt: _promptController.text,
-      uc: _ucController.text,
-      center: _coordinate,
-    ));
+    widget.onSave(
+      NaiCharacter(
+        name: _nameController.text,
+        prompt: _promptController.text,
+        uc: _ucController.text,
+        center: _coordinate,
+      ),
+    );
   }
 
   void _save() {
@@ -172,150 +187,37 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'CHARACTER ${widget.index + 1} EDITOR',
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: t.fontSize(12),
-                  letterSpacing: 4,
-                  color: t.textPrimary,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'CHARACTER ${widget.index + 1} EDITOR',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: t.fontSize(12),
+                    letterSpacing: 4,
+                    color: t.textPrimary,
+                  ),
                 ),
-              ),
-              IconButton(
-                onPressed: () {
-                  _deleted = true;
-                  widget.onDelete();
-                  Navigator.pop(context);
-                },
-                icon: Icon(Icons.delete_outline, color: t.accentDanger, size: 18),
-                constraints: const BoxConstraints(),
-                padding: EdgeInsets.zero,
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'CHARACTER NAME',
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: t.fontSize(9),
-              letterSpacing: 2,
-              color: t.textDisabled,
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: _nameController,
-            style: TextStyle(fontSize: t.fontSize(13), color: t.textSecondary, height: 1.4),
-            decoration: InputDecoration(
-              hintText: 'NAME (OPTIONAL)',
-              hintStyle: TextStyle(fontSize: t.fontSize(9), color: t.textMinimal, letterSpacing: 2),
-              fillColor: t.borderSubtle,
-              filled: true,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.textMinimal)),
-              contentPadding: const EdgeInsets.all(16),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            'CHARACTER PROMPT',
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: t.fontSize(9),
-              letterSpacing: 2,
-              color: t.textDisabled,
-            ),
-          ),
-          const SizedBox(height: 12),
-          TouchScrollWrap(
-            child: TextFormField(
-              controller: _promptController,
-              focusNode: _promptFocusNode,
-              style: TextStyle(fontSize: t.fontSize(13), color: t.textSecondary, height: 1.4),
-              decoration: InputDecoration(
-                hintText: 'ENTER TAGS',
-                hintStyle: TextStyle(fontSize: t.fontSize(9), color: t.textMinimal, letterSpacing: 2),
-                fillColor: t.borderSubtle,
-                filled: true,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.textMinimal)),
-                contentPadding: const EdgeInsets.all(16),
-              ),
-              // Drag-resizable via the handle below; shares the persisted
-              // size with the inline character cards (issue #15).
-              maxLines: _promptLines,
-              minLines: 1,
-            ),
-          ),
-          LineResizeHandle(
-            lines: _promptLines,
-            lineHeightPx: t.fontSize(13) * 1.4,
-            onLines: (lines) => setState(() => _promptLines = lines),
-            onDone: (lines) =>
-                context.read<PreferencesService>().setUiCharPromptLines(lines),
-          ),
-          TagSuggestionOverlay(
-            suggestions: _promptSuggestions,
-            onTagSelected: (tag) => _onTagSelected(_promptController, tag),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            'CHARACTER UC',
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: t.fontSize(9),
-              letterSpacing: 2,
-              color: t.textDisabled,
-            ),
-          ),
-          const SizedBox(height: 12),
-          TouchScrollWrap(
-            child: TextFormField(
-              controller: _ucController,
-              focusNode: _ucFocusNode,
-              style: TextStyle(fontSize: t.fontSize(13), color: t.textSecondary, height: 1.4),
-              decoration: InputDecoration(
-                hintText: 'ENTER TAGS',
-                hintStyle: TextStyle(fontSize: t.fontSize(9), color: t.textMinimal, letterSpacing: 2),
-                fillColor: t.borderSubtle,
-                filled: true,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.textMinimal)),
-                contentPadding: const EdgeInsets.all(16),
-              ),
-              maxLines: 3,
-              minLines: 1,
-            ),
-          ),
-          TagSuggestionOverlay(
-            suggestions: _ucSuggestions,
-            onTagSelected: (tag) => _onTagSelected(_ucController, tag),
-          ),
-          const SizedBox(height: 24),
-          if (autoPositioning)
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              alignment: Alignment.center,
-              child: Text(
-                'AI DECIDES POSITION',
-                style: TextStyle(
-                  color: Colors.orange,
-                  fontSize: t.fontSize(10),
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 2,
+                IconButton(
+                  onPressed: () {
+                    _deleted = true;
+                    widget.onDelete();
+                    Navigator.pop(context);
+                  },
+                  icon: Icon(
+                    Icons.delete_outline,
+                    color: t.accentDanger,
+                    size: 18,
+                  ),
+                  constraints: const BoxConstraints(),
+                  padding: EdgeInsets.zero,
                 ),
-              ),
-            )
-          else ...[
+              ],
+            ),
+            const SizedBox(height: 24),
             Text(
-              'POSITION (5x5 GRID)',
+              'CHARACTER NAME',
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 fontSize: t.fontSize(9),
@@ -323,40 +225,215 @@ class _CharacterEditorSheetState extends State<CharacterEditorSheet> {
                 color: t.textDisabled,
               ),
             ),
-            const SizedBox(height: 16),
-            Center(
-              child: Container(
-                height: 180,
-                width: 180,
-                decoration: BoxDecoration(
-                  border: Border.all(color: t.borderSubtle),
-                  borderRadius: BorderRadius.circular(4),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _nameController,
+              style: TextStyle(
+                fontSize: t.fontSize(13),
+                color: t.textSecondary,
+                height: 1.4,
+              ),
+              decoration: InputDecoration(
+                hintText: 'NAME (OPTIONAL)',
+                hintStyle: TextStyle(
+                  fontSize: t.fontSize(9),
+                  color: t.textMinimal,
+                  letterSpacing: 2,
                 ),
-                padding: const EdgeInsets.all(8),
-                child: NaiGridSelector(
-                  selectedCoordinate: _coordinate,
-                  onCoordinateSelected: (coord) {
-                    setState(() => _coordinate = coord);
-                  },
+                fillColor: t.borderSubtle,
+                filled: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+                  borderSide: BorderSide(color: t.textMinimal),
+                ),
+                contentPadding: const EdgeInsets.all(16),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'CHARACTER PROMPT',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: t.fontSize(9),
+                letterSpacing: 2,
+                color: t.textDisabled,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TouchScrollWrap(
+              child: TextFormField(
+                controller: _promptController,
+                focusNode: _promptFocusNode,
+                style: TextStyle(
+                  fontSize: t.fontSize(13),
+                  color: t.textSecondary,
+                  height: 1.4,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'ENTER TAGS',
+                  hintStyle: TextStyle(
+                    fontSize: t.fontSize(9),
+                    color: t.textMinimal,
+                    letterSpacing: 2,
+                  ),
+                  fillColor: t.borderSubtle,
+                  filled: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+                    borderSide: BorderSide(color: t.textMinimal),
+                  ),
+                  contentPadding: const EdgeInsets.all(16),
+                ),
+                // Drag-resizable via the handle below; shares the persisted
+                // size with the inline character cards (issue #15).
+                maxLines: _promptLines,
+                minLines: 1,
+              ),
+            ),
+            LineResizeHandle(
+              lines: _promptLines,
+              lineHeightPx: t.fontSize(13) * 1.4,
+              onLines: (lines) => setState(() => _promptLines = lines),
+              onDone: (lines) => context
+                  .read<PreferencesService>()
+                  .setUiCharPromptLines(lines),
+            ),
+            TagSuggestionOverlay(
+              suggestions: _promptSuggestions,
+              onTagSelected: (tag) => _onTagSelected(_promptController, tag),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'CHARACTER UC',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: t.fontSize(9),
+                letterSpacing: 2,
+                color: t.textDisabled,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TouchScrollWrap(
+              child: TextFormField(
+                controller: _ucController,
+                focusNode: _ucFocusNode,
+                style: TextStyle(
+                  fontSize: t.fontSize(13),
+                  color: t.textSecondary,
+                  height: 1.4,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'ENTER TAGS',
+                  hintStyle: TextStyle(
+                    fontSize: t.fontSize(9),
+                    color: t.textMinimal,
+                    letterSpacing: 2,
+                  ),
+                  fillColor: t.borderSubtle,
+                  filled: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+                    borderSide: BorderSide(color: t.textMinimal),
+                  ),
+                  contentPadding: const EdgeInsets.all(16),
+                ),
+                maxLines: 3,
+                minLines: 1,
+              ),
+            ),
+            TagSuggestionOverlay(
+              suggestions: _ucSuggestions,
+              onTagSelected: (tag) => _onTagSelected(_ucController, tag),
+            ),
+            const SizedBox(height: 24),
+            if (autoPositioning)
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                alignment: Alignment.center,
+                child: Text(
+                  context.l.charEditorAiDecidesPosition.toUpperCase(),
+                  style: TextStyle(
+                    color: t.accentCharacter,
+                    fontSize: t.fontSize(10),
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2,
+                  ),
+                ),
+              )
+            else ...[
+              Text(
+                'POSITION (5x5 GRID)',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: t.fontSize(9),
+                  letterSpacing: 2,
+                  color: t.textDisabled,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Center(
+                child: Container(
+                  height: 180,
+                  width: 180,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: t.borderSubtle),
+                    borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+                  ),
+                  padding: const EdgeInsets.all(8),
+                  child: NaiGridSelector(
+                    selectedCoordinate: _coordinate,
+                    onCoordinateSelected: (coord) {
+                      setState(() => _coordinate = coord);
+                    },
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 32),
+            ElevatedButton(
+              onPressed: _save,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: t.accent,
+                foregroundColor: t.background,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+                ),
+              ),
+              child: Text(
+                'SAVE CHARACTER',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2,
+                  fontSize: t.fontSize(10),
                 ),
               ),
             ),
           ],
-          const SizedBox(height: 32),
-          ElevatedButton(
-            onPressed: _save,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: t.accent,
-              foregroundColor: t.background,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-            ),
-            child: Text(
-              'SAVE CHARACTER',
-              style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 2, fontSize: t.fontSize(10)),
-            ),
-          ),
-        ],
         ),
       ),
     );

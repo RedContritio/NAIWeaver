@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 
 import '../../../core/services/client_diagnostics.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/vision_metrics.dart';
 import '../../../core/theme/vision_tokens.dart';
+import '../../../core/widgets/ui/app_pill.dart';
+import '../../../core/widgets/ui/app_tone.dart';
 
 enum GenerationMobileTab { prompt, inputs, parameters }
 
@@ -102,7 +105,7 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
   /// How far past its collapsed size the sheet has to be before it counts as
   /// open: the scrim appears and the header turns into the tab bar.
   static const double _expandedThreshold = 0.025;
-  static const double _scrimOpacity = 0.42;
+  static const double _scrimOpacity = VisionMetrics.opacityScrim;
 
   // The middle stop sits at [_middleFraction] of the height, but must show at
   // least [_middleMinBodyHeight] of tab content, leave at least
@@ -335,7 +338,7 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
                     child: ValueListenableBuilder<double>(
                       valueListenable: _extent,
                       builder: (context, extent, _) => ColoredBox(
-                        color: Colors.black.withValues(
+                        color: t.background.withValues(
                           alpha: _scrimOpacity * _expansionProgress(extent),
                         ),
                       ),
@@ -371,7 +374,7 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
                     clipBehavior: Clip.antiAlias,
                     shape: RoundedRectangleBorder(
                       borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(12),
+                        top: Radius.circular(VisionMetrics.radius12),
                       ),
                       side: BorderSide(color: t.borderStrong),
                     ),
@@ -456,16 +459,16 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
   Widget _buildHeader(VisionTokens t, bool expanded) {
     return Column(
       children: [
-        const SizedBox(height: 7),
+        const SizedBox(height: VisionMetrics.space8),
         Container(
           width: 36,
           height: 4,
           decoration: BoxDecoration(
             color: t.textDisabled,
-            borderRadius: BorderRadius.circular(2),
+            borderRadius: BorderRadius.circular(VisionMetrics.radius2),
           ),
         ),
-        const SizedBox(height: 3),
+        const SizedBox(height: VisionMetrics.space4),
         Expanded(
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 140),
@@ -491,8 +494,12 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
                               ),
                             ),
                             if (widget.inputCount > 0) ...[
-                              const SizedBox(width: 5),
-                              _InputCountBadge(count: widget.inputCount),
+                              const SizedBox(width: VisionMetrics.space4),
+                              AppPill(
+                                text: '${widget.inputCount}',
+                                tone: AppTone.info,
+                                dense: true,
+                              ),
                             ],
                           ],
                         ),
@@ -504,11 +511,16 @@ class GenerationMobileSheetState extends State<GenerationMobileSheet>
                     key: GenerationMobileSheet.compactKey,
                     onTap: () => openTab(GenerationMobileTab.prompt),
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 0, 8, 5),
+                      padding: const EdgeInsets.fromLTRB(
+                        VisionMetrics.space16,
+                        0,
+                        VisionMetrics.space8,
+                        VisionMetrics.space4,
+                      ),
                       child: Row(
                         children: [
                           Expanded(child: widget.compactPrompt),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: VisionMetrics.space8),
                           widget.compactActions,
                         ],
                       ),
@@ -541,32 +553,5 @@ class _KeepAlivePageState extends State<_KeepAlivePage>
   Widget build(BuildContext context) {
     super.build(context);
     return widget.child;
-  }
-}
-
-/// Active reference-input counter on the inputs tab label.
-class _InputCountBadge extends StatelessWidget {
-  const _InputCountBadge({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: t.accent.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        '$count',
-        style: TextStyle(
-          color: t.accent,
-          fontSize: t.fontSize(10),
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
   }
 }

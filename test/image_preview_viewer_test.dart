@@ -31,9 +31,7 @@ void main() {
             body: ImagePreviewViewer(
               generatedImage: bytes,
               imageIdentity: identity,
-              isLoading: false,
               isDragging: false,
-              pulseAnimation: const AlwaysStoppedAnimation(0),
             ),
           ),
         ),

@@ -19,7 +19,14 @@ import '../../../core/widgets/tag_suggestion_overlay.dart';
 import '../../../core/widgets/browser_native_text_area.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../../core/theme/theme_notifier.dart';
+import '../../../core/theme/vision_metrics.dart';
 import '../../../core/theme/vision_tokens.dart';
+import '../../../core/widgets/section_title.dart';
+import '../../../core/widgets/text_input_dialog.dart';
+import '../../../core/widgets/ui/app_panel.dart';
+import '../../../core/widgets/ui/app_pill.dart';
+import '../../../core/widgets/ui/app_states.dart';
+import '../../../core/widgets/ui/app_tabs.dart';
 import '../../../core/widgets/custom_resolution_dialog.dart';
 import '../../../core/widgets/confirm_dialog.dart';
 import '../../../core/widgets/editable_slider_value.dart';
@@ -32,6 +39,7 @@ import '../../vibe_transfer/providers/vibe_transfer_notifier.dart';
 import '../models/generation_quote.dart';
 import '../providers/generation_notifier.dart';
 import 'billing_text.dart';
+import 'chip_actions.dart';
 import 'generation_seed_control.dart';
 import 'inline_character_editor.dart';
 import 'vibe_transfer_shelf.dart';
@@ -69,8 +77,7 @@ class ResolutionOption {
 
 class AdvancedSettingsPanel extends StatelessWidget {
   static double collapsedExtent(BuildContext context) {
-    final headerHeight = isMobile(context) ? 48.0 : 40.0;
-    return headerHeight + MediaQuery.viewPaddingOf(context).bottom;
+    return context.hitSize + MediaQuery.viewPaddingOf(context).bottom;
   }
 
   static List<ResolutionOption> resolutionOptions(BuildContext context) {
@@ -132,6 +139,24 @@ class AdvancedSettingsPanel extends StatelessWidget {
     );
   }
 
+  /// Removes the saved resolution equal to [option] (label and size). Looking
+  /// the entry up, rather than counting from the dropdown position, keeps this
+  /// right when the list shown is filtered (a free-only account sees only the
+  /// free sizes).
+  static Future<void> deleteCustomResolutionOption(
+    PreferencesService prefs,
+    ResolutionOption option,
+  ) async {
+    final existing = _loadCustomResolutions(prefs);
+    final index = existing.indexWhere(
+      (e) =>
+          e.label == option.label &&
+          e.width == option.width &&
+          e.height == option.height,
+    );
+    await deleteCustomResolution(prefs, index);
+  }
+
   static Future<void> deleteCustomResolution(
     PreferencesService prefs,
     int index,
@@ -143,6 +168,21 @@ class AdvancedSettingsPanel extends StatelessWidget {
         jsonEncode(existing.map((e) => e.toJson()).toList()),
       );
     }
+  }
+
+  /// Creates an album named [rawName] and makes it the default save target.
+  /// A blank (or whitespace-only) name is refused; the name is stored trimmed.
+  /// Returns whether an album was created.
+  static bool createAlbumFromInput(
+    String rawName,
+    GalleryNotifier gallery,
+    PreferencesService prefs,
+  ) {
+    final name = rawName.trim();
+    if (name.isEmpty) return false;
+    gallery.createAlbum(name);
+    prefs.setDefaultSaveAlbumId(gallery.albums.last.id);
+    return true;
   }
 
   static const List<String> samplers = [
@@ -185,8 +225,8 @@ class AdvancedSettingsPanel extends StatelessWidget {
       builder: (context, isExpanded, _) {
         final notifier = context.read<GenerationNotifier>();
 
-        final mobile = isMobile(context);
-        final headerH = mobile ? 48.0 : 40.0;
+        final mobile = isTouchSized(context);
+        final headerH = context.hitSize;
         final collapsedH = collapsedExtent(context);
         final expandedH = math.max(
           MediaQuery.of(context).size.height * (mobile ? 0.75 : 0.6),
@@ -210,12 +250,14 @@ class AdvancedSettingsPanel extends StatelessWidget {
               decoration: BoxDecoration(
                 color: t.surfaceHigh,
                 borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(12),
+                  top: Radius.circular(VisionMetrics.radius12),
                 ),
                 border: Border.all(color: t.borderStrong),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.white.withValues(alpha: 0.05),
+                    color: t.textPrimary.withValues(
+                      alpha: VisionMetrics.opacityHover,
+                    ),
                     blurRadius: 20,
                     spreadRadius: 5,
                   ),
@@ -242,12 +284,16 @@ class AdvancedSettingsPanel extends StatelessWidget {
                               height: 4,
                               decoration: BoxDecoration(
                                 color: t.textDisabled,
-                                borderRadius: BorderRadius.circular(2),
+                                borderRadius: BorderRadius.circular(
+                                  VisionMetrics.radius2,
+                                ),
                               ),
                             ),
                             if (!isExpanded)
                               Padding(
-                                padding: const EdgeInsets.only(top: 4),
+                                padding: const EdgeInsets.only(
+                                  top: VisionMetrics.space4,
+                                ),
                                 child: Text(
                                   context.l.panelAdvancedSettings.toUpperCase(),
                                   style: TextStyle(
@@ -333,6 +379,11 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
   List<DanbooruTag> _negativeSuggestions = [];
   Timer? _negativeTagDebounce;
 
+  /// Touch-sized controls: the window is compact or medium, or the settings
+  /// are forced into the compact (bottom sheet) presentation. Set by [build]
+  /// for the section builders.
+  bool _touch = false;
+
   @override
   void initState() {
     super.initState();
@@ -383,13 +434,16 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
   Widget build(BuildContext context) {
     final notifier = context.watch<GenerationNotifier>();
     final state = notifier.state;
-    final mobile = isMobile(context) || widget.forceCompact;
+    // Touch-sized windows (compact and medium) get the large controls, whether
+    // the settings sit in the bottom sheet, the panel or the sidebar.
+    final mobile = isTouchSized(context) || widget.forceCompact;
+    _touch = mobile;
     final t = context.t;
     final sectionOrder = context.watch<ThemeNotifier>().sectionOrder;
 
     final compact = widget.inSidebar || widget.forceCompact;
-    final hPad = compact ? 16.0 : 24.0;
-    final sectionGap = compact ? 16.0 : 24.0;
+    final hPad = compact ? VisionMetrics.space16 : VisionMetrics.space24;
+    final sectionGap = compact ? VisionMetrics.space16 : VisionMetrics.space24;
     final showLocalGalleryControls = !(useBackendGateway && kIsWeb);
 
     final builders = <String, Widget Function()>{
@@ -448,17 +502,30 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
           sections.add(
             Text(
               'Error in $id: $e',
-              style: TextStyle(color: Colors.red, fontSize: t.fontSize(9)),
+              style: TextStyle(color: t.accentDanger, fontSize: t.fontSize(9)),
             ),
           );
         }
       }
     }
-    sections.add(const SizedBox(height: 20));
+    if (widget.group == GenerationSettingsGroup.inputs &&
+        !_referenceInputsVisible(state)) {
+      final noPermission = !builders.containsKey('reference_images');
+      sections.add(
+        EmptyState(
+          icon: Icons.photo_library_outlined,
+          title: context.l.panelInputsEmptyTitle,
+          message: noPermission
+              ? context.l.panelInputsEmptyMessage
+              : context.l.panelInputsHiddenMessage,
+        ),
+      );
+    }
+    sections.add(const SizedBox(height: VisionMetrics.space24));
 
     final padding = EdgeInsets.fromLTRB(
       hPad,
-      8,
+      VisionMetrics.space8,
       hPad,
       40 +
           MediaQuery.of(context).padding.bottom +
@@ -473,19 +540,38 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
     return ListView(padding: padding, children: sections);
   }
 
-  Widget _buildReferenceImages(
-    GenerationState state,
-    bool mobile,
-    VisionTokens t,
-  ) {
-    // The shelf switches only decide what is shown for editing; what is sent
-    // never depends on them. Vibes already on the list stay visible (and can
-    // be removed) without the permission to encode new ones.
+  /// Which reference shelves are shown. The shelf switches only decide what
+  /// is shown for editing; what is sent never depends on them. Vibes already
+  /// on the list stay visible (and can be removed) without the permission to
+  /// encode new ones.
+  (bool ref, bool vibe) _referenceShelves(GenerationState state) {
     final showRef = state.showDirectorRefShelf;
     final showVibe =
         state.showVibeTransferShelf &&
         (hasBackendPermission(context, BackendPermission.imageEncodeVibe) ||
             context.watch<VibeTransferNotifier>().vibes.isNotEmpty);
+    return (showRef, showVibe);
+  }
+
+  /// Whether the inputs tab has anything to show: the section is offered to
+  /// the account (paid tools, or entries already on the lists) and at least
+  /// one shelf is switched on.
+  bool _referenceInputsVisible(GenerationState state) {
+    final offered =
+        canUsePaidImageFeatures(context) ||
+        context.watch<DirectorRefNotifier>().references.isNotEmpty ||
+        context.watch<VibeTransferNotifier>().vibes.isNotEmpty;
+    if (!offered) return false;
+    final (showRef, showVibe) = _referenceShelves(state);
+    return showRef || showVibe;
+  }
+
+  Widget _buildReferenceImages(
+    GenerationState state,
+    bool mobile,
+    VisionTokens t,
+  ) {
+    final (showRef, showVibe) = _referenceShelves(state);
     if (!showRef && !showVibe) return const SizedBox.shrink();
 
     return KeyedSubtree(
@@ -503,7 +589,7 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
               mobile: mobile,
               t: t,
             ),
-          if (showRef && showVibe) const SizedBox(height: 8),
+          if (showRef && showVibe) const SizedBox(height: VisionMetrics.space8),
           if (showVibe)
             _buildReferenceInputRow(
               key: const ValueKey<String>('advanced-vibe-transfer-row'),
@@ -527,40 +613,46 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
     VisionTokens t,
   ) {
     final l = context.l;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: t.accentDanger.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: t.accentDanger.withValues(alpha: 0.35)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l.quoteFreeOnlyNotice,
-            style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(10)),
-          ),
-          for (final reason in quote.quote?.reasons ?? const <String>[])
+    return Padding(
+      padding: const EdgeInsets.only(bottom: VisionMetrics.space12),
+      child: AppPanel(
+        variant: AppPanelVariant.raised,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Text(
-              '• ${quoteReasonText(l, reason)}',
-              style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(10)),
+              l.quoteFreeOnlyNotice,
+              style: TextStyle(
+                color: t.textSecondary,
+                fontSize: t.fontSize(10),
+              ),
             ),
-          if (quote.quote == null)
-            Text(
-              l.quoteInvalidTooltip(quote.invalidField ?? ''),
-              style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(10)),
+            for (final reason in quote.quote?.reasons ?? const <String>[])
+              Text(
+                '• ${quoteReasonText(l, reason)}',
+                style: TextStyle(
+                  color: t.textTertiary,
+                  fontSize: t.fontSize(10),
+                ),
+              ),
+            if (quote.quote == null)
+              Text(
+                l.quoteInvalidTooltip(quote.invalidField ?? ''),
+                style: TextStyle(
+                  color: t.textTertiary,
+                  fontSize: t.fontSize(10),
+                ),
+              ),
+            const SizedBox(height: VisionMetrics.space8),
+            TextButton(
+              onPressed: notifier.adjustToFreeParameters,
+              child: Text(
+                l.quoteAdjustToFreeAction.toUpperCase(),
+                style: TextStyle(color: t.accent, fontSize: t.fontSize(10)),
+              ),
             ),
-          const SizedBox(height: 8),
-          TextButton(
-            onPressed: notifier.adjustToFreeParameters,
-            child: Text(
-              l.quoteAdjustToFreeAction.toUpperCase(),
-              style: TextStyle(color: t.accent, fontSize: t.fontSize(10)),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -574,38 +666,47 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
     required bool mobile,
     required VisionTokens t,
   }) {
-    return Container(
+    return KeyedSubtree(
       key: key,
-      constraints: BoxConstraints(minHeight: mobile ? 64 : 56),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: t.borderSubtle.withValues(alpha: 0.2),
-        border: Border.all(color: t.borderSubtle),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: mobile ? 18 : 15, color: color),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: mobile ? 92 : 118,
-            child: Text(
-              label.toUpperCase(),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: t.fontSize(mobile ? 10 : 8),
-                letterSpacing: 0.8,
-                color: t.secondaryText,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: mobile ? 64 : 56),
+        child: AppPanel(
+          variant: AppPanelVariant.inset,
+          padding: const EdgeInsets.symmetric(
+            horizontal: VisionMetrics.space12,
+            vertical: VisionMetrics.space8,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                size: mobile
+                    ? VisionMetrics.iconMedium
+                    : VisionMetrics.iconSmall,
+                color: color,
               ),
-            ),
+              const SizedBox(width: VisionMetrics.space8),
+              SizedBox(
+                width: mobile ? 92 : 118,
+                child: Text(
+                  label.toUpperCase(),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: t.fontSize(mobile ? 10 : 8),
+                    letterSpacing: 0.8,
+                    color: t.secondaryText,
+                  ),
+                ),
+              ),
+              const SizedBox(width: VisionMetrics.space8),
+              Expanded(
+                child: Align(alignment: Alignment.centerLeft, child: shelf),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Align(alignment: Alignment.centerLeft, child: shelf),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -617,12 +718,6 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
     VisionTokens t, {
     bool compact = false,
   }) {
-    final labelStyle = TextStyle(
-      fontWeight: FontWeight.w900,
-      fontSize: t.fontSize(mobile ? 12 : 9),
-      letterSpacing: 2,
-      color: t.secondaryText,
-    );
     final batchLimit = backendImageBatchLimit(context);
     final batchValue = math.max(1, math.min(state.batchCount, batchLimit));
     final freeOnly = isFreeOnlyImageUser(context);
@@ -650,8 +745,7 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
     Widget dimensionsField = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(context.l.panelDimensions.toUpperCase(), style: labelStyle),
-        const SizedBox(height: 12),
+        SectionTitle(context.l.panelDimensions.toUpperCase(), t: t),
         DropdownButtonFormField<String>(
           // ignore: deprecated_member_use
           value: selectedResolution,
@@ -668,14 +762,14 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
             letterSpacing: 1,
           ),
           decoration: InputDecoration(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 8,
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: VisionMetrics.space12,
+              vertical: mobile ? VisionMetrics.space12 : VisionMetrics.space8,
             ),
             fillColor: t.borderSubtle,
             filled: true,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: VisionMetrics.borderRadius4,
               borderSide: BorderSide.none,
             ),
           ),
@@ -701,11 +795,7 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
             }
           },
           items: [
-            ...resolutionOptions.asMap().entries.map<DropdownMenuItem<String>>((
-              entry,
-            ) {
-              final opt = entry.value;
-              final builtInCount = 8;
+            ...resolutionOptions.map<DropdownMenuItem<String>>((opt) {
               return DropdownMenuItem<String>(
                 value: opt.value,
                 child: Row(
@@ -719,21 +809,19 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
                       ),
                     ),
                     if (opt.isCustom)
-                      GestureDetector(
-                        onTap: () {
-                          final prefs = context.read<PreferencesService>();
-                          AdvancedSettingsPanel.deleteCustomResolution(
-                            prefs,
-                            entry.key - builtInCount,
-                          );
-                          setState(() {});
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: Icon(
-                            Icons.close,
-                            size: 14,
-                            color: t.textMinimal,
+                      Tooltip(
+                        message: context.l.commonDelete,
+                        child: GestureDetector(
+                          onTap: () => _deleteCustomResolution(opt),
+                          child: Padding(
+                            padding: const EdgeInsets.only(
+                              left: VisionMetrics.space8,
+                            ),
+                            child: Icon(
+                              Icons.close,
+                              size: VisionMetrics.iconSmall,
+                              color: t.textMinimal,
+                            ),
                           ),
                         ),
                       ),
@@ -747,8 +835,12 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.add, size: 14, color: t.accent),
-                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.add,
+                      size: VisionMetrics.iconSmall,
+                      color: t.accent,
+                    ),
+                    const SizedBox(width: VisionMetrics.space8),
                     Text(
                       context.l.resCustomEntry.toUpperCase(),
                       style: TextStyle(
@@ -774,24 +866,26 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
     Widget batchField = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(context.l.panelBatchCount.toUpperCase(), style: labelStyle),
-        const SizedBox(height: 12),
+        SectionTitle(context.l.panelBatchCount.toUpperCase(), t: t),
         Container(
-          height: 42,
           decoration: BoxDecoration(
             color: t.borderSubtle,
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: VisionMetrics.borderRadius4,
           ),
           child: Row(
             children: [
               SizedBox(
-                width: 38,
-                height: 38,
+                width: context.hitSize,
+                height: context.hitSize,
                 child: IconButton(
                   onPressed: batchValue <= 1
                       ? null
                       : () => updateBatchCount(batchValue - 1),
-                  icon: const Icon(Icons.remove, size: 16),
+                  tooltip: context.l.panelBatchCount,
+                  icon: const Icon(
+                    Icons.remove,
+                    size: VisionMetrics.iconMedium,
+                  ),
                   color: t.textSecondary,
                   disabledColor: t.textDisabled,
                   padding: EdgeInsets.zero,
@@ -810,13 +904,14 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
                 ),
               ),
               SizedBox(
-                width: 38,
-                height: 38,
+                width: context.hitSize,
+                height: context.hitSize,
                 child: IconButton(
                   onPressed: batchValue >= batchLimit
                       ? null
                       : () => updateBatchCount(batchValue + 1),
-                  icon: const Icon(Icons.add, size: 16),
+                  tooltip: context.l.panelBatchCount,
+                  icon: const Icon(Icons.add, size: VisionMetrics.iconMedium),
                   color: t.textSecondary,
                   disabledColor: t.textDisabled,
                   padding: EdgeInsets.zero,
@@ -833,9 +928,9 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           dimensionsField,
-          const SizedBox(height: 16),
+          const SizedBox(height: VisionMetrics.space16),
           seedField,
-          const SizedBox(height: 16),
+          const SizedBox(height: VisionMetrics.space16),
           batchField,
         ],
       );
@@ -844,9 +939,9 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(flex: 2, child: dimensionsField),
-        const SizedBox(width: 24),
+        const SizedBox(width: VisionMetrics.space24),
         Expanded(flex: 1, child: seedField),
-        const SizedBox(width: 24),
+        const SizedBox(width: VisionMetrics.space24),
         Expanded(flex: 1, child: batchField),
       ],
     );
@@ -894,13 +989,17 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
     if (mobile || compact) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [stepsSlider, const SizedBox(height: 16), scaleSlider],
+        children: [
+          stepsSlider,
+          const SizedBox(height: VisionMetrics.space16),
+          scaleSlider,
+        ],
       );
     }
     return Row(
       children: [
         Expanded(child: stepsSlider),
-        const SizedBox(width: 32),
+        const SizedBox(width: VisionMetrics.space24),
         Expanded(child: scaleSlider),
       ],
     );
@@ -913,13 +1012,6 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
     VisionTokens t, {
     bool compact = false,
   }) {
-    final labelStyle = TextStyle(
-      fontWeight: FontWeight.w900,
-      fontSize: t.fontSize(mobile ? 12 : 9),
-      letterSpacing: 2,
-      color: t.secondaryText,
-    );
-
     // Through the gateway only the samplers it accepts are offered; the one in
     // use stays listed so the field never shows a value it has no item for.
     final accepted = notifier.imageRules?.allowedSamplers ?? const <String>[];
@@ -933,8 +1025,7 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
     Widget samplerField = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(context.l.panelSampler.toUpperCase(), style: labelStyle),
-        const SizedBox(height: 12),
+        SectionTitle(context.l.panelSampler.toUpperCase(), t: t),
         DropdownButtonFormField<String>(
           // ignore: deprecated_member_use
           value: state.sampler,
@@ -945,14 +1036,14 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
             letterSpacing: 1,
           ),
           decoration: InputDecoration(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 8,
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: VisionMetrics.space12,
+              vertical: mobile ? VisionMetrics.space12 : VisionMetrics.space8,
             ),
             fillColor: t.borderSubtle,
             filled: true,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: VisionMetrics.borderRadius4,
               borderSide: BorderSide.none,
             ),
           ),
@@ -972,84 +1063,24 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
       ],
     );
 
-    Widget furryToggle = InkWell(
+    Widget furryToggle = _buildFlagToggle(
+      icon: Icons.pets,
+      label: 'FURRY',
+      active: state.furryMode,
+      color: t.accentFavorite,
       onTap: () => notifier.updateSettings(furryMode: !state.furryMode),
-      borderRadius: BorderRadius.circular(4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: state.furryMode ? const Color(0xFFFF9800) : t.borderMedium,
-          ),
-          color: state.furryMode
-              ? const Color(0xFFFF9800).withValues(alpha: 0.15)
-              : Colors.transparent,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.pets,
-              size: mobile ? 16 : 14,
-              color: state.furryMode ? const Color(0xFFFF9800) : t.textDisabled,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'FURRY',
-              style: TextStyle(
-                color: state.furryMode
-                    ? const Color(0xFFFF9800)
-                    : t.textDisabled,
-                fontSize: t.fontSize(mobile ? 10 : 9),
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2,
-              ),
-            ),
-          ],
-        ),
-      ),
+      mobile: mobile,
+      t: t,
     );
 
-    Widget curatedToggle = InkWell(
+    Widget curatedToggle = _buildFlagToggle(
+      icon: Icons.auto_awesome,
+      label: 'CURATED',
+      active: state.useCurated,
+      color: t.accentSuccess,
       onTap: () => notifier.updateSettings(useCurated: !state.useCurated),
-      borderRadius: BorderRadius.circular(4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: state.useCurated ? const Color(0xFF4CAF50) : t.borderMedium,
-          ),
-          color: state.useCurated
-              ? const Color(0xFF4CAF50).withValues(alpha: 0.15)
-              : Colors.transparent,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.auto_awesome,
-              size: mobile ? 16 : 14,
-              color: state.useCurated
-                  ? const Color(0xFF4CAF50)
-                  : t.textDisabled,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'CURATED',
-              style: TextStyle(
-                color: state.useCurated
-                    ? const Color(0xFF4CAF50)
-                    : t.textDisabled,
-                fontSize: t.fontSize(mobile ? 10 : 9),
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2,
-              ),
-            ),
-          ],
-        ),
-      ),
+      mobile: mobile,
+      t: t,
     );
 
     if (mobile || compact) {
@@ -1057,9 +1088,11 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           samplerField,
-          const SizedBox(height: 16),
-          Row(
-            children: [furryToggle, const SizedBox(width: 12), curatedToggle],
+          const SizedBox(height: VisionMetrics.space16),
+          Wrap(
+            spacing: VisionMetrics.space12,
+            runSpacing: VisionMetrics.space8,
+            children: [furryToggle, curatedToggle],
           ),
         ],
       );
@@ -1068,12 +1101,89 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(flex: 1, child: samplerField),
-        const SizedBox(width: 24),
+        const SizedBox(width: VisionMetrics.space24),
         furryToggle,
-        const SizedBox(width: 12),
+        const SizedBox(width: VisionMetrics.space12),
         curatedToggle,
       ],
     );
+  }
+
+  /// A labelled on/off toggle that lights up in [color] while [active].
+  Widget _buildFlagToggle({
+    required IconData icon,
+    required String label,
+    required bool active,
+    required Color color,
+    required VoidCallback onTap,
+    required bool mobile,
+    required VisionTokens t,
+  }) {
+    final foreground = active ? color : t.textDisabled;
+    final radius = BorderRadius.circular(VisionMetrics.radius4);
+    return Material(
+      color: active
+          ? color.withValues(alpha: VisionMetrics.opacityPressed)
+          : Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: BorderSide(color: active ? color : t.borderMedium),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: radius,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: context.hitSize),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: VisionMetrics.space12,
+              vertical: VisionMetrics.space8,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: mobile
+                      ? VisionMetrics.iconMedium
+                      : VisionMetrics.iconSmall,
+                  color: foreground,
+                ),
+                const SizedBox(width: VisionMetrics.space8),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: foreground,
+                    fontSize: t.fontSize(mobile ? 10 : 9),
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Deletes a saved custom resolution after the user confirms, then closes
+  /// the open dropdown (its item list is stale from here on).
+  Future<void> _deleteCustomResolution(ResolutionOption option) async {
+    final l = context.l;
+    final prefs = context.read<PreferencesService>();
+    final confirmed = await showConfirmDialog(
+      context,
+      title: l.panelDeleteResolution,
+      message: l.panelDeleteResolutionConfirm(option.displayLabel),
+      confirmLabel: l.commonDelete,
+      cancelLabel: l.commonCancel,
+    );
+    if (confirmed != true || !mounted) return;
+    await AdvancedSettingsPanel.deleteCustomResolutionOption(prefs, option);
+    if (!mounted) return;
+    setState(() {});
+    Navigator.of(context).maybePop();
   }
 
   Widget _buildStyleChip(
@@ -1099,13 +1209,22 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
       textStyle: TextStyle(color: t.textPrimary, fontSize: t.fontSize(9)),
       decoration: BoxDecoration(
         color: t.surfaceHigh,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(VisionMetrics.radius4),
         border: Border.all(color: t.borderMedium),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      padding: const EdgeInsets.symmetric(
+        horizontal: VisionMetrics.space8,
+        vertical: VisionMetrics.space4,
+      ),
       child: GestureDetector(
+        // Long press opens the same menu as on every other chip; styles can
+        // only be edited from here (they are deleted in the style manager).
         onLongPress: widget.onEditStyle != null
-            ? () => widget.onEditStyle!(style.name)
+            ? () => showChipActions(
+                context,
+                title: style.name,
+                onEdit: () => widget.onEditStyle!(style.name),
+              )
             : null,
         child: FilterChip(
           label: Row(
@@ -1123,51 +1242,12 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
                   ),
                 ),
               ),
-              if (style.negativeContent.isNotEmpty) ...[
-                const SizedBox(width: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 2,
-                    vertical: 1,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? t.background.withValues(alpha: 0.2)
-                        : t.borderMedium,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                  child: Text(
-                    "NEG",
-                    style: TextStyle(
-                      fontSize: t.fontSize(6),
-                      fontWeight: FontWeight.w900,
-                      color: isSelected ? t.background : t.textTertiary,
-                    ),
-                  ),
-                ),
-              ],
-              if (style.prefix.isNotEmpty || style.suffix.isNotEmpty) ...[
-                const SizedBox(width: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 2,
-                    vertical: 1,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? t.background.withValues(alpha: 0.2)
-                        : t.borderMedium,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                  child: Text(
-                    "POS",
-                    style: TextStyle(
-                      fontSize: t.fontSize(6),
-                      fontWeight: FontWeight.w900,
-                      color: isSelected ? t.background : t.textTertiary,
-                    ),
-                  ),
-                ),
+              for (final badge in [
+                if (style.negativeContent.isNotEmpty) 'NEG',
+                if (style.prefix.isNotEmpty || style.suffix.isNotEmpty) 'POS',
+              ]) ...[
+                const SizedBox(width: VisionMetrics.space4),
+                AppPill(text: badge, dense: true),
               ],
             ],
           ),
@@ -1187,13 +1267,12 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
           labelStyle: TextStyle(
             color: isSelected ? t.background : t.textTertiary,
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+          padding: const EdgeInsets.symmetric(horizontal: VisionMetrics.space8),
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
-          side: BorderSide(
-            color: isSelected ? t.accent : t.textMinimal,
-            width: 0.5,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(VisionMetrics.radius2),
           ),
+          side: BorderSide(color: isSelected ? t.accent : t.textMinimal),
         ),
       ),
     );
@@ -1204,62 +1283,53 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
     GenerationState state,
     VisionTokens t,
   ) {
-    final mobile = isMobile(context);
-    final labelStyle = TextStyle(
-      fontWeight: FontWeight.w900,
-      fontSize: t.fontSize(mobile ? 12 : 9),
-      letterSpacing: 2,
-      color: t.secondaryText,
-    );
-
+    final hit = context.hitSize;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(context.l.panelStyles.toUpperCase(), style: labelStyle),
-            Row(
-              children: [
-                if (state.styles.isNotEmpty)
-                  IconButton(
-                    icon: Icon(
-                      _stylesExpanded ? Icons.unfold_less : Icons.unfold_more,
-                      size: 14,
-                      color: t.textDisabled,
-                    ),
-                    tooltip: context.l.settingsStylesToggle,
-                    onPressed: () {
-                      setState(() => _stylesExpanded = !_stylesExpanded);
-                      context.read<PreferencesService>().setUiStylesExpanded(
-                        _stylesExpanded,
-                      );
-                    },
-                    constraints: const BoxConstraints(),
-                    padding: const EdgeInsets.only(right: 12),
-                  ),
+        SectionTitle(
+          context.l.panelStyles.toUpperCase(),
+          t: t,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (state.styles.isNotEmpty)
                 IconButton(
                   icon: Icon(
-                    Icons.settings_outlined,
-                    size: 14,
+                    _stylesExpanded ? Icons.unfold_less : Icons.unfold_more,
+                    size: VisionMetrics.iconSmall,
                     color: t.textDisabled,
                   ),
-                  onPressed: widget.onManageStyles,
-                  tooltip: context.l.panelManageStyles.toUpperCase(),
-                  constraints: const BoxConstraints(),
-                  padding: const EdgeInsets.only(right: 12),
+                  tooltip: context.l.settingsStylesToggle,
+                  onPressed: () {
+                    setState(() => _stylesExpanded = !_stylesExpanded);
+                    context.read<PreferencesService>().setUiStylesExpanded(
+                      _stylesExpanded,
+                    );
+                  },
+                  constraints: BoxConstraints(minWidth: hit, minHeight: hit),
+                  padding: EdgeInsets.zero,
                 ),
-                _buildChipToggle(
-                  context.l.panelEnabled.toUpperCase(),
-                  state.isStyleEnabled,
-                  (v) => notifier.updateSettings(isStyleEnabled: v),
-                  t,
+              IconButton(
+                icon: Icon(
+                  Icons.settings_outlined,
+                  size: VisionMetrics.iconSmall,
+                  color: t.textDisabled,
                 ),
-              ],
-            ),
-          ],
+                onPressed: widget.onManageStyles,
+                tooltip: context.l.panelManageStyles.toUpperCase(),
+                constraints: BoxConstraints(minWidth: hit, minHeight: hit),
+                padding: EdgeInsets.zero,
+              ),
+              _buildChipToggle(
+                context.l.panelEnabled.toUpperCase(),
+                state.isStyleEnabled,
+                (v) => notifier.updateSettings(isStyleEnabled: v),
+                t,
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 12),
         if (state.styles.isEmpty)
           Text(
             context.l.panelNoStylesDefined.toUpperCase(),
@@ -1271,8 +1341,8 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
           )
         else if (_stylesExpanded)
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: VisionMetrics.space8,
+            runSpacing: VisionMetrics.space8,
             children: state.styles.map((style) {
               final isSelected = state.activeStyleNames.contains(style.name);
               return _buildStyleChip(style, isSelected, notifier, t);
@@ -1280,7 +1350,7 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
           )
         else
           SizedBox(
-            height: 32,
+            height: hit,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: state.styles.length,
@@ -1288,7 +1358,7 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
                 final style = state.styles[index];
                 final isSelected = state.activeStyleNames.contains(style.name);
                 return Padding(
-                  padding: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.only(right: VisionMetrics.space8),
                   child: _buildStyleChip(style, isSelected, notifier, t),
                 );
               },
@@ -1299,7 +1369,7 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
   }
 
   Widget _buildNegativePrompt(GenerationNotifier notifier, VisionTokens t) {
-    final mobile = isMobile(context);
+    final mobile = _touch;
     // iOS Safari zooms focused form controls whose font size is below 16px.
     // Keep the native Web control at a mobile-safe size; the Flutter fallback
     // below retains the regular theme scale.
@@ -1310,16 +1380,7 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          context.l.panelNegativePrompt.toUpperCase(),
-          style: TextStyle(
-            fontWeight: FontWeight.w900,
-            fontSize: t.fontSize(mobile ? 12 : 9),
-            letterSpacing: 2,
-            color: t.secondaryText,
-          ),
-        ),
-        const SizedBox(height: 12),
+        SectionTitle(context.l.panelNegativePrompt.toUpperCase(), t: t),
         BrowserNativeTextArea(
           controller: notifier.negativePromptController,
           focusNode: _negativePromptFocus,
@@ -1338,11 +1399,12 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
           // page background while the textarea is focused.
           backgroundColor: nativeBackground,
           selectionColor: t.accent.withValues(alpha: 0.72),
-          selectionTextColor:
-              ThemeData.estimateBrightnessForColor(t.accent) == Brightness.dark
-              ? Colors.white
-              : Colors.black,
-          padding: const EdgeInsets.all(16),
+          selectionTextColor: _readableOn(
+            t.accent,
+            t.textPrimary,
+            t.background,
+          ),
+          padding: const EdgeInsets.all(VisionMetrics.space16),
           height: nativeFontSize * 1.4 * 3 + 32,
           onChanged: (_) => _onNegativePromptChanged(),
           fallback: ScrollConfiguration(
@@ -1363,10 +1425,10 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
                 fillColor: t.borderSubtle,
                 filled: true,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(VisionMetrics.radius4),
                   borderSide: BorderSide.none,
                 ),
-                contentPadding: const EdgeInsets.all(16),
+                contentPadding: const EdgeInsets.all(VisionMetrics.space16),
               ),
             ),
           ),
@@ -1391,36 +1453,27 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
     GenerationState state,
     VisionTokens t,
   ) {
-    final mobile = isMobile(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              context.l.panelPresets.toUpperCase(),
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: t.fontSize(mobile ? 12 : 9),
-                letterSpacing: 2,
-                color: t.secondaryText,
-              ),
+        SectionTitle(
+          context.l.panelPresets.toUpperCase(),
+          t: t,
+          trailing: IconButton(
+            icon: Icon(
+              Icons.add_circle_outline,
+              size: VisionMetrics.iconSmall,
+              color: t.secondaryText,
             ),
-            IconButton(
-              icon: Icon(
-                Icons.add_circle_outline,
-                size: 14,
-                color: t.secondaryText,
-              ),
-              tooltip: context.l.mainSavePreset,
-              onPressed: widget.onSavePreset,
-              constraints: const BoxConstraints(),
-              padding: EdgeInsets.zero,
+            tooltip: context.l.mainSavePreset,
+            onPressed: widget.onSavePreset,
+            constraints: BoxConstraints(
+              minWidth: context.hitSize,
+              minHeight: context.hitSize,
             ),
-          ],
+            padding: EdgeInsets.zero,
+          ),
         ),
-        const SizedBox(height: 12),
         if (state.presets.isEmpty)
           Text(
             context.l.panelNoPresetsSaved.toUpperCase(),
@@ -1435,14 +1488,13 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: state.presets.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 8),
+            separatorBuilder: (context, index) =>
+                const SizedBox(height: VisionMetrics.space8),
             itemBuilder: (context, index) {
               final preset = state.presets[index];
-              return Container(
-                decoration: BoxDecoration(
-                  color: t.borderSubtle,
-                  borderRadius: BorderRadius.circular(4),
-                ),
+              return AppPanel(
+                variant: AppPanelVariant.inset,
+                padding: EdgeInsets.zero,
                 child: ListTile(
                   dense: true,
                   title: Text(
@@ -1466,7 +1518,7 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
                       IconButton(
                         icon: Icon(
                           Icons.download,
-                          size: 14,
+                          size: VisionMetrics.iconSmall,
                           color: t.textTertiary,
                         ),
                         tooltip: context.l.presetLoad,
@@ -1475,7 +1527,7 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
                       IconButton(
                         icon: Icon(
                           Icons.delete_outline,
-                          size: 14,
+                          size: VisionMetrics.iconSmall,
                           color: t.textMinimal,
                         ),
                         tooltip: context.l.commonDelete,
@@ -1499,23 +1551,15 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
   Widget _buildSaveToAlbum(BuildContext context, VisionTokens t, bool mobile) {
     final gallery = context.watch<GalleryNotifier>();
     final prefs = context.read<PreferencesService>();
-    final labelStyle = TextStyle(
-      fontWeight: FontWeight.w900,
-      fontSize: t.fontSize(mobile ? 12 : 9),
-      letterSpacing: 2,
-      color: t.secondaryText,
-    );
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(context.l.panelSaveToAlbum.toUpperCase(), style: labelStyle),
-        const SizedBox(height: 12),
+        SectionTitle(context.l.panelSaveToAlbum.toUpperCase(), t: t),
         StatefulBuilder(
           builder: (context, setChipState) {
             final currentId = prefs.defaultSaveAlbumId;
             return SizedBox(
-              height: mobile ? 42 : 34,
+              height: context.hitSize,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: gallery.albums.length + 1,
@@ -1523,11 +1567,13 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
                   // Last item is the "+" create-album chip
                   if (index == gallery.albums.length) {
                     return Padding(
-                      padding: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.only(
+                        right: VisionMetrics.space8,
+                      ),
                       child: ActionChip(
                         avatar: Icon(
                           Icons.add,
-                          size: mobile ? 14 : 12,
+                          size: VisionMetrics.iconSmall,
                           color: t.textTertiary,
                         ),
                         label: Text(
@@ -1540,15 +1586,16 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
                           ),
                         ),
                         backgroundColor: t.borderSubtle,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: mobile ? 8 : 6,
-                          vertical: 0,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: VisionMetrics.space8,
                         ),
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(2),
+                          borderRadius: BorderRadius.circular(
+                            VisionMetrics.radius2,
+                          ),
                         ),
-                        side: BorderSide(color: t.textMinimal, width: 0.5),
+                        side: BorderSide(color: t.textMinimal),
                         onPressed: () =>
                             _showCreateAlbumDialog(context, gallery, prefs),
                       ),
@@ -1557,7 +1604,7 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
                   final album = gallery.albums[index];
                   final isActive = album.id == currentId;
                   return Padding(
-                    padding: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.only(right: VisionMetrics.space8),
                     child: FilterChip(
                       label: Text(
                         album.name.toUpperCase(),
@@ -1579,17 +1626,17 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
                       labelStyle: TextStyle(
                         color: isActive ? t.background : t.textTertiary,
                       ),
-                      padding: EdgeInsets.symmetric(
-                        horizontal: mobile ? 8 : 6,
-                        vertical: 0,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: VisionMetrics.space8,
                       ),
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(2),
+                        borderRadius: BorderRadius.circular(
+                          VisionMetrics.radius2,
+                        ),
                       ),
                       side: BorderSide(
                         color: isActive ? t.accentSuccess : t.textMinimal,
-                        width: 0.5,
                       ),
                     ),
                   );
@@ -1602,62 +1649,20 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
     );
   }
 
-  void _showCreateAlbumDialog(
+  Future<void> _showCreateAlbumDialog(
     BuildContext context,
     GalleryNotifier gallery,
     PreferencesService prefs,
-  ) {
-    final controller = TextEditingController();
-    final t = context.read<ThemeNotifier>().tokens;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: t.surfaceHigh,
-        title: Text(
-          ctx.l.panelNewAlbum.toUpperCase(),
-          style: TextStyle(
-            fontSize: t.fontSize(10),
-            letterSpacing: 2,
-            color: t.textSecondary,
-          ),
-        ),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(13)),
-          decoration: InputDecoration(
-            hintText: ctx.l.panelAlbumName.toUpperCase(),
-            hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9)),
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: t.borderMedium),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              ctx.l.commonCancel.toUpperCase(),
-              style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9)),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                gallery.createAlbum(controller.text.trim());
-                final newAlbum = gallery.albums.last;
-                prefs.setDefaultSaveAlbumId(newAlbum.id);
-                Navigator.pop(ctx);
-              }
-            },
-            child: Text(
-              ctx.l.commonCreate.toUpperCase(),
-              style: TextStyle(color: t.accent, fontSize: t.fontSize(9)),
-            ),
-          ),
-        ],
-      ),
+  ) async {
+    final l = context.l;
+    final name = await showTextInputDialog(
+      context,
+      title: l.panelNewAlbum.toUpperCase(),
+      confirmLabel: l.commonCreate,
+      hintText: l.panelAlbumName.toUpperCase(),
     );
+    if (name == null) return;
+    AdvancedSettingsPanel.createAlbumFromInput(name, gallery, prefs);
   }
 
   Future<void> _confirmDeletePreset(
@@ -1692,7 +1697,7 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
     double? hardMin,
     double? hardMax,
   }) {
-    final mobile = isMobile(context);
+    final mobile = _touch;
     final isWarning = warnAbove != null && value > warnAbove;
     final isInteger = step >= 1;
     // The slider itself stays on [min, max]; if the typed value exceeds the
@@ -1730,7 +1735,7 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
             ),
           ],
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: VisionMetrics.space4),
         VisionSlider(
           value: sliderValue,
           min: min,
@@ -1756,25 +1761,22 @@ class _ExpandedSettingsContentState extends State<ExpandedSettingsContent> {
     Function(bool) onChanged,
     VisionTokens t,
   ) {
-    return FilterChip(
-      label: Text(
-        label,
-        style: TextStyle(
-          fontSize: t.fontSize(9),
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1,
-        ),
-      ),
+    return AppSegmented<bool>(
+      options: [AppOption(value: true, label: label)],
       selected: value,
-      onSelected: onChanged,
-      backgroundColor: t.borderSubtle,
-      selectedColor: t.accent,
-      checkmarkColor: t.background,
-      labelStyle: TextStyle(color: value ? t.background : t.textTertiary),
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
-      side: BorderSide(color: value ? t.accent : t.textMinimal, width: 0.5),
+      onChanged: (_) => onChanged(!value),
     );
   }
+}
+
+/// Whichever of [a] and [b] reads better on top of [background].
+Color _readableOn(Color background, Color a, Color b) {
+  double contrast(Color x, Color y) {
+    final lx = x.computeLuminance();
+    final ly = y.computeLuminance();
+    return (lx > ly ? lx + 0.05 : ly + 0.05) /
+        (lx > ly ? ly + 0.05 : lx + 0.05);
+  }
+
+  return contrast(background, a) >= contrast(background, b) ? a : b;
 }

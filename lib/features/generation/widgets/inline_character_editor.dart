@@ -4,15 +4,19 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
-import '../../../core/theme/vision_tokens.dart';
+import '../../../core/theme/vision_metrics.dart';
 import '../../../core/widgets/confirm_dialog.dart';
+import '../../../core/widgets/section_title.dart';
+import '../../../core/widgets/text_input_dialog.dart';
+import '../../../core/widgets/ui/app_panel.dart';
+import '../../../core/widgets/ui/app_sheet.dart';
+import '../../../core/widgets/ui/app_tabs.dart';
 import '../../../core/widgets/syntax_highlight_controller.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/utils/resizable_lines.dart';
 import '../../../core/widgets/line_resize_handle.dart';
 import '../../../core/widgets/tag_suggestion_overlay.dart';
 import '../../../core/widgets/touch_scroll_wrap.dart';
-import '../../../core/utils/tag_suggestion_helper.dart';
 import '../../../core/services/tag_service.dart';
 import '../../../core/services/preferences_service.dart';
 import '../models/nai_character.dart';
@@ -21,6 +25,7 @@ import '../providers/generation_notifier.dart';
 import '../../characters/providers/character_library_notifier.dart';
 import 'nai_grid_selector.dart';
 import 'action_interaction_sheet.dart';
+import 'chip_actions.dart';
 
 class _CharEditorState {
   final List<NaiCharacter> characters;
@@ -49,12 +54,12 @@ class _CharEditorState {
 
   @override
   int get hashCode => Object.hash(
-        Object.hashAll(characters),
-        Object.hashAll(interactions),
-        autoPositioning,
-        characterEditorMode,
-        Object.hashAll(characterPresets),
-      );
+    Object.hashAll(characters),
+    Object.hashAll(interactions),
+    autoPositioning,
+    characterEditorMode,
+    Object.hashAll(characterPresets),
+  );
 }
 
 class InlineCharacterEditor extends StatelessWidget {
@@ -75,13 +80,7 @@ class InlineCharacterEditor extends StatelessWidget {
         final notifier = context.read<GenerationNotifier>();
         final t = context.t;
         final l = context.l;
-        final mobile = isMobile(context);
-        final labelStyle = TextStyle(
-          fontWeight: FontWeight.w900,
-          fontSize: t.fontSize(mobile ? 12 : 9),
-          letterSpacing: 2,
-          color: t.secondaryText,
-        );
+        final mobile = windowSizeClassOf(context).isTouchSized;
 
         final mode = editorState.characterEditorMode;
         final isExpanded = mode == 'expanded';
@@ -89,44 +88,35 @@ class InlineCharacterEditor extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header: label + mode chips + auto chip
-            Row(
+            // Header: label, then the mode switch and the auto chip
+            SectionTitle(l.charEditorTitle.toUpperCase(), t: t),
+            Wrap(
+              spacing: VisionMetrics.space8,
+              runSpacing: VisionMetrics.space8,
               children: [
-                Flexible(
-                  child: Text(l.charEditorTitle.toUpperCase(), style: labelStyle),
+                AppSegmented<bool>(
+                  options: [
+                    AppOption(value: true, label: l.charEditorExpanded),
+                    AppOption(value: false, label: l.charEditorCompact),
+                  ],
+                  selected: isExpanded,
+                  onChanged: (expanded) => notifier.setCharacterEditorMode(
+                    expanded ? 'expanded' : 'compact',
+                  ),
                 ),
-                const SizedBox(width: 8),
-                _ModeChip(
-                  label: l.charEditorExpanded,
-                  isSelected: isExpanded,
-                  onTap: () => notifier.setCharacterEditorMode('expanded'),
-                  t: t,
-                  mobile: mobile,
-                ),
-                const SizedBox(width: 4),
-                _ModeChip(
-                  label: l.charEditorCompact,
-                  isSelected: !isExpanded,
-                  onTap: () => notifier.setCharacterEditorMode('compact'),
-                  t: t,
-                  mobile: mobile,
-                ),
-                if (isExpanded && editorState.characters.isNotEmpty) ...[
-                  const SizedBox(width: 8),
-                  _ModeChip(
+                if (isExpanded && editorState.characters.isNotEmpty)
+                  _ToggleChip(
                     label: l.charEditorAutoPosition,
                     isSelected: editorState.autoPositioning,
-                    onTap: () => notifier.setAutoPositioning(!editorState.autoPositioning),
-                    t: t,
-                    accentColor: t.accentCharacter,
-                    mobile: mobile,
+                    onTap: () => notifier.setAutoPositioning(
+                      !editorState.autoPositioning,
+                    ),
                   ),
-                ],
               ],
             ),
 
             if (!isExpanded) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: VisionMetrics.space8),
               Text(
                 l.charEditorUsingCompactShelf.toUpperCase(),
                 style: TextStyle(
@@ -139,7 +129,7 @@ class InlineCharacterEditor extends StatelessWidget {
             ],
 
             if (isExpanded) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: VisionMetrics.space12),
               // Character cards
               for (int i = 0; i < editorState.characters.length; i++) ...[
                 _CharacterCard(
@@ -149,24 +139,24 @@ class InlineCharacterEditor extends StatelessWidget {
                   autoPositioning: editorState.autoPositioning,
                   characterPresets: editorState.characterPresets,
                 ),
-                if (i < editorState.characters.length - 1) const SizedBox(height: 8),
+                if (i < editorState.characters.length - 1)
+                  const SizedBox(height: VisionMetrics.space8),
               ],
 
               // Add character button
               if (editorState.characters.length < 6) ...[
-                const SizedBox(height: 8),
-                _AddCharacterButton(
+                const SizedBox(height: VisionMetrics.space8),
+                _AddButton(
                   onTap: () => notifier.addCharacter(),
                   label: l.charEditorAddCharacter,
-                  t: t,
                 ),
               ],
 
               // Interactions section
               if (editorState.characters.length >= 2) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: VisionMetrics.space16),
                 Divider(color: t.borderSubtle, height: 1),
-                const SizedBox(height: 12),
+                const SizedBox(height: VisionMetrics.space12),
                 _InteractionsSection(
                   characters: editorState.characters,
                   interactions: editorState.interactions,
@@ -180,99 +170,77 @@ class InlineCharacterEditor extends StatelessWidget {
   }
 }
 
-// ─── Mode Chip ───────────────────────────────────────────────────────────────
+// ─── Toggle Chip ─────────────────────────────────────────────────────────────
 
-class _ModeChip extends StatelessWidget {
+/// An on/off chip. Built on the segmented control so it wraps and keeps the
+/// shared touch size instead of carrying its own padding.
+class _ToggleChip extends StatelessWidget {
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
-  final VisionTokens t;
-  final Color? accentColor;
-  final bool mobile;
 
-  const _ModeChip({
+  const _ToggleChip({
     required this.label,
     required this.isSelected,
     required this.onTap,
-    required this.t,
-    this.accentColor,
-    this.mobile = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = accentColor ?? t.accent;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(2),
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: mobile ? 12 : 8,
-          vertical: mobile ? 8 : 4,
-        ),
-        decoration: BoxDecoration(
-          color: isSelected ? color : t.borderSubtle,
-          borderRadius: BorderRadius.circular(2),
-          border: Border.all(
-            color: isSelected ? color : t.textMinimal,
-            width: 0.5,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: t.fontSize(mobile ? 10 : 8),
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1,
-            color: isSelected ? t.background : t.textTertiary,
-          ),
-        ),
-      ),
+    return AppSegmented<bool>(
+      options: [AppOption(value: true, label: label)],
+      selected: isSelected,
+      onChanged: (_) => onTap(),
     );
   }
 }
 
-// ─── Add Character Button ────────────────────────────────────────────────────
+// ─── Add Button ──────────────────────────────────────────────────────────────
 
-class _AddCharacterButton extends StatelessWidget {
+class _AddButton extends StatelessWidget {
   final VoidCallback onTap;
   final String label;
-  final VisionTokens t;
 
-  const _AddCharacterButton({
-    required this.onTap,
-    required this.label,
-    required this.t,
-  });
+  const _AddButton({required this.onTap, required this.label});
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(4),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: t.accent.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: t.accent.withValues(alpha: 0.4), width: 0.5),
+    final t = context.t;
+    final radius = BorderRadius.circular(VisionMetrics.radius4);
+    return Material(
+      color: t.accent.withValues(alpha: VisionMetrics.opacityPressed),
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: BorderSide(
+          color: t.accent.withValues(alpha: VisionMetrics.opacityScrim),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.add, size: 14, color: t.accent),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: t.fontSize(9),
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1,
-                color: t.accent,
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: radius,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: context.hitSize,
+            minWidth: double.infinity,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.add, size: VisionMetrics.iconSmall, color: t.accent),
+              const SizedBox(width: VisionMetrics.space8),
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: t.fontSize(9),
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                    color: t.accent,
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -323,7 +291,9 @@ class _CharacterCardState extends State<_CharacterCard> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.character.name);
-    _promptController = SyntaxHighlightController(text: widget.character.prompt);
+    _promptController = SyntaxHighlightController(
+      text: widget.character.prompt,
+    );
     _ucController = SyntaxHighlightController(text: widget.character.uc);
 
     _nameController.addListener(_onTextChanged);
@@ -364,7 +334,8 @@ class _CharacterCardState extends State<_CharacterCard> {
     if (oldChar.name != newChar.name && _nameController.text != newChar.name) {
       changed = true;
     }
-    if (oldChar.prompt != newChar.prompt && _promptController.text != newChar.prompt) {
+    if (oldChar.prompt != newChar.prompt &&
+        _promptController.text != newChar.prompt) {
       changed = true;
     }
     if (oldChar.uc != newChar.uc && _ucController.text != newChar.uc) {
@@ -373,8 +344,12 @@ class _CharacterCardState extends State<_CharacterCard> {
 
     if (changed) {
       _syncing = true;
-      if (_nameController.text != newChar.name) _nameController.text = newChar.name;
-      if (_promptController.text != newChar.prompt) _promptController.text = newChar.prompt;
+      if (_nameController.text != newChar.name) {
+        _nameController.text = newChar.name;
+      }
+      if (_promptController.text != newChar.prompt) {
+        _promptController.text = newChar.prompt;
+      }
       if (_ucController.text != newChar.uc) _ucController.text = newChar.uc;
       _syncing = false;
     }
@@ -419,18 +394,25 @@ class _CharacterCardState extends State<_CharacterCard> {
     if (!mounted || _tagService == null) return;
     final text = _promptController.text;
     if (text.isEmpty) {
-      if (_promptSuggestions.isNotEmpty) setState(() => _promptSuggestions = []);
+      if (_promptSuggestions.isNotEmpty) {
+        setState(() => _promptSuggestions = []);
+      }
       return;
     }
     final parts = text.split(',');
     final lastPart = parts.last.trim();
     final minLength = TagService.containsNonAscii(lastPart) ? 1 : 2;
     if (lastPart.length < minLength) {
-      if (_promptSuggestions.isNotEmpty) setState(() => _promptSuggestions = []);
+      if (_promptSuggestions.isNotEmpty) {
+        setState(() => _promptSuggestions = []);
+      }
       return;
     }
     final charMatches = _characterLibrary?.suggestionTags(lastPart) ?? const [];
-    final suggestions = [...charMatches, ..._tagService!.getSuggestions(lastPart)];
+    final suggestions = [
+      ...charMatches,
+      ..._tagService!.getSuggestions(lastPart),
+    ];
     setState(() => _promptSuggestions = suggestions);
   }
 
@@ -459,30 +441,31 @@ class _CharacterCardState extends State<_CharacterCard> {
   }) {
     final insertText = tag.typeName == 'saved_character'
         ? ((tag.expansion != null && tag.expansion!.trim().isNotEmpty)
-            ? tag.expansion!.trim()
-            : tag.tag)
+              ? tag.expansion!.trim()
+              : tag.tag)
         : (tag.matchedAlias ?? tag.tag);
-    final currentText = controller.text;
-    final parts = currentText.split(',');
-    parts.removeLast();
-    final newText = parts.isEmpty
-        ? '$insertText, '
-        : '${parts.join(',')}, $insertText, ';
-    controller.text = newText;
-    controller.selection = TextSelection.fromPosition(
-      TextPosition(offset: newText.length),
-    );
+    // Drop the half-typed word the suggestion completes, then append through
+    // the shared character-insertion entry so negatives follow the same rules
+    // everywhere.
+    final parts = controller.text.split(',')..removeLast();
+    final isSavedCharacter = tag.typeName == 'saved_character';
+    controller.text = parts.join(',');
     // A saved character inserted into this character's PROMPT routes its
     // negative tags to this character's own UC field, not the global negative.
-    if (tag.typeName == 'saved_character' &&
+    final routeNegatives =
+        isSavedCharacter &&
         negativeTarget != null &&
-        (tag.negativeExpansion ?? '').trim().isNotEmpty) {
-      TagSuggestionHelper.appendNegatives(negativeTarget, tag.negativeExpansion);
-      // Reveal the UC field so the injected negatives are visible.
-      if (!_showUc) {
-        setState(() => _showUc = true);
-        context.read<PreferencesService>().setUiCharShowUc(true);
-      }
+        (tag.negativeExpansion ?? '').trim().isNotEmpty;
+    context.read<GenerationNotifier>().insertCharacterTags(
+      insertText,
+      routeNegatives ? tag.negativeExpansion : null,
+      promptTarget: controller,
+      negativeTarget: routeNegatives ? negativeTarget : null,
+    );
+    // Reveal the UC field so the injected negatives are visible.
+    if (routeNegatives && !_showUc) {
+      setState(() => _showUc = true);
+      context.read<PreferencesService>().setUiCharShowUc(true);
     }
   }
 
@@ -506,47 +489,23 @@ class _CharacterCardState extends State<_CharacterCard> {
     }
   }
 
-  void _saveAsPreset(BuildContext context) {
+  Future<void> _saveAsPreset(BuildContext context) async {
     final notifier = context.read<GenerationNotifier>();
-    final t = context.tRead;
     final l = context.l;
-    final nameCtrl = TextEditingController(text: widget.character.name);
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: t.surfaceHigh,
-        title: Text(l.charEditorSavePreset, style: TextStyle(fontSize: t.fontSize(10), letterSpacing: 2, color: t.textSecondary)),
-        content: TextField(
-          controller: nameCtrl,
-          autofocus: true,
-          style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(13)),
-          decoration: InputDecoration(
-            hintText: l.charEditorPresetName.toUpperCase(),
-            hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9)),
-            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: t.borderMedium)),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l.commonCancel.toUpperCase(), style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9))),
-          ),
-          TextButton(
-            onPressed: () {
-              if (nameCtrl.text.isNotEmpty) {
-                notifier.saveCharacterPreset(CharacterPreset(
-                  id: 'cp_${DateTime.now().millisecondsSinceEpoch}',
-                  name: nameCtrl.text,
-                  prompt: _promptController.text,
-                  uc: _ucController.text,
-                ));
-                Navigator.pop(ctx);
-              }
-            },
-            child: Text(l.commonSave.toUpperCase(), style: TextStyle(color: t.accent, fontSize: t.fontSize(9))),
-          ),
-        ],
+    final name = await showTextInputDialog(
+      context,
+      title: l.charEditorSavePreset,
+      confirmLabel: l.commonSave,
+      hintText: l.charEditorPresetName.toUpperCase(),
+      initialValue: widget.character.name,
+    );
+    if (name == null) return;
+    notifier.saveCharacterPreset(
+      CharacterPreset(
+        id: 'cp_${DateTime.now().millisecondsSinceEpoch}',
+        name: name,
+        prompt: _promptController.text,
+        uc: _ucController.text,
       ),
     );
   }
@@ -567,24 +526,14 @@ class _CharacterCardState extends State<_CharacterCard> {
   Widget build(BuildContext context) {
     final t = context.t;
     final l = context.l;
-    final mobile = isMobile(context);
-    final subLabelStyle = TextStyle(
-      fontWeight: FontWeight.w900,
-      fontSize: t.fontSize(mobile ? 10 : 8),
-      letterSpacing: 2,
-      color: t.textDisabled,
-    );
+    final mobile = windowSizeClassOf(context).isTouchSized;
 
     final displayName = widget.character.name.isNotEmpty
         ? widget.character.name.toUpperCase()
         : l.charEditorCharacterN(widget.index + 1).toUpperCase();
 
-    return Container(
-      decoration: BoxDecoration(
-        color: t.borderSubtle,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: t.borderMedium, width: 0.5),
-      ),
+    return AppPanel(
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -592,15 +541,18 @@ class _CharacterCardState extends State<_CharacterCard> {
           InkWell(
             onTap: () => setState(() => _isCollapsed = !_isCollapsed),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(
+                horizontal: VisionMetrics.space12,
+                vertical: VisionMetrics.space8,
+              ),
               child: Row(
                 children: [
                   Icon(
                     _isCollapsed ? Icons.expand_more : Icons.expand_less,
-                    size: 16,
+                    size: VisionMetrics.iconMedium,
                     color: t.textTertiary,
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: VisionMetrics.space8),
                   Expanded(
                     child: Text(
                       displayName,
@@ -615,12 +567,17 @@ class _CharacterCardState extends State<_CharacterCard> {
                   ),
                   IconButton(
                     onPressed: () => _confirmDelete(context),
-                    icon: Icon(Icons.close, size: 14, color: t.textTertiary),
-                    constraints: BoxConstraints(
-                      minWidth: mobile ? 40 : 24,
-                      minHeight: mobile ? 40 : 24,
+                    tooltip: l.charEditorDeleteCharacter,
+                    icon: Icon(
+                      Icons.close,
+                      size: VisionMetrics.iconSmall,
+                      color: t.textTertiary,
                     ),
-                    padding: EdgeInsets.all(mobile ? 8 : 0),
+                    constraints: BoxConstraints(
+                      minWidth: context.hitSize,
+                      minHeight: context.hitSize,
+                    ),
+                    padding: EdgeInsets.zero,
                   ),
                 ],
               ),
@@ -634,7 +591,12 @@ class _CharacterCardState extends State<_CharacterCard> {
             child: _isCollapsed
                 ? const SizedBox.shrink()
                 : Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                    padding: const EdgeInsets.fromLTRB(
+                      VisionMetrics.space12,
+                      0,
+                      VisionMetrics.space12,
+                      VisionMetrics.space12,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -646,22 +608,42 @@ class _CharacterCardState extends State<_CharacterCard> {
                             // across sessions (issue #15).
                             maxLines: _promptLines,
                             minLines: _promptLines < 2 ? _promptLines : 2,
-                            style: TextStyle(fontSize: t.fontSize(11), color: t.textSecondary, height: 1.4),
+                            style: TextStyle(
+                              fontSize: t.fontSize(11),
+                              color: t.textSecondary,
+                              height: 1.4,
+                            ),
                             decoration: InputDecoration(
                               hintText: l.charEditorPromptHint.toUpperCase(),
-                              hintStyle: TextStyle(fontSize: t.fontSize(9), color: t.textMinimal),
+                              hintStyle: TextStyle(
+                                fontSize: t.fontSize(9),
+                                color: t.textMinimal,
+                              ),
                               fillColor: t.surfaceHigh,
                               filled: true,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
-                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.borderMedium)),
-                              contentPadding: const EdgeInsets.all(12),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(
+                                  VisionMetrics.radius4,
+                                ),
+                                borderSide: BorderSide.none,
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(
+                                  VisionMetrics.radius4,
+                                ),
+                                borderSide: BorderSide(color: t.borderMedium),
+                              ),
+                              contentPadding: const EdgeInsets.all(
+                                VisionMetrics.space12,
+                              ),
                             ),
                           ),
                         ),
                         LineResizeHandle(
                           lines: _promptLines,
                           lineHeightPx: t.fontSize(11) * 1.4,
-                          onLines: (lines) => setState(() => _promptLines = lines),
+                          onLines: (lines) =>
+                              setState(() => _promptLines = lines),
                           onDone: (lines) => context
                               .read<PreferencesService>()
                               .setUiCharPromptLines(lines),
@@ -677,74 +659,98 @@ class _CharacterCardState extends State<_CharacterCard> {
                           ),
 
                         // Sub-section toggle chips
-                        const SizedBox(height: 8),
+                        const SizedBox(height: VisionMetrics.space8),
                         Wrap(
-                          spacing: 4,
-                          runSpacing: 4,
+                          spacing: VisionMetrics.space4,
+                          runSpacing: VisionMetrics.space4,
                           children: [
-                            _SubChip(
-                              label: 'TITLE',
+                            _ToggleChip(
+                              label: l.charEditorShowTitle,
                               isSelected: _showTitle,
                               onTap: () {
                                 setState(() => _showTitle = !_showTitle);
-                                context.read<PreferencesService>().setUiCharShowTitle(_showTitle);
+                                context
+                                    .read<PreferencesService>()
+                                    .setUiCharShowTitle(_showTitle);
                               },
-                              t: t,
-                              mobile: mobile,
                             ),
-                            _SubChip(
+                            _ToggleChip(
                               label: l.charEditorShowUc,
                               isSelected: _showUc,
                               onTap: () {
                                 setState(() => _showUc = !_showUc);
-                                context.read<PreferencesService>().setUiCharShowUc(_showUc);
+                                context
+                                    .read<PreferencesService>()
+                                    .setUiCharShowUc(_showUc);
                               },
-                              t: t,
-                              mobile: mobile,
                             ),
-                            _SubChip(
+                            _ToggleChip(
                               label: l.charEditorShowPosition,
                               isSelected: _showPosition,
                               onTap: () {
                                 setState(() => _showPosition = !_showPosition);
-                                context.read<PreferencesService>().setUiCharShowPosition(_showPosition);
+                                context
+                                    .read<PreferencesService>()
+                                    .setUiCharShowPosition(_showPosition);
                               },
-                              t: t,
-                              mobile: mobile,
                             ),
-                            _SubChip(
+                            _ToggleChip(
                               label: l.charEditorShowPresets,
                               isSelected: _showPresets,
                               onTap: () {
                                 setState(() => _showPresets = !_showPresets);
-                                context.read<PreferencesService>().setUiCharShowPresets(_showPresets);
+                                context
+                                    .read<PreferencesService>()
+                                    .setUiCharShowPresets(_showPresets);
                               },
-                              t: t,
-                              mobile: mobile,
                             ),
                           ],
                         ),
 
                         // Title/name section
                         if (_showTitle) ...[
-                          const SizedBox(height: 10),
-                          Text(l.charEditorCharacterName, style: subLabelStyle),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: VisionMetrics.space12),
+                          SectionTitle(
+                            l.charEditorCharacterName.toUpperCase(),
+                            t: t,
+                            variant: SectionTitleVariant.compact,
+                          ),
                           SizedBox(
                             width: mobile ? double.infinity : 400,
                             child: TextField(
                               controller: _nameController,
                               maxLines: 1,
-                              style: TextStyle(fontSize: t.fontSize(9), color: t.textSecondary),
+                              style: TextStyle(
+                                fontSize: t.fontSize(9),
+                                color: t.textSecondary,
+                              ),
                               decoration: InputDecoration(
                                 isDense: true,
-                                hintText: l.charEditorCharacterN(widget.index + 1).toUpperCase(),
-                                hintStyle: TextStyle(fontSize: t.fontSize(9), color: t.textMinimal),
+                                hintText: l
+                                    .charEditorCharacterN(widget.index + 1)
+                                    .toUpperCase(),
+                                hintStyle: TextStyle(
+                                  fontSize: t.fontSize(9),
+                                  color: t.textMinimal,
+                                ),
                                 fillColor: t.surfaceHigh,
                                 filled: true,
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
-                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.borderMedium)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    VisionMetrics.radius4,
+                                  ),
+                                  borderSide: BorderSide.none,
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    VisionMetrics.radius4,
+                                  ),
+                                  borderSide: BorderSide(color: t.borderMedium),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: VisionMetrics.space12,
+                                  vertical: VisionMetrics.space12,
+                                ),
                               ),
                             ),
                           ),
@@ -752,37 +758,59 @@ class _CharacterCardState extends State<_CharacterCard> {
 
                         // UC section
                         if (_showUc) ...[
-                          const SizedBox(height: 10),
+                          const SizedBox(height: VisionMetrics.space12),
                           TouchScrollWrap(
                             child: TextField(
                               controller: _ucController,
                               maxLines: 2,
                               minLines: 1,
-                              style: TextStyle(fontSize: t.fontSize(11), color: t.textSecondary, height: 1.4),
+                              style: TextStyle(
+                                fontSize: t.fontSize(11),
+                                color: t.textSecondary,
+                                height: 1.4,
+                              ),
                               decoration: InputDecoration(
                                 hintText: l.charEditorUcHint.toUpperCase(),
-                                hintStyle: TextStyle(fontSize: t.fontSize(9), color: t.textMinimal),
+                                hintStyle: TextStyle(
+                                  fontSize: t.fontSize(9),
+                                  color: t.textMinimal,
+                                ),
                                 fillColor: t.surfaceHigh,
                                 filled: true,
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
-                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.borderMedium)),
-                                contentPadding: const EdgeInsets.all(12),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    VisionMetrics.radius4,
+                                  ),
+                                  borderSide: BorderSide.none,
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    VisionMetrics.radius4,
+                                  ),
+                                  borderSide: BorderSide(color: t.borderMedium),
+                                ),
+                                contentPadding: const EdgeInsets.all(
+                                  VisionMetrics.space12,
+                                ),
                               ),
                             ),
                           ),
                           if (_ucSuggestions.isNotEmpty)
                             TagSuggestionOverlay(
                               suggestions: _ucSuggestions,
-                              onTagSelected: (tag) => _onTagSelected(_ucController, tag),
+                              onTagSelected: (tag) =>
+                                  _onTagSelected(_ucController, tag),
                             ),
                         ],
 
                         // Position section
                         if (_showPosition) ...[
-                          const SizedBox(height: 10),
+                          const SizedBox(height: VisionMetrics.space12),
                           if (widget.autoPositioning)
                             Container(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: VisionMetrics.space16,
+                              ),
                               alignment: Alignment.center,
                               child: Text(
                                 l.charEditorAiDecidesPosition.toUpperCase(),
@@ -802,7 +830,8 @@ class _CharacterCardState extends State<_CharacterCard> {
                                 child: NaiGridSelector(
                                   selectedCoordinate: widget.character.center,
                                   onCoordinateSelected: (coord) {
-                                    final notifier = context.read<GenerationNotifier>();
+                                    final notifier = context
+                                        .read<GenerationNotifier>();
                                     notifier.updateCharacter(
                                       widget.index,
                                       widget.character.copyWith(center: coord),
@@ -815,53 +844,101 @@ class _CharacterCardState extends State<_CharacterCard> {
 
                         // Presets section
                         if (_showPresets) ...[
-                          const SizedBox(height: 10),
+                          const SizedBox(height: VisionMetrics.space12),
                           Row(
                             children: [
                               ActionChip(
-                                avatar: Icon(Icons.save_outlined, size: 14, color: t.textTertiary),
+                                avatar: Icon(
+                                  Icons.save_outlined,
+                                  size: 14,
+                                  color: t.textTertiary,
+                                ),
                                 label: Text(
                                   l.charEditorSavePreset,
-                                  style: TextStyle(fontSize: t.fontSize(8), fontWeight: FontWeight.bold, letterSpacing: 1, color: t.textTertiary),
+                                  style: TextStyle(
+                                    fontSize: t.fontSize(8),
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1,
+                                    color: t.textTertiary,
+                                  ),
                                 ),
                                 backgroundColor: t.borderSubtle,
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
-                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
-                                side: BorderSide(color: t.textMinimal, width: 0.5),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: VisionMetrics.space4,
+                                ),
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    VisionMetrics.radius2,
+                                  ),
+                                ),
+                                side: BorderSide(
+                                  color: t.textMinimal,
+                                  width: VisionMetrics.borderWidth,
+                                ),
                                 onPressed: () => _saveAsPreset(context),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: VisionMetrics.space8),
                           if (widget.characterPresets.isEmpty)
                             Text(
                               l.charEditorNoPresets.toUpperCase(),
-                              style: TextStyle(fontSize: t.fontSize(8), color: t.textMinimal, letterSpacing: 1),
+                              style: TextStyle(
+                                fontSize: t.fontSize(8),
+                                color: t.textMinimal,
+                                letterSpacing: 1,
+                              ),
                             )
                           else
                             Wrap(
-                              spacing: 4,
-                              runSpacing: 4,
+                              spacing: VisionMetrics.space4,
+                              runSpacing: VisionMetrics.space4,
                               children: widget.characterPresets.map((preset) {
                                 return GestureDetector(
-                                  onLongPress: () {
-                                    final notifier = context.read<GenerationNotifier>();
-                                    notifier.deleteCharacterPreset(preset.id);
-                                  },
+                                  onLongPress: () => showChipActions(
+                                    context,
+                                    title: preset.name,
+                                    onDelete: () => context
+                                        .read<GenerationNotifier>()
+                                        .deleteCharacterPreset(preset.id),
+                                    deleteMessage: l.panelDeletePresetConfirm(
+                                      preset.name,
+                                    ),
+                                  ),
                                   child: ActionChip(
                                     label: Text(
                                       preset.name.toUpperCase(),
-                                      style: TextStyle(fontSize: t.fontSize(8), fontWeight: FontWeight.bold, letterSpacing: 1, color: t.textTertiary),
+                                      style: TextStyle(
+                                        fontSize: t.fontSize(8),
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1,
+                                        color: t.textTertiary,
+                                      ),
                                     ),
                                     backgroundColor: t.borderSubtle,
-                                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
-                                    side: BorderSide(color: t.textMinimal, width: 0.5),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: VisionMetrics.space4,
+                                    ),
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(
+                                        VisionMetrics.radius2,
+                                      ),
+                                    ),
+                                    side: BorderSide(
+                                      color: t.textMinimal,
+                                      width: VisionMetrics.borderWidth,
+                                    ),
                                     onPressed: () {
-                                      final notifier = context.read<GenerationNotifier>();
-                                      notifier.applyCharacterPreset(widget.index, preset);
+                                      final notifier = context
+                                          .read<GenerationNotifier>();
+                                      notifier.applyCharacterPreset(
+                                        widget.index,
+                                        preset,
+                                      );
                                     },
                                   ),
                                 );
@@ -878,55 +955,6 @@ class _CharacterCardState extends State<_CharacterCard> {
   }
 }
 
-// ─── Sub-section Toggle Chip ─────────────────────────────────────────────────
-
-class _SubChip extends StatelessWidget {
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final VisionTokens t;
-  final bool mobile;
-
-  const _SubChip({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-    required this.t,
-    this.mobile = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(2),
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: mobile ? 10 : 6,
-          vertical: mobile ? 6 : 3,
-        ),
-        decoration: BoxDecoration(
-          color: isSelected ? t.accent.withValues(alpha: 0.2) : t.surfaceHigh,
-          borderRadius: BorderRadius.circular(2),
-          border: Border.all(
-            color: isSelected ? t.accent : t.borderMedium,
-            width: 0.5,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: t.fontSize(mobile ? 9 : 7),
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1,
-            color: isSelected ? t.accent : t.textTertiary,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 // ─── Interactions Section ────────────────────────────────────────────────────
 
 class _InteractionsSection extends StatelessWidget {
@@ -938,26 +966,25 @@ class _InteractionsSection extends StatelessWidget {
     required this.interactions,
   });
 
-  void _openInteractionEditor(BuildContext context, {
+  void _openInteractionEditor(
+    BuildContext context, {
     required List<int> sourceIndices,
     required List<int> targetIndices,
     required InteractionType type,
     NaiInteraction? existing,
   }) {
     final notifier = context.read<GenerationNotifier>();
-    final t = context.tRead;
 
-    showModalBottomSheet(
+    showSelfPaddedSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: t.surfaceHigh,
       builder: (context) => ActionInteractionSheet(
         sourceIndices: sourceIndices,
         targetIndices: targetIndices,
         initialType: type,
         characters: characters,
         initialInteraction: existing,
-        onSave: (updated) => notifier.updateInteraction(updated, replacing: existing),
+        onSave: (updated) =>
+            notifier.updateInteraction(updated, replacing: existing),
         onDelete: () {
           if (existing != null) notifier.removeInteraction(existing);
         },
@@ -966,169 +993,96 @@ class _InteractionsSection extends StatelessWidget {
   }
 
   void _showAddInteractionPicker(BuildContext context) {
-    final t = context.tRead;
     final l = context.l;
     var isMutual = false;
     final selectedSources = <int>{};
     final selectedTargets = <int>{};
 
-    showModalBottomSheet(
+    showAppSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: t.surfaceHigh,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) {
-          final chipStyle = TextStyle(
-            fontSize: t.fontSize(9),
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1,
-          );
+          final t = ctx.t;
 
           Widget buildCharChip(int i, Set<int> selected, {Set<int>? excluded}) {
             final name = characters[i].name.isNotEmpty
                 ? characters[i].name
                 : l.charEditorCharacterN(i + 1);
-            final isSelected = selected.contains(i);
             final isExcluded = excluded?.contains(i) ?? false;
-            return InkWell(
-              onTap: isExcluded ? null : () {
-                setSheetState(() {
-                  if (isSelected) {
-                    selected.remove(i);
-                  } else {
-                    selected.add(i);
-                  }
-                });
-              },
-              borderRadius: BorderRadius.circular(2),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: isExcluded
-                      ? t.borderSubtle.withValues(alpha: 0.3)
-                      : isSelected
-                          ? t.accent
-                          : t.borderSubtle,
-                  borderRadius: BorderRadius.circular(2),
-                  border: Border.all(
-                    color: isExcluded ? t.textMinimal.withValues(alpha: 0.3) : isSelected ? t.accent : t.textMinimal,
-                    width: 0.5,
-                  ),
-                ),
-                child: Text(
-                  name.toUpperCase(),
-                  style: chipStyle.copyWith(
-                    color: isExcluded
-                        ? t.textMinimal.withValues(alpha: 0.3)
-                        : isSelected
-                            ? t.background
-                            : t.textTertiary,
-                  ),
-                ),
-              ),
+            return FilterChip(
+              label: Text(name.toUpperCase()),
+              selected: selected.contains(i),
+              showCheckmark: false,
+              onSelected: isExcluded
+                  ? null
+                  : (on) => setSheetState(() {
+                      if (on) {
+                        selected.add(i);
+                      } else {
+                        selected.remove(i);
+                      }
+                    }),
             );
           }
 
-          final bool canContinue;
-          if (isMutual) {
-            canContinue = selectedSources.length >= 2;
-          } else {
-            canContinue = selectedSources.isNotEmpty && selectedTargets.isNotEmpty;
-          }
-
-          return Container(
-            color: t.surfaceMid,
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-              left: 24,
-              right: 24,
-              top: 16,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+          Widget picker(String title, Set<int> selected, {Set<int>? excluded}) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  l.charEditorAddInteraction.toUpperCase(),
-                  style: TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: t.fontSize(12),
-                    letterSpacing: 4,
-                    color: t.textPrimary,
-                  ),
+                SectionTitle(
+                  title.toUpperCase(),
+                  t: t,
+                  variant: SectionTitleVariant.compact,
                 ),
-                const SizedBox(height: 20),
-                // Type selector chips
-                Row(
+                Wrap(
+                  spacing: VisionMetrics.space8,
+                  runSpacing: VisionMetrics.space8,
                   children: [
-                    InkWell(
-                      onTap: () => setSheetState(() {
-                        isMutual = false;
-                        selectedTargets.clear();
-                      }),
-                      borderRadius: BorderRadius.circular(2),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: !isMutual ? t.accent : t.borderSubtle,
-                          borderRadius: BorderRadius.circular(2),
-                          border: Border.all(color: !isMutual ? t.accent : t.textMinimal, width: 0.5),
-                        ),
-                        child: Text(
-                          l.charEditorSourceTarget,
-                          style: chipStyle.copyWith(color: !isMutual ? t.background : t.textTertiary),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    InkWell(
-                      onTap: () => setSheetState(() {
-                        isMutual = true;
-                        selectedTargets.clear();
-                      }),
-                      borderRadius: BorderRadius.circular(2),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: isMutual ? t.accent : t.borderSubtle,
-                          borderRadius: BorderRadius.circular(2),
-                          border: Border.all(color: isMutual ? t.accent : t.textMinimal, width: 0.5),
-                        ),
-                        child: Text(
-                          l.charEditorMutual,
-                          style: chipStyle.copyWith(color: isMutual ? t.background : t.textTertiary),
-                        ),
-                      ),
-                    ),
+                    for (var i = 0; i < characters.length; i++)
+                      buildCharChip(i, selected, excluded: excluded),
                   ],
                 ),
-                const SizedBox(height: 20),
-                if (isMutual) ...[
-                  Text(l.charEditorParticipants.toUpperCase(), style: TextStyle(fontWeight: FontWeight.w900, fontSize: t.fontSize(9), letterSpacing: 2, color: t.textDisabled)),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: List.generate(characters.length, (i) => buildCharChip(i, selectedSources)),
+              ],
+            );
+          }
+
+          final canContinue = isMutual
+              ? selectedSources.length >= 2
+              : selectedSources.isNotEmpty && selectedTargets.isNotEmpty;
+
+          return AppPickerSheet(
+            title: l.charEditorAddInteraction,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AppSegmented<bool>(
+                  options: [
+                    AppOption(value: false, label: l.charEditorSourceTarget),
+                    AppOption(value: true, label: l.charEditorMutual),
+                  ],
+                  selected: isMutual,
+                  onChanged: (mutual) => setSheetState(() {
+                    isMutual = mutual;
+                    selectedTargets.clear();
+                  }),
+                ),
+                const SizedBox(height: VisionMetrics.space16),
+                if (isMutual)
+                  picker(l.charEditorParticipants, selectedSources)
+                else ...[
+                  picker(
+                    l.charEditorSelectSource,
+                    selectedSources,
+                    excluded: selectedTargets,
                   ),
-                ] else ...[
-                  Text(l.charEditorSelectSource.toUpperCase(), style: TextStyle(fontWeight: FontWeight.w900, fontSize: t.fontSize(9), letterSpacing: 2, color: t.textDisabled)),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: List.generate(characters.length, (i) => buildCharChip(i, selectedSources, excluded: selectedTargets)),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(l.charEditorSelectTarget.toUpperCase(), style: TextStyle(fontWeight: FontWeight.w900, fontSize: t.fontSize(9), letterSpacing: 2, color: t.textDisabled)),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: List.generate(characters.length, (i) => buildCharChip(i, selectedTargets, excluded: selectedSources)),
+                  const SizedBox(height: VisionMetrics.space16),
+                  picker(
+                    l.charEditorSelectTarget,
+                    selectedTargets,
+                    excluded: selectedSources,
                   ),
                 ],
-                const SizedBox(height: 24),
+                const SizedBox(height: VisionMetrics.space24),
                 ElevatedButton(
                   onPressed: canContinue
                       ? () {
@@ -1136,24 +1090,17 @@ class _InteractionsSection extends StatelessWidget {
                           _openInteractionEditor(
                             context,
                             sourceIndices: selectedSources.toList()..sort(),
-                            targetIndices: isMutual ? [] : (selectedTargets.toList()..sort()),
-                            type: isMutual ? InteractionType.mutual : InteractionType.sourceTarget,
+                            targetIndices: isMutual
+                                ? []
+                                : (selectedTargets.toList()..sort()),
+                            type: isMutual
+                                ? InteractionType.mutual
+                                : InteractionType.sourceTarget,
                           );
                         }
                       : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: t.accent,
-                    foregroundColor: t.background,
-                    disabledBackgroundColor: t.borderSubtle,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                  ),
-                  child: Text(
-                    l.charEditorContinue,
-                    style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 2, fontSize: t.fontSize(10)),
-                  ),
+                  child: Text(l.charEditorContinue.toUpperCase()),
                 ),
-                const SizedBox(height: 8),
               ],
             ),
           );
@@ -1166,19 +1113,15 @@ class _InteractionsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.t;
     final l = context.l;
-    final mobile = isMobile(context);
-    final labelStyle = TextStyle(
-      fontWeight: FontWeight.w900,
-      fontSize: t.fontSize(mobile ? 10 : 8),
-      letterSpacing: 2,
-      color: t.secondaryText,
-    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(l.charEditorInteractions.toUpperCase(), style: labelStyle),
-        const SizedBox(height: 8),
+        SectionTitle(
+          l.charEditorInteractions.toUpperCase(),
+          t: t,
+          variant: SectionTitleVariant.compact,
+        ),
         // Existing interactions
         for (final interaction in interactions) ...[
           _InteractionTile(
@@ -1192,37 +1135,12 @@ class _InteractionsSection extends StatelessWidget {
               existing: interaction,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: VisionMetrics.space4),
         ],
         // Add interaction button
-        InkWell(
+        _AddButton(
           onTap: () => _showAddInteractionPicker(context),
-          borderRadius: BorderRadius.circular(4),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: t.accent.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: t.accent.withValues(alpha: 0.4), width: 0.5),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.add, size: 14, color: t.accent),
-                const SizedBox(width: 6),
-                Text(
-                  l.charEditorAddInteraction,
-                  style: TextStyle(
-                    fontSize: t.fontSize(8),
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                    color: t.accent,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          label: l.charEditorAddInteraction,
         ),
       ],
     );
@@ -1243,7 +1161,9 @@ class _InteractionTile extends StatelessWidget {
   });
 
   String _charName(int index, BuildContext context) {
-    if (index >= 0 && index < characters.length && characters[index].name.isNotEmpty) {
+    if (index >= 0 &&
+        index < characters.length &&
+        characters[index].name.isNotEmpty) {
       return characters[index].name;
     }
     return context.l.charEditorCharacterN(index + 1);
@@ -1260,32 +1180,45 @@ class _InteractionTile extends StatelessWidget {
 
     final String display;
     if (interaction.type == InteractionType.mutual) {
-      final participants = interaction.sourceCharacterIndices.map((i) => _charName(i, context)).join(' \u2194 ');
+      final participants = interaction.sourceCharacterIndices
+          .map((i) => _charName(i, context))
+          .join(' \u2194 ');
       display = '$participants: ${interaction.actionName}';
     } else {
       final source = _joinNames(interaction.sourceCharacterIndices, context);
       final target = _joinNames(interaction.targetCharacterIndices, context);
-      display = l.charEditorInteractionDisplay(source, target, interaction.actionName);
+      display = l.charEditorInteractionDisplay(
+        source,
+        target,
+        interaction.actionName,
+      );
     }
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(4),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: t.borderSubtle,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: t.accentSuccess.withValues(alpha: 0.3), width: 0.5),
+    final radius = BorderRadius.circular(VisionMetrics.radius4);
+    return Material(
+      color: t.borderSubtle,
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: BorderSide(
+          color: t.accentSuccess.withValues(alpha: VisionMetrics.opacityScrim),
         ),
-        child: Text(
-          display,
-          style: TextStyle(
-            fontSize: t.fontSize(9),
-            color: t.textSecondary,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: radius,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: VisionMetrics.space12,
+            vertical: VisionMetrics.space8,
+          ),
+          child: Text(
+            display,
+            style: TextStyle(
+              fontSize: t.fontSize(9),
+              color: t.textSecondary,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
           ),
         ),
       ),

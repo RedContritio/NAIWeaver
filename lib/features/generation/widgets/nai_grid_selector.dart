@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/vision_metrics.dart';
 import '../../../core/utils/nai_coordinate_utils.dart';
 import '../models/nai_character.dart';
 
@@ -22,7 +23,7 @@ class NaiGridSelector extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           border: Border.all(color: t.borderStrong),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(VisionMetrics.radius8),
         ),
         child: GridView.builder(
           padding: const EdgeInsets.all(8),
@@ -40,13 +41,13 @@ class NaiGridSelector extends StatelessWidget {
 
             return InkWell(
               onTap: () => onCoordinateSelected(coord),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(VisionMetrics.radius4),
               child: Container(
                 decoration: BoxDecoration(
                   color: isSelected
                       ? t.accent
                       : t.textMinimal,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(VisionMetrics.radius4),
                   border: isSelected
                       ? null
                       : Border.all(color: t.textMinimal),
