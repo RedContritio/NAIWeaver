@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import '../theme/theme_extensions.dart';
+import '../theme/vision_metrics.dart';
 
 /// Smallest hit area for any action in a manager list or header.
-const double kManagerTouchTarget = 40;
+const double kManagerTouchTarget = VisionMetrics.minHitTarget;
 
 ButtonStyle _managerButtonStyle() => IconButton.styleFrom(
   fixedSize: const Size.square(kManagerTouchTarget),
@@ -30,7 +31,11 @@ class ManagerIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      icon: Icon(icon, size: 18, color: color ?? context.t.textDisabled),
+      icon: Icon(
+        icon,
+        size: VisionMetrics.iconMedium,
+        color: color ?? context.t.textDisabled,
+      ),
       tooltip: tooltip,
       onPressed: onPressed,
       style: _managerButtonStyle(),
@@ -68,7 +73,10 @@ class ManagerListHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.t;
     return Padding(
-      padding: const EdgeInsets.only(left: 12, right: 4),
+      padding: const EdgeInsets.only(
+        left: VisionMetrics.space12,
+        right: VisionMetrics.space4,
+      ),
       child: Row(
         children: [
           Expanded(
@@ -141,10 +149,10 @@ class ManagerListTile extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: kManagerTouchTarget),
           child: Padding(
             padding: EdgeInsets.only(
-              left: dragIndex == null ? 12 : 0,
-              right: 4,
-              top: 2,
-              bottom: 2,
+              left: dragIndex == null ? VisionMetrics.space12 : 0,
+              right: VisionMetrics.space4,
+              top: VisionMetrics.radius2,
+              bottom: VisionMetrics.radius2,
             ),
             child: Row(
               children: [
@@ -155,12 +163,15 @@ class ManagerListTile extends StatelessWidget {
                       dimension: kManagerTouchTarget,
                       child: Icon(
                         Icons.drag_handle,
-                        size: 16,
+                        size: VisionMetrics.iconMedium,
                         color: t.textDisabled,
                       ),
                     ),
                   ),
-                if (leading != null) ...[leading!, const SizedBox(width: 8)],
+                if (leading != null) ...[
+                  leading!,
+                  const SizedBox(width: VisionMetrics.space8),
+                ],
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -182,7 +193,9 @@ class ManagerListTile extends StatelessWidget {
                       ),
                       if (subtitle != null)
                         Padding(
-                          padding: const EdgeInsets.only(top: 2),
+                          padding: const EdgeInsets.only(
+                            top: VisionMetrics.radius2,
+                          ),
                           child: Text(
                             subtitle!,
                             maxLines: 1,
@@ -203,7 +216,7 @@ class ManagerListTile extends StatelessWidget {
                     key: menuKey,
                     icon: Icon(
                       Icons.more_vert,
-                      size: 18,
+                      size: VisionMetrics.iconMedium,
                       color: t.textDisabled,
                     ),
                     color: t.surfaceHigh,
@@ -237,8 +250,8 @@ class _MenuEntry extends StatelessWidget {
     final color = action.destructive ? t.accentDanger : t.textSecondary;
     return Row(
       children: [
-        Icon(action.icon, size: 16, color: color),
-        const SizedBox(width: 10),
+        Icon(action.icon, size: VisionMetrics.iconMedium, color: color),
+        const SizedBox(width: VisionMetrics.space8),
         Flexible(
           child: Text(
             action.label.toUpperCase(),

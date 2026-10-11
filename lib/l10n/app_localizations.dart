@@ -418,6 +418,12 @@ abstract class AppLocalizations {
   /// **'pst-xxxx...'**
   String get settingsApiKeyHint;
 
+  /// No description provided for @settingsApiKeyVisibility.
+  ///
+  /// In en, this message translates to:
+  /// **'Show or hide the API key'**
+  String get settingsApiKeyVisibility;
+
   /// No description provided for @settingsApiManaged.
   ///
   /// In en, this message translates to:
@@ -2428,6 +2434,30 @@ abstract class AppLocalizations {
   /// **'RANDOM'**
   String get tagLibRandom;
 
+  /// No description provided for @tagDetailViewOnDanbooru.
+  ///
+  /// In en, this message translates to:
+  /// **'View on Danbooru'**
+  String get tagDetailViewOnDanbooru;
+
+  /// No description provided for @tagDetailNoWiki.
+  ///
+  /// In en, this message translates to:
+  /// **'No wiki description for this tag.'**
+  String get tagDetailNoWiki;
+
+  /// No description provided for @tagDetailCheckDanbooru.
+  ///
+  /// In en, this message translates to:
+  /// **'Check on Danbooru'**
+  String get tagDetailCheckDanbooru;
+
+  /// No description provided for @tagDetailLicense.
+  ///
+  /// In en, this message translates to:
+  /// **'Tag descriptions © Danbooru contributors, CC-BY-SA-4.0'**
+  String get tagDetailLicense;
+
   /// No description provided for @presetManager.
   ///
   /// In en, this message translates to:
@@ -3207,6 +3237,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Import failed: {error}'**
   String packImportFailed(String error);
+
+  /// No description provided for @packRefLibrarySaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The saved references could not be stored. Free up storage space and import again.'**
+  String get packRefLibrarySaveFailed;
+
+  /// No description provided for @packSelectAll.
+  ///
+  /// In en, this message translates to:
+  /// **'ALL'**
+  String get packSelectAll;
+
+  /// No description provided for @packSelectNone.
+  ///
+  /// In en, this message translates to:
+  /// **'NONE'**
+  String get packSelectNone;
 
   /// No description provided for @packExportGalleryTitle.
   ///
@@ -4258,6 +4306,78 @@ abstract class AppLocalizations {
   /// **'PLAY ALL'**
   String get slideshowPlayAll;
 
+  /// No description provided for @slideshowPrevious.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous image'**
+  String get slideshowPrevious;
+
+  /// No description provided for @slideshowNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next image'**
+  String get slideshowNext;
+
+  /// No description provided for @slideshowPause.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get slideshowPause;
+
+  /// No description provided for @slideshowResume.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume'**
+  String get slideshowResume;
+
+  /// No description provided for @slideshowMusic.
+  ///
+  /// In en, this message translates to:
+  /// **'MUSIC'**
+  String get slideshowMusic;
+
+  /// No description provided for @slideshowEnableMusic.
+  ///
+  /// In en, this message translates to:
+  /// **'ENABLE MUSIC'**
+  String get slideshowEnableMusic;
+
+  /// No description provided for @slideshowMusicVolume.
+  ///
+  /// In en, this message translates to:
+  /// **'MUSIC VOLUME'**
+  String get slideshowMusicVolume;
+
+  /// No description provided for @slideshowKaraoke.
+  ///
+  /// In en, this message translates to:
+  /// **'KARAOKE LYRICS'**
+  String get slideshowKaraoke;
+
+  /// No description provided for @slideshowSongsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'SONGS (TAP TO SELECT, EMPTY = ALL)'**
+  String get slideshowSongsHint;
+
+  /// No description provided for @slideshowSoundFont.
+  ///
+  /// In en, this message translates to:
+  /// **'SOUNDFONT'**
+  String get slideshowSoundFont;
+
+  /// No description provided for @slideshowSoundFontDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'DEFAULT'**
+  String get slideshowSoundFontDefault;
+
+  /// No description provided for @slideshowCategoryAll.
+  ///
+  /// In en, this message translates to:
+  /// **'ALL'**
+  String get slideshowCategoryAll;
+
   /// No description provided for @slideshowConfigs.
   ///
   /// In en, this message translates to:
@@ -4558,6 +4678,12 @@ abstract class AppLocalizations {
   /// **'NO IMAGES IN GALLERY'**
   String get demoNoImages;
 
+  /// No description provided for @demoGridSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Change grid size'**
+  String get demoGridSize;
+
   /// No description provided for @cascadeBeatTimeline.
   ///
   /// In en, this message translates to:
@@ -4731,6 +4857,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Show your Anlas balance in the top bar'**
   String get settingsAnlasTrackerDesc;
+
+  /// No description provided for @settingsCopyButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy to Clipboard'**
+  String get settingsCopyButton;
+
+  /// No description provided for @settingsCopyButtonDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Show copy button on generated images'**
+  String get settingsCopyButtonDesc;
+
+  /// No description provided for @settingsHideTagValues.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide Tag Values'**
+  String get settingsHideTagValues;
+
+  /// No description provided for @settingsHideTagValuesDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide tag count values in autocomplete suggestions'**
+  String get settingsHideTagValuesDesc;
+
+  /// No description provided for @settingsFontSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Font Size'**
+  String get settingsFontSize;
+
+  /// No description provided for @settingsFontSizeDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Scales all UI text. Default 100%.'**
+  String get settingsFontSizeDesc;
+
+  /// No description provided for @settingsOpenLinkTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Open External Link'**
+  String get settingsOpenLinkTitle;
+
+  /// No description provided for @settingsOpenLinkBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You are about to leave NAIWeaver and open a new window:'**
+  String get settingsOpenLinkBody;
+
+  /// No description provided for @settingsOpenLinkConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Link'**
+  String get settingsOpenLinkConfirm;
 
   /// No description provided for @canvasEditorTitle.
   ///
@@ -5115,6 +5295,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Browse'**
   String get settingsOutputFolderBrowse;
+
+  /// No description provided for @settingsFolderUseDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Use default folder'**
+  String get settingsFolderUseDefault;
 
   /// No description provided for @settingsOutputFolderClear.
   ///

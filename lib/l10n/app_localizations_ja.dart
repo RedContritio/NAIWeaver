@@ -170,6 +170,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsApiKeyHint => 'pst-xxxx...';
 
   @override
+  String get settingsApiKeyVisibility => 'API キーの表示/非表示';
+
+  @override
   String get settingsApiManaged => 'NovelAI APIキーはサーバーで管理';
 
   @override
@@ -1249,6 +1252,18 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tagLibRandom => 'ランダム';
 
   @override
+  String get tagDetailViewOnDanbooru => 'Danbooru で見る';
+
+  @override
+  String get tagDetailNoWiki => 'このタグの Wiki 説明はありません。';
+
+  @override
+  String get tagDetailCheckDanbooru => 'Danbooru で確認';
+
+  @override
+  String get tagDetailLicense => 'タグ説明 © Danbooru contributors, CC-BY-SA-4.0';
+
+  @override
   String get presetManager => 'プリセットマネージャー';
 
   @override
@@ -1683,6 +1698,16 @@ class AppLocalizationsJa extends AppLocalizations {
   String packImportFailed(String error) {
     return 'インポートに失敗しました: $error';
   }
+
+  @override
+  String get packRefLibrarySaveFailed =>
+      '保存済みリファレンスを保存できませんでした。ストレージの空きを確保してから再度インポートしてください。';
+
+  @override
+  String get packSelectAll => 'すべて';
+
+  @override
+  String get packSelectNone => 'なし';
 
   @override
   String get packExportGalleryTitle => 'ギャラリーをエクスポート';
@@ -2244,6 +2269,42 @@ class AppLocalizationsJa extends AppLocalizations {
   String get slideshowPlayAll => 'すべて再生';
 
   @override
+  String get slideshowPrevious => '前の画像';
+
+  @override
+  String get slideshowNext => '次の画像';
+
+  @override
+  String get slideshowPause => '一時停止';
+
+  @override
+  String get slideshowResume => '再生';
+
+  @override
+  String get slideshowMusic => '音楽';
+
+  @override
+  String get slideshowEnableMusic => '音楽を有効化';
+
+  @override
+  String get slideshowMusicVolume => '音楽の音量';
+
+  @override
+  String get slideshowKaraoke => 'カラオケ歌詞';
+
+  @override
+  String get slideshowSongsHint => '曲（タップで選択、空 = すべて）';
+
+  @override
+  String get slideshowSoundFont => 'サウンドフォント';
+
+  @override
+  String get slideshowSoundFontDefault => 'デフォルト';
+
+  @override
+  String get slideshowCategoryAll => 'すべて';
+
+  @override
   String get slideshowConfigs => '設定一覧';
 
   @override
@@ -2406,6 +2467,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get demoNoImages => 'ギャラリーに画像がありません';
 
   @override
+  String get demoGridSize => 'グリッドサイズを変更';
+
+  @override
   String get cascadeBeatTimeline => 'ビートタイムライン';
 
   @override
@@ -2500,6 +2564,33 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsAnlasTrackerDesc => 'トップバーにAnlas残高を表示します';
+
+  @override
+  String get settingsCopyButton => 'クリップボードにコピー';
+
+  @override
+  String get settingsCopyButtonDesc => '生成画像にコピーボタンを表示';
+
+  @override
+  String get settingsHideTagValues => 'タグ数値を非表示';
+
+  @override
+  String get settingsHideTagValuesDesc => 'オートコンプリート候補のタグ件数を非表示';
+
+  @override
+  String get settingsFontSize => 'フォントサイズ';
+
+  @override
+  String get settingsFontSizeDesc => 'UI の文字をすべて拡大縮小します。既定は 100%。';
+
+  @override
+  String get settingsOpenLinkTitle => '外部リンクを開く';
+
+  @override
+  String get settingsOpenLinkBody => 'NAIWeaver を離れて新しいウィンドウを開きます：';
+
+  @override
+  String get settingsOpenLinkConfirm => 'リンクを開く';
 
   @override
   String get canvasEditorTitle => 'キャンバスエディタ';
@@ -2698,6 +2789,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsOutputFolderBrowse => '参照';
+
+  @override
+  String get settingsFolderUseDefault => '既定のフォルダーを使う';
 
   @override
   String get settingsOutputFolderClear => 'クリア';

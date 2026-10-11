@@ -31,11 +31,12 @@ class StyleState {
     String? currentTagQuery,
     bool? isModified,
     bool? isEditingNegative,
+    bool clearSelection = false,
   }) {
     return StyleState(
       styles: styles ?? this.styles,
-      selectedStyle: selectedStyle ?? this.selectedStyle,
-      originalName: originalName ?? this.originalName,
+      selectedStyle: clearSelection ? null : selectedStyle ?? this.selectedStyle,
+      originalName: clearSelection ? null : originalName ?? this.originalName,
       tagSuggestions: tagSuggestions ?? this.tagSuggestions,
       currentTagQuery: currentTagQuery ?? this.currentTagQuery,
       isModified: isModified ?? this.isModified,
@@ -79,6 +80,7 @@ class StyleNotifier extends ChangeNotifier {
     _state = _state.copyWith(
       selectedStyle: style,
       originalName: style?.name,
+      clearSelection: style == null,
       isModified: false,
       isEditingNegative: style != null && style.negativeContent.isNotEmpty && style.prefix.isEmpty && style.suffix.isEmpty,
       tagSuggestions: [],

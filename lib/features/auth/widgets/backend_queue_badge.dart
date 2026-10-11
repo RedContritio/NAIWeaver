@@ -6,7 +6,8 @@ import 'package:provider/provider.dart';
 import '../../../core/gateway/backend_exception.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/services/backend_client.dart';
-import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/vision_metrics.dart';
+import '../../../core/widgets/ui/app_pill.dart';
 import '../backend_auth_notifier.dart';
 
 class BackendQueueBadge extends StatefulWidget {
@@ -108,7 +109,6 @@ class _BackendQueueBadgeState extends State<BackendQueueBadge>
 
   @override
   Widget build(BuildContext context) {
-    final t = context.t;
     final status = _status;
     final seconds = status?.estimatedWaitSeconds;
     final detail = (status?.userActive ?? false) || seconds == 0
@@ -122,32 +122,12 @@ class _BackendQueueBadgeState extends State<BackendQueueBadge>
         : (status?.queued ?? 0) > 0
         ? context.l.gatewayQueueQueued
         : context.l.gatewayQueueIdle;
-    return Tooltip(
-      message: '${context.l.gatewayQueueStatus}: $detail',
-      child: Container(
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: t.borderSubtle,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: t.borderMedium),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.schedule, size: 12, color: t.headerText),
-            const SizedBox(width: 4),
-            Text(
-              detail,
-              style: TextStyle(
-                color: t.headerText,
-                fontSize: t.fontSize(8),
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ],
-        ),
+    return Padding(
+      padding: const EdgeInsets.only(right: VisionMetrics.space8),
+      child: AppPill(
+        icon: Icons.schedule,
+        text: detail,
+        tooltip: '${context.l.gatewayQueueStatus}: $detail',
       ),
     );
   }

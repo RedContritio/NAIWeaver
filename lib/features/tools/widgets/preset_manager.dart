@@ -8,6 +8,13 @@ import '../../../core/theme/vision_tokens.dart';
 import '../../../core/widgets/confirm_dialog.dart';
 import '../../../core/widgets/manager_list_tile.dart';
 import '../../../core/widgets/manager_shell.dart';
+import '../../../core/widgets/section_title.dart';
+import '../../../core/widgets/ui/app_panel.dart';
+import '../../../core/widgets/ui/app_pill.dart';
+import '../../../core/widgets/ui/app_states.dart';
+import '../../../core/widgets/ui/overlay_action_button.dart';
+import 'shelf_toggle.dart';
+import 'synced_text_field.dart';
 import '../../../core/widgets/vision_slider.dart';
 import '../../../core/widgets/tag_suggestion_overlay.dart';
 import '../../../core/services/presets.dart';
@@ -17,6 +24,7 @@ import '../../generation/models/nai_character.dart';
 import '../../generation/providers/generation_notifier.dart';
 import '../../characters/providers/character_library_notifier.dart';
 import '../providers/preset_notifier.dart';
+import '../../../core/theme/vision_metrics.dart';
 
 class PresetManager extends StatelessWidget {
   const PresetManager({super.key});
@@ -80,7 +88,8 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
     PresetNotifier notifier, [
     GenerationPreset? preset,
   ]) async {
-    final editing = notifier.state.selectedPreset != null &&
+    final editing =
+        notifier.state.selectedPreset != null &&
         preset != null &&
         notifier.state.originalName == preset.name;
     if (!editing) {
@@ -128,7 +137,11 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
     );
   }
 
-  Widget _buildPresetList(BuildContext context, PresetNotifier notifier, VisionTokens t) {
+  Widget _buildPresetList(
+    BuildContext context,
+    PresetNotifier notifier,
+    VisionTokens t,
+  ) {
     final l = context.l;
     final state = notifier.state;
     return ColoredBox(
@@ -153,7 +166,8 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
               itemBuilder: (context, index) {
                 final preset = state.presets[index];
                 final isSelected = state.selectedPreset?.name == preset.name;
-                final hasExtras = preset.characters.isNotEmpty ||
+                final hasExtras =
+                    preset.characters.isNotEmpty ||
                     preset.interactions.isNotEmpty ||
                     preset.directorReferences.isNotEmpty;
 
@@ -162,8 +176,15 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
                   subtitle: !hasExtras
                       ? null
                       : preset.directorReferences.isNotEmpty
-                          ? l.presetCharsRefsInfo(preset.characters.length, preset.interactions.length, preset.directorReferences.length)
-                          : l.presetCharsInfo(preset.characters.length, preset.interactions.length),
+                      ? l.presetCharsRefsInfo(
+                          preset.characters.length,
+                          preset.interactions.length,
+                          preset.directorReferences.length,
+                        )
+                      : l.presetCharsInfo(
+                          preset.characters.length,
+                          preset.interactions.length,
+                        ),
                   selected: isSelected,
                   leading: Icon(
                     Icons.tune,
@@ -181,7 +202,8 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
                       label: l.commonDelete,
                       icon: Icons.delete_outline,
                       destructive: true,
-                      onSelected: () => _showDeleteConfirm(context, notifier, preset, t),
+                      onSelected: () =>
+                          _showDeleteConfirm(context, notifier, preset, t),
                     ),
                   ],
                 );
@@ -193,23 +215,27 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
     );
   }
 
-  Widget _buildEditor(BuildContext context, PresetNotifier notifier, VisionTokens t) {
+  Widget _buildEditor(
+    BuildContext context,
+    PresetNotifier notifier,
+    VisionTokens t,
+  ) {
     final l = context.l;
     final state = notifier.state;
     if (state.selectedPreset == null) {
-      return Center(
-        child: Text(
-          l.presetSelectToEdit,
-          style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9), letterSpacing: 2),
-        ),
-      );
+      return EmptyState(message: l.presetSelectToEdit);
     }
 
     return Column(
       children: [
         if (state.tagSuggestions.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+            padding: const EdgeInsets.fromLTRB(
+              VisionMetrics.space24,
+              VisionMetrics.space8,
+              VisionMetrics.space24,
+              0,
+            ),
             child: TagSuggestionOverlay(
               suggestions: state.tagSuggestions,
               onTagSelected: notifier.applyTagSuggestion,
@@ -217,7 +243,7 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
           ),
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(VisionMetrics.space24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -228,7 +254,7 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
                   onChanged: (val) => notifier.updateCurrentPreset(name: val),
                   t: t,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: VisionMetrics.space24),
                 _buildSectionTitle(l.presetPrompts, t),
                 Focus(
                   onFocusChange: (hasFocus) {
@@ -243,30 +269,34 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
                     label: l.presetPrompt,
                     maxLines: 4,
                     onChanged: (val) {
-                      notifier.handleTagSuggestions(val, notifier.promptController.selection);
+                      notifier.handleTagSuggestions(
+                        val,
+                        notifier.promptController.selection,
+                      );
                       notifier.updateCurrentPreset(prompt: val);
                     },
                     t: t,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: VisionMetrics.space16),
                 _buildTextField(
                   controller: notifier.negativePromptController,
                   label: l.presetNegativePrompt,
                   maxLines: 3,
-                  onChanged: (val) => notifier.updateCurrentPreset(negativePrompt: val),
+                  onChanged: (val) =>
+                      notifier.updateCurrentPreset(negativePrompt: val),
                   t: t,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: VisionMetrics.space24),
                 _buildSectionTitle(l.presetGenSettings, t),
                 _buildSettingsGrid(context, notifier, t),
-                const SizedBox(height: 24),
+                const SizedBox(height: VisionMetrics.space24),
                 _buildSectionTitle(l.presetCharsAndInteractions, t),
                 _buildCharacterSection(context, notifier, t),
-                const SizedBox(height: 24),
+                const SizedBox(height: VisionMetrics.space24),
                 _buildSectionTitle(l.presetReferences, t),
                 _buildReferenceSection(context, notifier, t),
-                const SizedBox(height: 40),
+                const SizedBox(height: VisionMetrics.space24),
               ],
             ),
           ),
@@ -275,15 +305,8 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
     );
   }
 
-  Widget _buildSectionTitle(String title, VisionTokens t) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Text(
-        title,
-        style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(8), letterSpacing: 2, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
+  Widget _buildSectionTitle(String title, VisionTokens t) =>
+      SectionTitle(title, t: t);
 
   Widget _buildTextField({
     required TextEditingController controller,
@@ -295,25 +318,43 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(8), letterSpacing: 1)),
-        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: t.textMinimal,
+            fontSize: t.fontSize(8),
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: VisionMetrics.space4),
         TextField(
           controller: controller,
           maxLines: maxLines,
           onChanged: onChanged,
-          style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(13), height: 1.5),
+          style: TextStyle(
+            color: t.textSecondary,
+            fontSize: t.fontSize(13),
+            height: 1.5,
+          ),
           decoration: InputDecoration(
             filled: true,
             fillColor: t.borderSubtle,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
-            contentPadding: const EdgeInsets.all(12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.all(VisionMetrics.space12),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildSettingsGrid(BuildContext context, PresetNotifier notifier, VisionTokens t) {
+  Widget _buildSettingsGrid(
+    BuildContext context,
+    PresetNotifier notifier,
+    VisionTokens t,
+  ) {
     final l = context.l;
     final preset = notifier.state.selectedPreset!;
     return Column(
@@ -331,7 +372,7 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
                 t: t,
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: VisionMetrics.space16),
             Expanded(
               child: _buildSlider(
                 label: l.presetHeight,
@@ -345,7 +386,7 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: VisionMetrics.space16),
         Row(
           children: [
             Expanded(
@@ -359,7 +400,7 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
                 t: t,
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: VisionMetrics.space16),
             Expanded(
               child: _buildSlider(
                 label: l.presetSteps,
@@ -374,29 +415,41 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: VisionMetrics.space16),
         Row(
           children: [
             Expanded(
               child: _buildDropdown(
                 label: l.presetSampler,
                 value: preset.sampler,
-                items: ["k_euler_ancestral", "k_euler", "k_dpmpp_2s_ancestral", "k_dpmpp_2m", "k_dpmpp_sde"],
+                items: [
+                  "k_euler_ancestral",
+                  "k_euler",
+                  "k_dpmpp_2s_ancestral",
+                  "k_dpmpp_2m",
+                  "k_dpmpp_sde",
+                ],
                 onChanged: (v) => notifier.updateCurrentPreset(sampler: v),
                 t: t,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        Wrap(
-          spacing: 24,
-          runSpacing: 8,
-          children: [
-            _buildToggle(label: "SMEA", value: preset.smea, onChanged: (v) => notifier.updateCurrentPreset(smea: v), t: t),
-            _buildToggle(label: "SMEA DYN", value: preset.smeaDyn, onChanged: (v) => notifier.updateCurrentPreset(smeaDyn: v), t: t),
-            _buildToggle(label: "DECRISPER", value: preset.decrisper, onChanged: (v) => notifier.updateCurrentPreset(decrisper: v), t: t),
-          ],
+        const SizedBox(height: VisionMetrics.space16),
+        ShelfToggle(
+          label: "SMEA",
+          value: preset.smea,
+          onChanged: (v) => notifier.updateCurrentPreset(smea: v),
+        ),
+        ShelfToggle(
+          label: "SMEA DYN",
+          value: preset.smeaDyn,
+          onChanged: (v) => notifier.updateCurrentPreset(smeaDyn: v),
+        ),
+        ShelfToggle(
+          label: "DECRISPER",
+          value: preset.decrisper,
+          onChanged: (v) => notifier.updateCurrentPreset(decrisper: v),
         ),
       ],
     );
@@ -419,8 +472,22 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(8), letterSpacing: 1)),
-            Text(value.toInt().toString(), style: TextStyle(color: isWarning ? t.accentDanger : t.textSecondary, fontSize: t.fontSize(9), fontWeight: FontWeight.bold)),
+            Text(
+              label,
+              style: TextStyle(
+                color: t.textDisabled,
+                fontSize: t.fontSize(8),
+                letterSpacing: 1,
+              ),
+            ),
+            Text(
+              value.toInt().toString(),
+              style: TextStyle(
+                color: isWarning ? t.accentDanger : t.textSecondary,
+                fontSize: t.fontSize(9),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
         VisionSlider(
@@ -429,7 +496,9 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
           min: min,
           max: max,
           divisions: divisions,
-          activeColor: isWarning ? t.accentDanger.withValues(alpha: 0.4) : t.textPrimary.withValues(alpha: 0.2),
+          activeColor: isWarning
+              ? t.accentDanger.withValues(alpha: VisionMetrics.opacityDisabled)
+              : t.textPrimary.withValues(alpha: VisionMetrics.opacityPressed),
           inactiveColor: t.borderSubtle,
           thumbColor: isWarning ? t.accentDanger : t.textPrimary,
           thumbRadius: 6,
@@ -449,20 +518,32 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(8), letterSpacing: 1)),
-        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: t.textDisabled,
+            fontSize: t.fontSize(8),
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: VisionMetrics.space4),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(
+            horizontal: VisionMetrics.space12,
+          ),
           decoration: BoxDecoration(
             color: t.borderSubtle,
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(VisionMetrics.radius4),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: value,
               isExpanded: true,
               dropdownColor: t.surfaceHigh,
-              style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(11)),
+              style: TextStyle(
+                color: t.textSecondary,
+                fontSize: t.fontSize(11),
+              ),
               onChanged: onChanged,
               items: items.map((String item) {
                 return DropdownMenuItem<String>(
@@ -477,32 +558,11 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
     );
   }
 
-  Widget _buildToggle({required String label, required bool value, required Function(bool) onChanged, required VisionTokens t}) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Transform.scale(
-          scale: 0.6,
-          child: SizedBox(
-            height: 24,
-            width: 32,
-            child: Switch(
-              value: value,
-              onChanged: onChanged,
-              activeThumbColor: t.textPrimary,
-              activeTrackColor: t.textDisabled,
-              inactiveThumbColor: t.textMinimal,
-              inactiveTrackColor: t.borderSubtle,
-            ),
-          ),
-        ),
-        const SizedBox(width: 2),
-        Text(label, style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(8), letterSpacing: 1)),
-      ],
-    );
-  }
-
-  Widget _buildCharacterSection(BuildContext context, PresetNotifier notifier, VisionTokens t) {
+  Widget _buildCharacterSection(
+    BuildContext context,
+    PresetNotifier notifier,
+    VisionTokens t,
+  ) {
     final l = context.l;
     final preset = notifier.state.selectedPreset!;
 
@@ -510,18 +570,19 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (preset.characters.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(16),
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: t.borderSubtle,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: t.borderSubtle),
-            ),
-            child: Text(
-              l.presetNoChars,
-              style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(8), letterSpacing: 1),
-              textAlign: TextAlign.center,
+          AppPanel(
+            variant: AppPanelVariant.inset,
+            child: SizedBox(
+              width: double.infinity,
+              child: Text(
+                l.presetNoChars,
+                style: TextStyle(
+                  color: t.textMinimal,
+                  fontSize: t.fontSize(8),
+                  letterSpacing: 1,
+                ),
+                textAlign: TextAlign.center,
+              ),
             ),
           )
         else
@@ -529,15 +590,12 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: preset.characters.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 8),
+            separatorBuilder: (context, index) =>
+                const SizedBox(height: VisionMetrics.space8),
             itemBuilder: (context, index) {
               final char = preset.characters[index];
-              return Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: t.borderSubtle,
-                  borderRadius: BorderRadius.circular(4),
-                ),
+              return AppPanel(
+                variant: AppPanelVariant.inset,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -546,49 +604,86 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
                       children: [
                         Text(
                           l.presetCharacterN(index + 1),
-                          style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(8), fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: t.textTertiary,
+                            fontSize: t.fontSize(8),
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        IconButton(
-                          icon: Icon(Icons.close, size: 12, color: t.textDisabled),
+                        ManagerIconButton(
+                          icon: Icons.close,
+                          tooltip: l.commonDelete,
                           onPressed: () {
-                            final updated = List<NaiCharacter>.from(preset.characters)..removeAt(index);
+                            final updated = List<NaiCharacter>.from(
+                              preset.characters,
+                            )..removeAt(index);
                             // Also cleanup interactions
                             final updatedInts = preset.interactions
                                 .map((i) {
-                              var sources = i.sourceCharacterIndices.where((s) => s != index).toList();
-                              var targets = i.targetCharacterIndices.where((t) => t != index).toList();
-                              sources = sources.map((s) => s > index ? s - 1 : s).toList();
-                              targets = targets.map((t) => t > index ? t - 1 : t).toList();
-                              return i.copyWith(sourceCharacterIndices: sources, targetCharacterIndices: targets);
-                            }).where((i) {
-                              if (i.type == InteractionType.mutual) return i.sourceCharacterIndices.isNotEmpty;
-                              return i.sourceCharacterIndices.isNotEmpty && i.targetCharacterIndices.isNotEmpty;
-                            }).toList();
-                            notifier.updateCurrentPreset(characters: updated, interactions: updatedInts);
+                                  var sources = i.sourceCharacterIndices
+                                      .where((s) => s != index)
+                                      .toList();
+                                  var targets = i.targetCharacterIndices
+                                      .where((t) => t != index)
+                                      .toList();
+                                  sources = sources
+                                      .map((s) => s > index ? s - 1 : s)
+                                      .toList();
+                                  targets = targets
+                                      .map((t) => t > index ? t - 1 : t)
+                                      .toList();
+                                  return i.copyWith(
+                                    sourceCharacterIndices: sources,
+                                    targetCharacterIndices: targets,
+                                  );
+                                })
+                                .where((i) {
+                                  if (i.type == InteractionType.mutual)
+                                    return i.sourceCharacterIndices.isNotEmpty;
+                                  return i.sourceCharacterIndices.isNotEmpty &&
+                                      i.targetCharacterIndices.isNotEmpty;
+                                })
+                                .toList();
+                            notifier.updateCurrentPreset(
+                              characters: updated,
+                              interactions: updatedInts,
+                            );
                           },
-                          constraints: const BoxConstraints(),
-                          padding: EdgeInsets.zero,
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: VisionMetrics.space8),
                     _buildMiniTextField(
+                      key: ValueKey('preset-char-$index-prompt'),
                       label: l.presetPrompt,
                       initialValue: char.prompt,
                       onChanged: (val) {
-                        final updated = List<NaiCharacter>.from(preset.characters);
-                        updated[index] = NaiCharacter(prompt: val, uc: char.uc, center: char.center);
+                        final updated = List<NaiCharacter>.from(
+                          preset.characters,
+                        );
+                        updated[index] = NaiCharacter(
+                          prompt: val,
+                          uc: char.uc,
+                          center: char.center,
+                        );
                         notifier.updateCurrentPreset(characters: updated);
                       },
                       t: t,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: VisionMetrics.space8),
                     _buildMiniTextField(
+                      key: ValueKey('preset-char-$index-uc'),
                       label: "UC",
                       initialValue: char.uc,
                       onChanged: (val) {
-                        final updated = List<NaiCharacter>.from(preset.characters);
-                        updated[index] = NaiCharacter(prompt: char.prompt, uc: val, center: char.center);
+                        final updated = List<NaiCharacter>.from(
+                          preset.characters,
+                        );
+                        updated[index] = NaiCharacter(
+                          prompt: char.prompt,
+                          uc: val,
+                          center: char.center,
+                        );
                         notifier.updateCurrentPreset(characters: updated);
                       },
                       t: t,
@@ -598,39 +693,54 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
               );
             },
           ),
-        const SizedBox(height: 16),
+        const SizedBox(height: VisionMetrics.space16),
         if (preset.interactions.isNotEmpty) ...[
-          Text(l.presetInteractions, style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(8), letterSpacing: 1)),
-          const SizedBox(height: 8),
+          Text(
+            l.presetInteractions,
+            style: TextStyle(
+              color: t.textDisabled,
+              fontSize: t.fontSize(8),
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: VisionMetrics.space8),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: preset.interactions.map((interaction) {
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              return DecoratedBox(
                 decoration: BoxDecoration(
                   color: t.borderSubtle,
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: BorderRadius.circular(VisionMetrics.radius4),
                   border: Border.all(color: t.textMinimal),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      interaction.type == InteractionType.mutual
-                          ? "${interaction.sourceCharacterIndices.map((i) => i + 1).join(' \u2194 ')}: ${interaction.actionName.toUpperCase()}"
-                          : "${interaction.sourceCharacterIndices.map((i) => i + 1).join(',')} -> ${interaction.targetCharacterIndices.map((i) => i + 1).join(',')}: ${interaction.actionName.toUpperCase()}",
-                      style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(8)),
-                    ),
-                    const SizedBox(width: 4),
-                    InkWell(
-                      onTap: () {
-                        final updated = List<NaiInteraction>.from(preset.interactions)..remove(interaction);
-                        notifier.updateCurrentPreset(interactions: updated);
-                      },
-                      child: Icon(Icons.close, size: 10, color: t.textDisabled),
-                    ),
-                  ],
+                child: Padding(
+                  padding: const EdgeInsets.only(left: VisionMetrics.space8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        interaction.type == InteractionType.mutual
+                            ? "${interaction.sourceCharacterIndices.map((i) => i + 1).join(' \u2194 ')}: ${interaction.actionName.toUpperCase()}"
+                            : "${interaction.sourceCharacterIndices.map((i) => i + 1).join(',')} -> ${interaction.targetCharacterIndices.map((i) => i + 1).join(',')}: ${interaction.actionName.toUpperCase()}",
+                        style: TextStyle(
+                          color: t.textSecondary,
+                          fontSize: t.fontSize(8),
+                        ),
+                      ),
+                      const SizedBox(width: VisionMetrics.space4),
+                      ManagerIconButton(
+                        icon: Icons.close,
+                        tooltip: l.commonDelete,
+                        onPressed: () {
+                          final updated = List<NaiInteraction>.from(
+                            preset.interactions,
+                          )..remove(interaction);
+                          notifier.updateCurrentPreset(interactions: updated);
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               );
             }).toList(),
@@ -640,7 +750,11 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
     );
   }
 
-  Widget _buildReferenceSection(BuildContext context, PresetNotifier notifier, VisionTokens t) {
+  Widget _buildReferenceSection(
+    BuildContext context,
+    PresetNotifier notifier,
+    VisionTokens t,
+  ) {
     final l = context.l;
     final preset = notifier.state.selectedPreset!;
     final refs = preset.directorReferences;
@@ -649,18 +763,19 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (refs.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(16),
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: t.borderSubtle,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: t.borderSubtle),
-            ),
-            child: Text(
-              l.presetNoRefs,
-              style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(8), letterSpacing: 1),
-              textAlign: TextAlign.center,
+          AppPanel(
+            variant: AppPanelVariant.inset,
+            child: SizedBox(
+              width: double.infinity,
+              child: Text(
+                l.presetNoRefs,
+                style: TextStyle(
+                  color: t.textMinimal,
+                  fontSize: t.fontSize(8),
+                  letterSpacing: 1,
+                ),
+                textAlign: TextAlign.center,
+              ),
             ),
           )
         else
@@ -674,7 +789,7 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
                 width: 140,
                 decoration: BoxDecoration(
                   color: t.borderSubtle,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(VisionMetrics.radius4),
                   border: Border.all(color: t.borderSubtle),
                 ),
                 child: Column(
@@ -684,7 +799,9 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
                     Stack(
                       children: [
                         ClipRRect(
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(VisionMetrics.radius4),
+                          ),
                           child: Image.memory(
                             ref.originalImageBytes,
                             width: 140,
@@ -697,52 +814,47 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
                         Positioned(
                           top: 4,
                           left: 4,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: t.background.withValues(alpha: 0.7),
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                            child: Text(
-                              ref.type.label,
-                              style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(7), letterSpacing: 0.5),
-                            ),
-                          ),
+                          child: AppPill(text: ref.type.label, dense: true),
                         ),
                         // Remove button
                         Positioned(
-                          top: 2,
-                          right: 2,
-                          child: InkWell(
-                            onTap: () {
-                              final updated = List<DirectorReference>.from(refs)..removeAt(index);
-                              notifier.updateCurrentPreset(directorReferences: updated);
+                          top: 0,
+                          right: 0,
+                          child: OverlayActionButton(
+                            icon: Icons.close,
+                            tooltip: l.commonDelete,
+                            onPressed: () {
+                              final updated = List<DirectorReference>.from(refs)
+                                ..removeAt(index);
+                              notifier.updateCurrentPreset(
+                                directorReferences: updated,
+                              );
                             },
-                            child: Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: BoxDecoration(
-                                color: t.background.withValues(alpha: 0.7),
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                              child: Icon(Icons.close, size: 10, color: t.textSecondary),
-                            ),
                           ),
                         ),
                       ],
                     ),
                     // Info labels
                     Padding(
-                      padding: const EdgeInsets.all(6),
+                      padding: const EdgeInsets.all(VisionMetrics.space8),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
                             "STR ${ref.strength.toStringAsFixed(1)}",
-                            style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(7), letterSpacing: 0.5),
+                            style: TextStyle(
+                              color: t.textDisabled,
+                              fontSize: t.fontSize(7),
+                              letterSpacing: 0.5,
+                            ),
                           ),
                           Text(
                             "FID ${ref.fidelity.toStringAsFixed(1)}",
-                            style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(7), letterSpacing: 0.5),
+                            style: TextStyle(
+                              color: t.textDisabled,
+                              fontSize: t.fontSize(7),
+                              letterSpacing: 0.5,
+                            ),
                           ),
                         ],
                       ),
@@ -752,19 +864,37 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
               );
             }).toList(),
           ),
-        const SizedBox(height: 12),
+        const SizedBox(height: VisionMetrics.space12),
         TextButton.icon(
           onPressed: _isProcessingRef ? null : () => _addReference(notifier),
           icon: _isProcessingRef
-              ? SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1, color: t.textDisabled))
-              : Icon(Icons.add_photo_alternate_outlined, size: 14, color: t.textDisabled),
+              ? SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1,
+                    color: t.textDisabled,
+                  ),
+                )
+              : Icon(
+                  Icons.add_photo_alternate_outlined,
+                  size: VisionMetrics.iconSmall,
+                  color: t.textDisabled,
+                ),
           label: Text(
             _isProcessingRef ? l.presetProcessing : l.presetAddReference,
-            style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(8), letterSpacing: 1),
+            style: TextStyle(
+              color: t.textDisabled,
+              fontSize: t.fontSize(8),
+              letterSpacing: 1,
+            ),
           ),
           style: TextButton.styleFrom(
             backgroundColor: t.borderSubtle,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            minimumSize: Size(0, context.hitSize),
+            padding: const EdgeInsets.symmetric(
+              horizontal: VisionMetrics.space12,
+            ),
           ),
         ),
       ],
@@ -773,51 +903,80 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
 
   Future<void> _addReference(PresetNotifier notifier) async {
     final result = await pickImageFiles(withData: true);
-    if (result == null || result.files.single.bytes == null) return;
+    if (result == null) return;
+    final bytes = await readPickedFileBytes(result.files.single);
+    if (bytes == null || !mounted) return;
 
     setState(() => _isProcessingRef = true);
     try {
-      final bytes = result.files.single.bytes!;
       final (_, base64) = await ReferenceImageProcessor.processImage(bytes);
       final ref = DirectorReference(
         id: 'ref_preset_${DateTime.now().millisecondsSinceEpoch}',
         originalImageBytes: Uint8List.fromList(bytes),
         processedBase64: base64,
       );
-      final currentRefs = notifier.state.selectedPreset?.directorReferences ?? [];
+      final currentRefs =
+          notifier.state.selectedPreset?.directorReferences ?? [];
       notifier.updateCurrentPreset(
         directorReferences: List<DirectorReference>.from(currentRefs)..add(ref),
       );
     } catch (e) {
       debugPrint('Failed to process reference image: $e');
     } finally {
-      setState(() => _isProcessingRef = false);
+      if (mounted) setState(() => _isProcessingRef = false);
     }
   }
 
-  Widget _buildMiniTextField({required String label, required String initialValue, required Function(String) onChanged, required VisionTokens t}) {
+  Widget _buildMiniTextField({
+    Key? key,
+    required String label,
+    required String initialValue,
+    required Function(String) onChanged,
+    required VisionTokens t,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(7), letterSpacing: 1)),
-        const SizedBox(height: 2),
-        TextField(
-          controller: TextEditingController(text: initialValue)..selection = TextSelection.collapsed(offset: initialValue.length),
+        Text(
+          label,
+          style: TextStyle(
+            color: t.textMinimal,
+            fontSize: t.fontSize(7),
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: VisionMetrics.space4),
+        SyncedTextField(
+          key: key,
+          value: initialValue,
           onChanged: onChanged,
           style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(10)),
           decoration: InputDecoration(
             isDense: true,
             filled: true,
-            fillColor: Colors.black26,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(2), borderSide: BorderSide.none),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            fillColor: t.background.withValues(
+              alpha: VisionMetrics.opacityScrim,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: VisionMetrics.space8,
+              vertical: VisionMetrics.space8,
+            ),
           ),
         ),
       ],
     );
   }
 
-  Future<void> _showDeleteConfirm(BuildContext context, PresetNotifier notifier, GenerationPreset preset, VisionTokens t) async {
+  Future<void> _showDeleteConfirm(
+    BuildContext context,
+    PresetNotifier notifier,
+    GenerationPreset preset,
+    VisionTokens t,
+  ) async {
     final l = context.l;
     final confirm = await showConfirmDialog(
       context,

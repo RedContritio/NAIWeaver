@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/vision_metrics.dart';
 import '../../../core/utils/responsive.dart';
 import '../../gallery/providers/gallery_notifier.dart';
 
@@ -18,7 +19,9 @@ class _DemoImagePickerState extends State<DemoImagePicker> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _crossAxisCount ??= isMobile(context) ? 2 : 3;
+    _crossAxisCount ??= windowSizeClassOf(context) == WindowSizeClass.compact
+        ? 2
+        : 3;
   }
 
   @override
@@ -26,7 +29,7 @@ class _DemoImagePickerState extends State<DemoImagePicker> {
     final t = context.t;
     final l = context.l;
     final gallery = context.watch<GalleryNotifier>();
-    final mobile = isMobile(context);
+    final mobile = windowSizeClassOf(context) == WindowSizeClass.compact;
     final items = gallery.allItems;
     final maxCols = mobile ? 3 : 5;
     final minCols = mobile ? 2 : 3;
@@ -36,9 +39,14 @@ class _DemoImagePickerState extends State<DemoImagePicker> {
       appBar: AppBar(
         backgroundColor: t.background,
         elevation: 0,
-        toolbarHeight: mobile ? 56 : 40,
+        toolbarHeight: context.touchSize + VisionMetrics.space8,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios, size: mobile ? 20 : 14, color: t.textDisabled),
+          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+          icon: Icon(
+            Icons.arrow_back_ios,
+            size: mobile ? VisionMetrics.iconMedium : VisionMetrics.iconSmall,
+            color: t.textDisabled,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
@@ -53,10 +61,17 @@ class _DemoImagePickerState extends State<DemoImagePicker> {
         centerTitle: true,
         actions: [
           IconButton(
-            icon: Icon(Icons.grid_view, size: mobile ? 20 : 16, color: t.textDisabled),
+            tooltip: l.demoGridSize,
+            icon: Icon(
+              Icons.grid_view,
+              size: mobile ? VisionMetrics.iconMedium : VisionMetrics.iconSmall,
+              color: t.textDisabled,
+            ),
             onPressed: () {
               setState(() {
-                _crossAxisCount = _crossAxisCount! >= maxCols ? minCols : _crossAxisCount! + 1;
+                _crossAxisCount = _crossAxisCount! >= maxCols
+                    ? minCols
+                    : _crossAxisCount! + 1;
               });
             },
           ),
@@ -94,15 +109,19 @@ class _DemoImagePickerState extends State<DemoImagePicker> {
           ? Center(
               child: Text(
                 l.demoNoImages,
-                style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(10), letterSpacing: 2),
+                style: TextStyle(
+                  color: t.textMinimal,
+                  fontSize: t.fontSize(10),
+                  letterSpacing: 2,
+                ),
               ),
             )
           : GridView.builder(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(VisionMetrics.space8),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: _crossAxisCount!,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
+                crossAxisSpacing: VisionMetrics.space8,
+                mainAxisSpacing: VisionMetrics.space8,
                 childAspectRatio: 1,
               ),
               itemCount: items.length,
@@ -113,9 +132,13 @@ class _DemoImagePickerState extends State<DemoImagePicker> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: t.borderSubtle,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(
+                        VisionMetrics.radius4,
+                      ),
                       border: Border.all(
-                        color: item.isDemoSafe ? t.accentSuccess : t.borderSubtle,
+                        color: item.isDemoSafe
+                            ? t.accentSuccess
+                            : t.borderSubtle,
                         width: item.isDemoSafe ? 2 : 1,
                       ),
                     ),
@@ -125,10 +148,14 @@ class _DemoImagePickerState extends State<DemoImagePicker> {
                       children: [
                         Image.file(item.file, fit: BoxFit.cover),
                         if (item.isDemoSafe)
-                          Container(color: t.background.withValues(alpha: 0.3)),
+                          Container(
+                            color: t.background.withValues(
+                              alpha: VisionMetrics.opacityPressed * 2,
+                            ),
+                          ),
                         Positioned(
-                          top: 4,
-                          right: 4,
+                          top: VisionMetrics.space4,
+                          right: VisionMetrics.space4,
                           child: Container(
                             width: mobile ? 24 : 20,
                             height: mobile ? 24 : 20,
@@ -136,16 +163,24 @@ class _DemoImagePickerState extends State<DemoImagePicker> {
                               shape: BoxShape.circle,
                               color: item.isDemoSafe
                                   ? t.accentSuccess
-                                  : t.background.withValues(alpha: 0.5),
+                                  : t.background.withValues(
+                                      alpha: VisionMetrics.opacityScrim,
+                                    ),
                               border: Border.all(
                                 color: item.isDemoSafe
                                     ? t.accentSuccess
-                                    : t.accent.withValues(alpha: 0.5),
+                                    : t.accent.withValues(
+                                        alpha: VisionMetrics.opacityScrim,
+                                      ),
                                 width: 2,
                               ),
                             ),
                             child: item.isDemoSafe
-                                ? Icon(Icons.check, size: mobile ? 14 : 12, color: t.background)
+                                ? Icon(
+                                    Icons.check,
+                                    size: VisionMetrics.iconSmall,
+                                    color: t.background,
+                                  )
                                 : null,
                           ),
                         ),

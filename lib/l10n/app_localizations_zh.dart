@@ -170,6 +170,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsApiKeyHint => 'pst-xxxx...';
 
   @override
+  String get settingsApiKeyVisibility => '显示或隐藏 API 密钥';
+
+  @override
   String get settingsApiManaged => 'NovelAI API Key 由后端托管';
 
   @override
@@ -1237,6 +1240,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tagLibRandom => '随机';
 
   @override
+  String get tagDetailViewOnDanbooru => '在 Danbooru 查看';
+
+  @override
+  String get tagDetailNoWiki => '该标签暂无 Wiki 说明。';
+
+  @override
+  String get tagDetailCheckDanbooru => '前往 Danbooru 查看';
+
+  @override
+  String get tagDetailLicense => '标签说明 © Danbooru 贡献者，CC-BY-SA-4.0';
+
+  @override
   String get presetManager => '预设管理器';
 
   @override
@@ -1667,6 +1682,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String packImportFailed(String error) {
     return '导入失败：$error';
   }
+
+  @override
+  String get packRefLibrarySaveFailed => '无法保存已存参考图，请释放存储空间后重新导入。';
+
+  @override
+  String get packSelectAll => '全选';
+
+  @override
+  String get packSelectNone => '全不选';
 
   @override
   String get packExportGalleryTitle => '导出图库';
@@ -2227,6 +2251,42 @@ class AppLocalizationsZh extends AppLocalizations {
   String get slideshowPlayAll => '播放全部';
 
   @override
+  String get slideshowPrevious => '上一张';
+
+  @override
+  String get slideshowNext => '下一张';
+
+  @override
+  String get slideshowPause => '暂停';
+
+  @override
+  String get slideshowResume => '继续播放';
+
+  @override
+  String get slideshowMusic => '音乐';
+
+  @override
+  String get slideshowEnableMusic => '启用音乐';
+
+  @override
+  String get slideshowMusicVolume => '音乐音量';
+
+  @override
+  String get slideshowKaraoke => '卡拉 OK 歌词';
+
+  @override
+  String get slideshowSongsHint => '歌曲（点击选择，留空 = 全部）';
+
+  @override
+  String get slideshowSoundFont => '音色库';
+
+  @override
+  String get slideshowSoundFontDefault => '默认';
+
+  @override
+  String get slideshowCategoryAll => '全部';
+
+  @override
   String get slideshowConfigs => '配置';
 
   @override
@@ -2389,6 +2449,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get demoNoImages => '图库无图片';
 
   @override
+  String get demoGridSize => '切换网格大小';
+
+  @override
   String get cascadeBeatTimeline => '镜头时间线';
 
   @override
@@ -2482,6 +2545,33 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsAnlasTrackerDesc => '在顶部栏显示 Anlas 余额';
+
+  @override
+  String get settingsCopyButton => '复制到剪贴板';
+
+  @override
+  String get settingsCopyButtonDesc => '在生成的图片上显示复制按钮';
+
+  @override
+  String get settingsHideTagValues => '隐藏标签数值';
+
+  @override
+  String get settingsHideTagValuesDesc => '在自动补全建议中隐藏标签数量';
+
+  @override
+  String get settingsFontSize => '字体大小';
+
+  @override
+  String get settingsFontSizeDesc => '缩放所有界面文字，默认 100%。';
+
+  @override
+  String get settingsOpenLinkTitle => '打开外部链接';
+
+  @override
+  String get settingsOpenLinkBody => '即将离开 NAIWeaver 并打开新窗口：';
+
+  @override
+  String get settingsOpenLinkConfirm => '打开链接';
 
   @override
   String get canvasEditorTitle => '画布编辑器';
@@ -2680,6 +2770,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsOutputFolderBrowse => '浏览';
+
+  @override
+  String get settingsFolderUseDefault => '使用默认文件夹';
 
   @override
   String get settingsOutputFolderClear => '清空';
