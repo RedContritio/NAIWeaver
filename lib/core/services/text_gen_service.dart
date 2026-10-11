@@ -57,15 +57,24 @@ class TextGenResult {
   return (reasoning: reasoning.trim(), answer: answer.trimLeft());
 }
 
+/// Client-side reasons a text generation cannot start.
+enum TextGenIssue { noToken, emptyInput }
+
 /// Thrown by a [TextGenService] when generation fails.
 ///
 /// [statusCode] is the HTTP status when the error came from the server
 /// (null for client-side errors like a missing token or a network failure).
+///
+/// [message] is English diagnostic text for logs and non-UI callers. The UI
+/// shows localized text derived from [cause] instead: a [TextGenIssue], the
+/// `BackendException` of a gateway call, or the `DioException` of a direct
+/// call.
 class TextGenException implements Exception {
   final int? statusCode;
   final String message;
+  final Object? cause;
 
-  TextGenException(this.message, {this.statusCode});
+  TextGenException(this.message, {this.statusCode, this.cause});
 
   @override
   String toString() => statusCode == null

@@ -22,7 +22,7 @@ class TextGenNotifier extends ChangeNotifier {
   String _output = '';
   String _reasoning = '';
   bool _isGenerating = false;
-  String? _lastError;
+  Object? _lastError;
 
   final List<TextGenHistoryEntry> _history = [];
   static const int _maxHistory = 20;
@@ -38,7 +38,10 @@ class TextGenNotifier extends ChangeNotifier {
   String get output => _output;
   String get reasoning => _reasoning;
   bool get isGenerating => _isGenerating;
-  String? get lastError => _lastError;
+
+  /// The raw failure of the last run (a [TextGenException] or another error);
+  /// the UI localizes it, see `textGenErrorMessage`.
+  Object? get lastError => _lastError;
   List<TextGenHistoryEntry> get history => List.unmodifiable(_history);
   bool get hasService => _service != null;
 
@@ -79,7 +82,8 @@ class TextGenNotifier extends ChangeNotifier {
   void setMaxLength(int v) =>
       _updateParams(_params.copyWith(maxLength: v.clamp(1, 100000)));
   void setTopP(double v) => _updateParams(_params.copyWith(topP: v));
-  void setTopK(int v) => _updateParams(_params.copyWith(topK: v.clamp(0, 1000)));
+  void setTopK(int v) =>
+      _updateParams(_params.copyWith(topK: v.clamp(0, 1000)));
   void setRepetitionPenalty(double v) =>
       _updateParams(_params.copyWith(repetitionPenalty: v));
   void setPhraseRepPen(String v) =>
@@ -122,12 +126,18 @@ class TextGenNotifier extends ChangeNotifier {
     if (_isGenerating) return;
     final service = _service;
     if (service == null) {
-      _lastError = 'NovelAI token not set — add it in Settings.';
+      _lastError = TextGenException(
+        'NovelAI token not set — add it in Settings.',
+        cause: TextGenIssue.noToken,
+      );
       notifyListeners();
       return;
     }
     if (_input.trim().isEmpty) {
-      _lastError = 'Enter some text to continue from.';
+      _lastError = TextGenException(
+        'Enter some text to continue from.',
+        cause: TextGenIssue.emptyInput,
+      );
       notifyListeners();
       return;
     }
@@ -175,10 +185,8 @@ class TextGenNotifier extends ChangeNotifier {
         _output = result.text;
         _reasoning = result.reasoning;
         recordHistory();
-      } on TextGenException catch (te) {
-        _lastError = te.message;
       } catch (e) {
-        _lastError = e.toString();
+        _lastError = e;
       } finally {
         _finishGeneration();
       }
@@ -186,23 +194,25 @@ class TextGenNotifier extends ChangeNotifier {
     }
 
     final completer = Completer<void>();
-    _sub = service.generateStream(req).listen(
-      (chunk) {
-        _output += chunk;
-        notifyListeners();
-      },
-      onError: (Object e, StackTrace st) {
-        _lastError = e is TextGenException ? e.message : e.toString();
-        _finishGeneration();
-        if (!completer.isCompleted) completer.complete();
-      },
-      onDone: () {
-        recordHistory();
-        _finishGeneration();
-        if (!completer.isCompleted) completer.complete();
-      },
-      cancelOnError: true,
-    );
+    _sub = service
+        .generateStream(req)
+        .listen(
+          (chunk) {
+            _output += chunk;
+            notifyListeners();
+          },
+          onError: (Object e, StackTrace st) {
+            _lastError = e;
+            _finishGeneration();
+            if (!completer.isCompleted) completer.complete();
+          },
+          onDone: () {
+            recordHistory();
+            _finishGeneration();
+            if (!completer.isCompleted) completer.complete();
+          },
+          cancelOnError: true,
+        );
 
     await completer.future;
   }

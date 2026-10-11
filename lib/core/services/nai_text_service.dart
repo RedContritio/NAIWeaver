@@ -99,7 +99,10 @@ class NaiTextService implements TextGenService {
 
   void _requireToken() {
     if (!_gateway && _apiKey.trim().isEmpty) {
-      throw TextGenException('NovelAI token not set — add it in Settings.');
+      throw TextGenException(
+        'NovelAI token not set — add it in Settings.',
+        cause: TextGenIssue.noToken,
+      );
     }
   }
 
@@ -256,7 +259,7 @@ class NaiTextService implements TextGenService {
           }
         } catch (e) {
           if (!controller.isClosed) {
-            controller.addError(TextGenException('Text generation failed: $e'));
+            controller.addError(TextGenException('Text generation failed: $e', cause: e));
             await controller.close();
           }
         }
@@ -288,7 +291,7 @@ class NaiTextService implements TextGenService {
           controller.addError(
             streamError is TextGenException
                 ? streamError
-                : TextGenException('Text generation failed: $e'),
+                : TextGenException('Text generation failed: $e', cause: e),
           );
           await controller.close();
         }
@@ -462,7 +465,7 @@ class NaiTextService implements TextGenService {
         }
       } catch (e) {
         if (!controller.isClosed) {
-          controller.addError(TextGenException('Text generation failed: $e'));
+          controller.addError(TextGenException('Text generation failed: $e', cause: e));
           await controller.close();
         }
       }
@@ -484,6 +487,7 @@ class NaiTextService implements TextGenService {
       return TextGenException(
         'Text service error (${gatewayError.code})',
         statusCode: gatewayError.statusCode,
+        cause: gatewayError,
       );
     }
     final code = e.response?.statusCode;
@@ -493,6 +497,7 @@ class NaiTextService implements TextGenService {
         'NovelAI rejected the token (401).${detail != null ? ' $detail' : ''} '
         'Check your API key in Settings.',
         statusCode: 401,
+        cause: e,
       );
     }
     if (code == 402) {
@@ -503,6 +508,7 @@ class NaiTextService implements TextGenService {
             : 'NovelAI requires an active subscription for this endpoint/model '
                   '(402).',
         statusCode: 402,
+        cause: e,
       );
     }
     if (code == 403) {
@@ -512,6 +518,7 @@ class NaiTextService implements TextGenService {
             : 'NovelAI refused the request (403) — your tier may not allow this '
                   'model or length.',
         statusCode: 403,
+        cause: e,
       );
     }
     if (code == 400) {
@@ -519,15 +526,20 @@ class NaiTextService implements TextGenService {
         'NovelAI rejected the request (400)'
         '${detail != null ? ': $detail' : ' — bad parameters'}.',
         statusCode: 400,
+        cause: e,
       );
     }
     if (code != null) {
       return TextGenException(
         'NovelAI text API error $code${detail != null ? ': $detail' : ''}',
         statusCode: code,
+        cause: e,
       );
     }
-    return TextGenException('Network error talking to NovelAI: ${e.message}');
+    return TextGenException(
+      'Network error talking to NovelAI: ${e.message}',
+      cause: e,
+    );
   }
 
   /// Materializes a response body into a string, draining a `ResponseBody`
