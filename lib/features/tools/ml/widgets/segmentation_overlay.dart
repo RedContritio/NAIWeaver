@@ -9,7 +9,6 @@ import '../../../../core/ml/widgets/checkerboard_painter.dart';
 import '../../../../core/theme/theme_extensions.dart';
 import '../../../../core/theme/vision_metrics.dart';
 import '../../../../core/theme/vision_tokens.dart';
-import '../../../../core/utils/responsive.dart';
 import '../../../../core/widgets/ui/app_pill.dart';
 
 /// Interactive segmentation overlay using SAM (Segment Anything Model).
