@@ -14,13 +14,14 @@ import unittest
 from unittest import mock
 from zipfile import ZipFile
 
-from fastapi import HTTPException
+from fastapi import Depends, HTTPException
 from starlette.requests import Request
 
-from app import config, db as gwdb, generation, proxy, state, storage, users
+from app import config, db as gwdb, generation, main, proxy, state, storage, users
+from app.auth import require_user as real_require_user
+from app.db import get_db
 from app.billing import classify_and_quote
 from app.idempotency import ToolResponseCache
-from app.security import create_jwt
 from app.upstream_lane import UpstreamLane
 
 
@@ -70,7 +71,7 @@ def create_user(
     columns = ["username", "password_hash", "created_at", *row]
     db.execute(
         f"INSERT INTO users({', '.join(columns)}) VALUES ({', '.join('?' for _ in columns)})",
-        [username, "unused", gwdb.now_iso(), *row.values()],
+        [username, "", gwdb.now_iso(), *row.values()],
     )
     db.commit()
     return fetch_user(db, username)
@@ -80,15 +81,27 @@ def fetch_user(db: sqlite3.Connection, username: str) -> sqlite3.Row:
     return db.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
 
 
+TEST_USER_COOKIE = "naiweaver_test_user"
+
+
+async def _test_require_user(request: Request, db: sqlite3.Connection = Depends(get_db)):
+    """Authenticate a TestClient as the user named by its test cookie.
+
+    Requests without the cookie fall through to the real ``require_user``, so
+    anonymous requests and the dev-user rules are still the production code.
+    """
+    user_id = request.cookies.get(TEST_USER_COOKIE)
+    if user_id is None:
+        return await real_require_user(request, db)
+    return db.execute("SELECT * FROM users WHERE id = ?", (int(user_id),)).fetchone()
+
+
+main.app.dependency_overrides[real_require_user] = _test_require_user
+
+
 def session_cookies(db: sqlite3.Connection, user: sqlite3.Row) -> dict[str, str]:
-    session_id = secrets.token_urlsafe(12)
-    db.execute(
-        "INSERT INTO sessions(id, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)",
-        (session_id, user["id"], "2999-01-01T00:00:00+00:00", gwdb.now_iso()),
-    )
-    db.commit()
-    token = create_jwt({"sub": int(user["id"]), "jti": session_id}, config.SECRET_KEY, 3600)
-    return {"access_token": token}
+    """Cookies that sign a TestClient in as ``user`` (see _test_require_user)."""
+    return {TEST_USER_COOKIE: str(user["id"])}
 
 
 def generation_request(*, action: str = "generate", **parameters: Any) -> dict[str, Any]:

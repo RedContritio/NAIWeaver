@@ -209,9 +209,9 @@ class StatusEndpointTests(AccessControlTestCase):
             with self.subTest(path=path):
                 self.assert_error(self.anonymous().get(path), 401, "not_authenticated")
 
-    def test_a_garbage_token_is_rejected_like_a_missing_one(self) -> None:
+    def test_a_stray_cookie_is_rejected_like_a_missing_one(self) -> None:
         client = self.anonymous()
-        client.cookies.set("access_token", "not-a-jwt")
+        client.cookies.set("access_token", "stray")
         for path in self.PATHS:
             with self.subTest(path=path):
                 self.assert_error(client.get(path), 401, "not_authenticated")

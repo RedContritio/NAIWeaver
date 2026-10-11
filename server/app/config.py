@@ -17,13 +17,8 @@ WEB_BUILD_DIR = Path(os.environ.get("NAIWEAVER_WEB_BUILD_DIR", STATIC_DIR / "web
 
 APP_ENV = os.environ.get("NAIWEAVER_ENV", "development").lower()
 PRODUCTION = APP_ENV == "production"
-SECRET_KEY = os.environ.get("NAIWEAVER_SECRET_KEY") or (
-    "" if PRODUCTION else "local-dev-change-me"
-)
-COOKIE_SECURE = os.environ.get(
-    "NAIWEAVER_COOKIE_SECURE", "1" if PRODUCTION else "0"
-) == "1"
-ALLOW_PASSWORD_LOGIN = os.environ.get("NAIWEAVER_ALLOW_PASSWORD_LOGIN", "0") == "1"
+# Development-only auto login (see auth.require_user); refused in production.
+DEV_USER = os.environ.get("NAIWEAVER_DEV_USER", "").strip()
 BOOTSTRAP_TEST_USERS = (
     os.environ.get("NAIWEAVER_BOOTSTRAP_TEST_USERS", "0" if PRODUCTION else "1")
     == "1"

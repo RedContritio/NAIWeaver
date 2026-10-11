@@ -11,7 +11,6 @@ from typing import Any, Iterator
 
 from . import config
 from .roles import POINT_TOTAL_FIELDS, role_defaults
-from .security import hash_password
 
 # Bump together with SCHEMA and the `PRAGMA user_version` below. The service
 # starts only on exactly this version; an older database is upgraded once by
@@ -34,6 +33,10 @@ CREATE TABLE IF NOT EXISTS only_webauth_sessions (
 # The column order of retained tables follows the production database, so the
 # upgrade only has to rebuild the two tables that lose columns.
 SCHEMA = f"""
+-- users.password_hash is unused since password login was removed: it is always
+-- written as ''. Kept so the schema version is unchanged; drop it with the next
+-- schema version. (Comments sit outside the statements because sqlite_master
+-- stores statement text and db_upgrade compares it.)
 CREATE TABLE users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   username TEXT NOT NULL UNIQUE,
@@ -55,6 +58,8 @@ CREATE TABLE users (
   red_points_reserved INTEGER NOT NULL DEFAULT 0
 );
 
+-- Unused since password login was removed: never read or written. Kept so the
+-- schema version is unchanged; drop it with the next schema version.
 CREATE TABLE sessions (
   id TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -335,39 +340,16 @@ def reclaim_tool_reservations(db: sqlite3.Connection) -> None:
 
 
 def bootstrap_users() -> None:
+    """Create the local development users that NAIWEAVER_DEV_USER can act as."""
     if not config.BOOTSTRAP_TEST_USERS:
         return
-    admin_password_env = os.environ.get("NAIWEAVER_ADMIN_PASSWORD")
-    admin_password = admin_password_env or "local-test-admin"
-    samples = [
-        ("admin", admin_password, "admin"),
-        ("free_user", "free-test-pass", "free"),
-        ("paid_user", "paid-test-pass", "paid"),
-    ]
     with closing(db_connect()) as db:
-        for username, password, role in samples:
-            existing = db.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
-            if existing:
-                if username == "admin" and admin_password_env:
-                    # Point totals are balances; only permissions are re-applied.
-                    changes = {
-                        "password_hash": hash_password(admin_password),
-                        "disabled": 0,
-                        **{
-                            name: value
-                            for name, value in role_defaults("admin").items()
-                            if name not in POINT_TOTAL_FIELDS
-                        },
-                    }
-                    assignments = ", ".join(f"{name} = ?" for name in changes)
-                    db.execute(
-                        f"UPDATE users SET {assignments} WHERE id = ?",
-                        (*changes.values(), existing["id"]),
-                    )
+        for username, role in (("admin", "admin"), ("free_user", "free"), ("paid_user", "paid")):
+            if db.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone():
                 continue
             columns = {
                 "username": username,
-                "password_hash": hash_password(password),
+                "password_hash": "",  # unused column, see SCHEMA
                 **role_defaults(role),
                 "created_at": now_iso(),
             }
