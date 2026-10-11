@@ -255,7 +255,7 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
                 ElevatedButton.icon(
                   onPressed: () async {
                     await img2imgNotifier.useResultAsSource();
-                    setState(() => _showResult = false);
+                    if (mounted) setState(() => _showResult = false);
                   },
                   icon: const Icon(Icons.refresh, size: 14),
                   label: Text(l.img2imgUseAsSource),
@@ -606,10 +606,8 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
                 sourceImage: imageBytes,
                 onSave: (resultBytes) async {
                   await img2imgNotifier.replaceSourceImage(resultBytes);
-                  if (ctx.mounted) {
-                    Navigator.pop(ctx);
-                    setState(() => _showResult = false);
-                  }
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  if (mounted) setState(() => _showResult = false);
                 },
                 onDiscard: () => Navigator.pop(ctx),
                 onSendToCanvas: (resultBytes) {
@@ -677,7 +675,7 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
       // Show result in the editor if generation succeeded
       if (resultBytes != null) {
         img2imgNotifier.setResultImage(resultBytes);
-        setState(() => _showResult = true);
+        if (mounted) setState(() => _showResult = true);
       }
     } catch (e) {
       genNotifier.setLoading(false);

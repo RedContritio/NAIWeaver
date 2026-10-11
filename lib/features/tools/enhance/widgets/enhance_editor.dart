@@ -1,5 +1,3 @@
-import 'dart:io';
-import '../../../../core/utils/file_picker_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/l10n/l10n_extensions.dart';
@@ -13,6 +11,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../gallery/providers/gallery_notifier.dart';
 import '../../../generation/providers/generation_notifier.dart';
 import '../../widgets/tool_config_bottom_sheet.dart';
+import '../../widgets/tool_source_picker.dart';
 import '../providers/enhance_notifier.dart';
 
 class EnhanceEditor extends StatefulWidget {
@@ -69,132 +68,22 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
   }
 
   Widget _buildPicker(BuildContext context, EnhanceNotifier notifier) {
-    final genNotifier = context.watch<GenerationNotifier>();
-    final galleryNotifier = context.watch<GalleryNotifier>();
-    final hasCurrentImage = genNotifier.state.generatedImage != null;
-    final t = context.t;
     final l = context.l;
-
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.hd, size: 48, color: t.textMinimal),
-            const SizedBox(height: 16),
-            Text(
-              l.enhanceTitle,
-              style: TextStyle(
-                color: t.textDisabled,
-                fontSize: t.fontSize(12),
-                fontWeight: FontWeight.bold,
-                letterSpacing: 3,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              l.enhanceDesc,
-              style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(10)),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-
-            if (hasCurrentImage) ...[
-              _PickerOption(
-                icon: Icons.flash_on,
-                label: l.enhanceUseCurrent,
-                description: l.enhanceUseCurrentDesc,
-                accentColor: t.accent,
-                onTap: () {
-                  notifier.setSourceImage(genNotifier.state.generatedImage!);
-                  _promptController.text = genNotifier.promptController.text;
-                  _negativePromptController.text = notifier.negativePrompt;
-                  _initialized = true;
-                },
-              ),
-              const SizedBox(height: 12),
-            ],
-
-            _PickerOption(
-              icon: Icons.photo_library_outlined,
-              label: l.img2imgUploadFromDevice,
-              description: l.img2imgUploadFromDeviceDesc,
-              accentColor: t.accentEdit,
-              onTap: () async {
-                final result = await pickImageFiles();
-                if (result != null && result.files.single.path != null) {
-                  final bytes = await File(
-                    result.files.single.path!,
-                  ).readAsBytes();
-                  notifier.setSourceImage(bytes);
-                  _negativePromptController.text = notifier.negativePrompt;
-                  _initialized = true;
-                }
-              },
-            ),
-            const SizedBox(height: 12),
-
-            if (!galleryNotifier.demoMode &&
-                galleryNotifier.items.isNotEmpty) ...[
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(
-                    'FROM GALLERY',
-                    style: TextStyle(
-                      color: t.textDisabled,
-                      fontSize: t.fontSize(9),
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(
-                height: 280,
-                child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                    mainAxisSpacing: 4,
-                    crossAxisSpacing: 4,
-                    childAspectRatio: 0.75,
-                  ),
-                  itemCount: galleryNotifier.items.length,
-                  itemBuilder: (context, index) {
-                    final item = galleryNotifier.items[index];
-                    return GestureDetector(
-                      onTap: () async {
-                        final bytes = await item.file.readAsBytes();
-                        notifier.setSourceImage(bytes);
-                        _negativePromptController.text =
-                            notifier.negativePrompt;
-                        _initialized = true;
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: t.surfaceHigh,
-                          borderRadius: BorderRadius.circular(2),
-                          border: Border.all(color: t.borderSubtle),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(2),
-                          child: Image.file(
-                            item.file,
-                            fit: BoxFit.cover,
-                            filterQuality: FilterQuality.medium,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
+    return ToolSourcePicker(
+      icon: Icons.hd,
+      title: l.enhanceTitle,
+      description: l.enhanceDesc,
+      useCurrentLabel: l.enhanceUseCurrent,
+      useCurrentDescription: l.enhanceUseCurrentDesc,
+      promptImport: ToolSourcePromptImport.mainPromptForCurrentGeneration,
+      onSelected: (selection) {
+        notifier.setSourceImage(selection.bytes);
+        if (selection.prompt != null) {
+          _promptController.text = selection.prompt!;
+        }
+        _negativePromptController.text = notifier.negativePrompt;
+        _initialized = true;
+      },
     );
   }
 
@@ -700,75 +589,6 @@ class _SliderRow extends StatelessWidget {
           divisions: 20,
         ),
       ],
-    );
-  }
-}
-
-class _PickerOption extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String description;
-  final Color accentColor;
-  final VoidCallback onTap;
-
-  const _PickerOption({
-    required this.icon,
-    required this.label,
-    required this.description,
-    required this.accentColor,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(4),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: accentColor.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: accentColor.withValues(alpha: 0.2)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: accentColor),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      color: accentColor,
-                      fontSize: t.fontSize(10),
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    description,
-                    style: TextStyle(
-                      color: t.textDisabled,
-                      fontSize: t.fontSize(9),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.arrow_forward_ios,
-              size: 12,
-              color: accentColor.withValues(alpha: 0.5),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
