@@ -9,10 +9,12 @@ import '../ml/widgets/upscale_comparison_view.dart';
 import '../services/novel_ai_image_action_service.dart';
 import '../services/preferences_service.dart';
 import '../theme/theme_extensions.dart';
-import '../theme/vision_tokens.dart';
+import '../theme/vision_metrics.dart';
 import '../utils/app_snackbar.dart';
 import '../utils/responsive.dart';
 import '../utils/timestamp_utils.dart';
+import 'ui/app_sheet.dart';
+import 'ui/overlay_action_button.dart';
 import '../../features/gallery/providers/gallery_notifier.dart';
 import '../../features/gallery/services/tool_result_saver.dart';
 import '../../features/gallery/ui/novel_ai_image_action_flow.dart';
@@ -38,8 +40,7 @@ class _QuickActionOverlayState extends State<QuickActionOverlay> {
   Widget build(BuildContext context) {
     final notifier = context.watch<GenerationNotifier>();
     final state = notifier.state;
-    final mobile = isMobile(context);
-    final t = context.t;
+    final touch = windowSizeClassOf(context).isTouchSized;
     final l = context.l;
     final ml = context.watch<MLNotifier>();
     final prefs = context.read<PreferencesService>();
@@ -51,6 +52,7 @@ class _QuickActionOverlayState extends State<QuickActionOverlay> {
       return const SizedBox.shrink();
     }
 
+    final t = context.t;
     final bool showSave = !state.autoSaveImages && !notifier.imageSaved;
     final bool showExport = prefs.showExportButton && !kIsWeb;
     final bool showCopy = prefs.showCopyButton && !kIsWeb;
@@ -72,12 +74,15 @@ class _QuickActionOverlayState extends State<QuickActionOverlay> {
 
     final bool showEdit = state.showEditButton && paidImageFeaturesAllowed;
     final bool canUseBgRemovalBackend = bgRemovalBackend == 'novelai'
-        ? naiBgRemovalAllowed
+        ? isNovelAiImageActionOffered(
+            context,
+            NovelAiImageAction.backgroundRemoval,
+          )
         : ml.hasBgRemovalModel;
     final bool showBgRemoval =
         state.showBgRemovalButton && canUseBgRemovalBackend;
     final bool canUseUpscaleBackend = upscaleBackend == 'novelai'
-        ? naiUpscaleAllowed
+        ? isNovelAiImageActionOffered(context, NovelAiImageAction.upscale)
         : ml.hasUpscaleModel;
     final bool showUpscale = state.showUpscaleButton && canUseUpscaleBackend;
     final bool showEnhance =
@@ -91,175 +96,143 @@ class _QuickActionOverlayState extends State<QuickActionOverlay> {
     }
 
     final actions = <Widget>[];
-    void addAction(Widget action) {
-      if (actions.isNotEmpty) actions.add(const SizedBox(height: 4));
-      actions.add(action);
+    void addAction({
+      required IconData icon,
+      required String tooltip,
+      required VoidCallback? onPressed,
+      Color? color,
+    }) {
+      actions.add(
+        OverlayActionButton(
+          icon: icon,
+          tooltip: tooltip,
+          onPressed: onPressed,
+          color: color,
+        ),
+      );
     }
+
+    void openTool(String toolId) => Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => ToolsHubScreen(initialToolId: toolId)),
+    );
 
     if (showSave) {
       addAction(
-        _SaveButton(
-          onTap: () => notifier.saveCurrentImage(),
-          icon: Icons.save_alt,
-          label: l.mainSave.toUpperCase(),
-          color: t.accentSuccess,
-          mobile: mobile,
-        ),
+        icon: Icons.save_alt,
+        tooltip: l.mainSave,
+        color: t.accentSuccess,
+        onPressed: () => notifier.saveCurrentImage(),
       );
     }
     if (showExport) {
       addAction(
-        _ActionButton(
-          onTap: () => notifier.exportToDevice(context),
-          icon: Icons.download,
-          label: l.mainExport,
-          color: t.accent,
-          mobile: mobile,
-        ),
+        icon: Icons.download,
+        tooltip: l.mainExport,
+        color: t.accent,
+        onPressed: () => notifier.exportToDevice(context),
       );
     }
     if (showCopy) {
       addAction(
-        _ActionButton(
-          onTap: () => notifier.copyToClipboard(context),
-          icon: mobile ? Icons.share : Icons.copy,
-          label: mobile ? 'SHARE' : 'COPY',
-          color: t.accent,
-          mobile: mobile,
-        ),
+        icon: touch ? Icons.share : Icons.copy,
+        tooltip: touch ? l.galleryShare : l.galleryCopy,
+        color: t.accent,
+        onPressed: () => notifier.copyToClipboard(context),
       );
     }
     if (showAlbum) {
       addAction(
-        _ActionButton(
-          onTap: () => _showAlbumPicker(context, notifier, gallery, t),
-          icon: Icons.photo_album_outlined,
-          label: 'ALBUM',
-          color: t.accent,
-          mobile: mobile,
-        ),
+        icon: Icons.photo_album_outlined,
+        tooltip: l.galleryAlbum,
+        color: t.accent,
+        onPressed: () => _showAlbumPicker(context, notifier, gallery),
       );
     }
     if (showEdit) {
       addAction(
-        _ActionButton(
-          onTap: () {
-            context.read<Img2ImgNotifier>().loadSourceImage(
-              state.generatedImage!,
-            );
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    const ToolsHubScreen(initialToolId: 'img2img'),
-              ),
-            );
-          },
-          icon: Icons.brush,
-          label: l.mainEdit,
-          color: t.accentEdit,
-          mobile: mobile,
-        ),
+        icon: Icons.brush,
+        tooltip: l.mainEdit,
+        color: t.accentEdit,
+        onPressed: () {
+          context.read<Img2ImgNotifier>().loadSourceImage(
+            state.generatedImage!,
+          );
+          openTool('img2img');
+        },
       );
     }
     if (showBgRemoval) {
       addAction(
-        _ActionButton(
-          onTap: ml.isProcessing
-              ? null
-              : () {
-                  final sourceBytes = state.generatedImage!;
-                  if (bgRemovalBackend == 'novelai') {
-                    _novelAiBgRemoval(
-                      sourceBytes,
-                      permissionGranted: naiBgRemovalAllowed,
-                    );
-                  } else {
-                    _localBgRemoval(ml, sourceBytes);
-                  }
-                },
-          icon: Icons.content_cut,
-          label: withCap(
-            l.mlRemoveBg,
-            PaidTool.augment,
-            paid: bgRemovalBackend == 'novelai',
-          ),
-          color: t.accentBgRemoval,
-          isProcessing: ml.isProcessing,
-          mobile: mobile,
+        icon: ml.isProcessing ? Icons.hourglass_top : Icons.content_cut,
+        tooltip: withCap(
+          l.mlRemoveBg,
+          PaidTool.augment,
+          paid: bgRemovalBackend == 'novelai',
         ),
+        color: t.accentBgRemoval,
+        onPressed: ml.isProcessing
+            ? null
+            : () {
+                final sourceBytes = state.generatedImage!;
+                if (bgRemovalBackend == 'novelai') {
+                  _novelAiBgRemoval(
+                    sourceBytes,
+                    permissionGranted: naiBgRemovalAllowed,
+                  );
+                } else {
+                  _localBgRemoval(ml, sourceBytes);
+                }
+              },
       );
     }
     if (showUpscale) {
       addAction(
-        _ActionButton(
-          onTap: ml.isProcessing
-              ? null
-              : () {
-                  final sourceBytes = state.generatedImage!;
-                  if (upscaleBackend == 'novelai') {
-                    _novelAiUpscale(
-                      sourceBytes,
-                      state.autoSaveImages,
-                      permissionGranted: naiUpscaleAllowed,
-                    );
-                  } else {
-                    _localUpscale(ml, sourceBytes, state.autoSaveImages);
-                  }
-                },
-          icon: Icons.zoom_out_map,
-          label: withCap(
-            l.mlUpscale,
-            PaidTool.upscale,
-            paid: upscaleBackend == 'novelai',
-          ),
-          color: t.accentUpscale,
-          isProcessing: ml.isProcessing,
-          mobile: mobile,
+        icon: ml.isProcessing ? Icons.hourglass_top : Icons.zoom_out_map,
+        tooltip: withCap(
+          l.mlUpscale,
+          PaidTool.upscale,
+          paid: upscaleBackend == 'novelai',
         ),
+        color: t.accentUpscale,
+        onPressed: ml.isProcessing
+            ? null
+            : () {
+                final sourceBytes = state.generatedImage!;
+                if (upscaleBackend == 'novelai') {
+                  _novelAiUpscale(
+                    sourceBytes,
+                    state.autoSaveImages,
+                    permissionGranted: naiUpscaleAllowed,
+                  );
+                } else {
+                  _localUpscale(ml, sourceBytes, state.autoSaveImages);
+                }
+              },
       );
     }
     if (showEnhance) {
       addAction(
-        _ActionButton(
-          onTap: () {
-            context.read<EnhanceNotifier>().setSourceImage(
-              state.generatedImage!,
-            );
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const ToolsHubScreen(initialToolId: 'enhance'),
-              ),
-            );
-          },
-          icon: Icons.hd,
-          label: l.quickActionEnhance,
-          color: t.accent,
-          mobile: mobile,
-        ),
+        icon: Icons.hd,
+        tooltip: l.quickActionEnhance,
+        color: t.accent,
+        onPressed: () {
+          context.read<EnhanceNotifier>().setSourceImage(state.generatedImage!);
+          openTool('enhance');
+        },
       );
     }
     if (showDirectorTools) {
       addAction(
-        _ActionButton(
-          onTap: () {
-            context.read<DirectorToolsNotifier>().setSourceImage(
-              state.generatedImage!,
-            );
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    const ToolsHubScreen(initialToolId: 'director_tools'),
-              ),
-            );
-          },
-          icon: Icons.auto_fix_high,
-          label: withCap(l.quickActionDirectorTools, PaidTool.augment),
-          color: t.accent,
-          mobile: mobile,
-        ),
+        icon: Icons.auto_fix_high,
+        tooltip: withCap(l.quickActionDirectorTools, PaidTool.augment),
+        color: t.accent,
+        onPressed: () {
+          context.read<DirectorToolsNotifier>().setSourceImage(
+            state.generatedImage!,
+          );
+          openTool('director_tools');
+        },
       );
     }
     if (actions.isEmpty) return const SizedBox.shrink();
@@ -268,27 +241,25 @@ class _QuickActionOverlayState extends State<QuickActionOverlay> {
       builder: (context, constraints) => Align(
         alignment: Alignment.topRight,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 20, 12),
+          padding: const EdgeInsets.fromLTRB(
+            VisionMetrics.space12,
+            VisionMetrics.space12,
+            VisionMetrics.space16,
+            VisionMetrics.space12,
+          ),
           child: ConstrainedBox(
+            key: const ValueKey<String>('quick-action-rail'),
             constraints: BoxConstraints(
-              maxHeight: (constraints.maxHeight - 24)
+              maxHeight: (constraints.maxHeight - 2 * VisionMetrics.space12)
                   .clamp(0.0, double.infinity)
                   .toDouble(),
             ),
-            child: DecoratedBox(
-              key: const ValueKey<String>('quick-action-rail'),
-              decoration: BoxDecoration(
-                color: t.background.withValues(alpha: 0.78),
-                border: Border.all(color: t.borderSubtle),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(4),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisSize: MainAxisSize.min,
-                  children: actions,
-                ),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                spacing: VisionMetrics.space4,
+                children: actions,
               ),
             ),
           ),
@@ -421,186 +392,53 @@ void _showAlbumPicker(
   BuildContext context,
   GenerationNotifier notifier,
   GalleryNotifier gallery,
-  VisionTokens t,
 ) async {
   final basename = await notifier.ensureSavedAndGetBasename();
   if (basename == null || !context.mounted) return;
 
-  showModalBottomSheet(
+  showAppSheet<void>(
     context: context,
-    backgroundColor: t.surfaceHigh,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
-    ),
-    builder: (_) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 12, bottom: 4),
-            child: Container(
-              width: 32,
-              height: 3,
-              decoration: BoxDecoration(
-                color: t.borderMedium,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Text(
-              'ADD TO ALBUM',
-              style: TextStyle(
-                fontSize: t.fontSize(10),
-                letterSpacing: 2,
-                fontWeight: FontWeight.w900,
-                color: t.textSecondary,
-              ),
-            ),
-          ),
-          for (final album in gallery.albums)
-            ListTile(
-              leading: Icon(
-                Icons.photo_album,
-                size: 18,
-                color: album.imageBasenames.contains(basename)
-                    ? t.accentSuccess
-                    : t.textDisabled,
-              ),
-              title: Text(
-                album.name,
-                style: TextStyle(
-                  color: t.textPrimary,
-                  fontSize: t.fontSize(12),
+    builder: (sheetContext) {
+      final t = sheetContext.t;
+      return AppPickerSheet(
+        title: sheetContext.l.galleryAddToAlbum,
+        child: Column(
+          children: [
+            for (final album in gallery.albums)
+              ListTile(
+                leading: Icon(
+                  Icons.photo_album,
+                  size: VisionMetrics.iconMedium,
+                  color: album.imageBasenames.contains(basename)
+                      ? t.accentSuccess
+                      : t.textDisabled,
                 ),
+                title: Text(
+                  album.name,
+                  style: TextStyle(
+                    color: t.textPrimary,
+                    fontSize: t.fontSize(12),
+                  ),
+                ),
+                trailing: album.imageBasenames.contains(basename)
+                    ? Icon(
+                        Icons.check,
+                        size: VisionMetrics.iconMedium,
+                        color: t.accentSuccess,
+                      )
+                    : null,
+                onTap: () {
+                  gallery.addToAlbumByBasename(album.id, basename);
+                  Navigator.pop(sheetContext);
+                  showAppSnackBar(
+                    context,
+                    sheetContext.l.galleryAddedToAlbum(album.name),
+                  );
+                },
               ),
-              trailing: album.imageBasenames.contains(basename)
-                  ? Icon(Icons.check, size: 16, color: t.accentSuccess)
-                  : null,
-              onTap: () {
-                gallery.addToAlbumByBasename(album.id, basename);
-                Navigator.pop(context);
-                showAppSnackBar(
-                  context,
-                  'ADDED TO ${album.name.toUpperCase()}',
-                );
-              },
-            ),
-          const SizedBox(height: 8),
-        ],
-      ),
-    ),
+          ],
+        ),
+      );
+    },
   );
-}
-
-/// SAVE button — keeps text+icon style (different category from tool launchers).
-class _SaveButton extends StatelessWidget {
-  const _SaveButton({
-    required this.onTap,
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.mobile,
-  });
-
-  final VoidCallback? onTap;
-  final IconData icon;
-  final String label;
-  final Color color;
-  final bool mobile;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(4),
-        child: Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: mobile ? 14 : 10,
-            vertical: mobile ? 10 : 6,
-          ),
-          decoration: BoxDecoration(
-            color: t.background.withValues(alpha: 0.7),
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: color.withValues(alpha: 0.4)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: mobile ? 16 : 12, color: color),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: t.fontSize(mobile ? 12 : 9),
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Compact icon-only quick-action button with tooltip.
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({
-    required this.onTap,
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.mobile,
-    this.isProcessing = false,
-  });
-
-  final VoidCallback? onTap;
-  final IconData icon;
-  final String label;
-  final Color color;
-  final bool mobile;
-  final bool isProcessing;
-
-  @override
-  Widget build(BuildContext context) {
-    final size = mobile ? 36.0 : 28.0;
-    final iconSize = mobile ? 18.0 : 14.0;
-    return Tooltip(
-      message: label,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(4),
-          child: Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Center(
-              child: isProcessing
-                  ? SizedBox(
-                      width: iconSize,
-                      height: iconSize,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: color,
-                      ),
-                    )
-                  : Icon(icon, size: iconSize, color: color),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }

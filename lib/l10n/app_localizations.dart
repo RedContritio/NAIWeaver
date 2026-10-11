@@ -1066,6 +1066,18 @@ abstract class AppLocalizations {
   /// **'Size (Smallest)'**
   String get gallerySortSizeSmallest;
 
+  /// No description provided for @gallerySortDateAddedNewest.
+  ///
+  /// In en, this message translates to:
+  /// **'Date Added (Newest)'**
+  String get gallerySortDateAddedNewest;
+
+  /// No description provided for @gallerySortDateAddedOldest.
+  ///
+  /// In en, this message translates to:
+  /// **'Date Added (Oldest)'**
+  String get gallerySortDateAddedOldest;
+
   /// No description provided for @galleryNoDemoImages.
   ///
   /// In en, this message translates to:
@@ -1150,6 +1162,66 @@ abstract class AppLocalizations {
   /// **'Add to Album'**
   String get galleryAddToAlbum;
 
+  /// No description provided for @galleryAddedToAlbum.
+  ///
+  /// In en, this message translates to:
+  /// **'Added to {name}'**
+  String galleryAddedToAlbum(String name);
+
+  /// No description provided for @galleryMoveToAlbum.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to Album'**
+  String get galleryMoveToAlbum;
+
+  /// No description provided for @galleryMove.
+  ///
+  /// In en, this message translates to:
+  /// **'Move'**
+  String get galleryMove;
+
+  /// No description provided for @galleryDeleteAlbumTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete album \"{name}\"?'**
+  String galleryDeleteAlbumTitle(String name);
+
+  /// No description provided for @galleryDeleteAlbumMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The images stay in the gallery.'**
+  String get galleryDeleteAlbumMessage;
+
+  /// No description provided for @galleryRemoveFromAlbum.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from album'**
+  String get galleryRemoveFromAlbum;
+
+  /// No description provided for @galleryRemoveFromAlbumTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from album?'**
+  String get galleryRemoveFromAlbumTitle;
+
+  /// No description provided for @galleryRemoveFromAlbumCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {count} images from this album?'**
+  String galleryRemoveFromAlbumCount(int count);
+
+  /// No description provided for @galleryRemoveFromAlbumMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The images stay in the gallery.'**
+  String get galleryRemoveFromAlbumMessage;
+
+  /// No description provided for @galleryRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get galleryRemove;
+
   /// No description provided for @galleryDeleteCount.
   ///
   /// In en, this message translates to:
@@ -1221,6 +1293,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Export failed: {error}'**
   String galleryExportFailed(String error);
+
+  /// No description provided for @galleryExportFolderUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Export folder unavailable. Pick it again in Settings.'**
+  String get galleryExportFolderUnavailable;
 
   /// No description provided for @galleryImagesCopied.
   ///
@@ -1305,6 +1383,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No Metadata'**
   String get galleryNoMetadata;
+
+  /// No description provided for @galleryCopiedToClipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied to clipboard'**
+  String get galleryCopiedToClipboard;
+
+  /// No description provided for @galleryClipboardUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Clipboard not available'**
+  String get galleryClipboardUnavailable;
 
   /// No description provided for @galleryPrompt.
   ///
@@ -1437,6 +1527,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Import failed: {error}'**
   String galleryImportFailed(String error);
+
+  /// No description provided for @galleryImportToEditor.
+  ///
+  /// In en, this message translates to:
+  /// **'Import to editor'**
+  String get galleryImportToEditor;
+
+  /// No description provided for @galleryMetadataImported.
+  ///
+  /// In en, this message translates to:
+  /// **'Metadata imported to editor'**
+  String get galleryMetadataImported;
+
+  /// No description provided for @galleryMetadataNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No metadata found'**
+  String get galleryMetadataNotFound;
 
   /// No description provided for @panelAdvancedSettings.
   ///
@@ -6152,6 +6260,12 @@ abstract class AppLocalizations {
   /// **'Slider mode'**
   String get comparisonSliderMode;
 
+  /// No description provided for @comparisonSwap.
+  ///
+  /// In en, this message translates to:
+  /// **'Swap'**
+  String get comparisonSwap;
+
   /// No description provided for @settingsBgRemovalButton.
   ///
   /// In en, this message translates to:
@@ -6824,6 +6938,12 @@ abstract class AppLocalizations {
   /// **'BG REMOVAL FAILED'**
   String get galleryBgRemovalFailed;
 
+  /// No description provided for @galleryRemovingBackgrounds.
+  ///
+  /// In en, this message translates to:
+  /// **'REMOVING BACKGROUNDS'**
+  String get galleryRemovingBackgrounds;
+
   /// No description provided for @naiUpscaleTooLarge.
   ///
   /// In en, this message translates to:
@@ -6919,6 +7039,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'auto-detected from prompt'**
   String get importStylesAutoDetected;
+
+  /// No description provided for @importStylesEmbedded.
+  ///
+  /// In en, this message translates to:
+  /// **'disable - embedded in prompt'**
+  String get importStylesEmbedded;
 
   /// No description provided for @img2imgOutputRes.
   ///

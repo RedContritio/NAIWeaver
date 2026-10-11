@@ -540,6 +540,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get gallerySortSizeSmallest => 'Size (Smallest)';
 
   @override
+  String get gallerySortDateAddedNewest => 'Date Added (Newest)';
+
+  @override
+  String get gallerySortDateAddedOldest => 'Date Added (Oldest)';
+
+  @override
   String get galleryNoDemoImages => 'No demo images selected';
 
   @override
@@ -590,6 +596,42 @@ class AppLocalizationsEn extends AppLocalizations {
   String get galleryAddToAlbum => 'Add to Album';
 
   @override
+  String galleryAddedToAlbum(String name) {
+    return 'Added to $name';
+  }
+
+  @override
+  String get galleryMoveToAlbum => 'Move to Album';
+
+  @override
+  String get galleryMove => 'Move';
+
+  @override
+  String galleryDeleteAlbumTitle(String name) {
+    return 'Delete album \"$name\"?';
+  }
+
+  @override
+  String get galleryDeleteAlbumMessage => 'The images stay in the gallery.';
+
+  @override
+  String get galleryRemoveFromAlbum => 'Remove from album';
+
+  @override
+  String get galleryRemoveFromAlbumTitle => 'Remove from album?';
+
+  @override
+  String galleryRemoveFromAlbumCount(int count) {
+    return 'Remove $count images from this album?';
+  }
+
+  @override
+  String get galleryRemoveFromAlbumMessage => 'The images stay in the gallery.';
+
+  @override
+  String get galleryRemove => 'Remove';
+
+  @override
   String galleryDeleteCount(int count) {
     return 'Delete $count images?';
   }
@@ -634,6 +676,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String galleryExportFailed(String error) {
     return 'Export failed: $error';
   }
+
+  @override
+  String get galleryExportFolderUnavailable =>
+      'Export folder unavailable. Pick it again in Settings.';
 
   @override
   String galleryImagesCopied(int count) {
@@ -687,6 +733,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get galleryNoMetadata => 'No Metadata';
+
+  @override
+  String get galleryCopiedToClipboard => 'Copied to clipboard';
+
+  @override
+  String get galleryClipboardUnavailable => 'Clipboard not available';
 
   @override
   String get galleryPrompt => 'Prompt';
@@ -763,6 +815,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String galleryImportFailed(String error) {
     return 'Import failed: $error';
   }
+
+  @override
+  String get galleryImportToEditor => 'Import to editor';
+
+  @override
+  String get galleryMetadataImported => 'Metadata imported to editor';
+
+  @override
+  String get galleryMetadataNotFound => 'No metadata found';
 
   @override
   String get panelAdvancedSettings => 'Advanced Settings';
@@ -3331,6 +3392,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get comparisonSliderMode => 'Slider mode';
 
   @override
+  String get comparisonSwap => 'Swap';
+
+  @override
   String get settingsBgRemovalButton => 'BG Removal Button';
 
   @override
@@ -3691,6 +3755,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get galleryBgRemovalFailed => 'BG REMOVAL FAILED';
 
   @override
+  String get galleryRemovingBackgrounds => 'REMOVING BACKGROUNDS';
+
+  @override
   String naiUpscaleTooLarge(int width, int height) {
     return 'Image too large for NAI upscale (${width}x$height exceeds 2048px limit per side)';
   }
@@ -3740,6 +3807,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get importStylesAutoDetected => 'auto-detected from prompt';
+
+  @override
+  String get importStylesEmbedded => 'disable - embedded in prompt';
 
   @override
   String get img2imgOutputRes => 'OUTPUT RESOLUTION';

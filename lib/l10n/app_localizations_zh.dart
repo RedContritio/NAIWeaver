@@ -500,6 +500,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get gallerySortSizeSmallest => '大小（最小）';
 
   @override
+  String get gallerySortDateAddedNewest => '添加时间（最新）';
+
+  @override
+  String get gallerySortDateAddedOldest => '添加时间（最早）';
+
+  @override
   String get galleryNoDemoImages => '未选择演示图片';
 
   @override
@@ -550,6 +556,42 @@ class AppLocalizationsZh extends AppLocalizations {
   String get galleryAddToAlbum => '添加到相册';
 
   @override
+  String galleryAddedToAlbum(String name) {
+    return '已添加到 $name';
+  }
+
+  @override
+  String get galleryMoveToAlbum => '移动到相册';
+
+  @override
+  String get galleryMove => '移动';
+
+  @override
+  String galleryDeleteAlbumTitle(String name) {
+    return '删除相册“$name”？';
+  }
+
+  @override
+  String get galleryDeleteAlbumMessage => '图片会保留在图库中。';
+
+  @override
+  String get galleryRemoveFromAlbum => '移出相册';
+
+  @override
+  String get galleryRemoveFromAlbumTitle => '移出相册？';
+
+  @override
+  String galleryRemoveFromAlbumCount(int count) {
+    return '将 $count 张图片移出此相册？';
+  }
+
+  @override
+  String get galleryRemoveFromAlbumMessage => '图片会保留在图库中。';
+
+  @override
+  String get galleryRemove => '移出';
+
+  @override
   String galleryDeleteCount(int count) {
     return '删除 $count 张图片？';
   }
@@ -594,6 +636,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String galleryExportFailed(String error) {
     return '导出失败：$error';
   }
+
+  @override
+  String get galleryExportFolderUnavailable => '导出文件夹不可用，请在设置中重新选择。';
 
   @override
   String galleryImagesCopied(int count) {
@@ -646,6 +691,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get galleryNoMetadata => '无元数据';
+
+  @override
+  String get galleryCopiedToClipboard => '已复制到剪贴板';
+
+  @override
+  String get galleryClipboardUnavailable => '剪贴板不可用';
 
   @override
   String get galleryPrompt => '提示词';
@@ -722,6 +773,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String galleryImportFailed(String error) {
     return '导入失败：$error';
   }
+
+  @override
+  String get galleryImportToEditor => '导入到编辑器';
+
+  @override
+  String get galleryMetadataImported => '元数据已导入编辑器';
+
+  @override
+  String get galleryMetadataNotFound => '未找到元数据';
 
   @override
   String get panelAdvancedSettings => '高级设置';
@@ -3231,6 +3291,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get comparisonSliderMode => '滑动对比模式';
 
   @override
+  String get comparisonSwap => '交换';
+
+  @override
   String get settingsBgRemovalButton => '背景移除按钮';
 
   @override
@@ -3581,6 +3644,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get galleryBgRemovalFailed => '背景移除失败';
 
   @override
+  String get galleryRemovingBackgrounds => '正在去除背景';
+
+  @override
   String naiUpscaleTooLarge(int width, int height) {
     return '图像过大，无法使用 NAI 放大（${width}x$height 超出单边 2048px 限制）';
   }
@@ -3629,6 +3695,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get importStylesAutoDetected => '从提示词自动检测';
+
+  @override
+  String get importStylesEmbedded => '建议关闭 - 已嵌入提示词';
 
   @override
   String get img2imgOutputRes => '输出分辨率';

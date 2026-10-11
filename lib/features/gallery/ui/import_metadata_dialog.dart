@@ -46,25 +46,28 @@ class _ImportMetadataDialogState extends State<_ImportMetadataDialog> {
   Widget build(BuildContext context) {
     final t = context.t;
     final l = context.l;
-    final mobile = isMobile(context);
+    final touch = windowSizeClassOf(context).isTouchSized;
 
     return AlertDialog(
       backgroundColor: t.surfaceHigh,
       title: Text(
         l.importDialogTitle,
         style: TextStyle(
-          fontSize: t.fontSize(mobile ? 14 : 10),
+          fontSize: t.fontSize(touch ? 14 : 10),
           letterSpacing: 2,
           color: t.textSecondary,
           fontWeight: FontWeight.w900,
         ),
       ),
       content: SizedBox(
-        width: mobile ? double.maxFinite : 400,
+        width: touch ? double.maxFinite : 400,
         child: _available.isEmpty
             ? Text(
                 l.importNothingAvailable,
-                style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(10)),
+                style: TextStyle(
+                  color: t.textDisabled,
+                  fontSize: t.fontSize(10),
+                ),
               )
             : Column(
                 mainAxisSize: MainAxisSize.min,
@@ -85,7 +88,7 @@ class _ImportMetadataDialogState extends State<_ImportMetadataDialog> {
                         });
                       },
                       t,
-                      mobile,
+                      touch,
                     ),
                 ],
               ),
@@ -103,9 +106,14 @@ class _ImportMetadataDialogState extends State<_ImportMetadataDialog> {
               ? null
               : () {
                   // Persist disabled categories for next import
-                  final disabled = _available.difference(_selected).map((c) => c.name).toSet();
-                  Provider.of<PreferencesService>(context, listen: false)
-                      .setImportDisabledCategories(disabled);
+                  final disabled = _available
+                      .difference(_selected)
+                      .map((c) => c.name)
+                      .toSet();
+                  Provider.of<PreferencesService>(
+                    context,
+                    listen: false,
+                  ).setImportDisabledCategories(disabled);
                   Navigator.pop(context, Set<ImportCategory>.from(_selected));
                 },
           child: Text(
@@ -139,7 +147,7 @@ class _ImportMetadataDialogState extends State<_ImportMetadataDialog> {
         // show hint that disabling them avoids doubling
         final stylesBaked = widget.result.activeStyleNames?.isEmpty ?? true;
         if (stylesBaked) {
-          return '${l.importCategoryStyles} (disable - embedded in prompt)';
+          return '${l.importCategoryStyles} (${l.importStylesEmbedded})';
         }
         return l.importCategoryStyles;
       case ImportCategory.settings:
@@ -153,10 +161,10 @@ class _ImportMetadataDialogState extends State<_ImportMetadataDialog> {
     bool enabled,
     ValueChanged<bool?> onChanged,
     VisionTokens t,
-    bool mobile,
+    bool touch,
   ) {
     return SizedBox(
-      height: mobile ? 36 : 28,
+      height: touch ? 36 : 28,
       child: CheckboxListTile(
         dense: true,
         contentPadding: EdgeInsets.zero,
@@ -168,7 +176,7 @@ class _ImportMetadataDialogState extends State<_ImportMetadataDialog> {
           name,
           style: TextStyle(
             color: enabled ? t.textSecondary : t.textDisabled,
-            fontSize: t.fontSize(mobile ? 12 : 10),
+            fontSize: t.fontSize(touch ? 12 : 10),
           ),
         ),
       ),

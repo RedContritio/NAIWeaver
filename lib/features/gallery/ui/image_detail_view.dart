@@ -12,7 +12,9 @@ import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/services/preferences_service.dart';
 import '../../../core/services/saf_export_service.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/vision_metrics.dart';
 import '../../../core/widgets/confirm_dialog.dart';
+import '../../../core/widgets/ui/overlay_action_button.dart';
 import '../../../core/utils/app_snackbar.dart';
 import '../../../core/utils/image_utils.dart';
 import '../../../core/utils/responsive.dart';
@@ -381,7 +383,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
       final fileName = p.basename(sourceFile.path);
       final customFolder = prefs.exportFolderPath;
 
-      // Honor a user-chosen export folder on mobile (previously ignored — the
+      // Honor a user-chosen export folder on touch (previously ignored — the
       // detail-view export always went to the device gallery, symptom #1 of #13).
       if (!kIsWeb &&
           (Platform.isAndroid || Platform.isIOS) &&
@@ -691,21 +693,23 @@ class _ImageDetailViewState extends State<ImageDetailView>
         if (mounted) {
           showAppSnackBar(
             context,
-            'COPIED TO CLIPBOARD',
-            color: const Color(0xFF4CAF50),
+            context.l.galleryCopiedToClipboard,
+            color: context.tRead.accentSuccess,
           );
         }
         return;
       }
     } catch (_) {}
-    if (mounted) showErrorSnackBar(context, 'CLIPBOARD NOT AVAILABLE');
+    if (mounted) {
+      showErrorSnackBar(context, context.l.galleryClipboardUnavailable);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final t = context.t;
     final gallery = context.watch<GalleryNotifier>();
-    final mobile = isMobile(context);
+    final touch = windowSizeClassOf(context).isTouchSized;
     final topPadding = MediaQuery.of(context).padding.top;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final items = gallery.activeItems;
@@ -720,10 +724,13 @@ class _ImageDetailViewState extends State<ImageDetailView>
       NovelAiImageAction.upscale,
     );
     final canRemoveBackground = prefs.bgRemovalBackend == 'novelai'
-        ? naiBgRemovalAllowed
+        ? isNovelAiImageActionOffered(
+            context,
+            NovelAiImageAction.backgroundRemoval,
+          )
         : ml.hasBgRemovalModel;
     final canUpscale = prefs.upscaleBackend == 'novelai'
-        ? naiUpscaleAllowed
+        ? isNovelAiImageActionOffered(context, NovelAiImageAction.upscale)
         : ml.hasUpscaleModel;
     // Tools that are charged by NovelAI say what they can cost at most.
     String withCap(String label, PaidTool tool, {required bool paid}) {
@@ -749,6 +756,18 @@ class _ImageDetailViewState extends State<ImageDetailView>
     }
 
     final item = items[_currentIndex];
+
+    Widget viewerAction({
+      required IconData icon,
+      required String label,
+      required Color color,
+      required VoidCallback? onTap,
+    }) => OverlayActionButton(
+      icon: icon,
+      tooltip: label,
+      color: color,
+      onPressed: onTap,
+    );
 
     return Scaffold(
       backgroundColor: t.background,
@@ -836,9 +855,12 @@ class _ImageDetailViewState extends State<ImageDetailView>
                               IconButton(
                                 icon: Icon(
                                   Icons.arrow_back_ios,
-                                  size: mobile ? 20 : 14,
+                                  size: touch ? 20 : 14,
                                   color: t.textSecondary,
                                 ),
+                                tooltip: MaterialLocalizations.of(
+                                  context,
+                                ).backButtonTooltip,
                                 onPressed: () => Navigator.pop(context),
                               ),
                               Expanded(
@@ -847,7 +869,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                     '${_currentIndex + 1} / ${items.length}',
                                     style: TextStyle(
                                       color: t.textDisabled,
-                                      fontSize: t.fontSize(mobile ? 11 : 9),
+                                      fontSize: t.fontSize(touch ? 11 : 9),
                                       letterSpacing: 1,
                                     ),
                                   ),
@@ -861,7 +883,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                       item.isFavorite
                                           ? Icons.star
                                           : Icons.star_outline,
-                                      size: mobile ? 22 : 18,
+                                      size: touch ? 22 : 18,
                                       color: item.isFavorite
                                           ? t.accentFavorite
                                           : t.textSecondary,
@@ -881,8 +903,8 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                       ? Padding(
                                           padding: const EdgeInsets.all(12),
                                           child: SizedBox(
-                                            width: mobile ? 22 : 18,
-                                            height: mobile ? 22 : 18,
+                                            width: touch ? 22 : 18,
+                                            height: touch ? 22 : 18,
                                             child: CircularProgressIndicator(
                                               strokeWidth: 2,
                                               color: t.textSecondary,
@@ -892,7 +914,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                       : IconButton(
                                           icon: Icon(
                                             Icons.save_alt,
-                                            size: mobile ? 22 : 18,
+                                            size: touch ? 22 : 18,
                                             color: t.textSecondary,
                                           ),
                                           tooltip: context.l.galleryExportImage,
@@ -903,22 +925,37 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                     IconButton(
                                       icon: Icon(
                                         Icons.playlist_remove,
-                                        size: mobile ? 22 : 18,
+                                        size: touch ? 22 : 18,
                                         color: t.textSecondary,
                                       ),
-                                      tooltip: 'Remove from album',
-                                      onPressed: () {
-                                        gallery.removeFromAlbum(
-                                          gallery.activeAlbumId!,
-                                          [item],
+                                      tooltip: context.l.galleryRemoveFromAlbum,
+                                      onPressed: () async {
+                                        final albumId = gallery.activeAlbumId!;
+                                        final confirm = await showConfirmDialog(
+                                          context,
+                                          title: context
+                                              .l
+                                              .galleryRemoveFromAlbumTitle,
+                                          message: context
+                                              .l
+                                              .galleryRemoveFromAlbumMessage,
+                                          confirmLabel: context.l.galleryRemove,
+                                          cancelLabel: context.l.commonCancel,
                                         );
+                                        if (!context.mounted ||
+                                            confirm != true) {
+                                          return;
+                                        }
+                                        gallery.removeFromAlbum(albumId, [
+                                          item,
+                                        ]);
                                         _onCurrentItemRemoved();
                                       },
                                     ),
                                   IconButton(
                                     icon: Icon(
                                       Icons.delete_outline,
-                                      size: mobile ? 22 : 18,
+                                      size: touch ? 22 : 18,
                                       color: t.accentDanger,
                                     ),
                                     tooltip:
@@ -962,7 +999,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
                     child: IgnorePointer(
                       ignoring: !_showControls,
                       child: GalleryDetailPanelViewport(
-                        mobile: mobile,
+                        mobile: touch,
                         padding: EdgeInsets.only(
                           bottom: bottomPadding + 12,
                           left: 16,
@@ -1009,7 +1046,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                       label,
                                       style: TextStyle(
                                         color: color,
-                                        fontSize: t.fontSize(mobile ? 9 : 7),
+                                        fontSize: t.fontSize(touch ? 9 : 7),
                                         fontWeight: FontWeight.bold,
                                         letterSpacing: 1,
                                       ),
@@ -1038,18 +1075,18 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       color: t.textSecondary,
-                                      fontSize: mobile
+                                      fontSize: touch
                                           ? t.fontSize(12)
                                           : t.fontSize(9),
                                       fontWeight: FontWeight.bold,
                                       letterSpacing: 0.5,
                                       shadows: [
                                         Shadow(
-                                          color: Colors.black,
+                                          color: t.background,
                                           blurRadius: 4,
                                         ),
                                         Shadow(
-                                          color: Colors.black,
+                                          color: t.background,
                                           blurRadius: 8,
                                         ),
                                       ],
@@ -1110,11 +1147,11 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                     letterSpacing: 1,
                                     shadows: [
                                       Shadow(
-                                        color: Colors.black,
+                                        color: t.background,
                                         blurRadius: 4,
                                       ),
                                       Shadow(
-                                        color: Colors.black,
+                                        color: t.background,
                                         blurRadius: 8,
                                       ),
                                     ],
@@ -1128,15 +1165,13 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                     controller: _actionScrollController,
                                     scrollDirection: Axis.horizontal,
                                     child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceEvenly,
+                                      spacing: VisionMetrics.space8,
                                       children: [
-                                        _ViewerAction(
+                                        viewerAction(
                                           icon: Icons.upload_outlined,
                                           label: context.l.galleryPrompt
                                               .toUpperCase(),
                                           color: t.accent,
-                                          mobile: mobile,
                                           onTap: () async {
                                             final notifier = context
                                                 .read<GenerationNotifier>();
@@ -1160,12 +1195,11 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                             Navigator.pop(context);
                                           },
                                         ),
-                                        _ViewerAction(
+                                        viewerAction(
                                           icon: Icons.brush_outlined,
                                           label: context.l.galleryImg2img
                                               .toUpperCase(),
                                           color: t.accentEdit,
-                                          mobile: mobile,
                                           onTap: () => _sendToTool(
                                             item,
                                             'img2img',
@@ -1188,12 +1222,11 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                             },
                                           ),
                                         ),
-                                        _ViewerAction(
+                                        viewerAction(
                                           icon: Icons.hd,
                                           label: context.l.galleryEnhance
                                               .toUpperCase(),
                                           color: t.accent,
-                                          mobile: mobile,
                                           onTap: () => _sendToTool(
                                             item,
                                             'enhance',
@@ -1202,12 +1235,11 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                                 .setSourceImage,
                                           ),
                                         ),
-                                        _ViewerAction(
+                                        viewerAction(
                                           icon: Icons.auto_fix_high,
                                           label: context.l.galleryDirectorTools
                                               .toUpperCase(),
                                           color: t.accent,
-                                          mobile: mobile,
                                           onTap: () => _sendToTool(
                                             item,
                                             'director_tools',
@@ -1217,7 +1249,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                           ),
                                         ),
                                         if (canRemoveBackground)
-                                          _ViewerAction(
+                                          viewerAction(
                                             icon: ml.isProcessing
                                                 ? Icons.hourglass_top
                                                 : Icons.content_cut,
@@ -1229,9 +1261,8 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                                   'novelai',
                                             ),
                                             color: t.accent,
-                                            mobile: mobile,
                                             onTap: ml.isProcessing
-                                                ? () {}
+                                                ? null
                                                 : () {
                                                     if (prefs
                                                             .bgRemovalBackend ==
@@ -1247,7 +1278,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                                   },
                                           ),
                                         if (canUpscale)
-                                          _ViewerAction(
+                                          viewerAction(
                                             icon: ml.isProcessing
                                                 ? Icons.hourglass_top
                                                 : Icons.zoom_out_map,
@@ -1259,9 +1290,8 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                                   'novelai',
                                             ),
                                             color: t.accent,
-                                            mobile: mobile,
                                             onTap: ml.isProcessing
-                                                ? () {}
+                                                ? null
                                                 : () {
                                                     if (prefs.upscaleBackend ==
                                                         'novelai') {
@@ -1275,12 +1305,11 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                                     }
                                                   },
                                           ),
-                                        _ViewerAction(
+                                        viewerAction(
                                           icon: Icons.person_outline,
                                           label: context.l.galleryCharRef
                                               .toUpperCase(),
                                           color: t.accentRefCharacter,
-                                          mobile: mobile,
                                           onTap: () async {
                                             final bytes = await item.file
                                                 .readAsBytes();
@@ -1303,12 +1332,11 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                             );
                                           },
                                         ),
-                                        _ViewerAction(
+                                        viewerAction(
                                           icon: Icons.palette_outlined,
                                           label: context.l.galleryVibe
                                               .toUpperCase(),
                                           color: t.accentVibeTransfer,
-                                          mobile: mobile,
                                           onTap: () async {
                                             try {
                                               final bytes = await item.file
@@ -1338,25 +1366,23 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                             }
                                           },
                                         ),
-                                        _ViewerAction(
+                                        viewerAction(
                                           icon: Icons.slideshow_outlined,
                                           label: context.l.gallerySlideshow
                                               .toUpperCase(),
                                           color: t.textSecondary,
-                                          mobile: mobile,
                                           onTap: _launchSlideshow,
                                         ),
-                                        _ViewerAction(
-                                          icon: mobile
+                                        viewerAction(
+                                          icon: touch
                                               ? Icons.share
                                               : Icons.copy,
-                                          label: mobile
+                                          label: touch
                                               ? context.l.galleryShare
                                                     .toUpperCase()
                                               : context.l.galleryCopy
                                                     .toUpperCase(),
                                           color: t.textSecondary,
-                                          mobile: mobile,
                                           onTap: () =>
                                               _copyImageToClipboard(item),
                                         ),
@@ -1416,49 +1442,6 @@ class _ImageDetailViewState extends State<ImageDetailView>
   }
 }
 
-class _ViewerAction extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final bool mobile;
-  final VoidCallback onTap;
-
-  const _ViewerAction({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.mobile,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: mobile ? 12 : 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: mobile ? 26 : 20, color: color),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: mobile ? t.fontSize(8) : t.fontSize(7),
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _InfoChip extends StatelessWidget {
   final String label;
   final String value;
@@ -1468,12 +1451,12 @@ class _InfoChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final mobile = isMobile(context);
+    final touch = windowSizeClassOf(context).isTouchSized;
     return Container(
       margin: const EdgeInsets.only(right: 8),
       padding: EdgeInsets.symmetric(
-        horizontal: mobile ? 12 : 8,
-        vertical: mobile ? 6 : 4,
+        horizontal: touch ? 12 : 8,
+        vertical: touch ? 6 : 4,
       ),
       decoration: BoxDecoration(
         color: t.borderSubtle,
@@ -1487,7 +1470,7 @@ class _InfoChip extends StatelessWidget {
             label,
             style: TextStyle(
               color: t.textDisabled,
-              fontSize: mobile ? t.fontSize(9) : t.fontSize(7),
+              fontSize: touch ? t.fontSize(9) : t.fontSize(7),
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -1495,7 +1478,7 @@ class _InfoChip extends StatelessWidget {
             value,
             style: TextStyle(
               color: t.textSecondary,
-              fontSize: mobile ? t.fontSize(11) : t.fontSize(9),
+              fontSize: touch ? t.fontSize(11) : t.fontSize(9),
               fontWeight: FontWeight.w900,
             ),
           ),
