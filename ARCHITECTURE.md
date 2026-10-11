@@ -298,7 +298,8 @@ error handlers, lifespan, `include_router`; the entry point stays
 |---|---|
 | `config.py` | Environment variables and constants. Read as `config.X` so tests can patch paths. |
 | `state.py` | All process-wide mutable state: HTTP client, image/text queue clocks and pending lists, upstream lane, tool response cache, background tasks. |
-| `db.py` | Connections, `SCHEMA`, `migrate_db`, `recompute_reserved_points`, bootstrap users. |
+| `db.py` | Connections, the final `SCHEMA` (`PRAGMA user_version`), the startup version check, `recompute_reserved_points`, bootstrap users. |
+| `db_upgrade.py` | One-off upgrade from the pre-fix production schema (version 0) to the final schema; `python -m app.cli db upgrade` (dry run by default). |
 | `users.py` | Role and permission helpers, user DTOs, quota/rules for a user. |
 | `auth.py` | `require_user` / `require_admin`, login/logout, `/api/me`, `/api/quota`, `only_auth` wiring. |
 | `audit.py` | Request audit rows, body files (written in threads), retention. |
