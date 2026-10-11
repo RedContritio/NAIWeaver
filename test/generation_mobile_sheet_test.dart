@@ -1,50 +1,105 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:naiweaver/core/services/preferences_service.dart';
+import 'package:naiweaver/core/theme/theme_notifier.dart';
 import 'package:naiweaver/features/generation/widgets/generation_mobile_sheet.dart';
+import 'package:naiweaver/features/generation/widgets/generation_page_layout.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  late PreferencesService preferences;
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    preferences = PreferencesService(
+      await SharedPreferences.getInstance(),
+      const FlutterSecureStorage(),
+    );
+  });
+
+  Widget themed(Widget app) {
+    return ChangeNotifierProvider(
+      create: (_) => ThemeNotifier(preferences),
+      child: app,
+    );
+  }
+
+  /// Sizes the test window like a phone. MaterialApp derives its MediaQuery
+  /// from the window, so the Scaffold body sees the safe area and keyboard
+  /// exactly as it does in the app.
+  void setUpView(
+    WidgetTester tester, {
+    Size size = const Size(390, 700),
+    double safeBottom = 20,
+    double keyboard = 0,
+  }) {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = size;
+    tester.view.viewPadding = FakeViewPadding(bottom: safeBottom);
+    tester.view.padding = FakeViewPadding(
+      bottom: math.max(0, safeBottom - keyboard),
+    );
+    tester.view.viewInsets = FakeViewPadding(bottom: keyboard);
+    addTearDown(tester.view.reset);
+  }
+
+  GenerationMobileSheet sheet(
+    GlobalKey<GenerationMobileSheetState> key, {
+    Widget? prompt,
+    Widget? parameters,
+  }) {
+    return GenerationMobileSheet(
+      key: key,
+      promptLabel: 'PROMPT',
+      inputsLabel: 'INPUTS',
+      parametersLabel: 'PARAMETERS',
+      inputCount: 2,
+      compactPrompt: const Text('COMPACT PROMPT'),
+      compactActions: const SizedBox(width: 42, child: Text('GO')),
+      prompt:
+          prompt ??
+          const ColoredBox(
+            color: Colors.red,
+            child: Center(child: Text('PROMPT BODY')),
+          ),
+      inputs: const ColoredBox(
+        color: Colors.green,
+        child: Center(child: Text('INPUT BODY')),
+      ),
+      parameters:
+          parameters ??
+          const ColoredBox(
+            color: Colors.blue,
+            child: Center(child: Text('PARAMETER BODY')),
+          ),
+    );
+  }
+
+  Widget app(Widget body) {
+    return themed(MaterialApp(home: Scaffold(body: body)));
+  }
+
   Widget buildSheet(
     GlobalKey<GenerationMobileSheetState> key, {
     Widget? prompt,
+    Widget? parameters,
   }) {
-    return MaterialApp(
-      home: MediaQuery(
-        data: const MediaQueryData(
-          size: Size(390, 700),
-          viewPadding: EdgeInsets.only(bottom: 20),
-        ),
-        child: Scaffold(
-          body: GenerationMobileSheet(
-            key: key,
-            promptLabel: 'PROMPT',
-            inputsLabel: 'INPUTS',
-            parametersLabel: 'PARAMETERS',
-            inputCount: 2,
-            compactPrompt: const Text('COMPACT PROMPT'),
-            compactActions: const SizedBox(width: 42, child: Text('GO')),
-            prompt:
-                prompt ??
-                const ColoredBox(
-                  color: Colors.red,
-                  child: Center(child: Text('PROMPT BODY')),
-                ),
-            inputs: const ColoredBox(
-              color: Colors.green,
-              child: Center(child: Text('INPUT BODY')),
-            ),
-            parameters: const ColoredBox(
-              color: Colors.blue,
-              child: Center(child: Text('PARAMETER BODY')),
-            ),
-          ),
-        ),
-      ),
-    );
+    return app(sheet(key, prompt: prompt, parameters: parameters));
+  }
+
+  Rect panelRect(WidgetTester tester) {
+    return tester.getRect(find.byKey(GenerationMobileSheet.panelKey));
   }
 
   testWidgets('compact bar expands, changes tab, and collapses', (
     tester,
   ) async {
+    setUpView(tester);
     final key = GlobalKey<GenerationMobileSheetState>();
     await tester.pumpWidget(buildSheet(key));
 
@@ -71,9 +126,29 @@ void main() {
     expect(find.byKey(GenerationMobileSheet.tabsKey), findsNothing);
   });
 
+  testWidgets('panel and input counters follow the theme tokens', (
+    tester,
+  ) async {
+    setUpView(tester);
+    final key = GlobalKey<GenerationMobileSheetState>();
+    await tester.pumpWidget(buildSheet(key));
+    final tokens = ThemeNotifier(preferences).tokens;
+
+    final panel = tester.widget<Material>(
+      find.byKey(GenerationMobileSheet.panelKey),
+    );
+    expect(panel.color, tokens.surfaceHigh);
+    expect(tester.widget<Text>(find.text('2')).style?.color, tokens.accent);
+
+    await tester.tap(find.byKey(GenerationMobileSheet.compactKey));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Text>(find.text('2')).style?.color, tokens.accent);
+  });
+
   testWidgets('compact height includes safe area without an extra footer', (
     tester,
   ) async {
+    setUpView(tester);
     final key = GlobalKey<GenerationMobileSheetState>();
     await tester.pumpWidget(buildSheet(key));
 
@@ -86,6 +161,7 @@ void main() {
   testWidgets('expanded sheet leaves a retreat target that dismisses focus', (
     tester,
   ) async {
+    setUpView(tester);
     final key = GlobalKey<GenerationMobileSheetState>();
     final focusNode = FocusNode();
     addTearDown(focusNode.dispose);
@@ -113,6 +189,410 @@ void main() {
 
     expect(focusNode.hasFocus, isFalse);
     expect(find.byKey(GenerationMobileSheet.compactKey), findsOneWidget);
+  });
+
+  testWidgets('a multi-frame drag follows the finger without snapping back', (
+    tester,
+  ) async {
+    setUpView(tester);
+    final key = GlobalKey<GenerationMobileSheetState>();
+    final extents = <double>[];
+    await tester.pumpWidget(
+      app(
+        NotificationListener<DraggableScrollableNotification>(
+          onNotification: (notification) {
+            extents.add(notification.extent);
+            return false;
+          },
+          child: sheet(key),
+        ),
+      ),
+    );
+    final collapsedHeight = panelRect(tester).height;
+
+    await tester.timedDrag(
+      find.byKey(GenerationMobileSheet.compactKey),
+      const Offset(0, -260),
+      const Duration(milliseconds: 900),
+    );
+    final draggedHeight = extents.reduce(math.max) * 700;
+    await tester.pumpAndSettle();
+
+    expect(extents.length, greaterThan(20));
+    for (var index = 1; index < extents.length; index++) {
+      expect(
+        extents[index],
+        greaterThanOrEqualTo(extents[index - 1] - 1e-9),
+        reason: 'the sheet moved back at notification $index: $extents',
+      );
+    }
+    expect(draggedHeight, greaterThan(collapsedHeight + 220));
+    // Released while moving up, it settles on the next stop up.
+    expect(panelRect(tester).height, closeTo(700 * 0.72, 0.5));
+  });
+
+  for (final keyboard in [0.0, 120.0, 200.0, 260.0, 300.0]) {
+    testWidgets(
+      'an 800x300 window with a ${keyboard.toInt()}px keyboard keeps working',
+      (tester) async {
+        setUpView(
+          tester,
+          size: const Size(800, 300),
+          safeBottom: 24,
+          keyboard: keyboard,
+        );
+        final bodyHeight = 300 - keyboard;
+        final key = GlobalKey<GenerationMobileSheetState>();
+        await tester.pumpWidget(buildSheet(key));
+        expect(tester.takeException(), isNull);
+        expect(panelRect(tester).bottom, bodyHeight);
+
+        unawaited(key.currentState!.openTab(GenerationMobileTab.parameters));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        final opened = panelRect(tester);
+        expect(opened.top, greaterThanOrEqualTo(0));
+        expect(opened.bottom, bodyHeight);
+        if (bodyHeight > GenerationMobileSheet.peekContentHeight) {
+          expect(find.text('PARAMETER BODY'), findsOneWidget);
+        }
+
+        unawaited(key.currentState!.collapse());
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        // The keyboard covers the gesture bar, so the body has no safe area.
+        final collapsedHeight =
+            GenerationMobileSheet.peekContentHeight +
+            math.max(0, 24 - keyboard);
+        expect(
+          panelRect(tester).height,
+          closeTo(math.min(bodyHeight, collapsedHeight), 1e-6),
+        );
+      },
+    );
+  }
+
+  testWidgets('sheet calls are safe after the sheet leaves the tree', (
+    tester,
+  ) async {
+    setUpView(tester);
+    final key = GlobalKey<GenerationMobileSheetState>();
+    final showSheet = ValueNotifier<bool>(true);
+    addTearDown(showSheet.dispose);
+    await tester.pumpWidget(
+      app(
+        ValueListenableBuilder<bool>(
+          valueListenable: showSheet,
+          builder: (context, show, _) =>
+              show ? sheet(key) : const SizedBox.shrink(),
+        ),
+      ),
+    );
+    final state = key.currentState!;
+
+    unawaited(state.openTab(GenerationMobileTab.parameters));
+    await tester.pump(const Duration(milliseconds: 100));
+    // For example the window widens past the mobile layout mid-animation.
+    showSheet.value = false;
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await state.collapse();
+    await state.expand();
+    await state.openTab(GenerationMobileTab.prompt);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  group('opening a tab from the prompt', () {
+    // Mirrors the main screen: focusing the prompt asks the sheet to open the
+    // prompt tab.
+    Widget promptField(GlobalKey<GenerationMobileSheetState> key) {
+      return Center(
+        child: Focus(
+          onFocusChange: (hasFocus) {
+            if (hasFocus) {
+              unawaited(key.currentState!.openTab(GenerationMobileTab.prompt));
+            }
+          },
+          child: const TextField(key: ValueKey<String>('prompt-field')),
+        ),
+      );
+    }
+
+    testWidgets('does not pull back a fully opened sheet', (tester) async {
+      setUpView(tester);
+      final key = GlobalKey<GenerationMobileSheetState>();
+      await tester.pumpWidget(buildSheet(key, prompt: promptField(key)));
+
+      unawaited(key.currentState!.expand());
+      await tester.pumpAndSettle();
+      expect(panelRect(tester).top, 0);
+
+      await tester.tap(find.byKey(const ValueKey<String>('prompt-field')));
+      await tester.pumpAndSettle();
+
+      expect(panelRect(tester).top, 0);
+    });
+
+    testWidgets('keeps a sheet already at the middle stop there', (
+      tester,
+    ) async {
+      setUpView(tester);
+      final key = GlobalKey<GenerationMobileSheetState>();
+      await tester.pumpWidget(buildSheet(key, prompt: promptField(key)));
+
+      unawaited(key.currentState!.openTab(GenerationMobileTab.prompt));
+      await tester.pumpAndSettle();
+      final middle = panelRect(tester);
+
+      await tester.tap(find.byKey(const ValueKey<String>('prompt-field')));
+      await tester.pumpAndSettle();
+
+      expect(panelRect(tester), middle);
+      expect(middle.height, closeTo(700 * 0.72, 0.5));
+    });
+
+    testWidgets('stops a collapse that is still running', (tester) async {
+      setUpView(tester);
+      final key = GlobalKey<GenerationMobileSheetState>();
+      await tester.pumpWidget(buildSheet(key));
+
+      unawaited(key.currentState!.expand());
+      await tester.pumpAndSettle();
+      unawaited(key.currentState!.collapse());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 16));
+      final partlyCollapsed = panelRect(tester).height;
+      expect(partlyCollapsed, inExclusiveRange(700 * 0.72, 700));
+
+      unawaited(key.currentState!.openTab(GenerationMobileTab.prompt));
+      await tester.pumpAndSettle();
+
+      expect(panelRect(tester).height, closeTo(partlyCollapsed, 0.5));
+      expect(key.currentState!.isExpanded, isTrue);
+    });
+  });
+
+  testWidgets('pages keep their state through collapsing and tab switches', (
+    tester,
+  ) async {
+    setUpView(tester);
+    final key = GlobalKey<GenerationMobileSheetState>();
+    final lifecycle = <String>[];
+    const listKey = ValueKey<String>('parameter-list');
+    await tester.pumpWidget(
+      buildSheet(
+        key,
+        prompt: _LifecycleProbe(
+          log: lifecycle,
+          child: const Center(
+            child: TextField(key: ValueKey<String>('prompt-field')),
+          ),
+        ),
+        parameters: ListView(
+          key: listKey,
+          children: [
+            for (var row = 0; row < 40; row++)
+              SizedBox(height: 50, child: Text('ROW $row')),
+          ],
+        ),
+      ),
+    );
+    final state = key.currentState!;
+    double listOffset() => tester
+        .state<ScrollableState>(
+          find.descendant(
+            of: find.byKey(listKey),
+            matching: find.byType(Scrollable),
+          ),
+        )
+        .position
+        .pixels;
+
+    unawaited(state.openTab(GenerationMobileTab.prompt));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('prompt-field')),
+      'kept draft',
+    );
+    unawaited(state.openTab(GenerationMobileTab.parameters));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byKey(listKey), const Offset(0, -400));
+    await tester.pumpAndSettle();
+    final scrolled = listOffset();
+    expect(scrolled, greaterThan(300));
+
+    // Every generation collapses the sheet.
+    unawaited(state.collapse());
+    await tester.pumpAndSettle();
+    expect(state.isExpanded, isFalse);
+    unawaited(state.openTab(GenerationMobileTab.parameters));
+    await tester.pumpAndSettle();
+    expect(listOffset(), scrolled);
+
+    unawaited(state.openTab(GenerationMobileTab.prompt));
+    await tester.pumpAndSettle();
+    expect(find.text('kept draft'), findsOneWidget);
+    expect(lifecycle, ['init']);
+  });
+
+  testWidgets('a collapsed sheet hides its pages from accessibility', (
+    tester,
+  ) async {
+    setUpView(tester);
+    final semantics = tester.ensureSemantics();
+    final key = GlobalKey<GenerationMobileSheetState>();
+    await tester.pumpWidget(buildSheet(key));
+
+    expect(find.semantics.byLabel('PROMPT BODY'), findsNothing);
+    unawaited(key.currentState!.openTab(GenerationMobileTab.prompt));
+    await tester.pumpAndSettle();
+    expect(find.semantics.byLabel('PROMPT BODY'), findsOneWidget);
+    unawaited(key.currentState!.collapse());
+    await tester.pumpAndSettle();
+    expect(find.semantics.byLabel('PROMPT BODY'), findsNothing);
+    semantics.dispose();
+  });
+
+  testWidgets('dragging the sheet closed dismisses the keyboard', (
+    tester,
+  ) async {
+    setUpView(tester);
+    final key = GlobalKey<GenerationMobileSheetState>();
+    final focusNode = FocusNode();
+    addTearDown(focusNode.dispose);
+    await tester.pumpWidget(
+      buildSheet(
+        key,
+        prompt: Center(child: TextField(focusNode: focusNode)),
+      ),
+    );
+
+    unawaited(key.currentState!.openTab(GenerationMobileTab.prompt));
+    await tester.pumpAndSettle();
+    focusNode.requestFocus();
+    await tester.pump();
+    expect(focusNode.hasFocus, isTrue);
+
+    await tester.timedDrag(
+      find.byKey(GenerationMobileSheet.tabsKey),
+      const Offset(0, 600),
+      const Duration(milliseconds: 500),
+    );
+    await tester.pumpAndSettle();
+
+    expect(key.currentState!.isExpanded, isFalse);
+    expect(focusNode.hasFocus, isFalse);
+  });
+
+  testWidgets('pages do not add the safe area the sheet already reserves', (
+    tester,
+  ) async {
+    setUpView(tester, safeBottom: 20);
+    final key = GlobalKey<GenerationMobileSheetState>();
+    double? pageSafeArea;
+    const pageKey = ValueKey<String>('safe-area-probe');
+    await tester.pumpWidget(
+      buildSheet(
+        key,
+        prompt: Builder(
+          builder: (context) {
+            pageSafeArea = MediaQuery.paddingOf(context).bottom;
+            return const SizedBox.expand(key: pageKey);
+          },
+        ),
+      ),
+    );
+
+    unawaited(key.currentState!.expand());
+    await tester.pumpAndSettle();
+
+    expect(pageSafeArea, 0);
+    expect(
+      tester.getRect(find.byKey(pageKey)).bottom,
+      panelRect(tester).bottom - 20,
+    );
+  });
+
+  group('the collapsed sheet and the results area', () {
+    // The mobile generation page: results above, the sheet as an overlay.
+    Widget generationPage(GlobalKey<GenerationMobileSheetState> key) {
+      return app(
+        GenerationPageLayout(
+          overlayReservedHeightOf: GenerationMobileSheet.collapsedHeightOf,
+          results: const ColoredBox(color: Colors.black),
+          footer: const SizedBox.shrink(),
+          overlay: Positioned.fill(child: sheet(key)),
+        ),
+      );
+    }
+
+    // Neither overlapping nor leaving a gap: the results end exactly where
+    // the collapsed sheet starts.
+    void expectResultsMeetSheet(WidgetTester tester) {
+      final results = tester.getRect(
+        find.byKey(GenerationPageLayout.resultsRegionKey),
+      );
+      final panel = panelRect(tester);
+      expect(results.overlaps(panel), isFalse, reason: '$results / $panel');
+      expect(results.bottom, closeTo(panel.top, 1e-6));
+    }
+
+    for (final height in [360.0, 520.0, 700.0, 900.0, 1200.0, 1600.0]) {
+      for (final safeBottom in [0.0, 34.0]) {
+        testWidgets('meet in a ${height.toInt()}px window with a '
+            '${safeBottom.toInt()}px safe area', (tester) async {
+          setUpView(tester, size: Size(400, height), safeBottom: safeBottom);
+          final key = GlobalKey<GenerationMobileSheetState>();
+          await tester.pumpWidget(generationPage(key));
+          expectResultsMeetSheet(tester);
+
+          unawaited(key.currentState!.openTab(GenerationMobileTab.inputs));
+          await tester.pumpAndSettle();
+          unawaited(key.currentState!.collapse());
+          await tester.pumpAndSettle();
+          expectResultsMeetSheet(tester);
+        });
+      }
+    }
+
+    testWidgets('meet while the keyboard hides the safe area', (tester) async {
+      setUpView(
+        tester,
+        size: const Size(390, 844),
+        safeBottom: 34,
+        keyboard: 300,
+      );
+      final key = GlobalKey<GenerationMobileSheetState>();
+      await tester.pumpWidget(generationPage(key));
+
+      expectResultsMeetSheet(tester);
+      expect(panelRect(tester).height, GenerationMobileSheet.peekContentHeight);
+    });
+
+    testWidgets('meet again after the window changes size', (tester) async {
+      setUpView(tester, size: const Size(800, 360), safeBottom: 24);
+      final key = GlobalKey<GenerationMobileSheetState>();
+      await tester.pumpWidget(generationPage(key));
+      // Once moved, the sheet keeps its size as a fraction of the height.
+      unawaited(key.currentState!.openTab(GenerationMobileTab.prompt));
+      await tester.pumpAndSettle();
+      unawaited(key.currentState!.collapse());
+      await tester.pumpAndSettle();
+
+      for (final size in const [
+        Size(390, 844),
+        Size(800, 360),
+        Size(390, 1600),
+        Size(390, 640),
+      ]) {
+        tester.view.physicalSize = size;
+        await tester.pumpAndSettle();
+        expectResultsMeetSheet(tester);
+        expect(key.currentState!.isExpanded, isFalse);
+      }
+    });
   });
 
   testWidgets('main prompt participates in prompt page scrolling', (
@@ -150,4 +630,32 @@ void main() {
 
     expect(after.dy, lessThan(before.dy - 150));
   });
+}
+
+/// Records whether its subtree was rebuilt from scratch.
+class _LifecycleProbe extends StatefulWidget {
+  const _LifecycleProbe({required this.log, required this.child});
+
+  final List<String> log;
+  final Widget child;
+
+  @override
+  State<_LifecycleProbe> createState() => _LifecycleProbeState();
+}
+
+class _LifecycleProbeState extends State<_LifecycleProbe> {
+  @override
+  void initState() {
+    super.initState();
+    widget.log.add('init');
+  }
+
+  @override
+  void dispose() {
+    widget.log.add('dispose');
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

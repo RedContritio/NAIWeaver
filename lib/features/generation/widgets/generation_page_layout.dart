@@ -15,7 +15,8 @@ class GenerationPageLayout extends StatelessWidget {
     required this.footer,
     this.overlay,
     this.overlayReservedHeight = 0,
-  });
+    this.overlayReservedHeightOf,
+  }) : assert(overlayReservedHeightOf == null || overlayReservedHeight == 0);
 
   static const resultsRegionKey = ValueKey<String>(
     'generation-layout-results-region',
@@ -27,14 +28,23 @@ class GenerationPageLayout extends StatelessWidget {
   final Widget results;
   final Widget footer;
   final Widget? overlay;
+
+  /// Height kept free below the column for [overlay].
   final double overlayReservedHeight;
+
+  /// Resolves the reservation in this layout's own context instead of the
+  /// caller's. An overlay that sizes itself from the [MediaQuery] it sees
+  /// here (a [Scaffold] body, for one, drops the bottom safe area while the
+  /// keyboard is up) then gets exactly the room it occupies.
+  final double Function(BuildContext context)? overlayReservedHeightOf;
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
         Positioned.fill(
-          bottom: overlayReservedHeight,
+          bottom:
+              overlayReservedHeightOf?.call(context) ?? overlayReservedHeight,
           child: Column(
             children: [
               Expanded(key: resultsRegionKey, child: results),
@@ -149,7 +159,7 @@ class GenerationComposerRow extends StatelessWidget {
   }
 }
 
-/// A generation composer with a grab handle directly below the prompt input.
+/// A generation composer with a grab handle directly above the prompt input.
 /// The action rail keeps its width and does not become part of the drag target.
 class ResizableGenerationComposer extends StatelessWidget {
   const ResizableGenerationComposer({
