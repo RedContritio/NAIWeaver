@@ -6,13 +6,14 @@ import '../../../core/l10n/l10n_extensions.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../../core/theme/vision_tokens.dart';
-import '../../../core/utils/responsive.dart';
 import '../../../core/utils/app_snackbar.dart';
 import '../../../core/widgets/confirm_dialog.dart';
+import '../../../core/widgets/manager_list_tile.dart';
+import '../../../core/widgets/manager_shell.dart';
 import '../../../core/widgets/tag_suggestion_overlay.dart';
+import '../../../core/widgets/text_input_dialog.dart';
 import '../../../core/services/wildcard_processor.dart';
 import '../providers/wildcard_notifier.dart';
-import 'manager_shell.dart';
 
 class WildcardManager extends StatefulWidget {
   const WildcardManager({super.key});
@@ -24,120 +25,62 @@ class WildcardManager extends StatefulWidget {
 class _WildcardManagerState extends State<WildcardManager> {
   bool _showingEditor = false;
 
+  Future<void> _openEditor(WildcardNotifier notifier, File file) async {
+    await notifier.selectFile(file);
+    if (mounted) setState(() => _showingEditor = true);
+  }
+
   @override
   Widget build(BuildContext context) {
     final notifier = context.watch<WildcardNotifier>();
-    final mobile = isMobile(context);
     final t = context.t;
-
-    final showDetail = _showingEditor && notifier.state.selectedFile != null;
-    return ManagerMasterDetailShell(
-      mobile: mobile,
-      showDetail: showDetail,
-      masterHeader: _buildHeader(t),
-      detailHeader: _buildMobileEditorBar(notifier, t),
-      master: _buildFileList(context, notifier, t, fullWidth: mobile),
-      detail: _buildEditor(context, notifier, t),
-      dividerColor: t.textMinimal,
-      showMasterHeaderOnMobile: false,
-    );
-  }
-
-  Widget _buildMobileEditorBar(WildcardNotifier notifier, VisionTokens t) {
-    final fileName = notifier.state.selectedFile != null
-        ? p.basenameWithoutExtension(notifier.state.selectedFile!.path).toUpperCase()
-        : '';
-    return ManagerDetailHeader(
-      title: fileName,
-      backgroundColor: t.surfaceMid,
-      iconColor: t.textDisabled,
-      textStyle: TextStyle(color: t.textSecondary, fontSize: t.fontSize(11), letterSpacing: 1, fontWeight: FontWeight.bold),
-      onBack: () => setState(() => _showingEditor = false),
-    );
-  }
-
-  Widget _buildHeader(VisionTokens t) {
     final l = context.l;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      width: double.infinity,
-      color: t.surfaceHigh,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l.wildcardManager,
-                  style: TextStyle(
-                    color: t.textPrimary,
-                    fontSize: t.fontSize(16),
-                    letterSpacing: 4,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  l.wildcardManageDesc,
-                  style: TextStyle(color: t.hintText, fontSize: t.fontSize(9), letterSpacing: 2),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: Icon(Icons.help_outline, size: 18, color: t.textDisabled),
-            onPressed: () => _showWildcardHelp(t),
-            tooltip: l.wildcardHelp,
-            constraints: const BoxConstraints(),
-            padding: EdgeInsets.zero,
-          ),
-        ],
+    final selected = notifier.state.selectedFile;
+    final helpButton = ManagerIconButton(
+      icon: Icons.help_outline,
+      tooltip: l.wildcardHelp,
+      onPressed: () => _showWildcardHelp(t),
+    );
+
+    // Edits are written to disk as the user types (debounced), so there are
+    // never unsaved changes to guard; leaving the editor just flushes them.
+    return ManagerMasterDetailShell(
+      showDetail: _showingEditor && selected != null,
+      masterHeader: ManagerHeader(
+        title: l.wildcardManager,
+        subtitle: l.wildcardManageDesc,
+        actions: [helpButton],
       ),
+      detailTitle: selected == null
+          ? ''
+          : p.basenameWithoutExtension(selected.path).toUpperCase(),
+      detailActions: [helpButton],
+      onCloseDetail: () {
+        notifier.flushPendingSave();
+        setState(() => _showingEditor = false);
+      },
+      master: _buildFileList(context, notifier, t),
+      detail: _buildEditor(context, notifier, t),
     );
   }
 
-  Widget _buildFileList(BuildContext context, WildcardNotifier notifier, VisionTokens t, {bool fullWidth = false}) {
+  Widget _buildFileList(BuildContext context, WildcardNotifier notifier, VisionTokens t) {
+    final l = context.l;
     final state = notifier.state;
-    return Container(
-      width: fullWidth ? double.infinity : 220,
+    return ColoredBox(
       color: t.surfaceMid,
       child: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  context.l.wildcardFiles,
-                  style: TextStyle(color: t.secondaryText, fontSize: t.fontSize(8), letterSpacing: 2, fontWeight: FontWeight.bold),
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (fullWidth) ...[
-                      IconButton(
-                        icon: Icon(Icons.help_outline, size: 16, color: t.textDisabled),
-                        onPressed: () => _showWildcardHelp(t),
-                        tooltip: context.l.wildcardHelp,
-                        constraints: const BoxConstraints(),
-                        padding: EdgeInsets.zero,
-                      ),
-                      const SizedBox(width: 12),
-                    ],
-                    IconButton(
-                      icon: Icon(Icons.add, size: 14, color: t.secondaryText),
-                      onPressed: () => _showCreateDialog(context, notifier, t),
-                      tooltip: context.l.wildcardNew,
-                      constraints: const BoxConstraints(),
-                      padding: EdgeInsets.zero,
-                    ),
-                  ],
-                ),
-              ],
-            ),
+          ManagerListHeader(
+            title: l.wildcardFiles,
+            actions: [
+              ManagerIconButton(
+                icon: Icons.add,
+                tooltip: l.wildcardNew,
+                color: t.secondaryText,
+                onPressed: () => _showCreateDialog(context, notifier),
+              ),
+            ],
           ),
           Divider(height: 1, color: t.textMinimal),
           Expanded(
@@ -157,67 +100,39 @@ class _WildcardManagerState extends State<WildcardManager> {
                 final file = state.files[index];
                 final isSelected = state.selectedFile?.path == file.path;
                 final fileName = p.basenameWithoutExtension(file.path);
-
                 final isFav = notifier.isFavorite(file);
 
-                return InkWell(
+                return ManagerListTile(
                   key: ValueKey(file.path),
-                  onTap: () {
-                    notifier.selectFile(file);
-                    if (isMobile(context)) setState(() => _showingEditor = true);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    color: isSelected ? t.borderSubtle : Colors.transparent,
-                    child: Row(
-                      children: [
-                        ReorderableDragStartListener(
-                          index: index,
-                          child: Icon(Icons.drag_handle, size: 14, color: t.textDisabled),
-                        ),
-                        const SizedBox(width: 6),
-                        Icon(
-                          isFav ? Icons.star : Icons.description_outlined,
-                          size: 12,
-                          color: isFav
-                              ? const Color(0xFFFFD740)
-                              : (isSelected ? t.textPrimary : t.secondaryText),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            fileName.toUpperCase(),
-                            style: TextStyle(
-                              color: isSelected ? t.textPrimary : t.secondaryText,
-                              fontSize: t.fontSize(11),
-                              letterSpacing: 1,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            ),
-                          ),
-                        ),
-                        if (isSelected) ...[
-                          const SizedBox(width: 4),
-                          _actionButton(
-                            icon: Icons.drive_file_rename_outline,
-                            color: t.textSecondary,
-                            onPressed: () => _showRenameDialog(context, notifier, file, fileName, t),
-                          ),
-                          const SizedBox(width: 2),
-                          _actionButton(
-                            icon: isFav ? Icons.star : Icons.star_border,
-                            color: isFav ? const Color(0xFFFFD740) : t.textDisabled,
-                            onPressed: () => notifier.toggleFavorite(file),
-                          ),
-                          const SizedBox(width: 2),
-                          _actionButton(
-                            icon: Icons.delete_outline,
-                            color: t.textDisabled,
-                            onPressed: () => _showDeleteConfirm(context, notifier, file, fileName, t),
-                          ),
-                        ],
-                      ],
-                    ),
+                  title: fileName.toUpperCase(),
+                  dragIndex: index,
+                  selected: isSelected,
+                  leading: Icon(
+                    isFav ? Icons.star : Icons.description_outlined,
+                    size: 12,
+                    color: isFav
+                        ? t.accentFavorite
+                        : (isSelected ? t.textPrimary : t.secondaryText),
                   ),
+                  onTap: () => _openEditor(notifier, file),
+                  menuActions: [
+                    ManagerListAction(
+                      label: l.commonRename,
+                      icon: Icons.drive_file_rename_outline,
+                      onSelected: () => _showRenameDialog(context, notifier, file, fileName),
+                    ),
+                    ManagerListAction(
+                      label: isFav ? l.commonRemoveFavorite : l.commonAddFavorite,
+                      icon: isFav ? Icons.star : Icons.star_border,
+                      onSelected: () => notifier.toggleFavorite(file),
+                    ),
+                    ManagerListAction(
+                      label: l.commonDelete,
+                      icon: Icons.delete_outline,
+                      destructive: true,
+                      onSelected: () => _showDeleteConfirm(context, notifier, file, fileName, t),
+                    ),
+                  ],
                 );
               },
             ),
@@ -544,20 +459,6 @@ class _WildcardManagerState extends State<WildcardManager> {
     );
   }
 
-  Widget _actionButton({
-    required IconData icon,
-    required Color color,
-    required VoidCallback onPressed,
-  }) {
-    return IconButton(
-      icon: Icon(icon, size: 16, color: color),
-      onPressed: onPressed,
-      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-      padding: const EdgeInsets.all(4),
-      splashRadius: 16,
-    );
-  }
-
   Future<void> _showDeleteConfirm(
     BuildContext context,
     WildcardNotifier notifier,
@@ -578,93 +479,35 @@ class _WildcardManagerState extends State<WildcardManager> {
     }
   }
 
-  void _showRenameDialog(
+  Future<void> _showRenameDialog(
     BuildContext context,
     WildcardNotifier notifier,
     File file,
     String currentName,
-    VisionTokens t,
-  ) {
-    final controller = TextEditingController(text: currentName);
+  ) async {
     final l = context.l;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: t.surfaceHigh,
-        title: Text(
-          l.wildcardRenameTitle,
-          style: TextStyle(fontSize: t.fontSize(10), letterSpacing: 2, color: t.textSecondary),
-        ),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(13)),
-          decoration: InputDecoration(
-            hintText: l.wildcardFileName,
-            hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9)),
-            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: t.borderMedium)),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l.commonCancel.toUpperCase(), style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9))),
-          ),
-          TextButton(
-            onPressed: () async {
-              final success = await notifier.renameFile(file, controller.text);
-              if (ctx.mounted) {
-                if (success) {
-                  Navigator.pop(ctx);
-                } else {
-                  showAppSnackBar(ctx, l.wildcardRenameExists, color: const Color(0xFFFFC107));
-                }
-              }
-            },
-            child: Text(l.commonRename.toUpperCase(), style: TextStyle(color: t.accent, fontSize: t.fontSize(9))),
-          ),
-        ],
-      ),
+    final name = await showTextInputDialog(
+      context,
+      title: l.wildcardRenameTitle,
+      confirmLabel: l.commonRename,
+      hintText: l.wildcardFileName,
+      initialValue: currentName,
     );
+    if (name == null || name == currentName) return;
+    final success = await notifier.renameFile(file, name);
+    if (!success && context.mounted) {
+      showErrorSnackBar(context, l.wildcardRenameExists);
+    }
   }
 
-  void _showCreateDialog(BuildContext context, WildcardNotifier notifier, VisionTokens t) {
-    final TextEditingController nameController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) {
-        final l = context.l;
-        return AlertDialog(
-          backgroundColor: t.surfaceHigh,
-          title: Text(l.wildcardCreateTitle, style: TextStyle(fontSize: t.fontSize(10), letterSpacing: 2, color: t.textSecondary)),
-          content: TextField(
-            controller: nameController,
-            autofocus: true,
-            style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(13)),
-            decoration: InputDecoration(
-              hintText: l.wildcardFileName,
-              hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9)),
-              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: t.borderMedium)),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(l.commonCancel, style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9))),
-            ),
-            TextButton(
-              onPressed: () {
-                final sanitized = nameController.text.trim().replaceAll(' ', '.');
-                if (sanitized.isNotEmpty) {
-                  notifier.createFile(sanitized);
-                  Navigator.pop(context);
-                }
-              },
-              child: Text(l.commonCreate, style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(9))),
-            ),
-          ],
-        );
-      },
+  Future<void> _showCreateDialog(BuildContext context, WildcardNotifier notifier) async {
+    final l = context.l;
+    final name = await showTextInputDialog(
+      context,
+      title: l.wildcardCreateTitle,
+      confirmLabel: l.commonCreate,
+      hintText: l.wildcardFileName,
     );
+    if (name != null) await notifier.createFile(name.replaceAll(' ', '.'));
   }
 }

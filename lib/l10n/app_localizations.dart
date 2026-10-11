@@ -172,6 +172,48 @@ abstract class AppLocalizations {
   /// **'SAVE CHANGES'**
   String get commonSaveChanges;
 
+  /// No description provided for @commonNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Name cannot be empty'**
+  String get commonNameRequired;
+
+  /// No description provided for @commonDuplicate.
+  ///
+  /// In en, this message translates to:
+  /// **'Duplicate'**
+  String get commonDuplicate;
+
+  /// No description provided for @commonDiscard.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard'**
+  String get commonDiscard;
+
+  /// No description provided for @commonAddFavorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to favorites'**
+  String get commonAddFavorite;
+
+  /// No description provided for @commonRemoveFavorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from favorites'**
+  String get commonRemoveFavorite;
+
+  /// No description provided for @commonUnsavedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsaved changes'**
+  String get commonUnsavedTitle;
+
+  /// No description provided for @commonUnsavedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'You have unsaved changes. Save them before continuing?'**
+  String get commonUnsavedMessage;
+
   /// No description provided for @mainGallery.
   ///
   /// In en, this message translates to:
@@ -2716,11 +2758,47 @@ abstract class AppLocalizations {
   /// **'API key missing or invalid'**
   String get refApiKeyMissing;
 
+  /// No description provided for @refImageProcessFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not read this image. Try another file.'**
+  String get refImageProcessFailed;
+
+  /// No description provided for @refVibeNoPermission.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account is not allowed to encode vibes.'**
+  String get refVibeNoPermission;
+
+  /// No description provided for @refErrorPointsInsufficient.
+  ///
+  /// In en, this message translates to:
+  /// **'Not enough points to encode this vibe.'**
+  String get refErrorPointsInsufficient;
+
+  /// No description provided for @refErrorSessionExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Your session has expired. Sign in again.'**
+  String get refErrorSessionExpired;
+
+  /// No description provided for @refErrorNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Network error. Check your connection and try again.'**
+  String get refErrorNetwork;
+
+  /// No description provided for @refErrorServiceUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The service is busy or unavailable. Try again later.'**
+  String get refErrorServiceUnavailable;
+
   /// No description provided for @refVibeEncodeFailed.
   ///
   /// In en, this message translates to:
-  /// **'Failed to encode vibe: {error}'**
-  String refVibeEncodeFailed(String error);
+  /// **'Could not encode this vibe. Try again later.'**
+  String get refVibeEncodeFailed;
 
   /// No description provided for @refLoadSaved.
   ///
@@ -2745,6 +2823,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'NO SAVED REFERENCES'**
   String get refNoSavedRefs;
+
+  /// No description provided for @refRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get refRemove;
+
+  /// No description provided for @refLibrarySaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to the library'**
+  String get refLibrarySaved;
+
+  /// No description provided for @refLibrarySaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not update the library. Storage may be full.'**
+  String get refLibrarySaveFailed;
 
   /// No description provided for @packTitle.
   ///

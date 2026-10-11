@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
-import '../../../core/widgets/editable_slider_value.dart';
 import '../../../core/widgets/enabled_toggle.dart';
-import '../../../core/widgets/vision_slider.dart';
+import '../../../core/widgets/manager_list_tile.dart';
+import '../../director_ref/widgets/reference_fields.dart';
 import '../models/vibe_transfer.dart';
 
 class VibeTransferEditorSheet extends StatefulWidget {
@@ -42,6 +42,8 @@ class _VibeTransferEditorSheetState extends State<VibeTransferEditorSheet> {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
+    final l = context.l;
+    final accent = t.accentVibeTransfer;
     return Container(
       color: t.surfaceMid,
       padding: EdgeInsets.only(
@@ -56,39 +58,37 @@ class _VibeTransferEditorSheetState extends State<VibeTransferEditorSheet> {
         children: [
           // Header
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                context.l.refVibeEditorTitle,
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: t.fontSize(12),
-                  letterSpacing: 4,
-                  color: t.textPrimary,
+              Expanded(
+                child: Text(
+                  l.refVibeEditorTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: t.fontSize(12),
+                    letterSpacing: 4,
+                    color: t.textPrimary,
+                  ),
                 ),
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  EnabledToggle(
-                    enabled: _enabled,
-                    accent: t.accentVibeTransfer,
-                    onTap: () {
-                      setState(() => _enabled = !_enabled);
-                      widget.onToggleEnabled();
-                    },
-                  ),
-                  const SizedBox(width: 12),
-                  IconButton(
-                    onPressed: () {
-                      widget.onRemove();
-                      Navigator.pop(context);
-                    },
-                    icon: Icon(Icons.delete_outline, color: t.accentDanger, size: 18),
-                    constraints: const BoxConstraints(),
-                    padding: EdgeInsets.zero,
-                  ),
-                ],
+              EnabledToggle(
+                enabled: _enabled,
+                accent: accent,
+                onTap: () {
+                  setState(() => _enabled = !_enabled);
+                  widget.onToggleEnabled();
+                },
+              ),
+              const SizedBox(width: 4),
+              ManagerIconButton(
+                icon: Icons.delete_outline,
+                tooltip: l.refRemove,
+                color: t.accentDanger,
+                onPressed: () {
+                  widget.onRemove();
+                  Navigator.pop(context);
+                },
               ),
             ],
           ),
@@ -101,7 +101,7 @@ class _VibeTransferEditorSheetState extends State<VibeTransferEditorSheet> {
               width: 160,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: t.accentVibeTransfer, width: 1.5),
+                border: Border.all(color: accent, width: 1.5),
                 image: DecorationImage(
                   image: MemoryImage(widget.vibe.originalImageBytes),
                   fit: BoxFit.cover,
@@ -111,10 +111,10 @@ class _VibeTransferEditorSheetState extends State<VibeTransferEditorSheet> {
           ),
           const SizedBox(height: 24),
 
-          // Strength slider
-          _buildSlider(
-            label: context.l.refStrength,
+          ReferenceSliderField(
+            label: l.refStrength,
             value: _strength,
+            accent: accent,
             onChanged: (v) {
               setState(() => _strength = v);
               widget.onStrengthChanged(v);
@@ -122,10 +122,10 @@ class _VibeTransferEditorSheetState extends State<VibeTransferEditorSheet> {
           ),
           const SizedBox(height: 16),
 
-          // Info Extracted slider
-          _buildSlider(
-            label: context.l.refInfoExtracted,
+          ReferenceSliderField(
+            label: l.refInfoExtracted,
             value: _infoExtracted,
+            accent: accent,
             onChanged: (v) {
               setState(() => _infoExtracted = v);
               widget.onInfoExtractedChanged(v);
@@ -134,56 +134,6 @@ class _VibeTransferEditorSheetState extends State<VibeTransferEditorSheet> {
           const SizedBox(height: 24),
         ],
       ),
-    );
-  }
-
-  Widget _buildSlider({
-    required String label,
-    required double value,
-    required ValueChanged<double> onChanged,
-  }) {
-    final t = context.t;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: t.fontSize(9),
-                letterSpacing: 2,
-                color: t.textDisabled,
-              ),
-            ),
-            EditableSliderValue(
-              value: value,
-              softMin: 0.0,
-              softMax: 1.0,
-              decimals: 2,
-              onChanged: onChanged,
-              style: TextStyle(
-                fontSize: t.fontSize(10),
-                color: t.textTertiary,
-                fontFamily: 'JetBrains Mono',
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        VisionSlider(
-          value: value.clamp(0.0, 1.0),
-          onChanged: onChanged,
-          min: 0.0,
-          max: 1.0,
-          activeColor: t.accentVibeTransfer.withValues(alpha: 0.5),
-          inactiveColor: t.textMinimal,
-          thumbColor: t.accentVibeTransfer,
-          thumbRadius: 6,
-        ),
-      ],
     );
   }
 }

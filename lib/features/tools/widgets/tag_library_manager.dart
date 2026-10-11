@@ -7,10 +7,11 @@ import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../../core/theme/vision_tokens.dart';
 import '../../../core/widgets/confirm_dialog.dart';
+import '../../../core/widgets/manager_list_tile.dart';
+import '../../../core/widgets/manager_shell.dart';
 import '../../../core/widgets/vision_slider.dart';
 import '../../../core/utils/app_snackbar.dart';
 import '../../generation/providers/generation_notifier.dart';
-import '../../../core/utils/responsive.dart';
 import '../../../core/services/tag_service.dart';
 import '../providers/tag_library_notifier.dart';
 import 'tag_detail_sheet.dart';
@@ -52,48 +53,33 @@ class TagLibraryManager extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context, TagLibraryNotifier notifier, VisionTokens t) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      width: double.infinity,
-      color: t.surfaceHigh,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                context.l.tagLibTitle,
-                style: TextStyle(
-                  color: t.textPrimary,
-                  fontSize: t.titleSize(12),
-                  letterSpacing: 4,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              Row(
-                children: [
-                  IconButton(
-                    icon:
-                        Icon(Icons.settings, size: 16, color: t.textDisabled),
-                    onPressed: () => _showPreviewSettings(context, notifier),
-                    tooltip: context.l.tagLibPreviewSettings,
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.add, size: 16, color: t.textPrimary),
-                    onPressed: () => _showAddTagDialog(context, notifier, t),
-                    tooltip: context.l.tagLibAddTag,
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          TextField(
+    final l = context.l;
+    return Column(
+      children: [
+        ManagerHeader(
+          title: l.tagLibTitle,
+          actions: [
+            ManagerIconButton(
+              icon: Icons.settings,
+              tooltip: l.tagLibPreviewSettings,
+              onPressed: () => _showPreviewSettings(context, notifier),
+            ),
+            ManagerIconButton(
+              icon: Icons.add,
+              tooltip: l.tagLibAddTag,
+              color: t.textPrimary,
+              onPressed: () => _showAddTagDialog(context, notifier, t),
+            ),
+          ],
+        ),
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          color: t.surfaceHigh,
+          child: TextField(
             onChanged: notifier.setSearchQuery,
             style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(11)),
             decoration: InputDecoration(
-              hintText: context.l.tagLibSearchTags,
+              hintText: l.tagLibSearchTags,
               hintStyle: TextStyle(color: t.borderMedium, fontSize: t.fontSize(9), letterSpacing: 2),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(vertical: 8),
@@ -101,8 +87,8 @@ class TagLibraryManager extends StatelessWidget {
               prefixIcon: Icon(Icons.search, size: 14, color: t.borderMedium),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -235,26 +221,43 @@ class TagLibraryManager extends StatelessWidget {
 
   Widget _buildTagList(BuildContext context, TagLibraryNotifier notifier, VisionTokens t) {
     final state = notifier.state;
-    final mobile = isMobile(context);
     if (state.isLoading) {
       return Center(child: CircularProgressIndicator(strokeWidth: 2, color: t.textMinimal));
     }
 
+    final l = context.l;
     return ListView.builder(
       itemCount: state.tags.length,
-      itemExtent: 40,
+      // Rows share one height, measured at the current font scale.
+      prototypeItem: _TagRow(
+        tag: DanbooruTag(tag: '', count: 0),
+        color: t.textPrimary,
+        onTapDetail: () {},
+        onTapExample: () {},
+        onToggleFavorite: () {},
+        menuActions: const [],
+      ),
       itemBuilder: (context, index) {
         final tag = state.tags[index];
         return _TagRow(
           tag: tag,
           color: _getCategoryColor(tag.typeName),
-          mobile: mobile,
-          tokens: t,
           onTapDetail: () => TagDetailSheet.show(context, tag),
           onTapExample: () => _showExamplesOverlay(context, tag),
           onToggleFavorite: () => notifier.toggleFavorite(tag),
-          onPreview: () => _showQuickPreview(context, tag.tag),
-          onDelete: () => _confirmDelete(context, notifier, tag, t),
+          menuActions: [
+            ManagerListAction(
+              label: l.tagLibTestTag,
+              icon: Icons.image_search,
+              onSelected: () => _showQuickPreview(context, tag.tag),
+            ),
+            ManagerListAction(
+              label: l.commonDelete,
+              icon: Icons.delete_outline,
+              destructive: true,
+              onSelected: () => _confirmDelete(context, notifier, tag, t),
+            ),
+          ],
         );
       },
     );
@@ -907,159 +910,74 @@ class _TagPreviewSettingsPanelState extends State<_TagPreviewSettingsPanel> {
   }
 }
 
-/// Single tag row with hover/click affordance on desktop.
-class _TagRow extends StatefulWidget {
+/// Tag row: tap opens the details; preview and delete sit in the row menu.
+class _TagRow extends StatelessWidget {
   final DanbooruTag tag;
   final Color color;
-  final bool mobile;
-  final VisionTokens tokens;
   final VoidCallback onTapDetail;
   final VoidCallback onTapExample;
   final VoidCallback onToggleFavorite;
-  final VoidCallback onPreview;
-  final VoidCallback onDelete;
+  final List<ManagerListAction> menuActions;
 
   const _TagRow({
     required this.tag,
     required this.color,
-    required this.mobile,
-    required this.tokens,
     required this.onTapDetail,
     required this.onTapExample,
     required this.onToggleFavorite,
-    required this.onPreview,
-    required this.onDelete,
+    required this.menuActions,
   });
 
   @override
-  State<_TagRow> createState() => _TagRowState();
-}
-
-class _TagRowState extends State<_TagRow> {
-  bool _hover = false;
-
-  @override
   Widget build(BuildContext context) {
-    final t = widget.tokens;
-    final color = widget.color;
-    final tag = widget.tag;
+    final t = context.t;
+    final l = context.l;
+    final example = tag.examplePaths.isEmpty ? null : File(tag.examplePaths.first);
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 80),
-        decoration: BoxDecoration(
-          color: _hover ? color.withValues(alpha: 0.08) : Colors.transparent,
-          border: Border(
-            bottom: BorderSide(color: t.textMinimal, width: 0.5),
-            left: BorderSide(
-              color: _hover ? color.withValues(alpha: 0.6) : Colors.transparent,
-              width: 2,
-            ),
-          ),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: t.textMinimal, width: 0.5)),
+      ),
+      child: ManagerListTile(
+        title: tag.tag,
+        titleStyle: TextStyle(
+          color: color,
+          fontFamily: 'monospace',
+          letterSpacing: 0,
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          children: [
-            if (tag.examplePaths.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: GestureDetector(
-                  onTap: widget.onTapExample,
-                  child: Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: color.withValues(alpha: 0.5), width: 1),
-                      image: File(tag.examplePaths.first).existsSync()
-                          ? DecorationImage(
-                              image: FileImage(File(tag.examplePaths.first)),
-                              fit: BoxFit.cover,
-                            )
-                          : null,
+        subtitle: '${tag.typeName.toUpperCase()}  ·  ${NumberFormat.compact().format(tag.count)}',
+        subtitleStyle: TextStyle(color: color.withValues(alpha: 0.5)),
+        leading: SizedBox.square(
+          dimension: kManagerTouchTarget,
+          child: example == null
+              ? null
+              : InkResponse(
+                  onTap: onTapExample,
+                  child: Center(
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: color.withValues(alpha: 0.5), width: 1),
+                        image: example.existsSync()
+                            ? DecorationImage(image: FileImage(example), fit: BoxFit.cover)
+                            : null,
+                      ),
                     ),
                   ),
                 ),
-              )
-            else
-              const SizedBox(width: 32),
-            Expanded(
-              flex: widget.mobile ? 2 : 6,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: widget.onTapDetail,
-                child: Row(
-                  children: [
-                    Expanded(
-                      flex: widget.mobile ? 1 : 4,
-                      child: Text(
-                        tag.tag,
-                        style: TextStyle(
-                          color: color,
-                          fontSize: t.fontSize(11),
-                          fontFamily: 'monospace',
-                          decoration: _hover ? TextDecoration.underline : TextDecoration.none,
-                          decorationColor: color.withValues(alpha: 0.5),
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (!widget.mobile) ...[
-                      Expanded(
-                        flex: 1,
-                        child: Text(
-                          tag.typeName.toUpperCase(),
-                          style: TextStyle(color: color.withValues(alpha: 0.3), fontSize: t.fontSize(8)),
-                        ),
-                      ),
-                      Expanded(
-                        flex: 1,
-                        child: Text(
-                          NumberFormat.compact().format(tag.count),
-                          style: TextStyle(
-                            color: color.withValues(alpha: 0.5),
-                            fontSize: t.fontSize(9),
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.right,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            IconButton(
-              icon: Icon(
-                tag.isFavorite ? Icons.favorite : Icons.favorite_border,
-                size: 14,
-                color: tag.isFavorite ? color : t.textDisabled,
-              ),
-              onPressed: widget.onToggleFavorite,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              icon: Icon(Icons.image_search, size: 14, color: t.textDisabled),
-              onPressed: widget.onPreview,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              tooltip: context.l.tagLibTestTag,
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              icon: Icon(Icons.delete_outline, size: 14, color: t.textDisabled),
-              onPressed: widget.onDelete,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-            ),
-          ],
         ),
+        onTap: onTapDetail,
+        inlineActions: [
+          ManagerIconButton(
+            icon: tag.isFavorite ? Icons.favorite : Icons.favorite_border,
+            tooltip: tag.isFavorite ? l.commonRemoveFavorite : l.commonAddFavorite,
+            color: tag.isFavorite ? color : t.textDisabled,
+            onPressed: onToggleFavorite,
+          ),
+        ],
+        menuActions: menuActions,
       ),
     );
   }

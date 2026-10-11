@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import '../../../core/utils/file_picker_helper.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -13,23 +12,10 @@ import '../models/director_reference.dart';
 import '../providers/director_ref_notifier.dart';
 import 'director_ref_chip.dart';
 import 'director_ref_editor_sheet.dart';
+import 'reference_add_actions.dart';
 
 class DirectorRefShelf extends StatelessWidget {
   const DirectorRefShelf({super.key});
-
-  Future<void> _pickAndAdd(
-    BuildContext context, {
-    bool useFileBrowser = false,
-  }) async {
-    final result = await pickImageFiles(useFileBrowser: useFileBrowser);
-    if (result != null) {
-      final bytes = await readPickedFileBytes(result.files.single);
-      if (bytes == null) return;
-      if (context.mounted) {
-        context.read<DirectorRefNotifier>().addReference(bytes);
-      }
-    }
-  }
 
   void _openEditor(
     BuildContext context,
@@ -145,9 +131,9 @@ class DirectorRefShelf extends StatelessWidget {
     if (value == 'library') {
       _showSavedRefsSheet(context);
     } else if (value == 'pick') {
-      _pickAndAdd(context);
+      pickAndAddReferences(context);
     } else if (value == 'browse') {
-      _pickAndAdd(context, useFileBrowser: true);
+      pickAndAddReferences(context, useFileBrowser: true);
     }
   }
 
@@ -157,20 +143,10 @@ class DirectorRefShelf extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => SavedRefsSheet(
-        onLoad: (saved) async {
-          final notifier = context.read<DirectorRefNotifier>();
-          await notifier.addReference(saved.reference.originalImageBytes);
-          final refs = notifier.references;
-          if (refs.isNotEmpty) {
-            final last = refs.last;
-            notifier.updateType(last.id, saved.reference.type);
-            notifier.updateStrength(last.id, saved.reference.strength);
-            notifier.updateFidelity(last.id, saved.reference.fidelity);
-          }
-        },
-        onPickImage: () => _pickAndAdd(context),
+        onLoad: (saved) => addSavedReference(context, saved),
+        onPickImage: () => pickAndAddReferences(context),
         onBrowseFiles: !kIsWeb && Platform.isAndroid
-            ? () => _pickAndAdd(context, useFileBrowser: true)
+            ? () => pickAndAddReferences(context, useFileBrowser: true)
             : null,
       ),
     );

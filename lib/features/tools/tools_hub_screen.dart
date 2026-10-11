@@ -66,6 +66,15 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
     _prefs.setLastToolId(id);
   }
 
+  /// Escape belongs to a focused text field (clearing it, closing its
+  /// suggestions); it must not close the whole hub from inside one.
+  bool _isEditingText() {
+    final focused = FocusManager.instance.primaryFocus?.context;
+    if (focused == null) return false;
+    return focused.widget is EditableText ||
+        focused.findAncestorWidgetOfExactType<EditableText>() != null;
+  }
+
   List<ToolItem> _getTools(BuildContext context) {
     final l = context.l;
     final tools = [
@@ -180,28 +189,25 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
     final t = context.t;
     final l = context.l;
     final tools = _getTools(context);
+    // Fall back for display only: the remembered tool may be hidden just
+    // while the user's permissions load, and it must survive that moment.
+    // Only an explicit selection (_selectTool) is persisted.
     final activeToolId = tools.any((tool) => tool.id == _activeToolId)
         ? _activeToolId
         : tools.first.id;
     final activeTool = tools.firstWhere((tool) => tool.id == activeToolId);
-    if (activeToolId != _activeToolId) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        _activeToolId = activeToolId;
-        _prefs.setLastToolId(activeToolId);
-      });
-    }
 
     return Focus(
       focusNode: _toolsFocusNode,
       autofocus: true,
       onKeyEvent: (node, event) {
-        if (event is! KeyDownEvent) return KeyEventResult.ignored;
-        if (event.logicalKey == LogicalKeyboardKey.escape) {
-          Navigator.pop(context);
-          return KeyEventResult.handled;
+        if (event is! KeyDownEvent ||
+            event.logicalKey != LogicalKeyboardKey.escape ||
+            _isEditingText()) {
+          return KeyEventResult.ignored;
         }
-        return KeyEventResult.ignored;
+        Navigator.maybePop(context);
+        return KeyEventResult.handled;
       },
       child: Scaffold(
         key: _scaffoldKey,
@@ -216,7 +222,9 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
               size: mobile ? 20 : 14,
               color: t.secondaryText,
             ),
-            onPressed: () => Navigator.pop(context),
+            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+            // maybePop lets an open tool veto leaving (e.g. unsaved edits).
+            onPressed: () => Navigator.maybePop(context),
           ),
           title: Text(
             mobile ? activeTool.name : l.toolsHub.toUpperCase(),

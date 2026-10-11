@@ -1,12 +1,14 @@
 import 'package:flutter/foundation.dart';
 import '../../../core/services/preferences_service.dart';
+import '../../../core/services/reference_library_service.dart';
 import '../models/director_reference.dart';
 import '../services/reference_image_processor.dart';
+import 'reference_id_allocator.dart';
 
 class DirectorRefNotifier extends ChangeNotifier {
   List<DirectorReference> _references = [];
   bool _isProcessing = false;
-  int _idCounter = 0;
+  final _ids = ReferenceIdAllocator('ref_');
 
   /// Defaults for newly added references — initially 1.0 / 0.8 but updated
   /// whenever the user adjusts a reference, so subsequent additions inherit
@@ -28,23 +30,49 @@ class DirectorRefNotifier extends ChangeNotifier {
     if (prefs != null) _prefs = prefs;
   }
 
-  Future<void> addReference(Uint8List imageBytes) async {
+  /// Adds a picked image with the last-applied strength and fidelity.
+  /// Returns the new reference's id, or null when the image could not be
+  /// processed (nothing is added then).
+  Future<String?> addReference(Uint8List imageBytes) => _add(imageBytes);
+
+  /// Adds a library entry as a new reference with the entry's own type,
+  /// strength and fidelity. The saved values apply to this reference only:
+  /// the defaults for later additions are left untouched. Returns the new
+  /// id, or null (and leaves the list unchanged) when processing fails.
+  Future<String?> addFromSaved(SavedDirectorRef saved) {
+    final ref = saved.reference;
+    return _add(
+      ref.originalImageBytes,
+      type: ref.type,
+      strength: ref.strength,
+      fidelity: ref.fidelity,
+    );
+  }
+
+  Future<String?> _add(
+    Uint8List imageBytes, {
+    DirectorReferenceType type = DirectorReferenceType.character,
+    double? strength,
+    double? fidelity,
+  }) async {
     _isProcessing = true;
     notifyListeners();
 
     try {
-      final (processedBytes, base64) =
-          await ReferenceImageProcessor.processImage(imageBytes);
+      final (_, base64) = await ReferenceImageProcessor.processImage(imageBytes);
       final ref = DirectorReference(
-        id: 'ref_${_idCounter++}',
+        id: _ids.next(),
         originalImageBytes: imageBytes,
         processedBase64: base64,
-        strength: _defaultStrength,
-        fidelity: _defaultFidelity,
+        type: type,
+        strength: strength ?? _defaultStrength,
+        fidelity: fidelity ?? _defaultFidelity,
       );
-      _references = List.from(_references)..add(ref);
+      _references = [..._references, ref];
+      return ref.id;
     } catch (e) {
       debugPrint('DirectorRefNotifier: Failed to process image: $e');
+      return null;
     } finally {
       _isProcessing = false;
       notifyListeners();
@@ -111,8 +139,11 @@ class DirectorRefNotifier extends ChangeNotifier {
           processed.add(ref.copyWith(processedBase64: base64));
         }
       }
-      _references = processed;
-      _idCounter = processed.length;
+      _references = _ids.adopt(
+        processed,
+        idOf: (r) => r.id,
+        withId: (r, id) => r.copyWith(id: id),
+      );
     } catch (e) {
       debugPrint('DirectorRefNotifier: Failed to set references: $e');
     } finally {

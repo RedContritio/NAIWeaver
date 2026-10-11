@@ -6,11 +6,11 @@ import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../../core/theme/vision_tokens.dart';
 import '../../../core/widgets/confirm_dialog.dart';
+import '../../../core/widgets/manager_list_tile.dart';
+import '../../../core/widgets/manager_shell.dart';
 import '../../../core/widgets/vision_slider.dart';
-import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/tag_suggestion_overlay.dart';
 import '../../../core/services/presets.dart';
-import 'manager_shell.dart';
 import '../../director_ref/models/director_reference.dart';
 import '../../director_ref/services/reference_image_processor.dart';
 import '../../generation/models/nai_character.dart';
@@ -51,134 +51,100 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
   bool _isProcessingRef = false;
   bool _showingEditor = false;
 
+  UnsavedChangesGuard _guard(PresetNotifier notifier) => UnsavedChangesGuard(
+    hasChanges: notifier.state.isModified,
+    onSave: () => _save(notifier),
+    onDiscard: () => _discard(notifier),
+  );
+
+  /// Saves the edited preset, asking first when its new name is taken.
+  Future<bool> _save(PresetNotifier notifier) async {
+    if (notifier.hasNameConflict() && !await _confirmOverwrite(notifier)) {
+      return false;
+    }
+    await notifier.savePreset();
+    return true;
+  }
+
+  /// Drops pending edits by reloading the stored version, if there is one.
+  void _discard(PresetNotifier notifier) {
+    final state = notifier.state;
+    notifier.selectPreset(
+      state.presets.where((p) => p.name == state.originalName).firstOrNull,
+    );
+  }
+
+  /// Opens the editor on [preset], or on a fresh preset when it is null,
+  /// after pending edits on another preset are saved or discarded.
+  Future<void> _openEditor(
+    PresetNotifier notifier, [
+    GenerationPreset? preset,
+  ]) async {
+    final editing = notifier.state.selectedPreset != null &&
+        preset != null &&
+        notifier.state.originalName == preset.name;
+    if (!editing) {
+      if (!await _guard(notifier).resolve(context) || !mounted) return;
+      preset == null
+          ? notifier.createNewPreset()
+          : notifier.selectPreset(preset);
+    }
+    setState(() => _showingEditor = true);
+  }
+
   @override
   Widget build(BuildContext context) {
     final notifier = context.watch<PresetNotifier>();
-    final mobile = isMobile(context);
     final t = context.t;
-
-    final showDetail = _showingEditor && notifier.state.selectedPreset != null;
-    return ManagerMasterDetailShell(
-      mobile: mobile,
-      showDetail: showDetail,
-      masterHeader: _buildHeader(context, notifier, t),
-      detailHeader: _buildMobileEditorBar(notifier, t),
-      master: _buildPresetList(
-        context,
-        notifier,
-        t,
-        fullWidth: mobile,
-      ),
-      detail: _buildEditor(context, notifier, t),
-      dividerColor: t.textMinimal,
-      showMasterHeaderOnMobile: false,
-    );
-  }
-
-  Widget _buildMobileEditorBar(PresetNotifier notifier, VisionTokens t) {
-    final name = notifier.state.selectedPreset?.name.toUpperCase() ?? '';
-    return ManagerDetailHeader(
-      title: name,
-      backgroundColor: t.surfaceMid,
-      iconColor: t.textDisabled,
-      textStyle: TextStyle(color: t.textSecondary, fontSize: t.fontSize(11), letterSpacing: 1, fontWeight: FontWeight.bold),
-      onBack: () => setState(() => _showingEditor = false),
-      actions: [
-        if (notifier.state.isModified)
-          IconButton(
-              key: const ValueKey<String>('preset-mobile-save'),
-              icon: Icon(Icons.save_outlined, size: 20, color: t.textPrimary),
-              tooltip: context.l.commonSave,
-              onPressed: () {
-                if (notifier.hasNameConflict()) {
-                  _showOverwriteConfirm(context, notifier, t);
-                } else {
-                  notifier.savePreset();
-                }
-              },
-            ),
-      ],
-    );
-  }
-
-  Widget _buildHeader(BuildContext context, PresetNotifier notifier, VisionTokens t) {
     final l = context.l;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      width: double.infinity,
-      color: t.surfaceHigh,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                l.presetManager,
-                style: TextStyle(
-                  color: t.textPrimary,
-                  fontSize: t.fontSize(16),
-                  letterSpacing: 4,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                l.presetManageDesc,
-                style: TextStyle(color: t.hintText, fontSize: t.fontSize(9), letterSpacing: 2),
-              ),
-            ],
-          ),
-          if (notifier.state.isModified)
-            TextButton.icon(
-              onPressed: () {
-                if (notifier.hasNameConflict()) {
-                  _showOverwriteConfirm(context, notifier, t);
-                } else {
-                  notifier.savePreset();
-                }
-              },
-              icon: Icon(Icons.save_outlined, size: 14, color: t.textPrimary),
-              label: Text(l.commonSaveChanges, style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(10), letterSpacing: 1)),
-              style: TextButton.styleFrom(
-                backgroundColor: t.borderSubtle,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-              ),
-            ),
+    final selected = notifier.state.selectedPreset;
+    final modified = notifier.state.isModified;
+
+    return ManagerMasterDetailShell(
+      showDetail: _showingEditor && selected != null,
+      masterHeader: ManagerHeader(
+        title: l.presetManager,
+        subtitle: l.presetManageDesc,
+        actions: [
+          if (modified)
+            ManagerSaveChangesButton(onPressed: () => _save(notifier)),
         ],
       ),
+      detailTitle: selected?.name.toUpperCase() ?? '',
+      detailActions: [
+        if (modified)
+          ManagerIconButton(
+            key: const ValueKey<String>('preset-mobile-save'),
+            icon: Icons.save_outlined,
+            tooltip: l.commonSave,
+            color: t.textPrimary,
+            onPressed: () => _save(notifier),
+          ),
+      ],
+      onCloseDetail: () => setState(() => _showingEditor = false),
+      guard: _guard(notifier),
+      master: _buildPresetList(context, notifier, t),
+      detail: _buildEditor(context, notifier, t),
     );
   }
 
-  Widget _buildPresetList(BuildContext context, PresetNotifier notifier, VisionTokens t, {bool fullWidth = false}) {
+  Widget _buildPresetList(BuildContext context, PresetNotifier notifier, VisionTokens t) {
     final l = context.l;
     final state = notifier.state;
-    return Container(
-      width: fullWidth ? double.infinity : 220,
+    return ColoredBox(
       color: t.surfaceMid,
       child: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  l.presetList,
-                  style: TextStyle(color: t.secondaryText, fontSize: t.fontSize(8), letterSpacing: 2, fontWeight: FontWeight.bold),
-                ),
-                IconButton(
-                  icon: Icon(Icons.add, size: 14, color: t.secondaryText),
-                  onPressed: () {
-                    notifier.createNewPreset();
-                    if (isMobile(context)) setState(() => _showingEditor = true);
-                  },
-                  tooltip: l.presetNew,
-                  constraints: const BoxConstraints(),
-                  padding: EdgeInsets.zero,
-                ),
-              ],
-            ),
+          ManagerListHeader(
+            title: l.presetList,
+            actions: [
+              ManagerIconButton(
+                icon: Icons.add,
+                tooltip: l.presetNew,
+                color: t.secondaryText,
+                onPressed: () => _openEditor(notifier),
+              ),
+            ],
           ),
           Divider(height: 1, color: t.textMinimal),
           Expanded(
@@ -187,74 +153,37 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
               itemBuilder: (context, index) {
                 final preset = state.presets[index];
                 final isSelected = state.selectedPreset?.name == preset.name;
+                final hasExtras = preset.characters.isNotEmpty ||
+                    preset.interactions.isNotEmpty ||
+                    preset.directorReferences.isNotEmpty;
 
-                return InkWell(
-                  onTap: () {
-                    notifier.selectPreset(preset);
-                    if (isMobile(context)) setState(() => _showingEditor = true);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    color: isSelected ? t.borderSubtle : Colors.transparent,
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.tune,
-                          size: 12,
-                          color: isSelected ? t.textPrimary : t.secondaryText,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                preset.name.toUpperCase(),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: isSelected ? t.textPrimary : t.secondaryText,
-                                  fontSize: t.fontSize(11),
-                                  letterSpacing: 1,
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                ),
-                              ),
-                              if (preset.characters.isNotEmpty || preset.interactions.isNotEmpty || preset.directorReferences.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 2),
-                                  child: Text(
-                                    preset.directorReferences.isNotEmpty
-                                        ? l.presetCharsRefsInfo(preset.characters.length, preset.interactions.length, preset.directorReferences.length)
-                                        : l.presetCharsInfo(preset.characters.length, preset.interactions.length),
-                                    style: TextStyle(
-                                      color: isSelected ? t.textTertiary : t.textMinimal,
-                                      fontSize: t.fontSize(7),
-                                      letterSpacing: 1,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        if (isSelected) ...[
-                          IconButton(
-                            icon: Icon(Icons.copy, size: 12, color: t.textDisabled),
-                            tooltip: context.l.presetDuplicate,
-                            onPressed: () => notifier.duplicatePreset(preset),
-                            constraints: const BoxConstraints(),
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.delete_outline, size: 12, color: t.textDisabled),
-                            tooltip: context.l.commonDelete,
-                            onPressed: () => _showDeleteConfirm(context, notifier, preset, t),
-                            constraints: const BoxConstraints(),
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                          ),
-                        ],
-                      ],
-                    ),
+                return ManagerListTile(
+                  title: preset.name.toUpperCase(),
+                  subtitle: !hasExtras
+                      ? null
+                      : preset.directorReferences.isNotEmpty
+                          ? l.presetCharsRefsInfo(preset.characters.length, preset.interactions.length, preset.directorReferences.length)
+                          : l.presetCharsInfo(preset.characters.length, preset.interactions.length),
+                  selected: isSelected,
+                  leading: Icon(
+                    Icons.tune,
+                    size: 12,
+                    color: isSelected ? t.textPrimary : t.secondaryText,
                   ),
+                  onTap: () => _openEditor(notifier, preset),
+                  menuActions: [
+                    ManagerListAction(
+                      label: l.commonDuplicate,
+                      icon: Icons.copy,
+                      onSelected: () => notifier.duplicatePreset(preset),
+                    ),
+                    ManagerListAction(
+                      label: l.commonDelete,
+                      icon: Icons.delete_outline,
+                      destructive: true,
+                      onSelected: () => _showDeleteConfirm(context, notifier, preset, t),
+                    ),
+                  ],
                 );
               },
             ),
@@ -460,12 +389,12 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
           ],
         ),
         const SizedBox(height: 16),
-        Row(
+        Wrap(
+          spacing: 24,
+          runSpacing: 8,
           children: [
             _buildToggle(label: "SMEA", value: preset.smea, onChanged: (v) => notifier.updateCurrentPreset(smea: v), t: t),
-            const SizedBox(width: 24),
             _buildToggle(label: "SMEA DYN", value: preset.smeaDyn, onChanged: (v) => notifier.updateCurrentPreset(smeaDyn: v), t: t),
-            const SizedBox(width: 24),
             _buildToggle(label: "DECRISPER", value: preset.decrisper, onChanged: (v) => notifier.updateCurrentPreset(decrisper: v), t: t),
           ],
         ),
@@ -550,6 +479,7 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
 
   Widget _buildToggle({required String label, required bool value, required Function(bool) onChanged, required VisionTokens t}) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Transform.scale(
           scale: 0.6,
@@ -901,17 +831,15 @@ class _PresetManagerContentState extends State<_PresetManagerContent> {
     }
   }
 
-  Future<void> _showOverwriteConfirm(BuildContext context, PresetNotifier notifier, VisionTokens t) async {
+  Future<bool> _confirmOverwrite(PresetNotifier notifier) async {
     final l = context.l;
     final confirm = await showConfirmDialog(
       context,
       title: l.presetOverwriteTitle,
       message: l.presetOverwriteConfirm(notifier.nameController.text),
       confirmLabel: l.commonOverwrite,
-      confirmColor: t.textPrimary,
+      confirmColor: context.tRead.textPrimary,
     );
-    if (confirm == true) {
-      notifier.savePreset();
-    }
+    return confirm == true;
   }
 }

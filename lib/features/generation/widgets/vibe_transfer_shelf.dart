@@ -1,41 +1,14 @@
-import '../../../core/utils/file_picker_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/theme_extensions.dart';
-import '../../../core/utils/app_snackbar.dart';
 import '../../../core/utils/responsive.dart';
-import '../../../core/services/novel_ai_service.dart';
+import '../../director_ref/widgets/reference_add_actions.dart';
 import '../../vibe_transfer/providers/vibe_transfer_notifier.dart';
 import '../../vibe_transfer/widgets/vibe_transfer_chip.dart';
 import '../../vibe_transfer/widgets/vibe_transfer_editor_sheet.dart';
 
 class VibeTransferShelf extends StatelessWidget {
   const VibeTransferShelf({super.key});
-
-  Future<void> _pickAndAdd(BuildContext context) async {
-    final result = await pickImageFiles(allowMultiple: true);
-    if (result != null && context.mounted) {
-      final notifier = context.read<VibeTransferNotifier>();
-      for (final file in result.files) {
-        final bytes = await readPickedFileBytes(file);
-        if (bytes == null) continue;
-        if (!context.mounted) return;
-        try {
-          await notifier.addVibe(bytes);
-        } on UnauthorizedException {
-          if (context.mounted) {
-            showErrorSnackBar(context, 'API key missing or invalid');
-          }
-          return;
-        } catch (e) {
-          if (context.mounted) {
-            showErrorSnackBar(context, 'Failed to encode vibe image');
-          }
-          return;
-        }
-      }
-    }
-  }
 
   void _openEditor(
     BuildContext context,
@@ -82,7 +55,7 @@ class VibeTransferShelf extends StatelessWidget {
                 ),
                 _AddVibeButton(
                   isProcessing: notifier.isProcessing,
-                  onTap: () => _pickAndAdd(context),
+                  onTap: () => pickAndAddVibes(context),
                 ),
               ],
             ),

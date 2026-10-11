@@ -10,6 +10,7 @@ import '../../../core/utils/app_snackbar.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/color_picker_dialog.dart';
 import '../../../core/widgets/confirm_dialog.dart';
+import '../../../core/widgets/manager_shell.dart';
 
 Map<String, String> _sectionDisplayNames(AppLocalizations l) => {
   'dimensions_seed': l.themeSectionDimSeed,
@@ -46,39 +47,33 @@ class _ThemeBuilderState extends State<ThemeBuilder> {
 
   @override
   Widget build(BuildContext context) {
-    final mobile = isMobile(context);
     final themeNotifier = context.watch<ThemeNotifier>();
     final t = themeNotifier.tokens;
     final l = context.l;
+    final config = themeNotifier.activeConfig;
 
-    if (mobile) {
-      return _showingEditor && _editingThemeId != null
-          ? _buildEditor(themeNotifier, t, mobile)
-          : _buildList(themeNotifier, t, mobile);
-    }
-
-    return Row(
-      children: [
-        SizedBox(
-          width: 260,
-          child: _buildList(themeNotifier, t, mobile),
-        ),
-        VerticalDivider(width: 1, color: t.borderMedium),
-        Expanded(
-          child: _editingThemeId != null
-              ? _buildEditor(themeNotifier, t, mobile)
-              : Center(
-                  child: Text(
-                    l.themeSelectToEdit,
-                    style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(10), letterSpacing: 2),
-                  ),
-                ),
-        ),
-      ],
+    return ManagerMasterDetailShell(
+      showDetail: _showingEditor && _editingThemeId != null,
+      masterWidth: 260,
+      detailTitle: config.name,
+      detailActions: _editorActions(themeNotifier, config, t),
+      onCloseDetail: () {
+        themeNotifier.clearPreview();
+        setState(() => _showingEditor = false);
+      },
+      master: _buildList(themeNotifier, t),
+      detail: _editingThemeId != null
+          ? _buildEditor(themeNotifier, t)
+          : Center(
+              child: Text(
+                l.themeSelectToEdit,
+                style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(10), letterSpacing: 2),
+              ),
+            ),
     );
   }
 
-  Widget _buildList(ThemeNotifier themeNotifier, VisionTokens t, bool mobile) {
+  Widget _buildList(ThemeNotifier themeNotifier, VisionTokens t) {
     final l = context.l;
     final allThemes = themeNotifier.allThemes;
     return Column(
@@ -111,7 +106,7 @@ class _ThemeBuilderState extends State<ThemeBuilder> {
                   themeNotifier.setActiveTheme(theme.id);
                   setState(() {
                     _editingThemeId = theme.id;
-                    if (mobile) _showingEditor = true;
+                    _showingEditor = true;
                   });
                 },
                 child: Container(
@@ -179,54 +174,54 @@ class _ThemeBuilderState extends State<ThemeBuilder> {
     );
   }
 
-  Widget _buildEditor(ThemeNotifier themeNotifier, VisionTokens t, bool mobile) {
+  /// Save / reset actions, shown in the editor header on every layout.
+  List<Widget> _editorActions(ThemeNotifier themeNotifier, AppThemeConfig config, VisionTokens t) {
+    final l = context.l;
+    return [
+      if (!config.isBuiltIn)
+        TextButton(
+          onPressed: () {
+            if (themeNotifier.isPreviewing) {
+              themeNotifier.commitPreview();
+            }
+          },
+          child: Text(l.themeSave, style: TextStyle(color: t.accent, fontSize: t.fontSize(9), letterSpacing: 1)),
+        ),
+      TextButton(
+        onPressed: () {
+          themeNotifier.clearPreview();
+          themeNotifier.setActiveTheme(config.id);
+        },
+        child: Text(l.themeReset, style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9), letterSpacing: 1)),
+      ),
+    ];
+  }
+
+  Widget _buildEditor(ThemeNotifier themeNotifier, VisionTokens t) {
     final l = context.l;
     final config = themeNotifier.activeConfig;
 
     return Column(
       children: [
-        // Header bar
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: t.borderSubtle)),
-          ),
-          child: Row(
-            children: [
-              if (mobile)
-                IconButton(
-                  icon: Icon(Icons.arrow_back, size: 16, color: t.textSecondary),
-                  onPressed: () {
-                    themeNotifier.clearPreview();
-                    setState(() => _showingEditor = false);
-                  },
+        // Phones get this header (with a back button) from the shell.
+        if (!isMobile(context))
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: t.borderSubtle)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    config.name,
+                    style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11), fontWeight: FontWeight.bold, letterSpacing: 2),
+                  ),
                 ),
-              Expanded(
-                child: Text(
-                  config.name,
-                  style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11), fontWeight: FontWeight.bold, letterSpacing: 2),
-                ),
-              ),
-              if (!config.isBuiltIn) ...[
-                TextButton(
-                  onPressed: () {
-                    if (themeNotifier.isPreviewing) {
-                      themeNotifier.commitPreview();
-                    }
-                  },
-                  child: Text(l.themeSave, style: TextStyle(color: t.accent, fontSize: t.fontSize(9), letterSpacing: 1)),
-                ),
+                ..._editorActions(themeNotifier, config, t),
               ],
-              TextButton(
-                onPressed: () {
-                  themeNotifier.clearPreview();
-                  themeNotifier.setActiveTheme(config.id);
-                },
-                child: Text(l.themeReset, style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9), letterSpacing: 1)),
-              ),
-            ],
+            ),
           ),
-        ),
         // Editor content
         Expanded(
           child: SingleChildScrollView(

@@ -45,6 +45,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonSaveChanges => 'SAVE CHANGES';
 
   @override
+  String get commonNameRequired => 'Name cannot be empty';
+
+  @override
+  String get commonDuplicate => 'Duplicate';
+
+  @override
+  String get commonDiscard => 'Discard';
+
+  @override
+  String get commonAddFavorite => 'Add to favorites';
+
+  @override
+  String get commonRemoveFavorite => 'Remove from favorites';
+
+  @override
+  String get commonUnsavedTitle => 'Unsaved changes';
+
+  @override
+  String get commonUnsavedMessage =>
+      'You have unsaved changes. Save them before continuing?';
+
+  @override
   String get mainGallery => 'Gallery';
 
   @override
@@ -1436,9 +1458,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get refApiKeyMissing => 'API key missing or invalid';
 
   @override
-  String refVibeEncodeFailed(String error) {
-    return 'Failed to encode vibe: $error';
-  }
+  String get refImageProcessFailed =>
+      'Could not read this image. Try another file.';
+
+  @override
+  String get refVibeNoPermission =>
+      'Your account is not allowed to encode vibes.';
+
+  @override
+  String get refErrorPointsInsufficient =>
+      'Not enough points to encode this vibe.';
+
+  @override
+  String get refErrorSessionExpired =>
+      'Your session has expired. Sign in again.';
+
+  @override
+  String get refErrorNetwork =>
+      'Network error. Check your connection and try again.';
+
+  @override
+  String get refErrorServiceUnavailable =>
+      'The service is busy or unavailable. Try again later.';
+
+  @override
+  String get refVibeEncodeFailed =>
+      'Could not encode this vibe. Try again later.';
 
   @override
   String get refLoadSaved => 'LOAD SAVED';
@@ -1451,6 +1496,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get refNoSavedRefs => 'NO SAVED REFERENCES';
+
+  @override
+  String get refRemove => 'Remove';
+
+  @override
+  String get refLibrarySaved => 'Saved to the library';
+
+  @override
+  String get refLibrarySaveFailed =>
+      'Could not update the library. Storage may be full.';
 
   @override
   String get packTitle => 'NAIWEAVER PACKS';
