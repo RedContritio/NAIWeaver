@@ -362,6 +362,41 @@ Both Director Reference and Vibe Transfer share `ReferenceImageProcessor` which 
 ### Theme System
 All UI styling flows through `VisionTokens`, a semantic token layer derived from `AppThemeConfig`. Widgets access tokens via `context.t` (a `BuildContext` extension). `ThemeNotifier` manages theme state with persistence to SharedPreferences, supports 8 built-in themes and unlimited user-created themes, and provides live preview during editing. The `ThemeBuilder` widget in Tools Hub exposes all theme properties (17 colors including `bgRemoval` and `upscale`, font family, font scale, bright mode) with a color picker dialog and real-time preview card. Widescreen sidebar layout is available with three modes (auto/always/never), configurable width, and configurable prompt position.
 
+### UI Conventions
+
+Pages are built from tokens and shared components, never from ad-hoc styling.
+
+**Tokens**
+- Colors and fonts: `context.t` (`VisionTokens`) in `build()`, `context.tRead` in callbacks. Font sizes go through `t.fontSize(n)` / `t.titleSize(n)` / `t.buttonSize(n)`. Text comes from `context.l`.
+- Metrics: `VisionMetrics` (`lib/core/theme/vision_metrics.dart`), theme-independent constants.
+  - Spacing: `space4/8/12/16/24`.
+  - Radius: `radius2/4/8/12` (4 is the default; there is no 3, 5 or 6).
+  - Opacity steps: `opacityHover` 0.08, `opacityPressed` 0.15, `opacityDisabled` 0.4, `opacityScrim` 0.5, `opacityOverlay` 0.8.
+  - Touch size: `context.touchSize` is 48 below 840 px and 32 from 840 px up; `context.hitSize` is the same but never below `minHitTarget` (40).
+  - Icon sizes: `iconSmall` 14, `iconMedium` 18, `iconLarge` 24. Border width: `borderWidth` 1.
+- `ThemeData` (built in `ThemeNotifier._buildThemeData`) themes bottom sheets, snack bars, dialogs, tab bars, popup menus, tooltips, icon/text/elevated buttons, chips and sliders from the tokens, so a bare Material widget already looks right.
+
+**Breakpoints** (`lib/core/utils/responsive.dart`): `WindowSizeClass` is compact (<600), medium (600-839), expanded (840-1199), large (1200-1599), xlarge (>=1600). Use `windowSizeClassOf(context)`, or `windowSizeClassForWidth(constraints.maxWidth)` inside a `LayoutBuilder`. `isTouchSized` (compact/medium) selects touch controls and, on the generation page, the bottom-sheet layout; expanded uses the regular layout; large and up (`isSidebarCapable`) may use the sidebar. `isMobile`, `isWidescreenLayout` and `touchTarget` are deprecated.
+
+**Which component for which concept** (shared components live in `lib/core/widgets/` and `lib/core/widgets/ui/`)
+
+| Concept | Use |
+| --- | --- |
+| Bottom sheet | `showAppSheet` with `AppPickerSheet` content |
+| Panel / card block | `AppPanel(variant)` |
+| Inline error | `ErrorBanner` |
+| Badge / capsule | `AppPill(tone, dense)` |
+| Section label | `SectionTitle(variant, trailing)` |
+| Overlay icon on images | `OverlayActionButton` / `OverlayActionFrame` |
+| Empty / loading / error screen | `EmptyState` / `LoadingState` / `ErrorState` |
+| Toast | `showAppSnackBar(tone:)` / `showErrorSnackBar` |
+| Tabs / single choice | `AppTabBar` / `AppSegmented` (wrap instead of overflow) |
+| Confirmation | `showConfirmDialog` |
+| Text prompt | `showTextInputDialog` (`text_input_dialog.dart`) |
+| Manager screens | `ManagerMasterDetailShell`, `ManagerHeader`, `ManagerListTile` |
+
+**Do not**: use `Colors.*` or `Color(0x...)`; use numeric font sizes; read `Theme.of(context).colorScheme`; call `showModalBottomSheet` directly; construct a `SnackBar` directly; hand-pick spacing, radius or opacity values that are not in `VisionMetrics`.
+
 ### Localization System
 All UI strings flow through Flutter's `AppLocalizations` generated from `.arb` files. Widgets access strings via `context.l` (a `BuildContext` extension). `LocaleNotifier` manages the active locale and persists the selection to SharedPreferences. New languages are added by creating an `.arb` file and regenerating.
 

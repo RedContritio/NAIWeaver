@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/widgets/ui/app_sheet.dart';
 
 /// Shows a tool's settings in a draggable bottom sheet.
 ///
@@ -10,33 +11,10 @@ Future<void> showToolConfigBottomSheet({
   required BuildContext context,
   required WidgetBuilder contentBuilder,
 }) {
-  final t = context.tRead;
-  return showModalBottomSheet<void>(
+  return showAppSheet<void>(
     context: context,
-    isScrollControlled: true,
-    backgroundColor: t.surfaceHigh,
-    // Lift the whole sheet above the keyboard so a focused field stays
-    // visible instead of only padding the scrollable content.
-    builder: (sheetContext) => AnimatedPadding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
-      ),
-      duration: const Duration(milliseconds: 150),
-      curve: Curves.easeOut,
-      child: DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        maxChildSize: 0.9,
-        minChildSize: 0.3,
-        expand: false,
-        builder: (context, scrollController) => SingleChildScrollView(
-          controller: scrollController,
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.viewPaddingOf(context).bottom + 24,
-          ),
-          child: Builder(builder: contentBuilder),
-        ),
-      ),
-    ),
+    builder: contentBuilder,
+    draggable: true,
   );
 }
 

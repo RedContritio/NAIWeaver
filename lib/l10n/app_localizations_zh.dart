@@ -60,6 +60,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get commonRemoveFavorite => '取消收藏';
 
   @override
+  String get commonRetry => '重试';
+
+  @override
+  String get commonLoading => '加载中';
+
+  @override
   String get commonUnsavedTitle => '未保存的修改';
 
   @override

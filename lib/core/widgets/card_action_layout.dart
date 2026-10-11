@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/theme_extensions.dart';
+import 'ui/overlay_action_button.dart';
 
 /// Fixed slots keep a card's action mounted while its content or badge updates.
 /// Callers provide the menu; this component owns its positioning and frame.
@@ -48,19 +48,5 @@ class CardActionFrame extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    return SizedBox(
-      width: 32,
-      height: 32,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: t.background.withValues(alpha: 0.78),
-          border: Border.all(color: t.borderSubtle),
-          borderRadius: BorderRadius.circular(5),
-        ),
-        child: child,
-      ),
-    );
-  }
+  Widget build(BuildContext context) => OverlayActionFrame(child: child);
 }

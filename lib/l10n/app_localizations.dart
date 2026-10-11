@@ -202,6 +202,18 @@ abstract class AppLocalizations {
   /// **'Remove from favorites'**
   String get commonRemoveFavorite;
 
+  /// No description provided for @commonRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get commonRetry;
+
+  /// No description provided for @commonLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading'**
+  String get commonLoading;
+
   /// No description provided for @commonUnsavedTitle.
   ///
   /// In en, this message translates to:

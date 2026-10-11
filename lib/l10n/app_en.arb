@@ -18,6 +18,8 @@
   "commonDiscard": "Discard",
   "commonAddFavorite": "Add to favorites",
   "commonRemoveFavorite": "Remove from favorites",
+  "commonRetry": "Retry",
+  "commonLoading": "Loading",
   "commonUnsavedTitle": "Unsaved changes",
   "commonUnsavedMessage": "You have unsaved changes. Save them before continuing?",
 
