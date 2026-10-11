@@ -227,16 +227,30 @@ Once production is at version 1, `app/db_upgrade.py`, its CLI command and
 The production service is installed as a user LaunchAgent:
 
 - plist: `~/Library/LaunchAgents/com.redcontritio.naiweaver.plist`
-- runner: `server/scripts/run-production.sh`
+- release checkout: `/Users/redcontritio/Projects/NAIWeaver-release`, a detached
+  `git worktree` pinned to the deployed commit. Production never runs from the
+  development tree, so merging or switching branches there cannot change what
+  a restart loads.
+- runner: `<release>/server/scripts/run-production.sh` (requires
+  `NAIWEAVER_PROJECT_DIR` and `NAIWEAVER_DATA_DIR` in the env file)
 - env: `~/.config/naiweaver/env.production`
+- data: `NAIWEAVER_DATA_DIR` (currently the development tree's `server/data`)
+- web build: `NAIWEAVER_WEB_BUILD_DIR` (`<release>/server/static/web`)
 - logs: `~/.config/naiweaver/stdout.log` and `~/.config/naiweaver/stderr.log`
 - local listen: `127.0.0.1:62279`
 
-Restart it after changing env or backend code:
+Release a new commit:
 
 ```bash
+git -C /Users/redcontritio/Projects/NAIWeaver-release checkout --detach <commit>
+(cd /Users/redcontritio/Projects/NAIWeaver-release/server && uv sync --frozen)
+(cd /Users/redcontritio/Projects/NAIWeaver-release && flutter pub get && \
+  flutter build web --release --output server/static/web)
 launchctl kickstart -k gui/$(id -u)/com.redcontritio.naiweaver
 ```
+
+If the commit changes the database schema, stop the service and run the
+one-off upgrade above before starting it again.
 
 The public route uses frp `https2http`:
 
