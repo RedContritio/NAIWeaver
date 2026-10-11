@@ -1237,6 +1237,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tagLibRandom => '随机';
 
   @override
+  String get tagDetailViewOnDanbooru => '在 Danbooru 查看';
+
+  @override
+  String get tagDetailNoWiki => '该标签暂无 Wiki 说明。';
+
+  @override
+  String get tagDetailCheckDanbooru => '前往 Danbooru 查看';
+
+  @override
+  String get tagDetailLicense => '标签说明 © Danbooru 贡献者，CC-BY-SA-4.0';
+
+  @override
   String get presetManager => '预设管理器';
 
   @override
@@ -2227,6 +2239,42 @@ class AppLocalizationsZh extends AppLocalizations {
   String get slideshowPlayAll => '播放全部';
 
   @override
+  String get slideshowPrevious => '上一张';
+
+  @override
+  String get slideshowNext => '下一张';
+
+  @override
+  String get slideshowPause => '暂停';
+
+  @override
+  String get slideshowResume => '继续播放';
+
+  @override
+  String get slideshowMusic => '音乐';
+
+  @override
+  String get slideshowEnableMusic => '启用音乐';
+
+  @override
+  String get slideshowMusicVolume => '音乐音量';
+
+  @override
+  String get slideshowKaraoke => '卡拉 OK 歌词';
+
+  @override
+  String get slideshowSongsHint => '歌曲（点击选择，留空 = 全部）';
+
+  @override
+  String get slideshowSoundFont => '音色库';
+
+  @override
+  String get slideshowSoundFontDefault => '默认';
+
+  @override
+  String get slideshowCategoryAll => '全部';
+
+  @override
   String get slideshowConfigs => '配置';
 
   @override
@@ -2387,6 +2435,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get demoNoImages => '图库无图片';
+
+  @override
+  String get demoGridSize => '切换网格大小';
 
   @override
   String get cascadeBeatTimeline => '镜头时间线';

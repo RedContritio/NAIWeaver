@@ -10,6 +10,9 @@ import '../../../core/services/backend_feedback_api.dart';
 import '../../../core/services/client_diagnostics.dart';
 import '../../../core/services/client_diagnostics_platform.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/vision_metrics.dart';
+import '../../../core/utils/app_snackbar.dart';
+import '../../../core/widgets/ui/app_panel.dart';
 import '../../../core/widgets/browser_native_selectable_text.dart';
 import '../../../l10n/app_localizations.dart';
 
@@ -98,7 +101,10 @@ class _FeedbackPanelState extends State<FeedbackPanel> {
       _diagnostics.record('feedback_submission_succeeded', {
         'report_id': submission.id,
       });
-      setState(() => _ticketId = submission.id);
+      setState(() {
+        _ticketId = submission.id;
+        _descriptionController.clear();
+      });
     } catch (error) {
       _diagnostics.record('feedback_submission_failed', {
         'error_type': error.runtimeType.toString(),
@@ -149,9 +155,8 @@ class _FeedbackPanelState extends State<FeedbackPanel> {
     final ticketId = _ticketId;
     if (ticketId == null) return;
     Clipboard.setData(ClipboardData(text: ticketId)).ignore();
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(context.l.feedbackTicketCopied)));
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    showAppSnackBar(context, context.l.feedbackTicketCopied);
   }
 
   @override
@@ -159,7 +164,7 @@ class _FeedbackPanelState extends State<FeedbackPanel> {
     final t = context.t;
     final l = context.l;
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(VisionMetrics.space16),
       children: [
         Text(
           l.feedbackTitle.toUpperCase(),
@@ -170,16 +175,24 @@ class _FeedbackPanelState extends State<FeedbackPanel> {
             letterSpacing: 2,
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: VisionMetrics.space12),
         Text(
           l.feedbackIntro,
-          style: TextStyle(color: t.textSecondary, height: 1.5),
+          style: TextStyle(
+            color: t.textSecondary,
+            fontSize: t.fontSize(11),
+            height: 1.5,
+          ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: VisionMetrics.space12),
         Row(
           children: [
-            Icon(Icons.circle, size: 8, color: t.accentSuccess),
-            const SizedBox(width: 8),
+            Icon(
+              Icons.circle,
+              size: VisionMetrics.space8,
+              color: t.accentSuccess,
+            ),
+            const SizedBox(width: VisionMetrics.space8),
             Expanded(
               child: Text(
                 l.feedbackDebugStatus(
@@ -198,29 +211,32 @@ class _FeedbackPanelState extends State<FeedbackPanel> {
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: t.borderSubtle.withValues(alpha: 0.28),
-            border: Border.all(color: t.borderMedium),
-            borderRadius: BorderRadius.circular(6),
-          ),
+        const SizedBox(height: VisionMetrics.space16),
+        AppPanel(
+          variant: AppPanelVariant.inset,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.privacy_tip_outlined, size: 18, color: t.accent),
-              const SizedBox(width: 10),
+              Icon(
+                Icons.privacy_tip_outlined,
+                size: VisionMetrics.iconMedium,
+                color: t.accent,
+              ),
+              const SizedBox(width: VisionMetrics.space8),
               Expanded(
                 child: Text(
                   l.feedbackPrivacy,
-                  style: TextStyle(color: t.textSecondary, height: 1.4),
+                  style: TextStyle(
+                    color: t.textSecondary,
+                    fontSize: t.fontSize(10),
+                    height: 1.4,
+                  ),
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: VisionMetrics.space16),
         TextField(
           key: FeedbackPanel.descriptionKey,
           controller: _descriptionController,
@@ -238,41 +254,55 @@ class _FeedbackPanelState extends State<FeedbackPanel> {
               }) => Text(
                 '${_descriptionController.text.runes.length}'
                 '/${FeedbackPanel.maxDescriptionLength}',
+                style: TextStyle(
+                  color: t.textTertiary,
+                  fontSize: t.fontSize(9),
+                ),
               ),
+          style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11)),
           decoration: InputDecoration(
             labelText: l.feedbackDescriptionLabel,
             hintText: l.feedbackDescriptionHint,
             border: const OutlineInputBorder(),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: VisionMetrics.space12),
         FilledButton.icon(
           key: FeedbackPanel.submitKey,
           onPressed: _submitting || !_gatewayAvailable ? null : _submit,
           icon: _submitting
               ? const SizedBox(
-                  width: 16,
-                  height: 16,
+                  width: VisionMetrics.iconMedium,
+                  height: VisionMetrics.iconMedium,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.bug_report_outlined),
-          label: Text(_submitting ? l.feedbackSubmitting : l.feedbackSubmit),
+          label: Text(
+            _submitting ? l.feedbackSubmitting : l.feedbackSubmit,
+            style: TextStyle(fontSize: t.buttonSize(11)),
+          ),
         ),
         if (!_gatewayAvailable) ...[
-          const SizedBox(height: 12),
-          Text(l.feedbackUnavailable, style: TextStyle(color: t.accentDanger)),
+          const SizedBox(height: VisionMetrics.space12),
+          ErrorBanner(message: l.feedbackUnavailable),
         ],
         if (_ticketId != null) ...[
-          const SizedBox(height: 16),
-          Text(l.feedbackSubmitted, style: TextStyle(color: t.accentSuccess)),
-          const SizedBox(height: 6),
+          const SizedBox(height: VisionMetrics.space16),
+          Text(
+            l.feedbackSubmitted,
+            style: TextStyle(color: t.accentSuccess, fontSize: t.fontSize(11)),
+          ),
+          const SizedBox(height: VisionMetrics.space4),
           Row(
             children: [
               Text(
                 '${l.feedbackTicketLabel}:',
-                style: TextStyle(color: t.textSecondary),
+                style: TextStyle(
+                  color: t.textSecondary,
+                  fontSize: t.fontSize(11),
+                ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: VisionMetrics.space8),
               Expanded(
                 child: BrowserNativeSelectableText(
                   key: FeedbackPanel.ticketKey,
@@ -280,6 +310,7 @@ class _FeedbackPanelState extends State<FeedbackPanel> {
                   height: 38,
                   style: TextStyle(
                     color: t.accentSuccess,
+                    fontSize: t.fontSize(11),
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -294,10 +325,9 @@ class _FeedbackPanelState extends State<FeedbackPanel> {
           ),
         ],
         if (_error != null) ...[
-          const SizedBox(height: 16),
-          Text(
-            '${l.feedbackSubmitFailed}: ${_errorText(l, _error!)}',
-            style: TextStyle(color: t.accentDanger),
+          const SizedBox(height: VisionMetrics.space16),
+          ErrorBanner(
+            message: '${l.feedbackSubmitFailed}: ${_errorText(l, _error!)}',
           ),
         ],
       ],

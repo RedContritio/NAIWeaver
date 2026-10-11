@@ -1298,6 +1298,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tagLibRandom => 'RANDOM';
 
   @override
+  String get tagDetailViewOnDanbooru => 'View on Danbooru';
+
+  @override
+  String get tagDetailNoWiki => 'No wiki description for this tag.';
+
+  @override
+  String get tagDetailCheckDanbooru => 'Check on Danbooru';
+
+  @override
+  String get tagDetailLicense =>
+      'Tag descriptions © Danbooru contributors, CC-BY-SA-4.0';
+
+  @override
   String get presetManager => 'PRESET MANAGER';
 
   @override
@@ -2310,6 +2323,42 @@ class AppLocalizationsEn extends AppLocalizations {
   String get slideshowPlayAll => 'PLAY ALL';
 
   @override
+  String get slideshowPrevious => 'Previous image';
+
+  @override
+  String get slideshowNext => 'Next image';
+
+  @override
+  String get slideshowPause => 'Pause';
+
+  @override
+  String get slideshowResume => 'Resume';
+
+  @override
+  String get slideshowMusic => 'MUSIC';
+
+  @override
+  String get slideshowEnableMusic => 'ENABLE MUSIC';
+
+  @override
+  String get slideshowMusicVolume => 'MUSIC VOLUME';
+
+  @override
+  String get slideshowKaraoke => 'KARAOKE LYRICS';
+
+  @override
+  String get slideshowSongsHint => 'SONGS (TAP TO SELECT, EMPTY = ALL)';
+
+  @override
+  String get slideshowSoundFont => 'SOUNDFONT';
+
+  @override
+  String get slideshowSoundFontDefault => 'DEFAULT';
+
+  @override
+  String get slideshowCategoryAll => 'ALL';
+
+  @override
   String get slideshowConfigs => 'CONFIGS';
 
   @override
@@ -2471,6 +2520,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get demoNoImages => 'NO IMAGES IN GALLERY';
+
+  @override
+  String get demoGridSize => 'Change grid size';
 
   @override
   String get cascadeBeatTimeline => 'BEAT TIMELINE';

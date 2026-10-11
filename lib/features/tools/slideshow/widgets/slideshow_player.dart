@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/l10n/l10n_extensions.dart';
+import '../../../../core/theme/theme_extensions.dart';
 import '../../../../core/jukebox/jukebox_registry.dart';
 import '../../../../core/jukebox/models/jukebox_song.dart';
 import '../../../../core/jukebox/providers/jukebox_notifier.dart';
@@ -11,6 +12,7 @@ import '../../jukebox/widgets/jukebox_panel.dart';
 import '../../../gallery/providers/gallery_notifier.dart';
 import '../models/slideshow_config.dart';
 import '../services/slideshow_animation_service.dart';
+import '../../../../core/theme/vision_metrics.dart';
 
 class SlideshowPlayer extends StatefulWidget {
   final SlideshowConfig config;
@@ -41,7 +43,8 @@ class _SlideshowPlayerState extends State<SlideshowPlayer>
   ImageProvider? _nextImageProvider;
 
   // Manual zoom controller
-  final TransformationController _manualZoomController = TransformationController();
+  final TransformationController _manualZoomController =
+      TransformationController();
   bool _showKaraoke = false;
   bool _musicMuted = false;
   JukeboxNotifier? _jukebox;
@@ -53,7 +56,8 @@ class _SlideshowPlayerState extends State<SlideshowPlayer>
     _kenBurnsController = AnimationController(
       vsync: this,
       duration: Duration(
-          milliseconds: (widget.config.slideDuration * 1000).round()),
+        milliseconds: (widget.config.slideDuration * 1000).round(),
+      ),
     );
     _startKenBurns();
     _scheduleSlide();
@@ -93,7 +97,9 @@ class _SlideshowPlayerState extends State<SlideshowPlayer>
 
     // Set soundfont if specified
     if (widget.config.musicSoundFontId != null) {
-      final sf = JukeboxRegistry.findSoundFontById(widget.config.musicSoundFontId!);
+      final sf = JukeboxRegistry.findSoundFontById(
+        widget.config.musicSoundFontId!,
+      );
       if (sf != null) jukebox.setSoundFont(sf);
     }
 
@@ -127,7 +133,8 @@ class _SlideshowPlayerState extends State<SlideshowPlayer>
     _kenBurnsController
       ..reset()
       ..duration = Duration(
-          milliseconds: (widget.config.slideDuration * 1000).round())
+        milliseconds: (widget.config.slideDuration * 1000).round(),
+      )
       ..forward();
   }
 
@@ -254,29 +261,39 @@ class _SlideshowPlayerState extends State<SlideshowPlayer>
   @override
   Widget build(BuildContext context) {
     final l = context.l;
+    final t = context.t;
     if (widget.playlist.isEmpty) {
       return Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: t.background,
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.photo_library_outlined,
-                  color: Colors.white24, size: 48),
-              const SizedBox(height: 16),
-              Text(l.slideshowNoImages,
-                  style: const TextStyle(
-                      color: Colors.white38,
-                      fontSize: 14,
-                      letterSpacing: 2)),
-              const SizedBox(height: 24),
+              Icon(
+                Icons.photo_library_outlined,
+                color: t.textMinimal,
+                size: 48,
+              ),
+              const SizedBox(height: VisionMetrics.space16),
+              Text(
+                l.slideshowNoImages,
+                style: TextStyle(
+                  color: t.textDisabled,
+                  fontSize: t.fontSize(14),
+                  letterSpacing: 2,
+                ),
+              ),
+              const SizedBox(height: VisionMetrics.space24),
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text(l.slideshowGoBack,
-                    style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                        letterSpacing: 1)),
+                child: Text(
+                  l.slideshowGoBack,
+                  style: TextStyle(
+                    color: t.textTertiary,
+                    fontSize: t.fontSize(12),
+                    letterSpacing: 1,
+                  ),
+                ),
               ),
             ],
           ),
@@ -307,9 +324,9 @@ class _SlideshowPlayerState extends State<SlideshowPlayer>
       display = AnimatedBuilder(
         animation: _kenBurnsController,
         builder: (context, child) {
-          final t = _kenBurnsController.value;
-          final scale = _kenBurns!.scaleAt(t);
-          final offset = _kenBurns!.offsetAt(t);
+          final progress = _kenBurnsController.value;
+          final scale = _kenBurns!.scaleAt(progress);
+          final offset = _kenBurns!.offsetAt(progress);
           return ClipRect(
             child: Transform.scale(
               scale: scale,
@@ -330,7 +347,7 @@ class _SlideshowPlayerState extends State<SlideshowPlayer>
     }
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: t.background,
       body: Focus(
         focusNode: _focusNode,
         autofocus: true,
@@ -345,11 +362,13 @@ class _SlideshowPlayerState extends State<SlideshowPlayer>
                 // Image with transition
                 AnimatedSwitcher(
                   duration: Duration(
-                      milliseconds:
-                          (widget.config.transitionDuration * 1000).round()),
+                    milliseconds: (widget.config.transitionDuration * 1000)
+                        .round(),
+                  ),
                   transitionBuilder:
                       SlideshowAnimationService.getTransitionBuilder(
-                          widget.config.transition),
+                        widget.config.transition,
+                      ),
                   child: SizedBox.expand(
                     key: ValueKey(_currentIndex),
                     child: display,
@@ -379,11 +398,16 @@ class _SlideshowPlayerState extends State<SlideshowPlayer>
                         right: 16,
                         bottom: 8,
                       ),
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          colors: [Colors.black54, Colors.transparent],
+                          colors: [
+                            t.background.withValues(
+                              alpha: VisionMetrics.opacityScrim,
+                            ),
+                            Colors.transparent,
+                          ],
                         ),
                       ),
                       child: Row(
@@ -391,30 +415,41 @@ class _SlideshowPlayerState extends State<SlideshowPlayer>
                         children: [
                           Text(
                             '${_currentIndex + 1} / ${widget.playlist.length}',
-                            style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 14,
-                                letterSpacing: 1),
+                            style: TextStyle(
+                              color: t.textSecondary,
+                              fontSize: t.fontSize(14),
+                              letterSpacing: 1,
+                            ),
                           ),
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
-                                icon: const Icon(Icons.music_note,
-                                    color: Colors.white70, size: 20),
+                                icon: Icon(
+                                  Icons.music_note,
+                                  color: t.textSecondary,
+                                  size: VisionMetrics.iconMedium,
+                                ),
+                                tooltip: l.jukeboxTitle,
                                 onPressed: () {
                                   showDialog(
                                     context: context,
                                     builder: (context) => Dialog.fullscreen(
-                                      backgroundColor: Colors.black,
+                                      backgroundColor: t.background,
                                       child: const JukeboxPanel(),
                                     ),
                                   );
                                 },
                               ),
                               IconButton(
-                                icon: const Icon(Icons.close,
-                                    color: Colors.white70, size: 24),
+                                icon: Icon(
+                                  Icons.close,
+                                  color: t.textSecondary,
+                                  size: VisionMetrics.iconLarge,
+                                ),
+                                tooltip: MaterialLocalizations.of(
+                                  context,
+                                ).closeButtonTooltip,
                                 onPressed: () => Navigator.pop(context),
                               ),
                             ],
@@ -433,35 +468,52 @@ class _SlideshowPlayerState extends State<SlideshowPlayer>
                         bottom: MediaQuery.of(context).padding.bottom + 16,
                         top: 16,
                       ),
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.bottomCenter,
                           end: Alignment.topCenter,
-                          colors: [Colors.black54, Colors.transparent],
+                          colors: [
+                            t.background.withValues(
+                              alpha: VisionMetrics.opacityScrim,
+                            ),
+                            Colors.transparent,
+                          ],
                         ),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.skip_previous,
-                                color: Colors.white70, size: 32),
+                            icon: Icon(
+                              Icons.skip_previous,
+                              color: t.textSecondary,
+                              size: 32,
+                            ),
+                            tooltip: l.slideshowPrevious,
                             onPressed: _goPrev,
                           ),
-                          const SizedBox(width: 24),
+                          const SizedBox(width: VisionMetrics.space24),
                           IconButton(
                             icon: Icon(
-                                _isPlaying
-                                    ? Icons.pause_circle_filled
-                                    : Icons.play_circle_filled,
-                                color: Colors.white,
-                                size: 48),
+                              _isPlaying
+                                  ? Icons.pause_circle_filled
+                                  : Icons.play_circle_filled,
+                              color: t.textPrimary,
+                              size: 48,
+                            ),
+                            tooltip: _isPlaying
+                                ? l.slideshowPause
+                                : l.slideshowResume,
                             onPressed: _togglePlayPause,
                           ),
-                          const SizedBox(width: 24),
+                          const SizedBox(width: VisionMetrics.space24),
                           IconButton(
-                            icon: const Icon(Icons.skip_next,
-                                color: Colors.white70, size: 32),
+                            icon: Icon(
+                              Icons.skip_next,
+                              color: t.textSecondary,
+                              size: 32,
+                            ),
+                            tooltip: l.slideshowNext,
                             onPressed: _goNext,
                           ),
                         ],

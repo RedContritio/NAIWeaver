@@ -1249,6 +1249,18 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tagLibRandom => 'ランダム';
 
   @override
+  String get tagDetailViewOnDanbooru => 'Danbooru で見る';
+
+  @override
+  String get tagDetailNoWiki => 'このタグの Wiki 説明はありません。';
+
+  @override
+  String get tagDetailCheckDanbooru => 'Danbooru で確認';
+
+  @override
+  String get tagDetailLicense => 'タグ説明 © Danbooru contributors, CC-BY-SA-4.0';
+
+  @override
   String get presetManager => 'プリセットマネージャー';
 
   @override
@@ -2244,6 +2256,42 @@ class AppLocalizationsJa extends AppLocalizations {
   String get slideshowPlayAll => 'すべて再生';
 
   @override
+  String get slideshowPrevious => '前の画像';
+
+  @override
+  String get slideshowNext => '次の画像';
+
+  @override
+  String get slideshowPause => '一時停止';
+
+  @override
+  String get slideshowResume => '再生';
+
+  @override
+  String get slideshowMusic => '音楽';
+
+  @override
+  String get slideshowEnableMusic => '音楽を有効化';
+
+  @override
+  String get slideshowMusicVolume => '音楽の音量';
+
+  @override
+  String get slideshowKaraoke => 'カラオケ歌詞';
+
+  @override
+  String get slideshowSongsHint => '曲（タップで選択、空 = すべて）';
+
+  @override
+  String get slideshowSoundFont => 'サウンドフォント';
+
+  @override
+  String get slideshowSoundFontDefault => 'デフォルト';
+
+  @override
+  String get slideshowCategoryAll => 'すべて';
+
+  @override
   String get slideshowConfigs => '設定一覧';
 
   @override
@@ -2404,6 +2452,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get demoNoImages => 'ギャラリーに画像がありません';
+
+  @override
+  String get demoGridSize => 'グリッドサイズを変更';
 
   @override
   String get cascadeBeatTimeline => 'ビートタイムライン';

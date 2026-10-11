@@ -2428,6 +2428,30 @@ abstract class AppLocalizations {
   /// **'RANDOM'**
   String get tagLibRandom;
 
+  /// No description provided for @tagDetailViewOnDanbooru.
+  ///
+  /// In en, this message translates to:
+  /// **'View on Danbooru'**
+  String get tagDetailViewOnDanbooru;
+
+  /// No description provided for @tagDetailNoWiki.
+  ///
+  /// In en, this message translates to:
+  /// **'No wiki description for this tag.'**
+  String get tagDetailNoWiki;
+
+  /// No description provided for @tagDetailCheckDanbooru.
+  ///
+  /// In en, this message translates to:
+  /// **'Check on Danbooru'**
+  String get tagDetailCheckDanbooru;
+
+  /// No description provided for @tagDetailLicense.
+  ///
+  /// In en, this message translates to:
+  /// **'Tag descriptions © Danbooru contributors, CC-BY-SA-4.0'**
+  String get tagDetailLicense;
+
   /// No description provided for @presetManager.
   ///
   /// In en, this message translates to:
@@ -4258,6 +4282,78 @@ abstract class AppLocalizations {
   /// **'PLAY ALL'**
   String get slideshowPlayAll;
 
+  /// No description provided for @slideshowPrevious.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous image'**
+  String get slideshowPrevious;
+
+  /// No description provided for @slideshowNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next image'**
+  String get slideshowNext;
+
+  /// No description provided for @slideshowPause.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get slideshowPause;
+
+  /// No description provided for @slideshowResume.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume'**
+  String get slideshowResume;
+
+  /// No description provided for @slideshowMusic.
+  ///
+  /// In en, this message translates to:
+  /// **'MUSIC'**
+  String get slideshowMusic;
+
+  /// No description provided for @slideshowEnableMusic.
+  ///
+  /// In en, this message translates to:
+  /// **'ENABLE MUSIC'**
+  String get slideshowEnableMusic;
+
+  /// No description provided for @slideshowMusicVolume.
+  ///
+  /// In en, this message translates to:
+  /// **'MUSIC VOLUME'**
+  String get slideshowMusicVolume;
+
+  /// No description provided for @slideshowKaraoke.
+  ///
+  /// In en, this message translates to:
+  /// **'KARAOKE LYRICS'**
+  String get slideshowKaraoke;
+
+  /// No description provided for @slideshowSongsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'SONGS (TAP TO SELECT, EMPTY = ALL)'**
+  String get slideshowSongsHint;
+
+  /// No description provided for @slideshowSoundFont.
+  ///
+  /// In en, this message translates to:
+  /// **'SOUNDFONT'**
+  String get slideshowSoundFont;
+
+  /// No description provided for @slideshowSoundFontDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'DEFAULT'**
+  String get slideshowSoundFontDefault;
+
+  /// No description provided for @slideshowCategoryAll.
+  ///
+  /// In en, this message translates to:
+  /// **'ALL'**
+  String get slideshowCategoryAll;
+
   /// No description provided for @slideshowConfigs.
   ///
   /// In en, this message translates to:
@@ -4557,6 +4653,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'NO IMAGES IN GALLERY'**
   String get demoNoImages;
+
+  /// No description provided for @demoGridSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Change grid size'**
+  String get demoGridSize;
 
   /// No description provided for @cascadeBeatTimeline.
   ///
