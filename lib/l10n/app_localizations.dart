@@ -1048,6 +1048,18 @@ abstract class AppLocalizations {
   /// **'Saved to {name}'**
   String gallerySavedTo(String name);
 
+  /// No description provided for @galleryResultDownloaded.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloaded {name}'**
+  String galleryResultDownloaded(String name);
+
+  /// No description provided for @galleryResultSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Result not saved: {error}'**
+  String galleryResultSaveFailed(String error);
+
   /// No description provided for @galleryToggleFavorite.
   ///
   /// In en, this message translates to:
@@ -5539,6 +5551,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Enhance'**
   String get toolsEnhance;
+
+  /// No description provided for @toolDiscardResultTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard result?'**
+  String get toolDiscardResultTitle;
+
+  /// No description provided for @toolDiscardResultMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This result has not been saved. Going back discards it.'**
+  String get toolDiscardResultMessage;
+
+  /// No description provided for @toolDiscardResultConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard'**
+  String get toolDiscardResultConfirm;
 
   /// No description provided for @directorToolsTitle.
   ///

@@ -162,6 +162,8 @@
   "gallerySavedToDevice": "デバイスギャラリーに保存しました",
   "galleryExportImageDialog": "画像をエクスポート",
   "gallerySavedTo": "{name}に保存しました",
+  "galleryResultDownloaded": "{name}をダウンロードしました",
+  "galleryResultSaveFailed": "結果を保存できませんでした: {error}",
   "galleryToggleFavorite": "お気に入りを切り替え",
   "galleryExportImage": "画像をエクスポート",
   "galleryDeleteImageTooltip": "画像を削除",
@@ -960,6 +962,9 @@
 
   "toolsDirectorTools": "ディレクターツール",
   "toolsEnhance": "エンハンス",
+  "toolDiscardResultTitle": "結果を破棄しますか？",
+  "toolDiscardResultMessage": "この結果はまだ保存されていません。戻ると破棄されます。",
+  "toolDiscardResultConfirm": "破棄",
 
   "directorToolsTitle": "ディレクターツール",
   "directorToolsDesc": "サーバーサイド画像操作：背景除去、線画抽出、着色など",

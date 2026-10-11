@@ -177,6 +177,10 @@
   "galleryExportImageDialog": "导出图片",
   "gallerySavedTo": "已保存到 {name}",
   "@gallerySavedTo": { "placeholders": { "name": { "type": "String" } } },
+  "galleryResultDownloaded": "已下载 {name}",
+  "@galleryResultDownloaded": { "placeholders": { "name": { "type": "String" } } },
+  "galleryResultSaveFailed": "结果未保存：{error}",
+  "@galleryResultSaveFailed": { "placeholders": { "error": { "type": "String" } } },
   "galleryToggleFavorite": "切换收藏",
   "galleryExportImage": "导出图片",
   "galleryDeleteImageTooltip": "删除图片",
@@ -1031,6 +1035,9 @@
 
   "toolsDirectorTools": "导演工具",
   "toolsEnhance": "增强",
+  "toolDiscardResultTitle": "放弃结果？",
+  "toolDiscardResultMessage": "该结果尚未保存，返回后将被丢弃。",
+  "toolDiscardResultConfirm": "放弃",
 
   "directorToolsTitle": "导演工具",
   "directorToolsDesc": "服务器端图像处理：移除背景、提取线稿、上色等",

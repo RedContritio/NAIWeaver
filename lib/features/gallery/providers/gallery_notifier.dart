@@ -376,20 +376,28 @@ class GalleryNotifier extends ChangeNotifier {
     addFile(file, DateTime.now());
   }
 
+  /// Re-encodes [bytes] as PNG carrying [sourceBytes]' metadata chunks, or
+  /// returns [bytes] unchanged when that conversion fails.
+  static Future<Uint8List> withSourceMetadata(
+    Uint8List bytes,
+    Uint8List sourceBytes,
+  ) async {
+    final result = await compute(convertToPngPreservingMetadata, {
+      'bytes': bytes,
+      'originalBytes': sourceBytes,
+    });
+    return result ?? bytes;
+  }
+
   /// Save an ML result with metadata copied from the source image.
   Future<void> saveMLResultWithMetadata(
     Uint8List bytes,
     String filename, {
     Uint8List? sourceBytes,
   }) async {
-    Uint8List finalBytes = bytes;
-    if (sourceBytes != null) {
-      final result = await compute(convertToPngPreservingMetadata, {
-        'bytes': bytes,
-        'originalBytes': sourceBytes,
-      });
-      if (result != null) finalBytes = result;
-    }
+    final finalBytes = sourceBytes == null
+        ? bytes
+        : await withSourceMetadata(bytes, sourceBytes);
     final destPath = p.join(outputDir, filename);
     final file = File(destPath);
     await file.writeAsBytes(finalBytes);

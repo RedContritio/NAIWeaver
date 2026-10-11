@@ -518,6 +518,16 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String galleryResultDownloaded(String name) {
+    return '$nameをダウンロードしました';
+  }
+
+  @override
+  String galleryResultSaveFailed(String error) {
+    return '結果を保存できませんでした: $error';
+  }
+
+  @override
   String get galleryToggleFavorite => 'お気に入りを切り替え';
 
   @override
@@ -2927,6 +2937,15 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get toolsEnhance => 'エンハンス';
+
+  @override
+  String get toolDiscardResultTitle => '結果を破棄しますか？';
+
+  @override
+  String get toolDiscardResultMessage => 'この結果はまだ保存されていません。戻ると破棄されます。';
+
+  @override
+  String get toolDiscardResultConfirm => '破棄';
 
   @override
   String get directorToolsTitle => 'ディレクターツール';

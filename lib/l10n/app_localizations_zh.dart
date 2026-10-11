@@ -515,6 +515,16 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String galleryResultDownloaded(String name) {
+    return '已下载 $name';
+  }
+
+  @override
+  String galleryResultSaveFailed(String error) {
+    return '结果未保存：$error';
+  }
+
+  @override
   String get galleryToggleFavorite => '切换收藏';
 
   @override
@@ -2919,6 +2929,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get toolsEnhance => '增强';
+
+  @override
+  String get toolDiscardResultTitle => '放弃结果？';
+
+  @override
+  String get toolDiscardResultMessage => '该结果尚未保存，返回后将被丢弃。';
+
+  @override
+  String get toolDiscardResultConfirm => '放弃';
 
   @override
   String get directorToolsTitle => '导演工具';

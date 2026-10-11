@@ -1,14 +1,15 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/l10n/l10n_extensions.dart';
 import '../../../../core/theme/theme_extensions.dart';
 import '../../../../core/widgets/vision_slider.dart';
-import '../../../../core/utils/app_snackbar.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../../core/utils/timestamp_utils.dart';
 import '../../../../core/widgets/comparison_slider.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../../gallery/providers/gallery_notifier.dart';
+import '../../../gallery/services/tool_result_saver.dart';
 import '../../../generation/providers/generation_notifier.dart';
 import '../../widgets/tool_config_bottom_sheet.dart';
 import '../../widgets/tool_source_picker.dart';
@@ -28,6 +29,10 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
   final TextEditingController _promptController = TextEditingController();
   final _promptKey = GlobalKey();
   final _promptFocus = FocusNode();
+
+  /// Result bytes last written by [_saveResult]; anything else is unsaved.
+  Uint8List? _savedResult;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -137,17 +142,16 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
         children: [
           IconButton(
             icon: Icon(Icons.arrow_back, size: 16, color: t.textDisabled),
-            onPressed: () => notifier.clear(),
+            onPressed: () => _backToPicker(notifier),
             tooltip: l.img2imgBackToPicker,
           ),
           const Spacer(),
-          if (notifier.hasResult &&
-              !context.read<GenerationNotifier>().state.autoSaveImages) ...[
+          if (_hasUnsavedResult(notifier)) ...[
             if (mobile)
               SizedBox(
                 height: 36,
                 child: IconButton(
-                  onPressed: () => _saveResult(notifier),
+                  onPressed: _saving ? null : () => _saveResult(notifier),
                   icon: const Icon(Icons.save_alt, size: 14),
                   tooltip: l.commonSave,
                   style: IconButton.styleFrom(
@@ -160,7 +164,7 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
               SizedBox(
                 height: 36,
                 child: ElevatedButton.icon(
-                  onPressed: () => _saveResult(notifier),
+                  onPressed: _saving ? null : () => _saveResult(notifier),
                   icon: const Icon(Icons.save_alt, size: 14),
                   label: Text(l.commonSave),
                   style: ElevatedButton.styleFrom(
@@ -187,16 +191,7 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
               child: IconButton(
                 onPressed: notifier.isProcessing
                     ? null
-                    : () async {
-                        final gen = context.read<GenerationNotifier>();
-                        notifier.setPrompt(_promptController.text);
-                        await notifier.process();
-                        if (notifier.hasResult && mounted) {
-                          if (gen.state.autoSaveImages) {
-                            _saveResult(notifier);
-                          }
-                        }
-                      },
+                    : () => _process(notifier),
                 icon: notifier.isProcessing
                     ? SizedBox(
                         width: 14,
@@ -219,16 +214,7 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
               child: ElevatedButton.icon(
                 onPressed: notifier.isProcessing
                     ? null
-                    : () async {
-                        final gen = context.read<GenerationNotifier>();
-                        notifier.setPrompt(_promptController.text);
-                        await notifier.process();
-                        if (notifier.hasResult && mounted) {
-                          if (gen.state.autoSaveImages) {
-                            _saveResult(notifier);
-                          }
-                        }
-                      },
+                    : () => _process(notifier),
                 icon: notifier.isProcessing
                     ? SizedBox(
                         width: 14,
@@ -467,19 +453,42 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
     );
   }
 
-  void _saveResult(DirectorToolsNotifier notifier) {
-    if (notifier.resultBytes == null) return;
-    final gallery = context.read<GalleryNotifier>();
-    final timestamp = generateTimestamp();
-    final toolName = notifier.selectedTool.apiValue.replaceAll('-', '');
-    gallery.saveMLResultWithMetadata(
-      notifier.resultBytes!,
-      'DT_${toolName}_$timestamp.png',
-      sourceBytes: notifier.sourceImageBytes,
-    );
-
-    if (mounted) {
-      showAppSnackBar(context, context.l.directorToolsSaved);
+  Future<void> _process(DirectorToolsNotifier notifier) async {
+    final gen = context.read<GenerationNotifier>();
+    notifier.setPrompt(_promptController.text);
+    await notifier.process();
+    if (mounted && notifier.hasResult && gen.state.autoSaveImages) {
+      await _saveResult(notifier);
     }
+  }
+
+  bool _hasUnsavedResult(DirectorToolsNotifier notifier) =>
+      notifier.hasResult && !identical(notifier.resultBytes, _savedResult);
+
+  Future<void> _backToPicker(DirectorToolsNotifier notifier) async {
+    if (_hasUnsavedResult(notifier) &&
+        !await confirmDiscardUnsavedResult(context)) {
+      return;
+    }
+    notifier.clear();
+  }
+
+  Future<void> _saveResult(DirectorToolsNotifier notifier) async {
+    final result = notifier.resultBytes;
+    if (result == null || _saving) return;
+    setState(() => _saving = true);
+    final toolName = notifier.selectedTool.apiValue.replaceAll('-', '');
+    final outcome = await saveToolResult(
+      context,
+      bytes: result,
+      fileName: 'DT_${toolName}_${generateTimestamp()}.png',
+      sourceBytes: notifier.sourceImageBytes,
+      savedMessage: context.l.directorToolsSaved,
+    );
+    if (!mounted) return;
+    setState(() {
+      _saving = false;
+      if (outcome.succeeded) _savedResult = result;
+    });
   }
 }

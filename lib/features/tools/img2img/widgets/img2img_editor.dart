@@ -5,6 +5,7 @@ import '../../../../core/l10n/l10n_extensions.dart';
 import '../../../../core/theme/theme_extensions.dart';
 import '../../../../core/utils/app_snackbar.dart';
 import '../../../../core/utils/responsive.dart';
+import '../../../gallery/services/tool_result_saver.dart';
 import '../../../generation/providers/generation_notifier.dart';
 import '../../canvas/providers/canvas_notifier.dart';
 import '../../canvas/services/canvas_gallery_service.dart';
@@ -305,7 +306,7 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
         children: [
           IconButton(
             icon: Icon(Icons.arrow_back, size: 16, color: t.textDisabled),
-            onPressed: () => img2imgNotifier.clearSession(),
+            onPressed: () => _backToPicker(img2imgNotifier, genNotifier),
             tooltip: l.img2imgBackToPicker,
           ),
           const Spacer(),
@@ -516,6 +517,26 @@ class _Img2ImgEditorState extends State<Img2ImgEditor> {
         ],
       ),
     );
+  }
+
+  /// The img2img result is also the main generation image, which
+  /// [GenerationNotifier] saves (or auto-saves). It only counts as saved while
+  /// it is still that image and the notifier reports it saved.
+  bool _hasUnsavedResult(Img2ImgNotifier img2img, GenerationNotifier gen) {
+    final result = img2img.session?.resultImageBytes;
+    return result != null &&
+        !(identical(gen.state.generatedImage, result) && gen.imageSaved);
+  }
+
+  Future<void> _backToPicker(
+    Img2ImgNotifier img2imgNotifier,
+    GenerationNotifier genNotifier,
+  ) async {
+    if (_hasUnsavedResult(img2imgNotifier, genNotifier) &&
+        !await confirmDiscardUnsavedResult(context)) {
+      return;
+    }
+    img2imgNotifier.clearSession();
   }
 
   void _openCanvasEditor(

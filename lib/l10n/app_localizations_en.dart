@@ -530,6 +530,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String galleryResultDownloaded(String name) {
+    return 'Downloaded $name';
+  }
+
+  @override
+  String galleryResultSaveFailed(String error) {
+    return 'Result not saved: $error';
+  }
+
+  @override
   String get galleryToggleFavorite => 'Toggle favorite';
 
   @override
@@ -2976,6 +2986,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get toolsEnhance => 'Enhance';
+
+  @override
+  String get toolDiscardResultTitle => 'Discard result?';
+
+  @override
+  String get toolDiscardResultMessage =>
+      'This result has not been saved. Going back discards it.';
+
+  @override
+  String get toolDiscardResultConfirm => 'Discard';
 
   @override
   String get directorToolsTitle => 'DIRECTOR TOOLS';
