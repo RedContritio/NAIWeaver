@@ -202,6 +202,12 @@ bool _primaryFocusInTextEditor() {
   return found;
 }
 
+/// True when an enabled action above [context] takes [intent].
+bool promptIntentEnabled(BuildContext context, Intent intent) {
+  final action = Actions.maybeFind<Intent>(context, intent: intent);
+  return action != null && action.isEnabled(intent);
+}
+
 /// Runs [intent] on the nearest action above [context]. Returns false when
 /// no enabled action takes it, so the key can fall through.
 bool dispatchPromptIntent(BuildContext context, Intent intent) {
@@ -347,7 +353,12 @@ class PromptKeyScope extends StatelessWidget {
             final intent = _scopeIntent(chord);
             if (intent == null) return KeyEventResult.ignored;
             if (supportsBrowserNativeTextArea) {
-              return KeyEventResult.skipRemainingHandlers;
+              // The DOM keydown will run it: keep it from ancestors. A chord
+              // no action takes right now (Tab without completions) keeps its
+              // normal Flutter handling, and the DOM path declines it too.
+              return promptIntentEnabled(scope, intent)
+                  ? KeyEventResult.skipRemainingHandlers
+                  : KeyEventResult.ignored;
             }
             return dispatchPromptIntent(scope, intent)
                 ? KeyEventResult.handled

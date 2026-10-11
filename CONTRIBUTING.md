@@ -46,7 +46,7 @@ tests that restate an implementation, fake away the logic under test, or only
 assert layout.
 
 - `flutter test` — VM suite
-- `flutter test --platform chrome test/browser_native_text_area_test.dart test/browser_platform_view_lifecycle_test.dart` — DOM-backed web widgets (skipped on the VM)
+- `flutter test --platform chrome test/browser_native_text_area_test.dart test/browser_platform_view_lifecycle_test.dart test/prompt_key_scope_web_test.dart` — DOM-backed web widgets and the Web key path (skipped on the VM)
 - `node --test test/web/*.test.mjs` — PhotoSwipe bridge key policy
 - `cd server && NAIWEAVER_DATA_DIR=$(mktemp -d) uv run python -m unittest discover -s tests` — gateway; never point tests at the production data directory
 - `test/fixtures/quote_cases.json` and `test/fixtures/image_request_keys.json` are shared by the gateway and Flutter suites; change them together with `docs/GATEWAY_CONTRACT.md`
