@@ -15,6 +15,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get commonDelete => '删除';
 
   @override
+  String get commonEdit => '编辑';
+
+  @override
   String get commonSave => '保存';
 
   @override
@@ -855,6 +858,23 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get panelDeleteResolution => '删除自定义分辨率';
+
+  @override
+  String panelDeleteResolutionConfirm(String name) {
+    return '删除自定义分辨率「$name」？';
+  }
+
+  @override
+  String get panelInputsEmptyTitle => '没有参考输入';
+
+  @override
+  String get panelInputsEmptyMessage => '精准参考和氛围迁移是付费工具，当前账号无权使用，列表中也没有已添加的条目。';
+
+  @override
+  String get panelInputsHiddenMessage => '精准参考和氛围迁移的栏目已在设置中关闭。';
+
+  @override
   String get panelSaveToAlbum => '保存到相册';
 
   @override
@@ -1583,6 +1603,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get refVibeLabel => '氛围';
+
+  @override
+  String get refVibeRemoveConfirm => '从列表中移除这个氛围？';
 
   @override
   String get refVibeEditorTitle => '氛围编辑器';
@@ -3065,6 +3088,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get charEditorShowPresets => '预设';
+
+  @override
+  String get charEditorShowTitle => '标题';
 
   @override
   String get charEditorAiDecidesPosition => 'AI 决定位置';
@@ -4886,6 +4912,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get generationSeedInvalid => '种子必须是 0 到 4294967295 之间的整数。';
 
   @override
+  String get generationDropToImport => '拖放以导入设置';
+
+  @override
   String get generationCancelQueued => '取消排队';
 
   @override
@@ -4899,4 +4928,122 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get generationReuseSeed => '复用种子';
+
+  @override
+  String get photoshootTitle => '摄影棚';
+
+  @override
+  String get photoshootCharacterNotFound => '找不到角色';
+
+  @override
+  String get photoshootNoOutfit => '（无服装）';
+
+  @override
+  String get photoshootPreviewPlaceholder => '生成的照片会显示在这里';
+
+  @override
+  String get photoshootTapToView => '点击查看';
+
+  @override
+  String get photoshootTabDress => '服装';
+
+  @override
+  String get photoshootTabScene => '场景';
+
+  @override
+  String get photoshootTabPrompt => '提示词';
+
+  @override
+  String get photoshootNoOutfitHint => '没有可穿戴的服装——请在角色编辑器中添加。';
+
+  @override
+  String get photoshootSaveState => '保存状态到服装';
+
+  @override
+  String get photoshootOutfitStateSaved => '服装状态已保存';
+
+  @override
+  String get photoshootSectionStyle => '风格';
+
+  @override
+  String get photoshootSectionPose => '姿势';
+
+  @override
+  String get photoshootSectionEnvironment => '环境';
+
+  @override
+  String get photoshootCustomPoseHint => '自定义姿势标签…';
+
+  @override
+  String get photoshootCustomEnvHint => '自定义环境标签…';
+
+  @override
+  String photoshootSelectedCount(int count) {
+    return '已选 $count 项';
+  }
+
+  @override
+  String get photoshootClear => '清除';
+
+  @override
+  String get photoshootNoPresets => '没有可用的预设';
+
+  @override
+  String get photoshootAssembledPrompt => '组装后的提示词';
+
+  @override
+  String photoshootTagCount(int count) {
+    return '$count 个标签';
+  }
+
+  @override
+  String get photoshootEmptyPrompt => '（空）';
+
+  @override
+  String get photoshootPromptBuiltFrom =>
+      '组装顺序：风格 → 身体 → 服装 → 姿势 → 环境。可在「服装」和「场景」标签页中调整。';
+
+  @override
+  String get photoshootGenerate => '生成';
+
+  @override
+  String get photoshootGenerating => '生成中…';
+
+  @override
+  String get photoshootSend => '发送';
+
+  @override
+  String get photoshootSentToMain => '已发送到主提示词';
+
+  @override
+  String get photoshootGenerated => '已生成';
+
+  @override
+  String photoshootGenerationFailed(String reason) {
+    return '生成失败：$reason';
+  }
+
+  @override
+  String get photoshootSelectOutfit => '服装';
+
+  @override
+  String get photoshootStyleCharacterDefault => '角色默认';
+
+  @override
+  String get photoshootStyleAnime => '动漫';
+
+  @override
+  String get photoshootStylePainterly => '绘画感';
+
+  @override
+  String get photoshootStylePhotoreal => '照片写实';
+
+  @override
+  String get photoshootStyleSketch => '素描';
+
+  @override
+  String get photoshootStyleWatercolor => '水彩';
+
+  @override
+  String get photoshootStyleInk => '墨水';
 }

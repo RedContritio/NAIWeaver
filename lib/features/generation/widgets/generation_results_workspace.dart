@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/vision_metrics.dart';
 import '../../../core/widgets/quick_action_overlay.dart';
 import '../../../core/widgets/card_action_layout.dart';
 import '../providers/generation_notifier.dart';
@@ -12,8 +13,8 @@ import 'result_set_viewer.dart';
 enum ResultSetWorkspaceMode { grid, viewer }
 
 class ResultSetGridSpec {
-  static const padding = 12.0;
-  static const spacing = 10.0;
+  static const padding = VisionMetrics.space12;
+  static const spacing = VisionMetrics.space12;
   static const maxCardExtent = 240.0;
   static const cardAspectRatio = 1.0;
 
@@ -226,12 +227,17 @@ class _ResultSetWorkspaceState extends State<ResultSetWorkspace> {
       children: [
         if (showHeader)
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            padding: const EdgeInsets.fromLTRB(
+              VisionMetrics.space12,
+              VisionMetrics.space8,
+              VisionMetrics.space12,
+              VisionMetrics.space4,
+            ),
             child: Row(
               children: [
                 if (widget.headerLeading != null) ...[
                   widget.headerLeading!,
-                  const SizedBox(width: 8),
+                  const SizedBox(width: VisionMetrics.space8),
                 ],
                 if (hasResultSet)
                   _ResultsToolbar(
@@ -297,12 +303,12 @@ class _ResultsToolbar extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: t.surfaceHigh.withValues(alpha: 0.92),
+        color: t.surfaceHigh,
         border: Border.all(color: t.borderMedium),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(VisionMetrics.radius4),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: t.background.withValues(alpha: VisionMetrics.opacityHover),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -323,9 +329,15 @@ class _ResultsToolbar extends StatelessWidget {
             tooltip: l.mainResultsViewer,
             onTap: () => onModeChanged(ResultSetWorkspaceMode.viewer),
           ),
-          Container(width: 1, height: 18, color: t.borderMedium),
+          Container(
+            width: VisionMetrics.borderWidth,
+            height: VisionMetrics.iconMedium,
+            color: t.borderMedium,
+          ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.symmetric(
+              horizontal: VisionMetrics.space8,
+            ),
             child: Text(
               countLabel,
               style: TextStyle(
@@ -359,19 +371,22 @@ class _ModeButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.t;
     final color = selected ? t.background : t.textTertiary;
+    final size = context.hitSize;
+    final radius = BorderRadius.circular(VisionMetrics.radius4);
+    // The fill is painted by the Material so the ripple stays above it.
     return Tooltip(
       message: tooltip,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          width: 34,
-          height: 32,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: selected ? t.accent : Colors.transparent,
-            borderRadius: BorderRadius.circular(5),
+      child: Material(
+        color: selected ? t.accent : Colors.transparent,
+        borderRadius: radius,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: radius,
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: Icon(icon, size: VisionMetrics.iconMedium, color: color),
           ),
-          child: Icon(icon, size: 17, color: color),
         ),
       ),
     );

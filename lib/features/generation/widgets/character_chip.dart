@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/vision_metrics.dart';
 import '../models/nai_character.dart';
 
 class CharacterChip extends StatelessWidget {
@@ -22,31 +23,27 @@ class CharacterChip extends StatelessWidget {
     final hasPrompt = character.prompt.isNotEmpty;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: VisionMetrics.space4),
       child: GestureDetector(
         onTap: onTap,
         onLongPress: onLongPress,
         child: Chip(
           backgroundColor: hasPrompt
-              ? Theme.of(context).colorScheme.primaryContainer
+              ? t.accent.withValues(alpha: VisionMetrics.opacityPressed)
               : t.textMinimal,
           label: Text(
             'C${index + 1}',
             style: TextStyle(
               fontSize: t.fontSize(10),
               fontWeight: FontWeight.bold,
-              color: hasPrompt
-                  ? Theme.of(context).colorScheme.onPrimaryContainer
-                  : t.textSecondary,
+              color: hasPrompt ? t.accent : t.textSecondary,
             ),
           ),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(VisionMetrics.radius4),
             side: BorderSide(
-              color: hasPrompt
-                  ? Theme.of(context).colorScheme.primary
-                  : t.textMinimal,
-              width: 0.5,
+              color: hasPrompt ? t.accent : t.textMinimal,
+              width: VisionMetrics.borderWidth,
             ),
           ),
           padding: EdgeInsets.zero,

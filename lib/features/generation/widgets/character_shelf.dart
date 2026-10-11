@@ -1,23 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
-import '../../../core/utils/responsive.dart';
+import '../../../core/theme/vision_metrics.dart';
 import '../providers/generation_notifier.dart';
 import '../models/nai_character.dart';
 import 'character_chip.dart';
 import 'character_editor_sheet.dart';
 import 'action_interaction_sheet.dart';
+import 'chip_actions.dart';
 
 class CharacterShelf extends StatelessWidget {
   const CharacterShelf({super.key});
 
-  void _openEditor(BuildContext context, GenerationNotifier notifier, int index,
-      NaiCharacter character) {
-    final t = context.tRead;
-    showModalBottomSheet(
+  void _openEditor(
+    BuildContext context,
+    GenerationNotifier notifier,
+    int index,
+    NaiCharacter character,
+  ) {
+    showSelfPaddedSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: t.surfaceHigh,
       builder: (context) => CharacterEditorSheet(
         index: index,
         character: character,
@@ -28,27 +31,37 @@ class CharacterShelf extends StatelessWidget {
   }
 
   void _openInteractionEditor(
-      BuildContext context, GenerationNotifier notifier, int index1, int index2) {
+    BuildContext context,
+    GenerationNotifier notifier,
+    int index1,
+    int index2,
+  ) {
     // Find existing interaction involving these two characters
-    final existing = notifier.state.interactions.cast<NaiInteraction?>().firstWhere(
-      (i) => i != null &&
-          ((i.sourceCharacterIndices.contains(index1) && i.targetCharacterIndices.contains(index2)) ||
-           (i.sourceCharacterIndices.contains(index2) && i.targetCharacterIndices.contains(index1)) ||
-           (i.type == InteractionType.mutual && i.sourceCharacterIndices.contains(index1) && i.sourceCharacterIndices.contains(index2))),
-      orElse: () => null,
-    );
+    final existing = notifier.state.interactions
+        .cast<NaiInteraction?>()
+        .firstWhere(
+          (i) =>
+              i != null &&
+              ((i.sourceCharacterIndices.contains(index1) &&
+                      i.targetCharacterIndices.contains(index2)) ||
+                  (i.sourceCharacterIndices.contains(index2) &&
+                      i.targetCharacterIndices.contains(index1)) ||
+                  (i.type == InteractionType.mutual &&
+                      i.sourceCharacterIndices.contains(index1) &&
+                      i.sourceCharacterIndices.contains(index2))),
+          orElse: () => null,
+        );
 
-    showModalBottomSheet(
+    showSelfPaddedSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF111111),
       builder: (context) => ActionInteractionSheet(
         sourceIndices: existing?.sourceCharacterIndices ?? [index1],
         targetIndices: existing?.targetCharacterIndices ?? [index2],
         initialType: existing?.type ?? InteractionType.sourceTarget,
         characters: notifier.state.characters,
         initialInteraction: existing,
-        onSave: (updated) => notifier.updateInteraction(updated, replacing: existing),
+        onSave: (updated) =>
+            notifier.updateInteraction(updated, replacing: existing),
         onDelete: () {
           if (existing != null) notifier.removeInteraction(existing);
         },
@@ -58,13 +71,12 @@ class CharacterShelf extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Selector<GenerationNotifier,
-        (List<NaiCharacter>, List<NaiInteraction>, bool)>(
-      selector: (_, n) => (
-        n.state.characters,
-        n.state.interactions,
-        n.state.autoPositioning,
-      ),
+    return Selector<
+      GenerationNotifier,
+      (List<NaiCharacter>, List<NaiInteraction>, bool)
+    >(
+      selector: (_, n) =>
+          (n.state.characters, n.state.interactions, n.state.autoPositioning),
       builder: (context, data, _) {
         final notifier = context.read<GenerationNotifier>();
         final characters = data.$1;
@@ -79,12 +91,11 @@ class CharacterShelf extends StatelessWidget {
           itemCount += 1; // Add character button
         }
 
-        final mobile = isMobile(context);
         return AnimatedSize(
           duration: const Duration(milliseconds: 200),
           child: Container(
-            height: mobile ? 40 : 28,
-            margin: const EdgeInsets.only(top: 4, bottom: 4),
+            height: context.hitSize,
+            margin: const EdgeInsets.symmetric(vertical: VisionMetrics.space4),
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: itemCount,
@@ -112,20 +123,46 @@ class CharacterShelf extends StatelessWidget {
                   return CharacterChip(
                     index: charIndex,
                     character: characters[charIndex],
-                    onTap: () => _openEditor(context, notifier, charIndex, characters[charIndex]),
-                    onLongPress: () => notifier.removeCharacter(charIndex),
+                    onTap: () => _openEditor(
+                      context,
+                      notifier,
+                      charIndex,
+                      characters[charIndex],
+                    ),
+                    onLongPress: () {
+                      final name = characters[charIndex].name.isNotEmpty
+                          ? characters[charIndex].name
+                          : context.l.charEditorCharacterN(charIndex + 1);
+                      showChipActions(
+                        context,
+                        title: name,
+                        onDelete: () => notifier.removeCharacter(charIndex),
+                        deleteMessage: context.l.charEditorDeleteConfirm(name),
+                      );
+                    },
                   );
                 } else {
                   final charIndex1 = adjustedIndex ~/ 2;
                   final charIndex2 = charIndex1 + 1;
-                  final hasInteraction = interactions.any((i) =>
-                      (i.sourceCharacterIndices.contains(charIndex1) && i.targetCharacterIndices.contains(charIndex2)) ||
-                      (i.sourceCharacterIndices.contains(charIndex2) && i.targetCharacterIndices.contains(charIndex1)) ||
-                      (i.type == InteractionType.mutual && i.sourceCharacterIndices.contains(charIndex1) && i.sourceCharacterIndices.contains(charIndex2)));
+                  final hasInteraction = interactions.any(
+                    (i) =>
+                        (i.sourceCharacterIndices.contains(charIndex1) &&
+                            i.targetCharacterIndices.contains(charIndex2)) ||
+                        (i.sourceCharacterIndices.contains(charIndex2) &&
+                            i.targetCharacterIndices.contains(charIndex1)) ||
+                        (i.type == InteractionType.mutual &&
+                            i.sourceCharacterIndices.contains(charIndex1) &&
+                            i.sourceCharacterIndices.contains(charIndex2)),
+                  );
 
                   return _LinkButton(
                     isActive: hasInteraction,
-                    onTap: () => _openInteractionEditor(context, notifier, charIndex1, charIndex2),
+                    onTap: () => _openInteractionEditor(
+                      context,
+                      notifier,
+                      charIndex1,
+                      charIndex2,
+                    ),
                   );
                 }
               },
@@ -146,16 +183,15 @@ class _LinkButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final mobile = isMobile(context);
     return InkWell(
       onTap: onTap,
       child: SizedBox(
-        width: mobile ? 24 : 16,
-        height: mobile ? 40 : 28,
+        width: context.hitSize / 2,
+        height: context.hitSize,
         child: Center(
           child: Icon(
             Icons.link,
-            size: mobile ? 18 : 14,
+            size: VisionMetrics.iconMedium,
             color: isActive ? t.accentSuccess : t.textPrimary,
           ),
         ),
@@ -173,21 +209,19 @@ class _AutoPositionChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final mobile = isMobile(context);
     return Padding(
-      padding: const EdgeInsets.only(right: 6),
+      padding: const EdgeInsets.only(right: VisionMetrics.space8),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(VisionMetrics.radius4),
         child: Container(
-          height: mobile ? 40 : 28,
-          padding: EdgeInsets.symmetric(horizontal: mobile ? 10 : 8),
+          height: context.hitSize,
+          padding: const EdgeInsets.symmetric(horizontal: VisionMetrics.space8),
           decoration: BoxDecoration(
-            color: isActive ? Colors.orange : t.borderSubtle,
-            borderRadius: BorderRadius.circular(4),
+            color: isActive ? t.accentCharacter : t.borderSubtle,
+            borderRadius: BorderRadius.circular(VisionMetrics.radius4),
             border: Border.all(
-              color: isActive ? Colors.orange : t.textMinimal,
-              width: 0.5,
+              color: isActive ? t.accentCharacter : t.textMinimal,
             ),
           ),
           alignment: Alignment.center,
@@ -195,7 +229,7 @@ class _AutoPositionChip extends StatelessWidget {
             'AUTO',
             style: TextStyle(
               color: isActive ? t.background : t.textDisabled,
-              fontSize: t.fontSize(mobile ? 9 : 8),
+              fontSize: t.fontSize(9),
               fontWeight: FontWeight.w900,
               letterSpacing: 1,
             ),
@@ -214,23 +248,28 @@ class _AddCharacterButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final mobile = isMobile(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(4),
-        child: Container(
-          width: mobile ? 40 : 32,
-          decoration: BoxDecoration(
-            color: t.textMinimal,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: t.textMinimal, width: 0.5),
+      padding: const EdgeInsets.symmetric(horizontal: VisionMetrics.space4),
+      child: Tooltip(
+        message: context.l.charEditorAddCharacter,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+          child: Container(
+            width: context.hitSize,
+            decoration: BoxDecoration(
+              color: t.textMinimal,
+              borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+              border: Border.all(color: t.textMinimal),
+            ),
+            child: Icon(
+              Icons.add,
+              size: VisionMetrics.iconMedium,
+              color: t.textDisabled,
+            ),
           ),
-          child: Icon(Icons.add, size: mobile ? 18 : 14, color: t.textDisabled),
         ),
       ),
     );
   }
 }
-

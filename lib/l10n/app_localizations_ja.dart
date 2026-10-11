@@ -15,6 +15,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get commonDelete => '削除';
 
   @override
+  String get commonEdit => '編集';
+
+  @override
   String get commonSave => '保存';
 
   @override
@@ -868,6 +871,24 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get panelDeleteResolution => 'カスタム解像度を削除';
+
+  @override
+  String panelDeleteResolutionConfirm(String name) {
+    return 'カスタム解像度「$name」を削除しますか？';
+  }
+
+  @override
+  String get panelInputsEmptyTitle => '参照入力はありません';
+
+  @override
+  String get panelInputsEmptyMessage =>
+      'プリサイスリファレンスとバイブ転送は有料ツールで、このアカウントでは使用できず、追加済みの項目もありません。';
+
+  @override
+  String get panelInputsHiddenMessage => 'プリサイスリファレンスとバイブ転送の棚は設定でオフになっています。';
+
+  @override
   String get panelSaveToAlbum => 'アルバムに保存';
 
   @override
@@ -1598,6 +1619,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get refVibeLabel => 'バイブ';
+
+  @override
+  String get refVibeRemoveConfirm => 'このバイブをリストから削除しますか？';
 
   @override
   String get refVibeEditorTitle => 'バイブエディタ';
@@ -3085,6 +3109,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get charEditorShowPresets => 'PRESET';
+
+  @override
+  String get charEditorShowTitle => 'タイトル';
 
   @override
   String get charEditorAiDecidesPosition => 'AIが配置を決定';
@@ -4919,6 +4946,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get generationSeedInvalid => 'シードは 0 から 4294967295 までの整数にしてください。';
 
   @override
+  String get generationDropToImport => 'ドロップして設定をインポート';
+
+  @override
   String get generationCancelQueued => '待機をキャンセル';
 
   @override
@@ -4933,4 +4963,122 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get generationReuseSeed => 'シードを再利用';
+
+  @override
+  String get photoshootTitle => 'フォトシュート';
+
+  @override
+  String get photoshootCharacterNotFound => 'キャラクターが見つかりません';
+
+  @override
+  String get photoshootNoOutfit => '（衣装なし）';
+
+  @override
+  String get photoshootPreviewPlaceholder => 'ここに撮影結果が表示されます';
+
+  @override
+  String get photoshootTapToView => 'タップで表示';
+
+  @override
+  String get photoshootTabDress => '衣装';
+
+  @override
+  String get photoshootTabScene => 'シーン';
+
+  @override
+  String get photoshootTabPrompt => 'プロンプト';
+
+  @override
+  String get photoshootNoOutfitHint => '着せる衣装がありません。キャラクターエディタで追加してください。';
+
+  @override
+  String get photoshootSaveState => '状態を衣装に保存';
+
+  @override
+  String get photoshootOutfitStateSaved => '衣装の状態を保存しました';
+
+  @override
+  String get photoshootSectionStyle => 'スタイル';
+
+  @override
+  String get photoshootSectionPose => 'ポーズ';
+
+  @override
+  String get photoshootSectionEnvironment => '環境';
+
+  @override
+  String get photoshootCustomPoseHint => 'カスタムポーズタグ…';
+
+  @override
+  String get photoshootCustomEnvHint => 'カスタム環境タグ…';
+
+  @override
+  String photoshootSelectedCount(int count) {
+    return '$count 件選択中';
+  }
+
+  @override
+  String get photoshootClear => 'クリア';
+
+  @override
+  String get photoshootNoPresets => '利用可能なプリセットがありません';
+
+  @override
+  String get photoshootAssembledPrompt => '組み立てたプロンプト';
+
+  @override
+  String photoshootTagCount(int count) {
+    return '$count タグ';
+  }
+
+  @override
+  String get photoshootEmptyPrompt => '（空）';
+
+  @override
+  String get photoshootPromptBuiltFrom =>
+      '組み立て順：スタイル → 体 → 衣装 → ポーズ → 環境。「衣装」と「シーン」タブで調整できます。';
+
+  @override
+  String get photoshootGenerate => '生成';
+
+  @override
+  String get photoshootGenerating => '生成中…';
+
+  @override
+  String get photoshootSend => '送信';
+
+  @override
+  String get photoshootSentToMain => 'メインプロンプトに送信しました';
+
+  @override
+  String get photoshootGenerated => '生成しました';
+
+  @override
+  String photoshootGenerationFailed(String reason) {
+    return '生成に失敗しました：$reason';
+  }
+
+  @override
+  String get photoshootSelectOutfit => '衣装';
+
+  @override
+  String get photoshootStyleCharacterDefault => 'キャラクター既定';
+
+  @override
+  String get photoshootStyleAnime => 'アニメ';
+
+  @override
+  String get photoshootStylePainterly => 'ペインタリー';
+
+  @override
+  String get photoshootStylePhotoreal => 'フォトリアル';
+
+  @override
+  String get photoshootStyleSketch => 'スケッチ';
+
+  @override
+  String get photoshootStyleWatercolor => '水彩';
+
+  @override
+  String get photoshootStyleInk => 'インク';
 }

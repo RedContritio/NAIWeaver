@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/vision_metrics.dart';
 import '../../../core/widgets/tag_suggestion_overlay.dart';
 import '../../../core/services/tag_service.dart';
 import '../models/nai_character.dart';
@@ -220,9 +221,9 @@ class _ActionInteractionSheetState extends State<ActionInteractionSheet> {
               hintStyle: TextStyle(fontSize: t.fontSize(9), color: t.textMinimal, letterSpacing: 2),
               fillColor: t.surfaceHigh,
               filled: true,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.textMinimal)),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(VisionMetrics.radius4), borderSide: BorderSide.none),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(VisionMetrics.radius4), borderSide: BorderSide.none),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(VisionMetrics.radius4), borderSide: BorderSide(color: t.textMinimal)),
               contentPadding: const EdgeInsets.all(16),
             ),
           ),
@@ -246,7 +247,7 @@ class _ActionInteractionSheetState extends State<ActionInteractionSheet> {
             style: OutlinedButton.styleFrom(
               side: BorderSide(color: t.borderMedium),
               padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(VisionMetrics.radius4)),
               alignment: Alignment.centerLeft,
             ),
             child: Padding(
@@ -267,7 +268,7 @@ class _ActionInteractionSheetState extends State<ActionInteractionSheet> {
               backgroundColor: t.accent,
               foregroundColor: t.background,
               padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(VisionMetrics.radius4)),
             ),
             child: Text(
               'SAVE INTERACTION',
