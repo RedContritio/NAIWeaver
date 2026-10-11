@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/preferences_service.dart';
 import 'app_theme_config.dart';
 import 'built_in_themes.dart';
+import 'vision_metrics.dart';
 import 'vision_tokens.dart';
 
 class ThemeNotifier extends ChangeNotifier {
@@ -301,6 +302,7 @@ class ThemeNotifier extends ChangeNotifier {
       fontFamily = GoogleFonts.getFont('JetBrains Mono').fontFamily;
     }
 
+    final t = VisionTokens(config);
     return ThemeData(
       scaffoldBackgroundColor: config.background,
       colorScheme: ColorScheme.dark(
@@ -349,9 +351,165 @@ class ThemeNotifier extends ChangeNotifier {
           backgroundColor: config.accent,
           foregroundColor: config.background,
           shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(4)),
+            borderRadius: BorderRadius.all(
+              Radius.circular(VisionMetrics.radius4),
+            ),
           ),
         ),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: t.surfaceHigh,
+        modalBackgroundColor: t.surfaceHigh,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        showDragHandle: true,
+        dragHandleColor: t.borderStrong,
+        dragHandleSize: const Size(32, 4),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(VisionMetrics.radius12),
+          ),
+        ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: t.surfaceHigh,
+        contentTextStyle: TextStyle(
+          color: t.textPrimary,
+          fontSize: t.fontSize(11),
+        ),
+        actionTextColor: t.accent,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+          side: BorderSide(color: t.borderMedium),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: t.surfaceHigh,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(VisionMetrics.radius8),
+          side: BorderSide(color: t.borderMedium),
+        ),
+        titleTextStyle: TextStyle(
+          color: t.textSecondary,
+          fontSize: t.titleSize(10),
+          letterSpacing: 2,
+          fontWeight: FontWeight.bold,
+        ),
+        contentTextStyle: TextStyle(
+          color: t.textSecondary,
+          fontSize: t.fontSize(11),
+        ),
+      ),
+      tabBarTheme: TabBarThemeData(
+        labelColor: t.accent,
+        unselectedLabelColor: t.textTertiary,
+        indicatorColor: t.accent,
+        dividerColor: t.borderSubtle,
+        labelStyle: TextStyle(
+          fontSize: t.fontSize(10),
+          letterSpacing: 1,
+          fontWeight: FontWeight.bold,
+        ),
+        unselectedLabelStyle: TextStyle(
+          fontSize: t.fontSize(10),
+          letterSpacing: 1,
+        ),
+        overlayColor: WidgetStatePropertyAll(
+          t.accent.withValues(alpha: VisionMetrics.opacityHover),
+        ),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: t.surfaceHigh,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+          side: BorderSide(color: t.borderMedium),
+        ),
+        textStyle: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11)),
+      ),
+      tooltipTheme: TooltipThemeData(
+        decoration: BoxDecoration(
+          color: t.surfaceHigh,
+          borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+          border: Border.all(color: t.borderMedium),
+        ),
+        textStyle: TextStyle(color: t.textPrimary, fontSize: t.fontSize(10)),
+        padding: const EdgeInsets.symmetric(
+          horizontal: VisionMetrics.space8,
+          vertical: VisionMetrics.space4,
+        ),
+        waitDuration: const Duration(milliseconds: 500),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: ButtonStyle(
+          minimumSize: const WidgetStatePropertyAll(
+            Size.square(VisionMetrics.minHitTarget),
+          ),
+          foregroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.disabled)
+                ? t.textDisabled
+                : t.textSecondary,
+          ),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+            ),
+          ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: ButtonStyle(
+          foregroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.disabled)
+                ? t.textDisabled
+                : t.accent,
+          ),
+          textStyle: WidgetStatePropertyAll(
+            TextStyle(
+              fontSize: t.buttonSize(11),
+              letterSpacing: 1,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+            ),
+          ),
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: t.background,
+        selectedColor: t.accent.withValues(alpha: VisionMetrics.opacityPressed),
+        disabledColor: t.background,
+        side: BorderSide(color: t.borderMedium),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+        ),
+        labelStyle: TextStyle(color: t.textSecondary, fontSize: t.fontSize(10)),
+        secondaryLabelStyle: TextStyle(
+          color: t.accent,
+          fontSize: t.fontSize(10),
+        ),
+        checkmarkColor: t.accent,
+        padding: const EdgeInsets.symmetric(horizontal: VisionMetrics.space4),
+      ),
+      sliderTheme: SliderThemeData(
+        activeTrackColor: t.accent,
+        inactiveTrackColor: t.borderStrong,
+        thumbColor: t.accent,
+        overlayColor: t.accent.withValues(alpha: VisionMetrics.opacityPressed),
+        disabledActiveTrackColor: t.textDisabled,
+        disabledInactiveTrackColor: t.borderSubtle,
+        disabledThumbColor: t.textDisabled,
+        trackHeight: 4,
+        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+        overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
       ),
     );
   }
