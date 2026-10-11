@@ -43,8 +43,11 @@ const List<LogicalKeyboardKey> _selectionKeys = [
 /// What the textarea's own (target-phase) keydown listener does with a key.
 ///
 /// By the time this listener runs, Flutter has already seen the key (see
-/// above), so the policy cannot influence Flutter shortcuts. It only governs
-/// the DOM:
+/// above), so the policy cannot influence Flutter shortcuts. This listener is
+/// the single place that runs the prompt shortcuts (weight, completion, style
+/// cycling, generate) on the Web: `PromptKeyScope` stops those chords at the
+/// editor on the Flutter side without handling them, so they are neither run
+/// twice nor preventDefault-ed by the engine. The policy only governs the DOM:
 ///
 /// * a key the `onKeyDown` callback handled suppresses the browser's default
 ///   action (e.g. no newline for a handled Enter);

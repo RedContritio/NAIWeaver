@@ -255,9 +255,13 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
         ? cyclableStyles.indexWhere((s) => active.contains(s.name))
         : -1;
 
+    final count = cyclableStyles.length;
     final nextIndex = forward
-        ? (currentIndex + 1) % cyclableStyles.length
-        : (currentIndex - 1 + cyclableStyles.length) % cyclableStyles.length;
+        ? (currentIndex + 1) % count
+        // With no active style, backwards starts from the last one.
+        : currentIndex < 0
+        ? count - 1
+        : (currentIndex - 1 + count) % count;
 
     // Only clear non-default active styles
     for (final name in [...active]) {

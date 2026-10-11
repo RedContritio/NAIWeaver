@@ -126,11 +126,19 @@ void main() {
     await pumpThemed(tester, editor());
     final textarea = await platformViewElement<web.HTMLTextAreaElement>(tester);
 
+    // Unfocused: the text is written but the DOM selection is left alone
+    // (setSelectionRange can focus the element and open the iOS keyboard).
     controller.value = const TextEditingValue(
       text: 'cat, dog',
       selection: TextSelection.collapsed(offset: 3),
     );
     expect(textarea.value, 'cat, dog');
+    expect(web.document.activeElement, isNot(textarea));
+
+    // Widget tests never composite the element; attach it so it can focus.
+    web.document.body!.append(textarea);
+    addTearDown(() => textarea.remove());
+    textarea.focus();
     expect((textarea.selectionStart, textarea.selectionEnd), (3, 3));
 
     // A tag-weight adjustment rewrites the text around the selection.

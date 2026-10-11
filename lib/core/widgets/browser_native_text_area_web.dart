@@ -94,6 +94,10 @@ class _BrowserNativeTextAreaState extends State<BrowserNativeTextArea>
   int _lastScrollLogMs = 0;
   Timer? _pendingSelectionSync;
 
+  /// The controller's selection has not reached the DOM yet because the
+  /// textarea was not focused; applied on the DOM `focus` event.
+  bool _selectionPendingFocus = false;
+
   /// The selection last exchanged with the DOM. A controller notification
   /// whose selection still equals this did not come from a programmatic
   /// selection change, so it must not overwrite a caret move the browser has
@@ -328,6 +332,7 @@ class _BrowserNativeTextAreaState extends State<BrowserNativeTextArea>
     });
     _listen(textarea, 'focus', (_) {
       _domHasFocus = true;
+      if (_selectionPendingFocus) _applyControllerSelection(textarea);
       _record('native_textarea_dom_focus', includeViewport: true);
       updateKeepAlive();
       _focusNode.requestFocus();
@@ -350,6 +355,7 @@ class _BrowserNativeTextAreaState extends State<BrowserNativeTextArea>
           alt: event.altKey,
           shift: event.shiftKey,
           isComposing: event.isComposing,
+          keyCode: event.keyCode,
         ),
       );
       final policy = browserNativeTextAreaKeyPolicy(handled == true);
@@ -393,9 +399,18 @@ class _BrowserNativeTextAreaState extends State<BrowserNativeTextArea>
     }
   }
 
+  /// Writes the controller's selection to the DOM, but only while the
+  /// textarea is the active element: `setSelectionRange` on an unfocused
+  /// textarea makes some iOS Safari versions focus it and raise the keyboard.
+  /// Otherwise the selection is applied when the textarea takes focus.
   void _applyControllerSelection(web.HTMLTextAreaElement textarea) {
     final selection = widget.controller.selection;
     if (!selection.isValid) return;
+    if (web.document.activeElement != textarea) {
+      _selectionPendingFocus = true;
+      return;
+    }
+    _selectionPendingFocus = false;
     final length = textarea.value.length;
     final base = selection.baseOffset.clamp(0, length);
     final extent = selection.extentOffset.clamp(0, length);

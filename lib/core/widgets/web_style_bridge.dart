@@ -16,6 +16,20 @@ double browserInputMinFontSize(TargetPlatform platform) => switch (platform) {
   _ => 0,
 };
 
+/// The font size, in CSS pixels, the browser-native editor actually renders
+/// for a Flutter [fontSize]: scaled by [textScaler] and floored by
+/// [browserInputMinFontSize]. Layout that sizes a native textarea from its
+/// line count must use this, not the themed size.
+double browserInputFontSize(
+  double fontSize, {
+  required TextScaler textScaler,
+  required TargetPlatform platform,
+}) {
+  final scaled = textScaler.scale(fontSize);
+  final floor = browserInputMinFontSize(platform);
+  return scaled < floor ? floor : scaled;
+}
+
 /// Formats [color] as a CSS `rgba()` value.
 String cssColor(Color color) {
   final argb = color.toARGB32();
