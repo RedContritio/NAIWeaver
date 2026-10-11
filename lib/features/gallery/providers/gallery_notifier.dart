@@ -368,14 +368,6 @@ class GalleryNotifier extends ChangeNotifier {
     _indexMetadataForItem(newItem);
   }
 
-  /// Save an ML-processed result (BG removal, upscale) to the output directory.
-  Future<void> saveMLResult(Uint8List bytes, String filename) async {
-    final destPath = p.join(outputDir, filename);
-    final file = File(destPath);
-    await file.writeAsBytes(bytes);
-    addFile(file, DateTime.now());
-  }
-
   /// Re-encodes [bytes] as PNG carrying [sourceBytes]' metadata chunks, or
   /// returns [bytes] unchanged when that conversion fails.
   static Future<Uint8List> withSourceMetadata(

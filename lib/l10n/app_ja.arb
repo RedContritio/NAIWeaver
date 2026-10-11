@@ -1011,6 +1011,8 @@
   "naiUpscaleFailed": "APIアップスケールに失敗",
   "naiUpscaledCount": "APIアップスケール: {completed}/{total} 画像",
   "naiApiKeyRequired": "APIキーが必要です",
+  "naiActionNotPermitted": "このアカウントではこの操作を利用できません",
+  "naiImageUnreadable": "画像サイズを読み取れませんでした",
 
   "comparisonBefore": "ビフォー",
   "comparisonAfter": "アフター",

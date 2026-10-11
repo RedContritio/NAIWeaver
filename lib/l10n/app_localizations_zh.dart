@@ -3068,6 +3068,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get naiApiKeyRequired => '需要 API 密钥';
 
   @override
+  String get naiActionNotPermitted => '当前账号无权使用此操作';
+
+  @override
+  String get naiImageUnreadable => '无法读取图片尺寸';
+
+  @override
   String get comparisonBefore => '处理前';
 
   @override

@@ -3076,6 +3076,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get naiApiKeyRequired => 'APIキーが必要です';
 
   @override
+  String get naiActionNotPermitted => 'このアカウントではこの操作を利用できません';
+
+  @override
+  String get naiImageUnreadable => '画像サイズを読み取れませんでした';
+
+  @override
   String get comparisonBefore => 'ビフォー';
 
   @override

@@ -3131,6 +3131,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get naiApiKeyRequired => 'API key required';
 
   @override
+  String get naiActionNotPermitted =>
+      'Your account is not allowed to use this action';
+
+  @override
+  String get naiImageUnreadable => 'Could not read the image size';
+
+  @override
   String get comparisonBefore => 'Before';
 
   @override

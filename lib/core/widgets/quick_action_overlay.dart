@@ -1,22 +1,21 @@
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
 
 import '../l10n/l10n_extensions.dart';
 import '../gateway/backend_permissions.dart';
 import '../ml/ml_notifier.dart';
 import '../ml/widgets/upscale_comparison_view.dart';
+import '../services/novel_ai_image_action_service.dart';
 import '../services/preferences_service.dart';
 import '../theme/theme_extensions.dart';
 import '../theme/vision_tokens.dart';
-import '../services/novel_ai_service.dart';
 import '../utils/app_snackbar.dart';
 import '../utils/responsive.dart';
 import '../utils/timestamp_utils.dart';
 import '../../features/gallery/providers/gallery_notifier.dart';
+import '../../features/gallery/services/tool_result_saver.dart';
+import '../../features/gallery/ui/novel_ai_image_action_flow.dart';
 import '../../features/generation/providers/generation_notifier.dart';
 import '../../features/tools/enhance/providers/enhance_notifier.dart';
 import '../../features/tools/director_tools/providers/director_tools_notifier.dart';
@@ -25,8 +24,15 @@ import '../../features/tools/tools_hub_screen.dart';
 
 /// Quick action buttons (SAVE, EDIT, REMOVE BG, UPSCALE, ENHANCE, DIRECTOR TOOLS)
 /// that float over the generated image preview on the main screen.
-class QuickActionOverlay extends StatelessWidget {
+class QuickActionOverlay extends StatefulWidget {
   const QuickActionOverlay({super.key});
+
+  @override
+  State<QuickActionOverlay> createState() => _QuickActionOverlayState();
+}
+
+class _QuickActionOverlayState extends State<QuickActionOverlay> {
+  final _naiFlow = NovelAiImageActionFlow();
 
   @override
   Widget build(BuildContext context) {
@@ -55,19 +61,23 @@ class QuickActionOverlay extends StatelessWidget {
       context,
       BackendPermission.imageAugment,
     );
-    final bool imageUpscaleAllowed = hasBackendPermission(
+    final bool naiBgRemovalAllowed = hasNovelAiImageActionPermission(
       context,
-      BackendPermission.imageUpscale,
+      NovelAiImageAction.backgroundRemoval,
+    );
+    final bool naiUpscaleAllowed = hasNovelAiImageActionPermission(
+      context,
+      NovelAiImageAction.upscale,
     );
 
     final bool showEdit = state.showEditButton && paidImageFeaturesAllowed;
     final bool canUseBgRemovalBackend = bgRemovalBackend == 'novelai'
-        ? imageAugmentAllowed
+        ? naiBgRemovalAllowed
         : ml.hasBgRemovalModel;
     final bool showBgRemoval =
         state.showBgRemovalButton && canUseBgRemovalBackend;
     final bool canUseUpscaleBackend = upscaleBackend == 'novelai'
-        ? imageUpscaleAllowed
+        ? naiUpscaleAllowed
         : ml.hasUpscaleModel;
     final bool showUpscale = state.showUpscaleButton && canUseUpscaleBackend;
     final bool showEnhance =
@@ -151,23 +161,15 @@ class QuickActionOverlay extends StatelessWidget {
         _ActionButton(
           onTap: ml.isProcessing
               ? null
-              : () async {
+              : () {
                   final sourceBytes = state.generatedImage!;
                   if (bgRemovalBackend == 'novelai') {
-                    await _handleNovelAIBgRemoval(context, sourceBytes);
+                    _novelAiBgRemoval(
+                      sourceBytes,
+                      permissionGranted: naiBgRemovalAllowed,
+                    );
                   } else {
-                    final result = await ml.removeBackground(sourceBytes);
-                    if (result != null && context.mounted) {
-                      final gallery = context.read<GalleryNotifier>();
-                      final timestamp = generateTimestamp();
-                      await gallery.saveMLResult(
-                        result,
-                        'BG_gen_$timestamp.png',
-                      );
-                      if (context.mounted) {
-                        showAppSnackBar(context, l.mlBgRemovedAndSaved);
-                      }
-                    }
+                    _localBgRemoval(ml, sourceBytes);
                   }
                 },
           icon: Icons.content_cut,
@@ -183,24 +185,16 @@ class QuickActionOverlay extends StatelessWidget {
         _ActionButton(
           onTap: ml.isProcessing
               ? null
-              : () async {
+              : () {
                   final sourceBytes = state.generatedImage!;
                   if (upscaleBackend == 'novelai') {
-                    await _handleNovelAIUpscale(
-                      context,
+                    _novelAiUpscale(
                       sourceBytes,
                       state.autoSaveImages,
+                      permissionGranted: naiUpscaleAllowed,
                     );
                   } else {
-                    final result = await ml.upscaleImage(sourceBytes);
-                    if (result != null && context.mounted) {
-                      _showUpscaleComparison(
-                        context,
-                        sourceBytes,
-                        result,
-                        state.autoSaveImages,
-                      );
-                    }
+                    _localUpscale(ml, sourceBytes, state.autoSaveImages);
                   }
                 },
           icon: Icons.zoom_out_map,
@@ -289,147 +283,106 @@ class QuickActionOverlay extends StatelessWidget {
     );
   }
 
-  Future<void> _handleNovelAIUpscale(
-    BuildContext context,
+  NovelAiImageActionService _naiActions() => NovelAiImageActionService(
+    context.read<GenerationNotifier>().service,
+    saver: ToolResultSaver.of(context),
+  );
+
+  Future<void> _localBgRemoval(MLNotifier ml, Uint8List sourceBytes) async {
+    final result = await ml.removeBackground(sourceBytes);
+    if (result == null || !mounted) return;
+    await saveToolResult(
+      context,
+      bytes: result,
+      fileName: 'BG_gen_${generateTimestamp()}.png',
+      sourceBytes: sourceBytes,
+      savedMessage: context.l.mlBgRemovedAndSaved,
+    );
+  }
+
+  Future<void> _novelAiBgRemoval(
+    Uint8List sourceBytes, {
+    required bool permissionGranted,
+  }) {
+    final service = _naiActions();
+    return _naiFlow.run(
+      context,
+      service: service,
+      action: NovelAiImageAction.backgroundRemoval,
+      permissionGranted: permissionGranted,
+      apiKey: context.read<GenerationNotifier>().state.apiKey,
+      readSource: () async => sourceBytes,
+      onResult: (source, result) async {
+        final outcome = await service.save(
+          result,
+          service.outputFileName(NovelAiImageAction.backgroundRemoval, 'gen'),
+          sourceBytes: source,
+        );
+        if (!mounted) return;
+        showToolResultSaveFeedback(
+          context,
+          outcome,
+          savedMessage: context.l.mlBgRemovedAndSaved,
+        );
+      },
+    );
+  }
+
+  Future<void> _localUpscale(
+    MLNotifier ml,
     Uint8List sourceBytes,
     bool autoSave,
   ) async {
-    final service = context.read<GenerationNotifier>().service;
-    final l = context.l;
-
-    try {
-      final decoded = await compute(_decodeImageDimensions, sourceBytes);
-      if (decoded == null || !context.mounted) return;
-
-      final scale = NovelAIService.bestUpscaleScale(decoded.$1, decoded.$2);
-      if (scale == null) {
-        if (context.mounted) {
-          showErrorSnackBar(
-            context,
-            'Image too large for NAI upscale (${decoded.$1}x${decoded.$2} exceeds 2048px limit per side)',
-          );
-        }
-        return;
-      }
-
-      if (!context.mounted) return;
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) {
-          final t = ctx.tRead;
-          return AlertDialog(
-            backgroundColor: t.surfaceHigh,
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CircularProgressIndicator(),
-                const SizedBox(height: 16),
-                Text(
-                  l.naiUpscaling,
-                  style: TextStyle(
-                    fontSize: t.fontSize(10),
-                    letterSpacing: 2,
-                    color: t.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-
-      final result = await service.upscaleImage(
-        imageBase64: base64Encode(sourceBytes),
-        width: decoded.$1,
-        height: decoded.$2,
-        scale: scale,
-      );
-
-      if (context.mounted) {
-        Navigator.of(context).pop();
-        _showUpscaleComparison(context, sourceBytes, result, autoSave);
-      }
-    } catch (e) {
-      if (context.mounted) {
-        Navigator.of(context).pop();
-        showErrorSnackBar(context, l.naiUpscaleFailed);
-      }
-    }
+    final result = await ml.upscaleImage(sourceBytes);
+    if (result == null || !mounted) return;
+    final saver = ToolResultSaver.of(context);
+    final outputName = 'UP_gen_${generateTimestamp()}.png';
+    await _showUpscaleComparison(
+      sourceBytes,
+      result,
+      outputName,
+      autoSave,
+      () => saver.save(result, outputName, sourceBytes: sourceBytes),
+    );
   }
 
-  Future<void> _handleNovelAIBgRemoval(
-    BuildContext context,
+  Future<void> _novelAiUpscale(
     Uint8List sourceBytes,
-  ) async {
-    final service = context.read<GenerationNotifier>().service;
-    final l = context.l;
-
-    try {
-      final decoded = await compute(_decodeImageDimensions, sourceBytes);
-      if (decoded == null || !context.mounted) return;
-
-      if (!context.mounted) return;
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) {
-          final t = ctx.tRead;
-          return AlertDialog(
-            backgroundColor: t.surfaceHigh,
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CircularProgressIndicator(),
-                const SizedBox(height: 16),
-                Text(
-                  l.mlRemovingBg,
-                  style: TextStyle(
-                    fontSize: t.fontSize(10),
-                    letterSpacing: 2,
-                    color: t.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-
-      final result = await service.augmentImage(
-        imageBase64: base64Encode(sourceBytes),
-        width: decoded.$1,
-        height: decoded.$2,
-        reqType: 'bg-removal',
-      );
-
-      if (context.mounted) {
-        Navigator.of(context).pop();
-        final gallery = context.read<GalleryNotifier>();
-        final timestamp = generateTimestamp();
-        await gallery.saveMLResult(result, 'BG_gen_$timestamp.png');
-        if (context.mounted) {
-          showAppSnackBar(context, l.mlBgRemovedAndSaved);
-        }
-      }
-    } catch (e) {
-      if (context.mounted) {
-        Navigator.of(context).pop();
-        showErrorSnackBar(context, 'NAI BG REMOVAL FAILED');
-      }
-    }
+    bool autoSave, {
+    required bool permissionGranted,
+  }) {
+    final service = _naiActions();
+    return _naiFlow.run(
+      context,
+      service: service,
+      action: NovelAiImageAction.upscale,
+      permissionGranted: permissionGranted,
+      apiKey: context.read<GenerationNotifier>().state.apiKey,
+      readSource: () async => sourceBytes,
+      onResult: (source, result) {
+        final outputName = service.outputFileName(
+          NovelAiImageAction.upscale,
+          'gen',
+        );
+        return _showUpscaleComparison(
+          source,
+          result,
+          outputName,
+          autoSave,
+          () => service.save(result, outputName, sourceBytes: source),
+        );
+      },
+    );
   }
 
-  void _showUpscaleComparison(
-    BuildContext context,
+  Future<void> _showUpscaleComparison(
     Uint8List sourceBytes,
     Uint8List result,
+    String outputName,
     bool autoSave,
-  ) {
-    final gallery = context.read<GalleryNotifier>();
-    final timestamp = generateTimestamp();
-    final outputName = 'UP_gen_$timestamp.png';
-    Navigator.push(
+    Future<ToolResultSaveOutcome> Function() save,
+  ) async {
+    await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (_) => UpscaleComparisonView(
@@ -438,22 +391,16 @@ class QuickActionOverlay extends StatelessWidget {
           outputName: outputName,
           autoSave: autoSave,
           onSave: () async {
-            await gallery.saveMLResultWithMetadata(
-              result,
-              outputName,
-              sourceBytes: sourceBytes,
-            );
+            final outcome = await save();
+            if (!outcome.succeeded && mounted) {
+              showToolResultSaveFeedback(context, outcome);
+            }
+            return outcome.succeeded;
           },
         ),
       ),
     );
   }
-}
-
-(int, int)? _decodeImageDimensions(Uint8List bytes) {
-  final decoded = img.decodeImage(bytes);
-  if (decoded == null) return null;
-  return (decoded.width, decoded.height);
 }
 
 void _showAlbumPicker(

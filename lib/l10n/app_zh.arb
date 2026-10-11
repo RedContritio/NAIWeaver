@@ -1085,6 +1085,8 @@
   "naiUpscaledCount": "API 已放大：{completed}/{total} 张图像",
   "@naiUpscaledCount": { "placeholders": { "completed": { "type": "int" }, "total": { "type": "int" } } },
   "naiApiKeyRequired": "需要 API 密钥",
+  "naiActionNotPermitted": "当前账号无权使用此操作",
+  "naiImageUnreadable": "无法读取图片尺寸",
 
   "comparisonBefore": "处理前",
   "comparisonAfter": "处理后",

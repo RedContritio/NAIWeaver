@@ -1090,6 +1090,8 @@
   "naiUpscaledCount": "API UPSCALED: {completed}/{total} IMAGES",
   "@naiUpscaledCount": { "placeholders": { "completed": { "type": "int" }, "total": { "type": "int" } } },
   "naiApiKeyRequired": "API key required",
+  "naiActionNotPermitted": "Your account is not allowed to use this action",
+  "naiImageUnreadable": "Could not read the image size",
 
   "comparisonBefore": "Before",
   "comparisonAfter": "After",

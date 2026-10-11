@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'dart:ui' as ui;
 import 'package:file_picker/file_picker.dart';
 import '../../../core/utils/file_picker_helper.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -10,8 +8,8 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:gal/gal.dart';
 import 'package:provider/provider.dart';
-import '../../../core/gateway/backend_permissions.dart';
 import '../../../core/l10n/l10n_extensions.dart';
+import '../../../core/services/novel_ai_image_action_service.dart';
 import '../../../core/services/preferences_service.dart';
 import '../../../core/services/saf_export_service.dart';
 import '../../../core/theme/theme_extensions.dart';
@@ -23,6 +21,7 @@ import '../../../core/utils/responsive.dart';
 import '../../../core/utils/timestamp_utils.dart';
 import '../providers/gallery_notifier.dart';
 import '../services/gallery_import_service.dart';
+import '../services/tool_result_saver.dart';
 import '../../generation/providers/generation_notifier.dart';
 import '../../tools/img2img/providers/img2img_notifier.dart';
 import '../../../core/ml/ml_notifier.dart';
@@ -33,6 +32,7 @@ import 'comparison_view.dart';
 import 'gallery_layout.dart';
 import 'image_detail_view.dart';
 import 'import_metadata_dialog.dart';
+import 'novel_ai_image_action_flow.dart';
 
 class GalleryScreen extends StatefulWidget {
   const GalleryScreen({super.key});
@@ -296,7 +296,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
   Future<void> _openSegmentation(GalleryItem item) async {
     _exitSelectionMode();
-    final gallery = context.read<GalleryNotifier>();
+    final saver = ToolResultSaver.of(context);
     final imageBytes = await item.file.readAsBytes();
     if (!mounted) return;
     Navigator.push(
@@ -312,8 +312,14 @@ class _GalleryScreenState extends State<GalleryScreen> {
                 onSave: (resultBytes) async {
                   final baseName = p.basenameWithoutExtension(item.file.path);
                   final ts = DateTime.now().millisecondsSinceEpoch;
-                  await gallery.saveMLResult(resultBytes, 'SEG_${baseName}_$ts.png');
-                  if (ctx.mounted) Navigator.pop(ctx);
+                  final outcome = await saveToolResult(
+                    ctx,
+                    bytes: resultBytes,
+                    fileName: 'SEG_${baseName}_$ts.png',
+                    sourceBytes: imageBytes,
+                    saver: saver,
+                  );
+                  if (outcome.succeeded && ctx.mounted) Navigator.pop(ctx);
                 },
                 onDiscard: () => Navigator.pop(ctx),
                 onSendToCanvas: (resultBytes) {
@@ -354,104 +360,112 @@ class _GalleryScreenState extends State<GalleryScreen> {
     );
   }
 
-  Future<void> _bulkRemoveBg(List<GalleryItem> selectedItems) async {
-    final ml = context.read<MLNotifier>();
-    final gallery = context.read<GalleryNotifier>();
+  /// Runs a local ML model over [selectedItems] and saves each result with
+  /// its source metadata. Only images that were processed and saved count.
+  Future<void> _bulkLocalMl(
+    List<GalleryItem> selectedItems, {
+    required String title,
+    required String filePrefix,
+    required Future<Uint8List?> Function(Uint8List bytes) process,
+    required String Function(int succeeded, int total) summary,
+  }) async {
+    final saver = ToolResultSaver.of(context);
     final total = selectedItems.length;
-    int completed = 0;
+    var succeeded = 0;
 
-    final progress = mounted ? showProgressDialog(context, title: 'REMOVING BACKGROUNDS') : null;
+    final progress = showProgressDialog(context, title: title);
 
-    for (final item in selectedItems) {
-      final bytes = await item.file.readAsBytes();
-      final result = await ml.removeBackground(bytes);
-      if (result != null) {
-        final baseName = p.basenameWithoutExtension(item.file.path);
-        final timestamp = generateTimestamp();
-        await gallery.saveMLResult(result, 'BG_${baseName}_$timestamp.png');
-      }
-      completed++;
-      progress?.update(completed, total);
-    }
-
-    progress?.close();
-
-    if (mounted) {
-      showAppSnackBar(context, context.l.mlBgRemovedCount(completed, total));
-    }
-    _exitSelectionMode();
-  }
-
-  Future<void> _bulkUpscale(List<GalleryItem> selectedItems) async {
-    final ml = context.read<MLNotifier>();
-    final gallery = context.read<GalleryNotifier>();
-    final total = selectedItems.length;
-    int completed = 0;
-
-    final progress = mounted ? showProgressDialog(context, title: context.l.mlUpscalingImages) : null;
-
-    for (final item in selectedItems) {
-      final bytes = await item.file.readAsBytes();
-      final result = await ml.upscaleImage(bytes);
-      if (result != null) {
-        final baseName = p.basenameWithoutExtension(item.file.path);
-        final timestamp = generateTimestamp();
-        await gallery.saveMLResult(result, 'UP_${baseName}_$timestamp.png');
-      }
-      completed++;
-      progress?.update(completed, total);
-    }
-
-    progress?.close();
-
-    if (mounted) {
-      showAppSnackBar(context, context.l.mlUpscaledCount(completed, total));
-    }
-    _exitSelectionMode();
-  }
-
-  Future<void> _bulkNaiUpscale(List<GalleryItem> selectedItems) async {
-    final gen = context.read<GenerationNotifier>();
-    if (gen.state.apiKey.isEmpty) {
-      showErrorSnackBar(context, context.l.naiApiKeyRequired);
-      return;
-    }
-    final gallery = context.read<GalleryNotifier>();
-    final total = selectedItems.length;
-    int completed = 0;
-
-    final progress = mounted ? showProgressDialog(context, title: context.l.naiUpscaling, progressColor: context.tRead.accentEdit) : null;
-
-    for (final item in selectedItems) {
+    for (var i = 0; i < total; i++) {
+      final item = selectedItems[i];
       try {
         final bytes = await item.file.readAsBytes();
-        final codec = await ui.instantiateImageCodec(bytes);
-        final frame = await codec.getNextFrame();
-        final w = frame.image.width;
-        final h = frame.image.height;
-        frame.image.dispose();
-
-        final imageBase64 = base64Encode(bytes);
-        final result = await gen.service.upscaleImage(
-          imageBase64: imageBase64,
-          width: w,
-          height: h,
-          scale: 4,
-        );
-        final baseName = p.basenameWithoutExtension(item.file.path);
-        final timestamp = generateTimestamp();
-        await gallery.saveMLResult(result, 'NAI_UP_${baseName}_$timestamp.png');
+        final result = await process(bytes);
+        if (result != null) {
+          final baseName = p.basenameWithoutExtension(item.file.path);
+          final outcome = await saver.save(
+            result,
+            '${filePrefix}_${baseName}_${generateTimestamp()}.png',
+            sourceBytes: bytes,
+          );
+          if (outcome.succeeded) succeeded++;
+        }
       } catch (e) {
-        debugPrint('_GalleryScreenState._bulkNaiUpscale: $e');
+        debugPrint('_GalleryScreenState._bulkLocalMl: $e');
       }
-      completed++;
-      progress?.update(completed, total);
+      progress.update(i + 1, total);
     }
 
-    progress?.close();
+    progress.close();
+    _showBatchSummary(summary(succeeded, total), allSucceeded: succeeded == total);
+    _exitSelectionMode();
+  }
+
+  void _showBatchSummary(String message, {required bool allSucceeded}) {
+    if (!mounted) return;
+    if (allSucceeded) {
+      showAppSnackBar(context, message);
+    } else {
+      showErrorSnackBar(context, message);
+    }
+  }
+
+  Future<void> _bulkRemoveBg(List<GalleryItem> selectedItems) =>
+      _bulkLocalMl(
+        selectedItems,
+        title: 'REMOVING BACKGROUNDS',
+        filePrefix: 'BG',
+        process: context.read<MLNotifier>().removeBackground,
+        summary: context.l.mlBgRemovedCount,
+      );
+
+  Future<void> _bulkUpscale(List<GalleryItem> selectedItems) => _bulkLocalMl(
+    selectedItems,
+    title: context.l.mlUpscalingImages,
+    filePrefix: 'UP',
+    process: context.read<MLNotifier>().upscaleImage,
+    summary: context.l.mlUpscaledCount,
+  );
+
+  Future<void> _bulkNaiUpscale(
+    List<GalleryItem> selectedItems, {
+    required bool permissionGranted,
+  }) async {
+    final gen = context.read<GenerationNotifier>();
+    final service = NovelAiImageActionService(
+      gen.service,
+      saver: ToolResultSaver.of(context),
+    );
+    final blocker = service.blocker(
+      apiKey: gen.state.apiKey,
+      permissionGranted: permissionGranted,
+    );
+    if (blocker != null) {
+      showErrorSnackBar(
+        context,
+        novelAiImageActionBlockerMessage(context.l, blocker),
+      );
+      return;
+    }
+
+    final progress = showProgressDialog(
+      context,
+      title: context.l.naiUpscaling,
+      progressColor: context.tRead.accentEdit,
+    );
+    final result = await service.upscaleAll([
+      for (final item in selectedItems)
+        NovelAiImageActionSource(
+          baseName: p.basenameWithoutExtension(item.file.path),
+          readBytes: item.file.readAsBytes,
+        ),
+    ], onProgress: progress.update);
+    progress.close();
 
     if (mounted) {
-      showAppSnackBar(context, context.l.naiUpscaledCount(completed, total));
+      _showBatchSummary(
+        context.l.naiUpscaledCount(result.succeeded, result.total),
+        allSucceeded: result.succeeded == result.total,
+      );
     }
     _exitSelectionMode();
   }
@@ -1423,6 +1437,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
     final selectedItems =
         _selectedIndices.where((i) => i < items.length).map((i) => items[i]).toList();
     final count = _selectedIndices.length;
+    final naiUpscaleAllowed =
+        hasNovelAiImageActionPermission(context, NovelAiImageAction.upscale);
 
     return Positioned(
       left: 16,
@@ -1546,18 +1562,21 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   ),
                 if (context.read<MLNotifier>().hasUpscaleModel)
                   SizedBox(width: mobile ? 12 : 8),
-                if (context.read<GenerationNotifier>().state.apiKey.isNotEmpty &&
-                    hasBackendPermission(context, BackendPermission.imageUpscale))
+                if (naiUpscaleAllowed)
                   _ActionButton(
                     icon: Icons.cloud_upload_outlined,
                     label: context.l.naiUpscale.toUpperCase(),
                     color: t.accentEdit,
                     mobile: mobile,
                     iconOnly: mobile,
-                    onTap: count > 0 ? () => _bulkNaiUpscale(selectedItems) : null,
+                    onTap: count > 0
+                        ? () => _bulkNaiUpscale(
+                              selectedItems,
+                              permissionGranted: naiUpscaleAllowed,
+                            )
+                        : null,
                   ),
-                if (context.read<GenerationNotifier>().state.apiKey.isNotEmpty &&
-                    hasBackendPermission(context, BackendPermission.imageUpscale))
+                if (naiUpscaleAllowed)
                   SizedBox(width: mobile ? 12 : 8),
                 if (context.read<MLNotifier>().selectedSegmentationModelId != null && count == 1)
                   _ActionButton(

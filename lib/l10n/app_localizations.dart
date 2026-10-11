@@ -5822,6 +5822,18 @@ abstract class AppLocalizations {
   /// **'API key required'**
   String get naiApiKeyRequired;
 
+  /// No description provided for @naiActionNotPermitted.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account is not allowed to use this action'**
+  String get naiActionNotPermitted;
+
+  /// No description provided for @naiImageUnreadable.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not read the image size'**
+  String get naiImageUnreadable;
+
   /// No description provided for @comparisonBefore.
   ///
   /// In en, this message translates to:
