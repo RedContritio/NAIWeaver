@@ -33,6 +33,17 @@
   <title>NAIWeaver</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="vendor/photoswipe/photoswipe.css">
+  <!--
+    DOM-backed text (the native prompt textarea and selectable text) cannot use
+    fonts loaded into the Flutter engine by google_fonts; it needs the same
+    families as web fonts. These are the font choices offered by the theme
+    builder. Loaded without blocking first paint (media swap), so an
+    unreachable fonts.googleapis.com only means the generic CSS fallback.
+  -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" media="print" onload="this.media='all'"
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Fira+Code:wght@400;700&family=IBM+Plex+Mono:wght@400;700&family=Space+Mono:wght@400;700&family=Roboto+Mono:wght@400;700&family=Inter:wght@400;700&family=Space+Grotesk:wght@400;700&display=swap">
   <style>
     html,
     body {
@@ -73,13 +84,19 @@
     .naiweaver-photoswipe-host .pswp__button--close {
       display: none;
     }
+    /* Colors come from the theme via custom properties set by
+       BrowserNativeTextArea; the fallbacks are the system colors. */
     .naiweaver-native-textarea::selection {
-      background: var(--naiweaver-selection-background, rgba(86, 156, 214, 0.72));
-      color: var(--naiweaver-selection-foreground, #ffffff);
+      background: var(--naiweaver-selection-background, Highlight);
+      color: var(--naiweaver-selection-foreground, HighlightText);
     }
     .naiweaver-native-textarea::-moz-selection {
-      background: var(--naiweaver-selection-background, rgba(86, 156, 214, 0.72));
-      color: var(--naiweaver-selection-foreground, #ffffff);
+      background: var(--naiweaver-selection-background, Highlight);
+      color: var(--naiweaver-selection-foreground, HighlightText);
+    }
+    .naiweaver-native-textarea::placeholder {
+      color: var(--naiweaver-placeholder-color, GrayText);
+      opacity: 1;
     }
   </style>
 </head>
@@ -95,9 +112,15 @@
   </script>
   <script>
     (() => {
+      // Calls made before the bridge module has loaded are queued on `ready`.
+      // If the module fails to load, every call rejects and the Flutter side
+      // falls back to its own image viewer.
       const ready = import('./photoswipe_bridge.js').then(
         () => window.naiweaverPhotoSwipe,
       );
+      // Callers observe the rejection; this only keeps it from also being
+      // reported as unhandled.
+      ready.catch(() => {});
       window.naiweaverPhotoSwipe = {
         mount: (...args) => ready.then((api) => api.mount(...args)),
         update: (...args) => ready.then((api) => api.update(...args)),

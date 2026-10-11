@@ -1,47 +1,72 @@
 import 'dart:js_interop';
 
+import 'package:flutter/services.dart';
 import 'package:web/web.dart' as web;
 
 import 'client_diagnostics.dart';
+
+/// Browser viewport geometry, shared by the feedback client context, the
+/// viewport events and the submission snapshot. The key names are part of the
+/// feedback gateway contract (`ClientFeedbackContextRequest` forbids unknown
+/// keys), so add new fields there first.
+Map<String, Object?> clientViewportDiagnostics() {
+  final viewport = web.window.visualViewport;
+  final root = web.document.documentElement;
+  return {
+    'window_width': web.window.innerWidth,
+    'window_height': web.window.innerHeight,
+    'visual_viewport_width': viewport?.width,
+    'visual_viewport_height': viewport?.height,
+    'visual_viewport_offset_left': viewport?.offsetLeft,
+    'visual_viewport_offset_top': viewport?.offsetTop,
+    'visual_viewport_scale': viewport?.scale,
+    'document_client_width': root?.clientWidth,
+    'document_client_height': root?.clientHeight,
+    'document_scroll_width': root?.scrollWidth,
+    'document_scroll_height': root?.scrollHeight,
+    'page_scroll_x': web.window.scrollX,
+    'page_scroll_y': web.window.scrollY,
+    'screen_orientation_type': _screenOrientationType(),
+    'screen_orientation_angle': _screenOrientationAngle(),
+    'document_visibility': web.document.visibilityState,
+    'document_has_focus': web.document.hasFocus(),
+  };
+}
+
+Map<String, Object?> _screenDiagnostics() => {
+  'screen_width': web.window.screen.width,
+  'screen_height': web.window.screen.height,
+  'screen_available_width': web.window.screen.availWidth,
+  'screen_available_height': web.window.screen.availHeight,
+};
 
 Future<Map<String, dynamic>> collectClientPlatformInfo() async => {
   'platform': web.window.navigator.platform,
   'web': true,
   'user_agent': web.window.navigator.userAgent,
   'language': web.window.navigator.language,
-  'window_width': web.window.innerWidth,
-  'window_height': web.window.innerHeight,
   'device_pixel_ratio': web.window.devicePixelRatio,
-  'screen_width': web.window.screen.width,
-  'screen_height': web.window.screen.height,
-  'screen_available_width': web.window.screen.availWidth,
-  'screen_available_height': web.window.screen.availHeight,
+  ..._screenDiagnostics(),
   'color_depth': web.window.screen.colorDepth,
-  'screen_orientation_type': _screenOrientationType(),
-  'screen_orientation_angle': _screenOrientationAngle(),
-  'visual_viewport_width': web.window.visualViewport?.width,
-  'visual_viewport_height': web.window.visualViewport?.height,
-  'visual_viewport_offset_left': web.window.visualViewport?.offsetLeft,
-  'visual_viewport_offset_top': web.window.visualViewport?.offsetTop,
-  'visual_viewport_scale': web.window.visualViewport?.scale,
-  'document_client_width': web.document.documentElement?.clientWidth,
-  'document_client_height': web.document.documentElement?.clientHeight,
-  'document_scroll_width': web.document.documentElement?.scrollWidth,
-  'document_scroll_height': web.document.documentElement?.scrollHeight,
-  'page_scroll_x': web.window.scrollX,
-  'page_scroll_y': web.window.scrollY,
+  ...clientViewportDiagnostics(),
   'max_touch_points': web.window.navigator.maxTouchPoints,
   'hardware_concurrency': web.window.navigator.hardwareConcurrency,
   'online': web.window.navigator.onLine,
   'cookie_enabled': web.window.navigator.cookieEnabled,
-  'document_visibility': web.document.visibilityState,
-  'document_has_focus': web.document.hasFocus(),
   'timezone_name': DateTime.now().timeZoneName,
   'timezone_offset_minutes': DateTime.now().timeZoneOffset.inMinutes,
 };
 
 bool _platformSessionStarted = false;
-int _lastViewportEventMs = 0;
+
+/// Viewport events arrive in bursts (a soft keyboard animation alone fires
+/// dozens of resize events); each source records at most once per interval
+/// plus one trailing entry with the settled geometry.
+const Duration _viewportThrottleInterval = Duration(milliseconds: 250);
+
+/// A script error inside an animation-frame loop would otherwise repeat every
+/// frame.
+const Duration _scriptErrorThrottleInterval = Duration(seconds: 1);
 
 void startClientDiagnosticsPlatformSession(ClientDiagnostics diagnostics) {
   if (_platformSessionStarted) return;
@@ -50,59 +75,37 @@ void startClientDiagnosticsPlatformSession(ClientDiagnostics diagnostics) {
   void listen(
     web.EventTarget target,
     String eventName,
-    void Function(web.Event) handler,
-  ) {
-    target.addEventListener(eventName, handler.toJS);
+    void Function(web.Event) handler, {
+    bool capture = false,
+  }) {
+    target.addEventListener(eventName, handler.toJS, capture.toJS);
   }
 
-  void recordViewport(String event) {
-    final now = DateTime.now().millisecondsSinceEpoch;
-    if (event.contains('scroll') && now - _lastViewportEventMs < 100) return;
-    _lastViewportEventMs = now;
-    final viewport = web.window.visualViewport;
-    final root = web.document.documentElement;
+  void recordViewport(String event, [int coalescedCount = 0]) {
     diagnostics.record(event, {
-      'window_inner_width': web.window.innerWidth,
-      'window_inner_height': web.window.innerHeight,
-      'visual_viewport_width': viewport?.width,
-      'visual_viewport_height': viewport?.height,
-      'visual_viewport_offset_left': viewport?.offsetLeft,
-      'visual_viewport_offset_top': viewport?.offsetTop,
-      'visual_viewport_scale': viewport?.scale,
-      'document_client_width': root?.clientWidth,
-      'document_client_height': root?.clientHeight,
-      'document_scroll_width': root?.scrollWidth,
-      'document_scroll_height': root?.scrollHeight,
-      'page_scroll_x': web.window.scrollX,
-      'page_scroll_y': web.window.scrollY,
-      'screen_orientation_type': _screenOrientationType(),
-      'screen_orientation_angle': _screenOrientationAngle(),
-      'document_visibility': web.document.visibilityState,
-      'document_has_focus': web.document.hasFocus(),
+      ...clientViewportDiagnostics(),
+      if (coalescedCount > 0) 'coalesced_event_count': coalescedCount,
     });
   }
 
-  listen(web.window, 'focus', (_) {
-    recordViewport('browser_window_focus');
-  });
-  listen(web.window, 'blur', (_) {
-    recordViewport('browser_window_blur');
-  });
-  listen(web.window, 'resize', (_) {
-    recordViewport('browser_window_resize');
-  });
+  void listenThrottled(web.EventTarget target, String domEvent, String event) {
+    final throttle = DiagnosticThrottle(_viewportThrottleInterval);
+    listen(target, domEvent, (_) {
+      throttle((coalesced) => recordViewport(event, coalesced));
+    });
+  }
+
+  listen(web.window, 'focus', (_) => recordViewport('browser_window_focus'));
+  listen(web.window, 'blur', (_) => recordViewport('browser_window_blur'));
+  listenThrottled(web.window, 'resize', 'browser_window_resize');
   listen(web.window, 'online', (_) {
     diagnostics.record('browser_network_changed', {'online': true});
   });
   listen(web.window, 'offline', (_) {
     diagnostics.record('browser_network_changed', {'online': false});
   });
-  listen(web.window, 'pageshow', (_) {
-    recordViewport('browser_page_show');
-  });
-  listen(web.window, 'pagehide', (_) {
-    recordViewport('browser_page_hide');
-  });
+  listen(web.window, 'pageshow', (_) => recordViewport('browser_page_show'));
+  listen(web.window, 'pagehide', (_) => recordViewport('browser_page_hide'));
   listen(web.document, 'visibilitychange', (_) {
     recordViewport('browser_visibility_changed');
   });
@@ -116,9 +119,12 @@ void startClientDiagnosticsPlatformSession(ClientDiagnostics diagnostics) {
       'is_primary': event.isPrimary,
     });
   });
-  listen(web.document, 'keydown', (rawEvent) {
+  // Window capture phase: the browser-native editors stop keydown propagation
+  // and Flutter stops keys it handles, so a document bubble listener would
+  // miss exactly the keys worth diagnosing.
+  listen(web.window, 'keydown', (rawEvent) {
     final event = rawEvent as web.KeyboardEvent;
-    final category = _safeKeyCategory(event.key);
+    final category = clientDiagnosticKeyCategory(_logicalKeyForDom(event.key));
     if (category == 'character') return;
     diagnostics.record('browser_key_down', {
       'key_category': category,
@@ -129,46 +135,52 @@ void startClientDiagnosticsPlatformSession(ClientDiagnostics diagnostics) {
       'shift': event.shiftKey,
       'composing': event.isComposing,
     });
+  }, capture: true);
+
+  // Uncaught errors from the JS bridges (PhotoSwipe, the module shims) and
+  // from Dart code compiled to JS end up here instead of only on the console.
+  final scriptErrors = DiagnosticThrottle(_scriptErrorThrottleInterval);
+  listen(web.window, 'error', (rawEvent) {
+    final event = rawEvent as web.ErrorEvent;
+    final message = event.message;
+    final source = _safeResourcePath(event.filename);
+    final line = event.lineno;
+    final column = event.colno;
+    scriptErrors((coalesced) {
+      diagnostics.record('browser_script_error', {
+        'error_message': message,
+        'source_path': source,
+        'line': line,
+        'column': column,
+        if (coalesced > 0) 'coalesced_event_count': coalesced,
+      });
+    });
+  });
+  final rejections = DiagnosticThrottle(_scriptErrorThrottleInterval);
+  listen(web.window, 'unhandledrejection', (rawEvent) {
+    final reason = (rawEvent as web.PromiseRejectionEvent).reason;
+    final description = _describeRejection(reason);
+    rejections((coalesced) {
+      diagnostics.record('browser_unhandled_rejection', {
+        ...description,
+        if (coalesced > 0) 'coalesced_event_count': coalesced,
+      });
+    });
   });
 
   final visualViewport = web.window.visualViewport;
   if (visualViewport != null) {
-    listen(visualViewport, 'resize', (_) {
-      recordViewport('browser_visual_viewport_resize');
-    });
-    listen(visualViewport, 'scroll', (_) {
-      recordViewport('browser_visual_viewport_scroll');
-    });
+    listenThrottled(visualViewport, 'resize', 'browser_visual_viewport_resize');
+    listenThrottled(visualViewport, 'scroll', 'browser_visual_viewport_scroll');
   }
 
   recordViewport('browser_platform_session_started');
 }
 
 void captureClientDiagnosticsPlatformSnapshot(ClientDiagnostics diagnostics) {
-  final viewport = web.window.visualViewport;
-  final root = web.document.documentElement;
   diagnostics.record('browser_submission_snapshot', {
-    'window_inner_width': web.window.innerWidth,
-    'window_inner_height': web.window.innerHeight,
-    'visual_viewport_width': viewport?.width,
-    'visual_viewport_height': viewport?.height,
-    'visual_viewport_offset_left': viewport?.offsetLeft,
-    'visual_viewport_offset_top': viewport?.offsetTop,
-    'visual_viewport_scale': viewport?.scale,
-    'document_client_width': root?.clientWidth,
-    'document_client_height': root?.clientHeight,
-    'document_scroll_width': root?.scrollWidth,
-    'document_scroll_height': root?.scrollHeight,
-    'page_scroll_x': web.window.scrollX,
-    'page_scroll_y': web.window.scrollY,
-    'screen_width': web.window.screen.width,
-    'screen_height': web.window.screen.height,
-    'screen_available_width': web.window.screen.availWidth,
-    'screen_available_height': web.window.screen.availHeight,
-    'screen_orientation_type': _screenOrientationType(),
-    'screen_orientation_angle': _screenOrientationAngle(),
-    'document_visibility': web.document.visibilityState,
-    'document_has_focus': web.document.hasFocus(),
+    ...clientViewportDiagnostics(),
+    ..._screenDiagnostics(),
     'online': web.window.navigator.onLine,
   });
 
@@ -188,23 +200,27 @@ void captureClientDiagnosticsPlatformSnapshot(ClientDiagnostics diagnostics) {
   }
 }
 
-String _safeKeyCategory(String key) {
-  if (key.length == 1) return 'character';
-  return switch (key) {
-    'Enter' => 'enter',
-    'Escape' => 'escape',
-    'Tab' => 'tab',
-    'Backspace' || 'Delete' => 'editing',
-    'ArrowUp' ||
-    'ArrowDown' ||
-    'ArrowLeft' ||
-    'ArrowRight' ||
-    'Home' ||
-    'End' ||
-    'PageUp' ||
-    'PageDown' => 'navigation',
-    _ => 'command',
-  };
+/// Maps a `KeyboardEvent.key` value to Flutter's logical key so browser and
+/// Flutter key events share one categorization.
+LogicalKeyboardKey? _logicalKeyForDom(String key) {
+  final named = kWebToLogicalKey[key];
+  if (named != null) return named;
+  final runes = key.runes;
+  return runes.length == 1 ? LogicalKeyboardKey(runes.first) : null;
+}
+
+extension type _JSError(JSObject _) implements JSObject {
+  external String get name;
+  external String get message;
+}
+
+Map<String, Object?> _describeRejection(JSAny? reason) {
+  if (reason == null) return {'reason_type': 'null'};
+  if (reason.instanceOfString('Error')) {
+    final error = reason as _JSError;
+    return {'reason_type': error.name, 'error_message': error.message};
+  }
+  return {'reason_type': reason.typeofEquals('object') ? 'object' : 'value'};
 }
 
 String _safeResourcePath(String raw) {

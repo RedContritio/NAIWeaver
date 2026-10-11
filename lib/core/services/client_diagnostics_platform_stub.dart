@@ -7,6 +7,8 @@ Future<Map<String, dynamic>> collectClientPlatformInfo() async => {
   'web': false,
 };
 
+Map<String, Object?> clientViewportDiagnostics() => const {};
+
 void startClientDiagnosticsPlatformSession(ClientDiagnostics diagnostics) {}
 
 void captureClientDiagnosticsPlatformSnapshot(ClientDiagnostics diagnostics) {}

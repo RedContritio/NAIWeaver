@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'dart:collection';
+
+import 'package:flutter/services.dart';
 
 class ClientDiagnosticEvent {
   const ClientDiagnosticEvent({
@@ -137,4 +140,69 @@ class ClientDiagnostics {
 
   static String _truncate(String value, int limit) =>
       value.length <= limit ? value : '${value.substring(0, limit)}…';
+}
+
+/// Coarse key class recorded instead of the key itself, so the trail never
+/// contains typed text. Shared by the Flutter (`HardwareKeyboard`) and the
+/// browser (`KeyboardEvent`) observers so both report the same categories;
+/// a `null` key (an unmapped browser key name) counts as a command.
+String clientDiagnosticKeyCategory(LogicalKeyboardKey? key) => switch (key) {
+  null => 'command',
+  LogicalKeyboardKey.enter || LogicalKeyboardKey.numpadEnter => 'enter',
+  LogicalKeyboardKey.escape => 'escape',
+  LogicalKeyboardKey.tab => 'tab',
+  LogicalKeyboardKey.backspace || LogicalKeyboardKey.delete => 'editing',
+  LogicalKeyboardKey.arrowUp ||
+  LogicalKeyboardKey.arrowDown ||
+  LogicalKeyboardKey.arrowLeft ||
+  LogicalKeyboardKey.arrowRight ||
+  LogicalKeyboardKey.home ||
+  LogicalKeyboardKey.end ||
+  LogicalKeyboardKey.pageUp ||
+  LogicalKeyboardKey.pageDown => 'navigation',
+  LogicalKeyboardKey(:final keyLabel) when keyLabel.runes.length == 1 =>
+    'character',
+  _ => 'command',
+};
+
+/// Leading- and trailing-edge throttle for bursty diagnostic sources.
+///
+/// The first event of a burst is recorded immediately; events arriving within
+/// [interval] are coalesced into a single trailing record that runs with the
+/// latest callback and reports how many events it stands for. A soft keyboard
+/// animation, which fires dozens of resize events, therefore costs a couple
+/// of entries instead of flushing the ring buffer.
+class DiagnosticThrottle {
+  DiagnosticThrottle(this.interval);
+
+  final Duration interval;
+  Timer? _cooldown;
+  void Function(int coalescedCount)? _pending;
+  int _coalesced = 0;
+
+  /// Records via [record] now, or once the current interval has elapsed.
+  /// [record] receives the number of events folded into this record beyond
+  /// the one being recorded.
+  void call(void Function(int coalescedCount) record) {
+    if (_cooldown == null) {
+      record(0);
+      _startCooldown();
+      return;
+    }
+    _pending = record;
+    _coalesced++;
+  }
+
+  void _startCooldown() {
+    _cooldown = Timer(interval, () {
+      _cooldown = null;
+      final pending = _pending;
+      if (pending == null) return;
+      final coalesced = _coalesced - 1;
+      _pending = null;
+      _coalesced = 0;
+      pending(coalesced);
+      _startCooldown();
+    });
+  }
 }
