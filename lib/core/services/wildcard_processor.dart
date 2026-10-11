@@ -9,11 +9,15 @@ enum WildcardMode { random, sequential, shuffle, weighted }
 class WildcardProcessor {
   final String wildcardDir;
   final WildcardService? wildcardService;
-  final Random _random = Random();
+  final Random _random;
   final Map<String, int> _sequentialIndex = {};
   final Map<String, List<int>> _shuffleRemaining = {};
 
-  WildcardProcessor({required this.wildcardDir, this.wildcardService});
+  WildcardProcessor({
+    required this.wildcardDir,
+    this.wildcardService,
+    Random? random,
+  }) : _random = random ?? Random();
 
   Future<String> process(String prompt) async {
     String processedPrompt = prompt;
@@ -27,16 +31,18 @@ class WildcardProcessor {
 
       if (matches.isEmpty) break;
 
-      // Process matches from end to start to avoid index shifts
-      for (final match in matches.reversed) {
-        final wildcardName = match.group(1);
-        if (wildcardName == null) continue;
-
-        final replacement = await _getWildcardReplacement(wildcardName);
-        if (replacement != null) {
-          processedPrompt = processedPrompt.replaceRange(match.start, match.end, replacement);
-          hasChanged = true;
-        }
+      // Resolve front to back so stateful modes (sequential, shuffle) hand
+      // out values in reading order, then splice from the end to avoid index
+      // shifts.
+      final replacements = <String?>[];
+      for (final match in matches) {
+        replacements.add(await _getWildcardReplacement(match.group(1)!));
+      }
+      for (var i = matches.length - 1; i >= 0; i--) {
+        final replacement = replacements[i];
+        if (replacement == null) continue;
+        processedPrompt = processedPrompt.replaceRange(matches[i].start, matches[i].end, replacement);
+        hasChanged = true;
       }
       depth++;
     }
@@ -115,6 +121,9 @@ class WildcardProcessor {
         totalWeight += 1;
       }
     }
+
+    // All-zero weights degrade to a uniform pick instead of an empty range.
+    if (totalWeight == 0) return values[_random.nextInt(values.length)];
 
     var roll = _random.nextInt(totalWeight);
     for (int i = 0; i < weights.length; i++) {
