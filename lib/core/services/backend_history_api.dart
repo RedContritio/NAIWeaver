@@ -276,6 +276,9 @@ class ServerHistoryItem {
 
   bool get isBatch => batchSize > 1;
 
+  /// Queued or running; the gateway refuses to delete it.
+  bool get isActive => status == 'queued' || status == 'running';
+
   String get imageUrl => backendUrl('/api/history/$id/image');
 
   String get thumbnailUrl => backendUrl('/api/history/$id/thumbnail');
