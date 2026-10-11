@@ -15,6 +15,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonDelete => 'Delete';
 
   @override
+  String get commonEdit => 'Edit';
+
+  @override
   String get commonSave => 'Save';
 
   @override
@@ -821,6 +824,25 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get panelDeleteResolution => 'Delete Custom Resolution';
+
+  @override
+  String panelDeleteResolutionConfirm(String name) {
+    return 'Delete the custom resolution \"$name\"?';
+  }
+
+  @override
+  String get panelInputsEmptyTitle => 'No reference inputs';
+
+  @override
+  String get panelInputsEmptyMessage =>
+      'Precise references and vibe transfer are paid tools that this account cannot use, and none have been added.';
+
+  @override
+  String get panelInputsHiddenMessage =>
+      'The precise reference and vibe transfer shelves are turned off in Settings.';
+
+  @override
   String get panelSaveToAlbum => 'Save to Album';
 
   @override
@@ -1556,6 +1578,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get refVibeLabel => 'VIBE';
+
+  @override
+  String get refVibeRemoveConfirm => 'Remove this vibe from the list?';
 
   @override
   String get refVibeEditorTitle => 'VIBE EDITOR';
@@ -2899,6 +2924,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get charEditorShowPresets => 'PRESET';
 
   @override
+  String get charEditorShowTitle => 'TITLE';
+
+  @override
   String get charEditorAiDecidesPosition => 'AI decides position';
 
   @override
@@ -4148,6 +4176,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'The seed must be a whole number from 0 to 4294967295.';
 
   @override
+  String get generationDropToImport => 'Drop to import settings';
+
+  @override
   String get generationCancelQueued => 'CANCEL QUEUED';
 
   @override
@@ -4162,4 +4193,123 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get generationReuseSeed => 'REUSE SEED';
+
+  @override
+  String get photoshootTitle => 'PHOTOSHOOT';
+
+  @override
+  String get photoshootCharacterNotFound => 'Character not found';
+
+  @override
+  String get photoshootNoOutfit => '(no outfit)';
+
+  @override
+  String get photoshootPreviewPlaceholder => 'YOUR SHOT APPEARS HERE';
+
+  @override
+  String get photoshootTapToView => 'TAP TO VIEW';
+
+  @override
+  String get photoshootTabDress => 'DRESS';
+
+  @override
+  String get photoshootTabScene => 'SCENE';
+
+  @override
+  String get photoshootTabPrompt => 'PROMPT';
+
+  @override
+  String get photoshootNoOutfitHint =>
+      'No outfit to dress — add one from the character editor.';
+
+  @override
+  String get photoshootSaveState => 'SAVE STATE TO OUTFIT';
+
+  @override
+  String get photoshootOutfitStateSaved => 'OUTFIT STATE SAVED';
+
+  @override
+  String get photoshootSectionStyle => 'STYLE';
+
+  @override
+  String get photoshootSectionPose => 'POSE';
+
+  @override
+  String get photoshootSectionEnvironment => 'ENVIRONMENT';
+
+  @override
+  String get photoshootCustomPoseHint => 'custom pose tags…';
+
+  @override
+  String get photoshootCustomEnvHint => 'custom environment tags…';
+
+  @override
+  String photoshootSelectedCount(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String get photoshootClear => 'CLEAR';
+
+  @override
+  String get photoshootNoPresets => 'No presets available';
+
+  @override
+  String get photoshootAssembledPrompt => 'ASSEMBLED PROMPT';
+
+  @override
+  String photoshootTagCount(int count) {
+    return '$count tags';
+  }
+
+  @override
+  String get photoshootEmptyPrompt => '(empty)';
+
+  @override
+  String get photoshootPromptBuiltFrom =>
+      'Built from: style → body → outfit → pose → environment. Adjust in the Dress and Scene tabs.';
+
+  @override
+  String get photoshootGenerate => 'GENERATE';
+
+  @override
+  String get photoshootGenerating => 'GENERATING…';
+
+  @override
+  String get photoshootSend => 'SEND';
+
+  @override
+  String get photoshootSentToMain => 'SENT TO MAIN PROMPT';
+
+  @override
+  String get photoshootGenerated => 'GENERATED';
+
+  @override
+  String photoshootGenerationFailed(String reason) {
+    return 'GENERATION FAILED: $reason';
+  }
+
+  @override
+  String get photoshootSelectOutfit => 'OUTFIT';
+
+  @override
+  String get photoshootStyleCharacterDefault => 'Character default';
+
+  @override
+  String get photoshootStyleAnime => 'Anime';
+
+  @override
+  String get photoshootStylePainterly => 'Painterly';
+
+  @override
+  String get photoshootStylePhotoreal => 'Photoreal';
+
+  @override
+  String get photoshootStyleSketch => 'Sketch';
+
+  @override
+  String get photoshootStyleWatercolor => 'Watercolour';
+
+  @override
+  String get photoshootStyleInk => 'Ink';
 }

@@ -112,6 +112,12 @@ abstract class AppLocalizations {
   /// **'Delete'**
   String get commonDelete;
 
+  /// No description provided for @commonEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get commonEdit;
+
   /// No description provided for @commonSave.
   ///
   /// In en, this message translates to:
@@ -1546,6 +1552,36 @@ abstract class AppLocalizations {
   /// **'Delete \"{name}\"?'**
   String panelDeletePresetConfirm(String name);
 
+  /// No description provided for @panelDeleteResolution.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Custom Resolution'**
+  String get panelDeleteResolution;
+
+  /// No description provided for @panelDeleteResolutionConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete the custom resolution \"{name}\"?'**
+  String panelDeleteResolutionConfirm(String name);
+
+  /// No description provided for @panelInputsEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No reference inputs'**
+  String get panelInputsEmptyTitle;
+
+  /// No description provided for @panelInputsEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Precise references and vibe transfer are paid tools that this account cannot use, and none have been added.'**
+  String get panelInputsEmptyMessage;
+
+  /// No description provided for @panelInputsHiddenMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The precise reference and vibe transfer shelves are turned off in Settings.'**
+  String get panelInputsHiddenMessage;
+
   /// No description provided for @panelSaveToAlbum.
   ///
   /// In en, this message translates to:
@@ -2907,6 +2943,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'VIBE'**
   String get refVibeLabel;
+
+  /// No description provided for @refVibeRemoveConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove this vibe from the list?'**
+  String get refVibeRemoveConfirm;
 
   /// No description provided for @refVibeEditorTitle.
   ///
@@ -5338,6 +5380,12 @@ abstract class AppLocalizations {
   /// **'PRESET'**
   String get charEditorShowPresets;
 
+  /// No description provided for @charEditorShowTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'TITLE'**
+  String get charEditorShowTitle;
+
   /// No description provided for @charEditorAiDecidesPosition.
   ///
   /// In en, this message translates to:
@@ -7598,6 +7646,12 @@ abstract class AppLocalizations {
   /// **'The seed must be a whole number from 0 to 4294967295.'**
   String get generationSeedInvalid;
 
+  /// No description provided for @generationDropToImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Drop to import settings'**
+  String get generationDropToImport;
+
   /// No description provided for @generationCancelQueued.
   ///
   /// In en, this message translates to:
@@ -7627,6 +7681,228 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'REUSE SEED'**
   String get generationReuseSeed;
+
+  /// No description provided for @photoshootTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'PHOTOSHOOT'**
+  String get photoshootTitle;
+
+  /// No description provided for @photoshootCharacterNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Character not found'**
+  String get photoshootCharacterNotFound;
+
+  /// No description provided for @photoshootNoOutfit.
+  ///
+  /// In en, this message translates to:
+  /// **'(no outfit)'**
+  String get photoshootNoOutfit;
+
+  /// No description provided for @photoshootPreviewPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'YOUR SHOT APPEARS HERE'**
+  String get photoshootPreviewPlaceholder;
+
+  /// No description provided for @photoshootTapToView.
+  ///
+  /// In en, this message translates to:
+  /// **'TAP TO VIEW'**
+  String get photoshootTapToView;
+
+  /// No description provided for @photoshootTabDress.
+  ///
+  /// In en, this message translates to:
+  /// **'DRESS'**
+  String get photoshootTabDress;
+
+  /// No description provided for @photoshootTabScene.
+  ///
+  /// In en, this message translates to:
+  /// **'SCENE'**
+  String get photoshootTabScene;
+
+  /// No description provided for @photoshootTabPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'PROMPT'**
+  String get photoshootTabPrompt;
+
+  /// No description provided for @photoshootNoOutfitHint.
+  ///
+  /// In en, this message translates to:
+  /// **'No outfit to dress — add one from the character editor.'**
+  String get photoshootNoOutfitHint;
+
+  /// No description provided for @photoshootSaveState.
+  ///
+  /// In en, this message translates to:
+  /// **'SAVE STATE TO OUTFIT'**
+  String get photoshootSaveState;
+
+  /// No description provided for @photoshootOutfitStateSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'OUTFIT STATE SAVED'**
+  String get photoshootOutfitStateSaved;
+
+  /// No description provided for @photoshootSectionStyle.
+  ///
+  /// In en, this message translates to:
+  /// **'STYLE'**
+  String get photoshootSectionStyle;
+
+  /// No description provided for @photoshootSectionPose.
+  ///
+  /// In en, this message translates to:
+  /// **'POSE'**
+  String get photoshootSectionPose;
+
+  /// No description provided for @photoshootSectionEnvironment.
+  ///
+  /// In en, this message translates to:
+  /// **'ENVIRONMENT'**
+  String get photoshootSectionEnvironment;
+
+  /// No description provided for @photoshootCustomPoseHint.
+  ///
+  /// In en, this message translates to:
+  /// **'custom pose tags…'**
+  String get photoshootCustomPoseHint;
+
+  /// No description provided for @photoshootCustomEnvHint.
+  ///
+  /// In en, this message translates to:
+  /// **'custom environment tags…'**
+  String get photoshootCustomEnvHint;
+
+  /// No description provided for @photoshootSelectedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} selected'**
+  String photoshootSelectedCount(int count);
+
+  /// No description provided for @photoshootClear.
+  ///
+  /// In en, this message translates to:
+  /// **'CLEAR'**
+  String get photoshootClear;
+
+  /// No description provided for @photoshootNoPresets.
+  ///
+  /// In en, this message translates to:
+  /// **'No presets available'**
+  String get photoshootNoPresets;
+
+  /// No description provided for @photoshootAssembledPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'ASSEMBLED PROMPT'**
+  String get photoshootAssembledPrompt;
+
+  /// No description provided for @photoshootTagCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} tags'**
+  String photoshootTagCount(int count);
+
+  /// No description provided for @photoshootEmptyPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'(empty)'**
+  String get photoshootEmptyPrompt;
+
+  /// No description provided for @photoshootPromptBuiltFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'Built from: style → body → outfit → pose → environment. Adjust in the Dress and Scene tabs.'**
+  String get photoshootPromptBuiltFrom;
+
+  /// No description provided for @photoshootGenerate.
+  ///
+  /// In en, this message translates to:
+  /// **'GENERATE'**
+  String get photoshootGenerate;
+
+  /// No description provided for @photoshootGenerating.
+  ///
+  /// In en, this message translates to:
+  /// **'GENERATING…'**
+  String get photoshootGenerating;
+
+  /// No description provided for @photoshootSend.
+  ///
+  /// In en, this message translates to:
+  /// **'SEND'**
+  String get photoshootSend;
+
+  /// No description provided for @photoshootSentToMain.
+  ///
+  /// In en, this message translates to:
+  /// **'SENT TO MAIN PROMPT'**
+  String get photoshootSentToMain;
+
+  /// No description provided for @photoshootGenerated.
+  ///
+  /// In en, this message translates to:
+  /// **'GENERATED'**
+  String get photoshootGenerated;
+
+  /// No description provided for @photoshootGenerationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'GENERATION FAILED: {reason}'**
+  String photoshootGenerationFailed(String reason);
+
+  /// No description provided for @photoshootSelectOutfit.
+  ///
+  /// In en, this message translates to:
+  /// **'OUTFIT'**
+  String get photoshootSelectOutfit;
+
+  /// No description provided for @photoshootStyleCharacterDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Character default'**
+  String get photoshootStyleCharacterDefault;
+
+  /// No description provided for @photoshootStyleAnime.
+  ///
+  /// In en, this message translates to:
+  /// **'Anime'**
+  String get photoshootStyleAnime;
+
+  /// No description provided for @photoshootStylePainterly.
+  ///
+  /// In en, this message translates to:
+  /// **'Painterly'**
+  String get photoshootStylePainterly;
+
+  /// No description provided for @photoshootStylePhotoreal.
+  ///
+  /// In en, this message translates to:
+  /// **'Photoreal'**
+  String get photoshootStylePhotoreal;
+
+  /// No description provided for @photoshootStyleSketch.
+  ///
+  /// In en, this message translates to:
+  /// **'Sketch'**
+  String get photoshootStyleSketch;
+
+  /// No description provided for @photoshootStyleWatercolor.
+  ///
+  /// In en, this message translates to:
+  /// **'Watercolour'**
+  String get photoshootStyleWatercolor;
+
+  /// No description provided for @photoshootStyleInk.
+  ///
+  /// In en, this message translates to:
+  /// **'Ink'**
+  String get photoshootStyleInk;
 }
 
 class _AppLocalizationsDelegate

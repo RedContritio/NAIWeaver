@@ -1947,27 +1947,90 @@ class GenerationNotifier extends ChangeNotifier {
     return ApplyTagResult.insertedIntoPrompt;
   }
 
+  /// The one entry point for putting a character's tags (and the negative
+  /// tags that belong to it) into the prompts.
+  ///
+  /// Where they go:
+  /// - [promptTarget] / [negativeTarget], when given, are appended to as they
+  ///   are (the character card being edited, for instance);
+  /// - otherwise [target] decides: `'editor'` adds a character card named
+  ///   [name] with [tags] as its prompt and [negativeTags] as its UC (returns
+  ///   [ApplyTagResult.characterLimitReached] and changes nothing at the
+  ///   6-card maximum), `'main'` writes into the main prompt and negative
+  ///   prompt. A null [target] follows the `charInsertTarget` preference.
+  ///
+  /// With the main target, [replaceMainPrompt] swaps the main prompt text for
+  /// [tags] instead of appending. Negative tags are always appended to what is
+  /// already there, de-duplicated.
+  ApplyTagResult insertCharacterTags(
+    String tags,
+    String? negativeTags, {
+    String? target,
+    String name = '',
+    bool replaceMainPrompt = false,
+    TextEditingController? promptTarget,
+    TextEditingController? negativeTarget,
+  }) {
+    final cleanTags = tags.trim();
+    if (promptTarget != null || negativeTarget != null) {
+      if (promptTarget != null) _appendPromptTags(promptTarget, cleanTags);
+      if (negativeTarget != null) {
+        TagSuggestionHelper.appendNegatives(negativeTarget, negativeTags);
+      }
+      return ApplyTagResult.insertedIntoPrompt;
+    }
+    final effectiveTarget = target ?? _prefs.charInsertTarget;
+    if (effectiveTarget == 'editor') {
+      if (_state.characters.length >= CharacterManager.maxCharacters) {
+        return ApplyTagResult.characterLimitReached;
+      }
+      addCharacter(
+        name: name,
+        prompt: cleanTags,
+        uc: (negativeTags ?? '').trim(),
+      );
+      if (_state.characterEditorMode != 'expanded') {
+        setCharacterEditorMode('expanded');
+      }
+      return ApplyTagResult.addedCharacterCard;
+    }
+    if (replaceMainPrompt) {
+      promptController.text = cleanTags;
+    } else {
+      _appendPromptTags(promptController, cleanTags);
+    }
+    TagSuggestionHelper.appendNegatives(negativePromptController, negativeTags);
+    return ApplyTagResult.insertedIntoPrompt;
+  }
+
+  /// Appends comma-separated [tags] to a prompt [controller], ending with the
+  /// separator so the next tag can follow. No-op when [tags] is blank.
+  static void _appendPromptTags(TextEditingController controller, String tags) {
+    if (tags.isEmpty) return;
+    final existing = controller.text.trimRight();
+    final text = existing.isEmpty
+        ? '$tags, '
+        : '$existing${existing.endsWith(',') ? '' : ','} $tags, ';
+    controller.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+  }
+
   /// Adds [tag] (a `saved_character` suggestion) as a new character card, with
   /// its expansion as the card prompt and negative expansion as the card UC.
   /// Returns [ApplyTagResult.characterLimitReached] without mutating state when
   /// the editor is already at the 6-character maximum.
   ApplyTagResult _addSavedCharacterAsCard(DanbooruTag tag) {
-    if (_state.characters.length >= CharacterManager.maxCharacters) {
-      return ApplyTagResult.characterLimitReached;
-    }
     final prompt = (tag.expansion != null && tag.expansion!.trim().isNotEmpty)
         ? tag.expansion!.trim()
         : tag.tag;
-    addCharacter(
+    return insertCharacterTags(
+      prompt,
+      tag.negativeExpansion,
+      target: 'editor',
       name: tag.tag,
-      prompt: prompt,
-      uc: (tag.negativeExpansion ?? '').trim(),
     );
-    // Ensure the editor is expanded so the new card is visible.
-    if (_state.characterEditorMode != 'expanded') {
-      setCharacterEditorMode('expanded');
-    }
-    return ApplyTagResult.addedCharacterCard;
   }
 
   /// Removes the partial word the user was typing at the cursor in the main
