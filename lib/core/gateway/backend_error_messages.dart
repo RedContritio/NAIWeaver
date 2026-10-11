@@ -76,7 +76,11 @@ String? taskItemFailureMessage(
   if (status != 'failed' && status != 'rejected' && status != 'cancelled') {
     return null;
   }
-  if (errorCode == null) return l.gatewayErrUnknown;
+  if (errorCode == null) {
+    return status == 'cancelled'
+        ? l.generationItemCancelled
+        : l.gatewayErrUnknown;
+  }
   return backendErrorMessage(
     l,
     BackendException(statusCode: null, code: errorCode),

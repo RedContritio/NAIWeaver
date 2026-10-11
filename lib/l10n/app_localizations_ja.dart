@@ -3989,4 +3989,29 @@ class AppLocalizationsJa extends AppLocalizations {
   String toolMaxRedPoints(int points) {
     return '最大 $points レッド';
   }
+
+  @override
+  String get generationBusy => '生成がすでに実行中です。完了するまでお待ちください。';
+
+  @override
+  String get generationFailedFallback => '生成に失敗しました';
+
+  @override
+  String get generationSeedInvalid => 'シードは 0 から 4294967295 までの整数にしてください。';
+
+  @override
+  String get generationCancelQueued => '待機をキャンセル';
+
+  @override
+  String get generationResumeWatching => '再開';
+
+  @override
+  String get generationWatchTimedOut =>
+      'サーバーの待機を停止しました。画像は完成する可能性があります。再開して確認してください。';
+
+  @override
+  String get generationItemCancelled => '開始前にキャンセルされました';
+
+  @override
+  String get generationReuseSeed => 'シードを再利用';
 }

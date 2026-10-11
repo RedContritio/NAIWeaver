@@ -4104,4 +4104,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String toolMaxRedPoints(int points) {
     return 'up to $points red';
   }
+
+  @override
+  String get generationBusy =>
+      'A generation is already running. Wait for it to finish.';
+
+  @override
+  String get generationFailedFallback => 'Generation failed';
+
+  @override
+  String get generationSeedInvalid =>
+      'The seed must be a whole number from 0 to 4294967295.';
+
+  @override
+  String get generationCancelQueued => 'CANCEL QUEUED';
+
+  @override
+  String get generationResumeWatching => 'RESUME';
+
+  @override
+  String get generationWatchTimedOut =>
+      'Stopped waiting for the server. The images may still finish; resume to check again.';
+
+  @override
+  String get generationItemCancelled => 'Cancelled before it started';
+
+  @override
+  String get generationReuseSeed => 'REUSE SEED';
 }

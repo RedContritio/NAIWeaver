@@ -7531,6 +7531,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'up to {points} red'**
   String toolMaxRedPoints(int points);
+
+  /// No description provided for @generationBusy.
+  ///
+  /// In en, this message translates to:
+  /// **'A generation is already running. Wait for it to finish.'**
+  String get generationBusy;
+
+  /// No description provided for @generationFailedFallback.
+  ///
+  /// In en, this message translates to:
+  /// **'Generation failed'**
+  String get generationFailedFallback;
+
+  /// No description provided for @generationSeedInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'The seed must be a whole number from 0 to 4294967295.'**
+  String get generationSeedInvalid;
+
+  /// No description provided for @generationCancelQueued.
+  ///
+  /// In en, this message translates to:
+  /// **'CANCEL QUEUED'**
+  String get generationCancelQueued;
+
+  /// No description provided for @generationResumeWatching.
+  ///
+  /// In en, this message translates to:
+  /// **'RESUME'**
+  String get generationResumeWatching;
+
+  /// No description provided for @generationWatchTimedOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Stopped waiting for the server. The images may still finish; resume to check again.'**
+  String get generationWatchTimedOut;
+
+  /// No description provided for @generationItemCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled before it started'**
+  String get generationItemCancelled;
+
+  /// No description provided for @generationReuseSeed.
+  ///
+  /// In en, this message translates to:
+  /// **'REUSE SEED'**
+  String get generationReuseSeed;
 }
 
 class _AppLocalizationsDelegate

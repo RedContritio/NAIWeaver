@@ -1415,5 +1415,13 @@
   "refAccessResumed": "Paid points available again: {items} will be sent again",
   "@refAccessResumed": { "placeholders": {"items": {"type": "String"}} },
   "toolMaxRedPoints": "up to {points} red",
-  "@toolMaxRedPoints": { "placeholders": {"points": {"type": "int"}} }
+  "@toolMaxRedPoints": { "placeholders": {"points": {"type": "int"}} },
+  "generationBusy": "A generation is already running. Wait for it to finish.",
+  "generationFailedFallback": "Generation failed",
+  "generationSeedInvalid": "The seed must be a whole number from 0 to 4294967295.",
+  "generationCancelQueued": "CANCEL QUEUED",
+  "generationResumeWatching": "RESUME",
+  "generationWatchTimedOut": "Stopped waiting for the server. The images may still finish; resume to check again.",
+  "generationItemCancelled": "Cancelled before it started",
+  "generationReuseSeed": "REUSE SEED"
 }

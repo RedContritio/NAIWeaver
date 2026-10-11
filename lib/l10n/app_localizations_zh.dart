@@ -3965,4 +3965,28 @@ class AppLocalizationsZh extends AppLocalizations {
   String toolMaxRedPoints(int points) {
     return '最多 $points 红点';
   }
+
+  @override
+  String get generationBusy => '已有生成正在进行，请等待完成。';
+
+  @override
+  String get generationFailedFallback => '生成失败';
+
+  @override
+  String get generationSeedInvalid => '种子必须是 0 到 4294967295 之间的整数。';
+
+  @override
+  String get generationCancelQueued => '取消排队';
+
+  @override
+  String get generationResumeWatching => '继续等待';
+
+  @override
+  String get generationWatchTimedOut => '已停止等待服务器。图片可能仍会完成，可点击继续等待再次检查。';
+
+  @override
+  String get generationItemCancelled => '已在开始前取消';
+
+  @override
+  String get generationReuseSeed => '复用种子';
 }
