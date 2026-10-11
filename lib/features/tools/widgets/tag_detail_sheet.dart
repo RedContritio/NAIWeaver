@@ -351,11 +351,14 @@ class _TagDetailSheetState extends State<TagDetailSheet> {
         ),
         blockquoteDecoration: BoxDecoration(
           border: Border(
-            left: BorderSide(color: color.withValues(alpha: 0.4), width: 3),
+            left: BorderSide(
+              color: color.withValues(alpha: VisionMetrics.opacityDisabled),
+              width: 3,
+            ),
           ),
         ),
         listBullet: TextStyle(
-          color: color.withValues(alpha: 0.6),
+          color: color.withValues(alpha: VisionMetrics.opacityScrim),
           fontSize: t.fontSize(11),
         ),
         a: TextStyle(color: color, decoration: TextDecoration.underline),
@@ -452,7 +455,7 @@ class _WikiLinkBuilder extends MarkdownElementBuilder {
       style: (preferredStyle ?? const TextStyle()).copyWith(
         color: color,
         decoration: TextDecoration.underline,
-        decorationColor: color.withValues(alpha: 0.5),
+        decorationColor: color.withValues(alpha: VisionMetrics.opacityScrim),
       ),
     );
     // On mobile, pad the hit area vertically so single-line links get a

@@ -11,6 +11,7 @@ import '../../../core/utils/file_picker_helper.dart';
 import '../../../core/utils/image_utils.dart';
 import '../../gallery/providers/gallery_notifier.dart';
 import '../../generation/providers/generation_notifier.dart';
+import '../../../core/theme/vision_metrics.dart';
 
 /// Where a tool's source image came from.
 enum ToolSourceOrigin { currentGeneration, device, gallery }
@@ -105,12 +106,12 @@ class ToolSourcePicker extends StatelessWidget {
 
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(VisionMetrics.space24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 48, color: t.textMinimal),
-            const SizedBox(height: 16),
+            const SizedBox(height: VisionMetrics.space16),
             Text(
               title,
               style: TextStyle(
@@ -120,13 +121,13 @@ class ToolSourcePicker extends StatelessWidget {
                 letterSpacing: 3,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: VisionMetrics.space8),
             Text(
               description,
               style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(10)),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: VisionMetrics.space24),
 
             if (currentImage != null) ...[
               ToolSourceOption(
@@ -136,7 +137,7 @@ class ToolSourcePicker extends StatelessWidget {
                 accentColor: t.accent,
                 onTap: () => _useCurrentGeneration(context, currentImage),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: VisionMetrics.space12),
             ],
 
             ToolSourceOption(
@@ -146,11 +147,11 @@ class ToolSourcePicker extends StatelessWidget {
               accentColor: t.accentEdit,
               onTap: () => _pickFromDevice(context),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: VisionMetrics.space12),
 
             for (final option in extraOptions) ...[
               option,
-              const SizedBox(height: 12),
+              const SizedBox(height: VisionMetrics.space12),
             ],
 
             if (!galleryNotifier.demoMode &&
@@ -158,7 +159,7 @@ class ToolSourcePicker extends StatelessWidget {
               Align(
                 alignment: Alignment.centerLeft,
                 child: Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(bottom: VisionMetrics.space8),
                   child: Text(
                     l.directorToolsFromGallery,
                     style: TextStyle(
@@ -276,19 +277,21 @@ class ToolSourceOption extends StatelessWidget {
     final t = context.t;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(4),
+      borderRadius: BorderRadius.circular(VisionMetrics.radius4),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(VisionMetrics.space16),
         decoration: BoxDecoration(
-          color: accentColor.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: accentColor.withValues(alpha: 0.2)),
+          color: accentColor.withValues(alpha: VisionMetrics.opacityHover),
+          borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+          border: Border.all(
+            color: accentColor.withValues(alpha: VisionMetrics.opacityPressed),
+          ),
         ),
         child: Row(
           children: [
-            Icon(icon, size: 20, color: accentColor),
-            const SizedBox(width: 16),
+            Icon(icon, size: VisionMetrics.iconMedium, color: accentColor),
+            const SizedBox(width: VisionMetrics.space16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -316,7 +319,7 @@ class ToolSourceOption extends StatelessWidget {
             Icon(
               Icons.arrow_forward_ios,
               size: 12,
-              color: accentColor.withValues(alpha: 0.5),
+              color: accentColor.withValues(alpha: VisionMetrics.opacityScrim),
             ),
           ],
         ),
@@ -339,11 +342,11 @@ class _GalleryThumbnail extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: t.surfaceHigh,
-          borderRadius: BorderRadius.circular(2),
+          borderRadius: BorderRadius.circular(VisionMetrics.radius2),
           border: Border.all(color: t.borderSubtle),
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(2),
+          borderRadius: BorderRadius.circular(VisionMetrics.radius2),
           child: Image.file(
             file,
             fit: BoxFit.cover,
