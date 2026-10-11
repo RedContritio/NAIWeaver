@@ -1,5 +1,7 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/gateway/backend_exception.dart';
 import '../../../core/gateway/backend_gateway.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/services/novel_ai_service.dart';
@@ -70,9 +72,10 @@ Future<void> pickAndAddVibes(BuildContext context) async {
 
 /// Readable reason for a failed vibe encode; never the raw exception.
 ///
-/// The gateway answers with a JSON `detail.code` (docs/GATEWAY_CONTRACT.md),
-/// but encode-vibe is requested as bytes, so the code is often unavailable
-/// and the HTTP status decides. [gateway] defaults to [useBackendGateway].
+/// Gateway failures arrive as a [BackendException] and are told apart by its
+/// contract `code` (docs/GATEWAY_CONTRACT.md §1). A direct NovelAI call (no
+/// gateway) fails with a [DioException] whose status has NovelAI's meaning.
+/// [gateway] defaults to [useBackendGateway].
 String vibeEncodeErrorMessage(
   AppLocalizations l,
   Object error, {
@@ -81,31 +84,42 @@ String vibeEncodeErrorMessage(
   final viaGateway = gateway ?? useBackendGateway;
   // Through the gateway a 401 is our own session; NovelAI's 401s are never
   // forwarded. Without it, 401 means the user's API key is missing or bad.
-  final unauthorized = viaGateway
-      ? l.refErrorSessionExpired
-      : l.refApiKeyMissing;
-  if (error is UnauthorizedException) return unauthorized;
-  // NovelAIService turns every HTTP/network failure into this exception.
-  if (error is! GenerationRequestException) return l.refVibeEncodeFailed;
-
-  switch (error.code) {
-    case 'points_insufficient':
-    case 'free_allowance_exhausted':
-      return l.refErrorPointsInsufficient;
-    case 'permission_denied':
-      return l.refVibeNoPermission;
-    case 'not_authenticated':
-      return l.refErrorSessionExpired;
-    case 'queue_full':
-    case 'upstream_error':
-      return l.refErrorServiceUnavailable;
+  if (error is UnauthorizedException) {
+    return viaGateway ? l.refErrorSessionExpired : l.refApiKeyMissing;
   }
-  final status = error.statusCode;
-  if (status == null) return l.refErrorNetwork;
-  if (status == 401) return unauthorized;
-  if (status == 403) return l.refVibeNoPermission;
-  // 402: NovelAI is out of Anlas; 409: the gateway could not reserve points.
-  if (status == 402 || status == 409) return l.refErrorPointsInsufficient;
-  if (status == 429 || status >= 500) return l.refErrorServiceUnavailable;
+  if (error is BackendException) {
+    switch (error.code) {
+      case BackendErrorCode.pointsInsufficient:
+      case BackendErrorCode.freeAllowanceExhausted:
+        return l.refErrorPointsInsufficient;
+      case BackendErrorCode.quoteChanged:
+        return l.gatewayErrQuoteChanged;
+      case BackendErrorCode.permissionDenied:
+        return l.refVibeNoPermission;
+      case BackendErrorCode.notAuthenticated:
+        return l.refErrorSessionExpired;
+      case BackendErrorCode.upstreamError:
+      case BackendErrorCode.queueFull:
+      case BackendErrorCode.rateLimited:
+      case BackendErrorCode.serviceUnavailable:
+        return l.refErrorServiceUnavailable;
+      case BackendErrorCode.network:
+      case BackendErrorCode.timeout:
+        return l.refErrorNetwork;
+    }
+    final status = error.statusCode;
+    if (status != null && status >= 500) return l.refErrorServiceUnavailable;
+    return l.refVibeEncodeFailed;
+  }
+  if (error is DioException) {
+    final status = error.response?.statusCode;
+    if (status == null) return l.refErrorNetwork;
+    if (status == 401) return l.refApiKeyMissing;
+    if (status == 403) return l.gatewayErrDirectForbidden;
+    // NovelAI answers 402 when the account is out of Anlas.
+    if (status == 402) return l.gatewayErrDirectAnlas;
+    if (status == 429) return l.gatewayErrDirectRateLimited;
+    if (status >= 500) return l.refErrorServiceUnavailable;
+  }
   return l.refVibeEncodeFailed;
 }

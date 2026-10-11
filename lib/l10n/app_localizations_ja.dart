@@ -171,15 +171,6 @@ class AppLocalizationsJa extends AppLocalizations {
       'このWebサービスはバックエンドに保存されたNovelAIトークンを使用します。ブラウザーにNovelAIトークンは保存されません。';
 
   @override
-  String get gatewayUsername => 'ユーザー名';
-
-  @override
-  String get gatewayPassword => 'パスワード';
-
-  @override
-  String get gatewayLogin => 'ログイン';
-
-  @override
   String get gatewayLogout => 'ログアウト';
 
   @override
@@ -201,22 +192,117 @@ class AppLocalizationsJa extends AppLocalizations {
   String get gatewayQuotaPaidLabel => '有料ポイント';
 
   @override
-  String get gatewayQuotaFreeShort => '無';
-
-  @override
-  String get gatewayQuotaPaidShort => '点';
-
-  @override
   String get gatewayQuotaUnlimited => '無制限';
 
   @override
   String get gatewayQuotaRefresh => '自分の枠を更新';
 
   @override
-  String get gatewayShowPassword => 'パスワードを表示';
+  String get gatewayErrNotAuthenticated => 'セッションの有効期限が切れました。もう一度サインインしてください。';
 
   @override
-  String get gatewayHidePassword => 'パスワードを隠す';
+  String get gatewayErrAuthUnavailable =>
+      'サインインサービスが一時的に利用できません。しばらくしてから再試行してください。';
+
+  @override
+  String get gatewayErrLoginFailed => 'サインインを確認できませんでした。もう一度お試しください。';
+
+  @override
+  String get gatewayErrAccountNotLinked =>
+      'このサインインはアカウントに関連付けられていないか、アカウントが無効です。';
+
+  @override
+  String get gatewayErrPermissionDenied => 'このアカウントにはこの操作の権限がありません。';
+
+  @override
+  String get gatewayErrInvalidParameters =>
+      'リクエストが無効です。サイズ、ステップ数、サンプラーを確認してください。';
+
+  @override
+  String get gatewayErrPointsInsufficient => 'このリクエストに必要なポイントが不足しています。';
+
+  @override
+  String get gatewayErrQuoteChanged => '価格が変更されました。新しい価格を確認して再試行してください。';
+
+  @override
+  String get gatewayErrFreeAllowanceExhausted =>
+      '無料枠が一時的に使い切られており、このリクエストは有料ポイントが必要です。';
+
+  @override
+  String get gatewayErrQueueFull => '未完了のタスクが上限に達しています。完了を待ってから送信してください。';
+
+  @override
+  String get gatewayErrDuplicateRequest => 'このリクエストIDは別の内容で既に使われています。';
+
+  @override
+  String get gatewayErrRequestTooLarge => 'リクエストが大きすぎます。';
+
+  @override
+  String get gatewayErrUpstream =>
+      'NovelAI がリクエストを完了できませんでした。しばらくしてから再試行してください。';
+
+  @override
+  String get gatewayErrInterrupted => 'サーバーの再起動でタスクが中断され、予約ポイントは解放されました。';
+
+  @override
+  String get gatewayErrNotFound => 'リクエストされた項目が見つかりません。';
+
+  @override
+  String get gatewayErrTaskActive => 'この項目はまだキュー待ちまたは実行中です。';
+
+  @override
+  String get gatewayErrDuplicateGeneration => 'パラメーターが変わっていません。シードを確認してください。';
+
+  @override
+  String get gatewayErrRateLimited => 'リクエストが多すぎます。しばらく待ってから再試行してください。';
+
+  @override
+  String get gatewayErrServiceUnavailable =>
+      'サービスが一時的に利用できません。しばらくしてから再試行してください。';
+
+  @override
+  String get gatewayErrInternal => 'サーバーで問題が発生しました。しばらくしてから再試行してください。';
+
+  @override
+  String get gatewayErrNetwork => 'ネットワークエラーです。接続を確認して再試行してください。';
+
+  @override
+  String get gatewayErrTimeout => 'リクエストがタイムアウトしました。もう一度お試しください。';
+
+  @override
+  String get gatewayErrUnknown => 'リクエストに失敗しました。しばらくしてから再試行してください。';
+
+  @override
+  String get gatewayErrDirectAnlas => 'NovelAI アカウントの Anlas が不足しています。';
+
+  @override
+  String get gatewayErrDirectRateLimited =>
+      'NovelAI がリクエストを制限しています。しばらく待ってから再試行してください。';
+
+  @override
+  String get gatewayErrDirectForbidden => 'NovelAI がこのアカウントのリクエストを拒否しました。';
+
+  @override
+  String get gatewaySessionExpiredTitle => 'セッションの期限切れ';
+
+  @override
+  String get gatewaySessionExpiredBody =>
+      'サインインが終了しました。続行するには再度サインインしてください。それまでこのページの内容は失われません。';
+
+  @override
+  String get gatewaySessionExpiredConfirm => 'サインイン';
+
+  @override
+  String get gatewayAuthContinue => 'only WebAuth で続行';
+
+  @override
+  String get gatewayAuthRetry => '再試行';
+
+  @override
+  String get gatewayLoginOpenFailed => 'サインインページを開けませんでした。再読み込みして再試行してください。';
+
+  @override
+  String get gatewayLogoutFailed => 'サインアウトに失敗しました。まだサインインしています。もう一度お試しください。';
 
   @override
   String get settingsAutoSave => '画像の自動保存';
@@ -821,6 +907,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get feedbackUnavailable => '診断レポートは認証済み Web アプリでのみ利用できます。';
+
+  @override
+  String get feedbackInvalid => 'レポートが拒否されました。説明を短くして再試行してください。';
 
   @override
   String get helpTitle => 'NAIWeaver';

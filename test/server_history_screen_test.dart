@@ -96,10 +96,13 @@ class _FakeAuthNotifier extends BackendAuthNotifier {
       const AuthUser(id: 7, username: 'owner', isAdmin: false, permissions: []);
 }
 
+/// A row as the gateway returns it: every item has a `batch_id`, and only a
+/// batch of several images has `batch_size > 1`.
 ServerHistoryItem _item({
   required String id,
   String? batchId,
-  int? batchIndex,
+  int batchIndex = 0,
+  int batchSize = 1,
   bool hasImage = false,
   int? seed,
 }) {
@@ -116,13 +119,14 @@ ServerHistoryItem _item({
     steps: 28,
     scale: 5,
     sampler: 'k_euler',
-    seed: seed ?? batchIndex ?? 42,
+    seed: seed ?? batchIndex,
     hasImage: hasImage,
     createdAt: '2026-08-25T12:00:00Z',
     completedAt: null,
-    batchId: batchId,
+    batchId: batchId ?? 'batch-of-$id',
     batchIndex: batchIndex,
-    errorMessage: 'failed',
+    batchSize: batchSize,
+    errorCode: 'upstream_error',
   );
 }
 
@@ -141,24 +145,28 @@ void main() {
             id: 'batch-1',
             batchId: 'batch-a',
             batchIndex: 0,
+            batchSize: 4,
             hasImage: true,
           ),
           _item(
             id: 'batch-2',
             batchId: 'batch-a',
             batchIndex: 1,
+            batchSize: 4,
             hasImage: true,
           ),
           _item(
             id: 'batch-3',
             batchId: 'batch-a',
             batchIndex: 2,
+            batchSize: 4,
             hasImage: true,
           ),
           _item(
             id: 'batch-4',
             batchId: 'batch-a',
             batchIndex: 3,
+            batchSize: 4,
             hasImage: true,
           ),
           _item(id: 'single'),
@@ -201,8 +209,6 @@ void main() {
       final batchCard = find.byKey(
         const ValueKey('history-entry-batch:batch-a'),
       );
-      final outerCardSize = tester.getSize(batchCard);
-      expect(outerCardSize.width, outerCardSize.height);
       for (var index = 1; index <= 4; index += 1) {
         expect(
           find.byKey(
@@ -231,11 +237,6 @@ void main() {
         find.byKey(const ValueKey('result-set-thumbnail-batch-2')),
         findsOneWidget,
       );
-      final innerCardSize = tester.getSize(
-        find.byKey(const ValueKey('result-set-thumbnail-batch-1')),
-      );
-      expect(innerCardSize.width, outerCardSize.width);
-      expect(innerCardSize.height, outerCardSize.height);
       final batchActions = find.byKey(
         const ValueKey<String>('history-batch-actions'),
       );

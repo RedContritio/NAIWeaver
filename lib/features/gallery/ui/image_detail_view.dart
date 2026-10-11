@@ -20,6 +20,8 @@ import '../providers/gallery_notifier.dart';
 import '../../generation/providers/generation_notifier.dart';
 import '../../director_ref/providers/director_ref_notifier.dart';
 import '../../vibe_transfer/providers/vibe_transfer_notifier.dart';
+import '../../director_ref/widgets/reference_add_actions.dart'
+    show vibeEncodeErrorMessage;
 import '../../tools/img2img/providers/img2img_notifier.dart';
 import '../../tools/slideshow/models/slideshow_config.dart';
 import '../../tools/slideshow/providers/slideshow_notifier.dart';
@@ -1267,10 +1269,17 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                             final bytes = await item.file
                                                 .readAsBytes();
                                             if (!context.mounted) return;
-                                            await context
+                                            final id = await context
                                                 .read<DirectorRefNotifier>()
                                                 .addReference(bytes);
                                             if (!context.mounted) return;
+                                            if (id == null) {
+                                              showErrorSnackBar(
+                                                context,
+                                                context.l.refImageProcessFailed,
+                                              );
+                                              return;
+                                            }
                                             showAppSnackBar(
                                               context,
                                               context.l.galleryAddedAsCharRef,
@@ -1304,7 +1313,10 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                                 context,
                                                 context.l
                                                     .galleryVibeTransferFailed(
-                                                      e.toString(),
+                                                      vibeEncodeErrorMessage(
+                                                        context.l,
+                                                        e,
+                                                      ),
                                                     ),
                                               );
                                             }

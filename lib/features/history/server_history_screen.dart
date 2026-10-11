@@ -6,6 +6,7 @@ import 'package:archive/archive.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/gateway/backend_error_messages.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/services/backend_auth_api.dart';
 import '../../core/services/backend_history_api.dart';
@@ -44,7 +45,7 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
   int _pageIndex = 0;
   int _totalItems = 0;
   bool _loading = true;
-  String? _error;
+  Object? _error;
   Timer? _thumbnailPreloadTimer;
   int _gridColumns = 2;
   double _gridMainExtent = 260;
@@ -119,7 +120,7 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
       _lastPreloadEnd = -1;
     } catch (e) {
       if (loadGeneration != _loadGeneration) return;
-      _error = e.toString();
+      _error = e;
     } finally {
       if (mounted && loadGeneration == _loadGeneration) {
         setState(() => _loading = false);
@@ -263,7 +264,7 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            _error!,
+            backendErrorMessage(context.l, _error!),
             style: TextStyle(color: t.accentDanger, fontSize: t.fontSize(11)),
           ),
         ),
@@ -396,14 +397,11 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
     try {
       await _api.deleteHistoryItem(item.id);
       if (!mounted) return false;
-      String entryKey(ServerHistoryItem candidate) {
-        final batchId = candidate.batchId?.trim();
-        return batchId == null || batchId.isEmpty ? candidate.id : batchId;
-      }
-
-      final batchKey = entryKey(item);
+      final entryKey = _HistoryEntry.keyOf(item);
       final removesBatch =
-          _items.where((candidate) => entryKey(candidate) == batchKey).length ==
+          _items
+              .where((candidate) => _HistoryEntry.keyOf(candidate) == entryKey)
+              .length ==
           1;
       setState(() {
         _items = _items.where((candidate) => candidate.id != item.id).toList();
@@ -416,7 +414,10 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
       return true;
     } catch (e) {
       if (mounted) {
-        showErrorSnackBar(context, context.l.galleryExportFailed(e.toString()));
+        showErrorSnackBar(
+          context,
+          context.l.galleryExportFailed(backendErrorMessage(context.l, e)),
+        );
       }
       return false;
     }
@@ -537,7 +538,10 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
       }
     } catch (e) {
       if (mounted) {
-        showErrorSnackBar(context, context.l.galleryExportFailed(e.toString()));
+        showErrorSnackBar(
+          context,
+          context.l.galleryExportFailed(backendErrorMessage(context.l, e)),
+        );
       }
     }
   }
@@ -576,7 +580,10 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
       }
     } catch (e) {
       if (mounted) {
-        showErrorSnackBar(context, context.l.galleryExportFailed(e.toString()));
+        showErrorSnackBar(
+          context,
+          context.l.galleryExportFailed(backendErrorMessage(context.l, e)),
+        );
       }
     }
   }
@@ -609,7 +616,10 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
       return true;
     } catch (e) {
       if (mounted) {
-        showErrorSnackBar(context, context.l.galleryExportFailed(e.toString()));
+        showErrorSnackBar(
+          context,
+          context.l.galleryExportFailed(backendErrorMessage(context.l, e)),
+        );
       }
       return false;
     }
@@ -734,9 +744,15 @@ class _HistoryEntry {
   final String key;
   final List<ServerHistoryItem> items;
 
-  bool get isBatch {
-    final batchId = lead.batchId?.trim();
-    return batchId != null && batchId.isNotEmpty;
+  bool get isBatch => lead.isBatch;
+
+  /// Items of one multi-image batch share an entry; a single image (a batch
+  /// of one) is its own.
+  static String keyOf(ServerHistoryItem item) {
+    final batchId = item.batchId?.trim();
+    return item.isBatch && batchId != null && batchId.isNotEmpty
+        ? 'batch:$batchId'
+        : 'item:${item.id}';
   }
 
   ServerHistoryItem get lead => items.first;
@@ -747,10 +763,7 @@ class _HistoryEntry {
     final grouped = <String, List<ServerHistoryItem>>{};
     final keys = <String>[];
     for (final item in source) {
-      final batchId = item.batchId?.trim();
-      final key = batchId == null || batchId.isEmpty
-          ? 'item:${item.id}'
-          : 'batch:$batchId';
+      final key = keyOf(item);
       if (!grouped.containsKey(key)) keys.add(key);
       grouped.putIfAbsent(key, () => []).add(item);
     }
@@ -989,7 +1002,11 @@ class _HistoryResultSetDialogState extends State<_HistoryResultSetDialog> {
           isGenerating:
               _items[index].status == 'queued' ||
               _items[index].status == 'running',
-          errorMessage: _items[index].errorMessage,
+          errorMessage: taskItemFailureMessage(
+            context.l,
+            _items[index].status,
+            _items[index].errorCode,
+          ),
         ),
     ];
     final selectedItem = _items.singleWhere(

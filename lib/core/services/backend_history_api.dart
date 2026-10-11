@@ -3,16 +3,16 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
+import '../gateway/backend_exception.dart';
 import '../gateway/backend_gateway.dart';
 import 'backend_auth_api.dart';
+import 'backend_client.dart';
 
 class BackendHistoryApi {
-  BackendHistoryApi({Dio? dio}) : _dio = dio ?? Dio() {
-    _dio.options.connectTimeout = const Duration(seconds: 20);
-    _dio.options.receiveTimeout = const Duration(seconds: 30);
-  }
+  BackendHistoryApi({BackendClient? client})
+    : _client = client ?? BackendClient.shared;
 
-  final Dio _dio;
+  final BackendClient _client;
 
   Future<ServerHistoryPage> fetchHistoryPage({
     int limit = 20,
@@ -21,8 +21,8 @@ class BackendHistoryApi {
     bool allUsers = false,
     bool currentBatch = false,
   }) async {
-    final response = await _dio.get<dynamic>(
-      backendUrl('/api/history'),
+    final response = await _client.get<dynamic>(
+      '/api/history',
       queryParameters: {
         'limit': limit,
         'offset': offset,
@@ -69,7 +69,7 @@ class BackendHistoryApi {
   }
 
   Future<List<AuthUser>> fetchUsers() async {
-    final response = await _dio.get<dynamic>(backendUrl('/api/admin/users'));
+    final response = await _client.get<dynamic>('/api/admin/users');
     final data = response.data;
     final items = data is Map<String, dynamic>
         ? data['items'] as List<dynamic>? ?? const []
@@ -81,25 +81,23 @@ class BackendHistoryApi {
   }
 
   Future<void> deleteHistoryItem(String id) async {
-    await _dio.delete<dynamic>(backendUrl('/api/history/$id'));
+    await _client.delete<dynamic>('/api/history/$id');
   }
 
   Future<void> deleteHistoryBatch(String batchId) async {
-    await _dio.delete<dynamic>(backendUrl('/api/history/batches/$batchId'));
+    await _client.delete<dynamic>('/api/history/batches/$batchId');
   }
 
   Future<Uint8List> fetchImageBytes(String id) async {
-    final response = await _dio.get<List<int>>(
-      backendUrl('/api/history/$id/image'),
+    final response = await _client.get<List<int>>(
+      '/api/history/$id/image',
       options: Options(responseType: ResponseType.bytes),
     );
     return Uint8List.fromList(response.data ?? const <int>[]);
   }
 
   Future<ServerGenerationTask?> fetchCurrentTask() async {
-    final response = await _dio.get<dynamic>(
-      backendUrl('/api/current-generation-task'),
-    );
+    final response = await _client.get<dynamic>('/api/current-generation-task');
     final data = response.data;
     final task = data is Map<String, dynamic> ? data['task'] : null;
     return task is Map<String, dynamic>
@@ -108,12 +106,13 @@ class BackendHistoryApi {
   }
 
   Future<ServerGenerationTask> fetchGenerationTask(String id) async {
-    final response = await _dio.get<dynamic>(
-      backendUrl('/api/generation-tasks/$id'),
-    );
+    final response = await _client.get<dynamic>('/api/generation-tasks/$id');
     final data = response.data;
     if (data is! Map<String, dynamic>) {
-      throw const FormatException('Invalid generation task response');
+      throw const BackendException(
+        statusCode: null,
+        code: BackendErrorCode.invalidResponse,
+      );
     }
     return ServerGenerationTask.fromJson(data);
   }
@@ -181,7 +180,13 @@ class ServerHistoryItem {
   final String? completedAt;
   final String? batchId;
   final int? batchIndex;
-  final String? errorMessage;
+
+  /// Number of items in the batch; a single image is a batch of one.
+  final int batchSize;
+  final String? errorCode;
+
+  /// The settled charge in [mode]'s currency; 0 until the item succeeds.
+  final int pointsCharged;
   final Map<String, dynamic>? request;
 
   const ServerHistoryItem({
@@ -203,7 +208,9 @@ class ServerHistoryItem {
     required this.completedAt,
     this.batchId,
     this.batchIndex,
-    this.errorMessage,
+    this.batchSize = 1,
+    this.errorCode,
+    this.pointsCharged = 0,
     this.request,
   });
 
@@ -232,12 +239,14 @@ class ServerHistoryItem {
       scale: (json['scale'] as num?)?.toDouble() ?? 0,
       sampler: json['sampler'] as String? ?? '',
       seed: (json['seed'] as num?)?.toInt() ?? 0,
-      hasImage: json['image_path'] != null,
+      hasImage: json['has_image'] as bool? ?? false,
       createdAt: json['created_at'] as String? ?? '',
       completedAt: json['completed_at'] as String?,
       batchId: json['batch_id'] as String?,
       batchIndex: (json['batch_index'] as num?)?.toInt(),
-      errorMessage: json['error_message'] as String?,
+      batchSize: (json['batch_size'] as num?)?.toInt() ?? 1,
+      errorCode: json['error_code'] as String?,
+      pointsCharged: (json['points_charged'] as num?)?.toInt() ?? 0,
       request: request,
     );
   }
@@ -264,6 +273,8 @@ class ServerHistoryItem {
       if (request?['action'] != null) 'action': request!['action'],
     };
   }
+
+  bool get isBatch => batchSize > 1;
 
   String get imageUrl => backendUrl('/api/history/$id/image');
 

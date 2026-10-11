@@ -1,9 +1,11 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
+import 'package:naiweaver/core/gateway/backend_exception.dart';
 import 'package:naiweaver/core/services/novel_ai_service.dart';
 import 'package:naiweaver/core/services/path_service.dart';
 import 'package:naiweaver/core/services/reference_library_service.dart';
@@ -272,41 +274,52 @@ void main() {
 
   group('vibe encode errors', () {
     final l = AppLocalizationsEn();
-    GenerationRequestException http(int? status, [String code = '']) =>
-        GenerationRequestException(
-          statusCode: status,
-          code: code,
-          message: 'Generation request failed',
-        );
+    BackendException failure(String code, [int? status]) =>
+        BackendException(statusCode: status, code: code);
 
-    test('gateway failures map to readable categories', () {
+    test('gateway failures are told apart by their code', () {
       String message(Object error) =>
           vibeEncodeErrorMessage(l, error, gateway: true);
 
       expect(
-        message(http(409, 'points_insufficient')),
+        message(failure(BackendErrorCode.pointsInsufficient, 409)),
         l.refErrorPointsInsufficient,
       );
-      expect(message(http(409)), l.refErrorPointsInsufficient);
-      expect(message(http(403)), l.refVibeNoPermission);
-      expect(message(http(403, 'permission_denied')), l.refVibeNoPermission);
-      expect(message(UnauthorizedException()), l.refErrorSessionExpired);
-      expect(message(http(null)), l.refErrorNetwork);
-      expect(message(http(502)), l.refErrorServiceUnavailable);
+      expect(
+        message(const QuoteChangedException(statusCode: 409)),
+        l.gatewayErrQuoteChanged,
+      );
+      expect(
+        message(failure(BackendErrorCode.permissionDenied, 403)),
+        l.refVibeNoPermission,
+      );
+      expect(
+        message(failure(BackendErrorCode.notAuthenticated, 401)),
+        l.refErrorSessionExpired,
+      );
+      expect(
+        message(failure(BackendErrorCode.upstreamError, 502)),
+        l.refErrorServiceUnavailable,
+      );
+      expect(message(failure(BackendErrorCode.network)), l.refErrorNetwork);
       expect(
         message(Exception('DioException [bad response]: raw')),
         l.refVibeEncodeFailed,
       );
     });
 
-    test('direct NovelAI keeps the API-key hint for 401', () {
+    test('direct NovelAI keeps its own meaning for 401 and 402', () {
+      DioException status(int code) => DioException(
+        requestOptions: RequestOptions(),
+        response: Response(requestOptions: RequestOptions(), statusCode: code),
+      );
       expect(
         vibeEncodeErrorMessage(l, UnauthorizedException(), gateway: false),
         l.refApiKeyMissing,
       );
       expect(
-        vibeEncodeErrorMessage(l, http(402), gateway: false),
-        l.refErrorPointsInsufficient,
+        vibeEncodeErrorMessage(l, status(402), gateway: false),
+        l.gatewayErrDirectAnlas,
       );
     });
   });

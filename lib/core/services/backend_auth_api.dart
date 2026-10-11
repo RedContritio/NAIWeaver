@@ -1,64 +1,57 @@
 import 'package:dio/dio.dart';
 
-import '../gateway/backend_gateway.dart';
-
-class BackendAuthException implements Exception {
-  final int statusCode;
-  final String message;
-
-  const BackendAuthException(this.statusCode, this.message);
-
-  @override
-  String toString() => message;
-}
+import '../gateway/backend_exception.dart';
+import '../gateway/backend_rules.dart';
+import 'backend_client.dart';
 
 class BackendAuthApi {
-  BackendAuthApi({Dio? dio}) : _dio = dio ?? Dio() {
-    _dio.options.connectTimeout = const Duration(seconds: 20);
-    _dio.options.receiveTimeout = const Duration(seconds: 30);
-  }
+  BackendAuthApi({BackendClient? client})
+    : _client = client ?? BackendClient.shared;
 
-  final Dio _dio;
+  final BackendClient _client;
 
+  /// Ends the gateway session. A 401 means there was none left to end.
   Future<void> logout() async {
-    await _json('POST', '/api/logout', body: <String, dynamic>{});
+    try {
+      await _client.post<dynamic>(
+        '/api/logout',
+        data: const <String, dynamic>{},
+        options: _ownsAuthFailure,
+      );
+    } on BackendException catch (error) {
+      if (!error.isNotAuthenticated) rethrow;
+    }
   }
 
+  /// The signed-in user. A 401 `not_authenticated` is thrown to the caller
+  /// without raising the session-expired flow: the caller decides.
   Future<AuthPayload> me() async {
-    final data = await _json('GET', '/api/me');
+    final response = await _client.get<dynamic>(
+      '/api/me',
+      options: _ownsAuthFailure,
+    );
+    final data = response.data;
+    if (data is! Map<String, dynamic> ||
+        data['user'] is! Map<String, dynamic>) {
+      throw const BackendException(
+        statusCode: null,
+        code: BackendErrorCode.invalidResponse,
+      );
+    }
     return AuthPayload.fromJson(data);
   }
 
-  Future<Map<String, dynamic>> _json(
-    String method,
-    String path, {
-    Map<String, dynamic>? body,
-  }) async {
-    try {
-      final response = await _dio.request<dynamic>(
-        backendUrl(path),
-        data: body,
-        options: Options(method: method, responseType: ResponseType.json),
-      );
-      final data = response.data;
-      if (data is Map<String, dynamic>) return data;
-      throw const BackendAuthException(502, 'Invalid server response');
-    } on DioException catch (e) {
-      final data = e.response?.data;
-      var message = e.message ?? 'Request failed';
-      if (data is Map && data['detail'] != null) {
-        message = data['detail'].toString();
-      }
-      throw BackendAuthException(e.response?.statusCode ?? 0, message);
-    }
-  }
+  static final _ownsAuthFailure = Options(
+    extra: {backendSkipAuthCallbackKey: true},
+  );
 }
 
 class AuthPayload {
   final AuthUser user;
   final BackendQuota? quota;
+  final ImageRules? rules;
 
-  const AuthPayload({required this.user, this.quota});
+  const AuthPayload({required this.user, this.quota, this.rules});
 
   factory AuthPayload.fromJson(Map<String, dynamic> json) {
     return AuthPayload(
@@ -66,6 +59,7 @@ class AuthPayload {
       quota: json['quota'] is Map<String, dynamic>
           ? BackendQuota.fromJson(json['quota'] as Map<String, dynamic>)
           : null,
+      rules: ImageRules.tryParse(json['rules']),
     );
   }
 }
