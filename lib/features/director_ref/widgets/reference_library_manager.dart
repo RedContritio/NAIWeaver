@@ -334,7 +334,7 @@ class _SavedEntryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.t;
     final l = context.l;
-    final thumbSize = isMobile(context) ? 48.0 : 56.0;
+    final thumbSize = windowSizeClassOf(context).isTouchSized ? 48.0 : 56.0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),

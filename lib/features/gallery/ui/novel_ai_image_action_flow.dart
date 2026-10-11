@@ -3,11 +3,15 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import 'package:provider/provider.dart';
+
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/services/novel_ai_image_action_service.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../../core/utils/app_snackbar.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../generation/providers/generation_notifier.dart';
+import '../services/tool_result_saver.dart';
 
 String novelAiImageActionBlockerMessage(
   AppLocalizations l,
@@ -16,6 +20,28 @@ String novelAiImageActionBlockerMessage(
   NovelAiImageActionBlocker.permissionDenied => l.naiActionNotPermitted,
   NovelAiImageActionBlocker.missingApiKey => l.naiApiKeyRequired,
 };
+
+/// Whether the UI should offer the NAI [action] at all.
+///
+/// The single visibility rule for the quick actions, the detail view and the
+/// gallery's bulk bar: an action is offered unless the service says the
+/// account lacks the permission. A missing API key keeps it visible, because
+/// tapping it then explains what to configure.
+bool isNovelAiImageActionOffered(
+  BuildContext context,
+  NovelAiImageAction action,
+) {
+  final gen = context.read<GenerationNotifier>();
+  final service = NovelAiImageActionService(
+    gen.service,
+    saver: ToolResultSaver.of(context),
+  );
+  return service.blocker(
+        apiKey: gen.state.apiKey,
+        permissionGranted: hasNovelAiImageActionPermission(context, action),
+      ) !=
+      NovelAiImageActionBlocker.permissionDenied;
+}
 
 /// Runs paid NAI image actions on behalf of one widget.
 ///

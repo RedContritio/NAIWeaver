@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/vision_metrics.dart';
 import '../models/director_reference.dart';
 
 class DirectorRefChip extends StatelessWidget {
@@ -54,41 +55,46 @@ class DirectorRefChip extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         onLongPress: onLongPress,
-        child: Opacity(
-          opacity: disabled ? 0.4 : 1.0,
-          child: Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: border, width: 1.5),
-              image: DecorationImage(
-                image: MemoryImage(reference.originalImageBytes),
-                fit: BoxFit.cover,
-                filterQuality: FilterQuality.medium,
-                colorFilter: disabled
-                    ? const ColorFilter.mode(Colors.grey, BlendMode.saturation)
-                    : null,
-              ),
-            ),
-            child: Align(
-              alignment: Alignment.bottomRight,
+        child: SizedBox(
+          height: context.hitSize,
+          child: Center(
+            child: Opacity(
+              opacity: disabled ? VisionMetrics.opacityDisabled : 1.0,
               child: Container(
-                padding: const EdgeInsets.all(1),
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
-                  color: t.background.withValues(alpha: 0.7),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(3),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: border, width: 1.5),
+                  image: DecorationImage(
+                    image: MemoryImage(reference.originalImageBytes),
+                    fit: BoxFit.cover,
+                    filterQuality: FilterQuality.medium,
+                    colorFilter: disabled
+                        ? ColorFilter.mode(t.textDisabled, BlendMode.saturation)
+                        : null,
                   ),
                 ),
-                child: Icon(
-                  paused
-                      ? Icons.pause_circle_outline
-                      : disabled
-                      ? Icons.visibility_off
-                      : _typeIcon,
-                  size: 10,
-                  color: border,
+                child: Align(
+                  alignment: Alignment.bottomRight,
+                  child: Container(
+                    padding: const EdgeInsets.all(1),
+                    decoration: BoxDecoration(
+                      color: t.background.withValues(alpha: 0.7),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(3),
+                      ),
+                    ),
+                    child: Icon(
+                      paused
+                          ? Icons.pause_circle_outline
+                          : disabled
+                          ? Icons.visibility_off
+                          : _typeIcon,
+                      size: 10,
+                      color: border,
+                    ),
+                  ),
                 ),
               ),
             ),

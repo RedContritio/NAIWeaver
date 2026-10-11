@@ -1,13 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/gateway/backend_gateway.dart';
 import '../../../core/gateway/backend_permissions.dart';
+import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/vision_metrics.dart';
 import '../../../core/theme/vision_tokens.dart';
 import '../../../core/utils/app_snackbar.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/utils/tag_suggestion_helper.dart';
 import '../../../core/widgets/color_picker_dialog.dart';
 import '../../../core/widgets/confirm_dialog.dart';
 import '../../../core/widgets/browser_native_selectable_text.dart';
+import '../../../core/widgets/section_title.dart';
+import '../../../core/widgets/ui/app_panel.dart';
+import '../../../core/widgets/ui/app_pill.dart';
+import '../../../core/widgets/ui/app_states.dart';
+import '../../../core/widgets/ui/app_tone.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../generation/providers/generation_notifier.dart';
 import '../../text_gen/providers/text_gen_notifier.dart';
 import '../gen/providers/character_gen_notifier.dart';
@@ -42,7 +52,8 @@ class _CharactersPageState extends State<CharactersPage> {
   Widget build(BuildContext context) {
     final t = context.t;
     final lib = context.watch<CharacterLibraryNotifier>();
-    final mobile = isMobile(context);
+    final sizeClass = windowSizeClassOf(context);
+    final touch = sizeClass.isTouchSized;
 
     final filtered = lib.characters
         .where(
@@ -55,10 +66,10 @@ class _CharactersPageState extends State<CharactersPage> {
         ? null
         : lib.characterById(_selectedId!);
 
-    if (mobile) {
-      // On mobile: list, then editor pushed.
+    if (touch) {
+      // On touch-sized windows: list, then editor pushed.
       if (selected == null) {
-        return _buildListPane(context, t, lib, filtered, isMobile: true);
+        return _buildListPane(context, t, lib, filtered, touch: true);
       }
       return PopScope(
         canPop: false,
@@ -76,20 +87,19 @@ class _CharactersPageState extends State<CharactersPage> {
     return Row(
       children: [
         SizedBox(
-          width: 260,
-          child: _buildListPane(context, t, lib, filtered, isMobile: false),
+          width: switch (sizeClass) {
+            WindowSizeClass.xlarge => 340.0,
+            WindowSizeClass.large => 300.0,
+            _ => 260.0,
+          },
+          child: _buildListPane(context, t, lib, filtered, touch: false),
         ),
         VerticalDivider(width: 1, color: t.borderMedium),
         Expanded(
           child: selected == null
-              ? Center(
-                  child: Text(
-                    'Select or create a character',
-                    style: TextStyle(
-                      color: t.textTertiary,
-                      fontSize: t.fontSize(12),
-                    ),
-                  ),
+              ? EmptyState(
+                  icon: Icons.person_outline,
+                  message: context.l.charsSelectOrCreate,
                 )
               : _CharacterEditor(
                   key: ValueKey(selected.id),
@@ -108,7 +118,7 @@ class _CharactersPageState extends State<CharactersPage> {
     final notifier = context.read<CharacterGenNotifier>();
     if (id != null) {
       if (mounted) setState(() => _selectedId = id);
-      showAppSnackBar(context, 'Character generated'.toUpperCase());
+      showAppSnackBar(context, context.l.charsGenerated);
     } else if (notifier.lastError != null) {
       showErrorSnackBar(context, notifier.lastError!);
     }
@@ -119,16 +129,24 @@ class _CharactersPageState extends State<CharactersPage> {
     VisionTokens t,
     CharacterLibraryNotifier lib,
     List<SavedCharacter> filtered, {
-    required bool isMobile,
+    required bool touch,
   }) {
-    final rowVerticalPad = isMobile ? 14.0 : 10.0;
-    final rowHorizontalPad = isMobile ? 14.0 : 12.0;
+    final l = context.l;
+    final rowVerticalPad = touch ? VisionMetrics.space12 : VisionMetrics.space8;
+    final rowHorizontalPad = touch
+        ? VisionMetrics.space16
+        : VisionMetrics.space12;
     return Container(
       color: t.surfaceMid,
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
+            padding: const EdgeInsets.fromLTRB(
+              VisionMetrics.space8,
+              VisionMetrics.space8,
+              VisionMetrics.space8,
+              VisionMetrics.space4,
+            ),
             child: Row(
               children: [
                 Expanded(
@@ -139,7 +157,7 @@ class _CharactersPageState extends State<CharactersPage> {
                       fontSize: t.fontSize(12),
                     ),
                     decoration: InputDecoration(
-                      hintText: 'Search…',
+                      hintText: l.charsSearchHint,
                       hintStyle: TextStyle(
                         color: t.textMinimal,
                         fontSize: t.fontSize(10),
@@ -147,10 +165,12 @@ class _CharactersPageState extends State<CharactersPage> {
                       isDense: true,
                       prefixIcon: Icon(
                         Icons.search,
-                        size: 16,
+                        size: VisionMetrics.iconMedium,
                         color: t.textMinimal,
                       ),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: VisionMetrics.space8,
+                      ),
                       enabledBorder: OutlineInputBorder(
                         borderSide: BorderSide(color: t.borderSubtle),
                         borderRadius: BorderRadius.circular(4),
@@ -158,33 +178,35 @@ class _CharactersPageState extends State<CharactersPage> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: VisionMetrics.space4),
                 Builder(
                   builder: (ctx) {
-                    final canGen =
-                        ctx.watch<CharacterGenNotifier>().hasService &&
-                        hasBackendPermission(
-                          ctx,
-                          BackendPermission.textGenerate,
-                        );
+                    final blocker = _textGenBlocker(
+                      ctx,
+                      hasService: ctx.watch<CharacterGenNotifier>().hasService,
+                    );
+                    final canGen = blocker == null;
                     return IconButton(
-                      tooltip: canGen
-                          ? 'Generate a character'
-                          : 'Requires text generation (set an API key first)',
+                      tooltip: canGen ? l.charsGenerateTooltip : blocker,
                       icon: Icon(
                         Icons.auto_awesome,
                         color: canGen ? t.accent : t.textMinimal,
-                        size: 18,
+                        size: VisionMetrics.iconMedium,
                       ),
                       onPressed: canGen ? () => _generateCharacter(ctx) : null,
                     );
                   },
                 ),
                 IconButton(
-                  tooltip: 'New character',
-                  icon: Icon(Icons.add, color: t.accent, size: 20),
+                  tooltip: l.charsNew,
+                  icon: Icon(
+                    Icons.add,
+                    color: t.accent,
+                    size: VisionMetrics.iconMedium,
+                  ),
                   onPressed: () async {
-                    final c = await lib.createCharacter('New Character');
+                    final c = await lib.createCharacter(l.charsNewDefaultName);
+                    if (!mounted) return;
                     setState(() => _selectedId = c.id);
                   },
                 ),
@@ -193,15 +215,7 @@ class _CharactersPageState extends State<CharactersPage> {
           ),
           Expanded(
             child: filtered.isEmpty
-                ? Center(
-                    child: Text(
-                      'No characters yet',
-                      style: TextStyle(
-                        color: t.textMinimal,
-                        fontSize: t.fontSize(10),
-                      ),
-                    ),
-                  )
+                ? EmptyState(message: l.charsEmptyList)
                 : ListView.builder(
                     itemCount: filtered.length,
                     itemBuilder: (_, i) {
@@ -241,10 +255,12 @@ class _CharactersPageState extends State<CharactersPage> {
                                 height: 10,
                                 decoration: BoxDecoration(
                                   color: swatch,
-                                  borderRadius: BorderRadius.circular(2),
+                                  borderRadius: BorderRadius.circular(
+                                    VisionMetrics.radius2,
+                                  ),
                                 ),
                               ),
-                              const SizedBox(width: 10),
+                              const SizedBox(width: VisionMetrics.space12),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -254,14 +270,14 @@ class _CharactersPageState extends State<CharactersPage> {
                                         Expanded(
                                           child: Text(
                                             c.name.isEmpty
-                                                ? '(unnamed)'
+                                                ? l.charsUnnamed
                                                 : c.name,
                                             style: TextStyle(
                                               color: isSel
                                                   ? t.textPrimary
                                                   : t.textSecondary,
                                               fontSize: t.fontSize(
-                                                isMobile ? 13 : 12,
+                                                touch ? 13 : 12,
                                               ),
                                               fontWeight: isSel
                                                   ? FontWeight.bold
@@ -271,27 +287,12 @@ class _CharactersPageState extends State<CharactersPage> {
                                           ),
                                         ),
                                         if (outfitCount > 0) ...[
-                                          const SizedBox(width: 6),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 5,
-                                              vertical: 1,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: t.background.withValues(
-                                                alpha: 0.4,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            child: Text(
-                                              '$outfitCount',
-                                              style: TextStyle(
-                                                color: t.textMinimal,
-                                                fontSize: t.fontSize(8),
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
+                                          const SizedBox(
+                                            width: VisionMetrics.space8,
+                                          ),
+                                          AppPill(
+                                            text: '$outfitCount',
+                                            dense: true,
                                           ),
                                         ],
                                       ],
@@ -310,14 +311,15 @@ class _CharactersPageState extends State<CharactersPage> {
                                             ),
                                           ),
                                           if (primaryDishevelled) ...[
-                                            const SizedBox(width: 6),
+                                            const SizedBox(
+                                              width: VisionMetrics.space8,
+                                            ),
                                             Container(
                                               width: 6,
                                               height: 6,
                                               decoration: BoxDecoration(
                                                 color: t.accentDanger,
-                                                borderRadius:
-                                                    BorderRadius.circular(3),
+                                                shape: BoxShape.circle,
                                               ),
                                             ),
                                           ],
@@ -349,6 +351,37 @@ Color? _parseHex(String hex) {
 
 String _toHex(Color c) =>
     '#${c.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
+
+/// Why text generation cannot be used right now, or null when it can.
+///
+/// Behind the gateway the cause is the account's `text.generate` permission
+/// (there is no API key to set); with a direct connection it is the missing
+/// key. [wardrobe] picks the wording that names the Text Gen settings.
+String? _textGenBlocker(
+  BuildContext context, {
+  required bool hasService,
+  bool wardrobe = false,
+}) {
+  final l = context.l;
+  final permitted = hasBackendPermission(
+    context,
+    BackendPermission.textGenerate,
+  );
+  if (!permitted || (!hasService && useBackendGateway)) {
+    return l.charsTextGenNoPermission;
+  }
+  if (!hasService) {
+    return wardrobe ? l.charsTextGenNeedsKeyWardrobe : l.charsTextGenNeedsKey;
+  }
+  return null;
+}
+
+String _genderLabel(AppLocalizations l, String gender) => switch (gender) {
+  'female' => l.charsGenderFemale,
+  'male' => l.charsGenderMale,
+  'nonbinary' => l.charsGenderNonbinary,
+  _ => l.charsGenderUnspecified,
+};
 
 class _CharacterEditor extends StatefulWidget {
   final SavedCharacter character;
@@ -460,7 +493,21 @@ class _CharacterEditorState extends State<_CharacterEditor> {
     await lib.updateCharacter(_collect());
   }
 
-  void _applyToPrompt(String tags, bool dishevelled) {
+  /// The one place this page inserts a character/outfit into the generation
+  /// prompt (WEAR and the outfit-state panel both end up here).
+  ///
+  /// It inserts [tags] at the prompt cursor and routes the character's and
+  /// [outfit]'s negative tags to the negative prompt, the way the autocomplete
+  /// and photoshoot SEND paths do. Unlike the autocomplete path it does not
+  /// yet honour the `charInsertTarget` setting (add as a character card):
+  /// that needs a unified insert entry point on GenerationNotifier, which
+  /// should replace the body of this method.
+  void _insertIntoPrompt(
+    SavedCharacter character,
+    ClosetOutfit outfit,
+    String tags,
+    bool dishevelled,
+  ) {
     if (tags.trim().isEmpty) return;
     final gen = context.read<GenerationNotifier>();
     final ctrl = gen.promptController;
@@ -478,12 +525,20 @@ class _CharacterEditorState extends State<_CharacterEditor> {
       text: newBefore + after,
       selection: TextSelection.collapsed(offset: newBefore.length),
     );
-    showAppSnackBar(context, 'Added to prompt'.toUpperCase());
+    TagSuggestionHelper.appendNegatives(
+      gen.negativePromptController,
+      context.read<CharacterLibraryNotifier>().negativeExpansionFor(
+        character,
+        outfit,
+      ),
+    );
+    showAppSnackBar(context, context.l.charsAddedToPrompt);
   }
 
   @override
   Widget build(BuildContext context) {
     final t = context.t;
+    final l = context.l;
     final lib = context.watch<CharacterLibraryNotifier>();
     final c = lib.characterById(widget.character.id) ?? widget.character;
     final closet = lib.closetFor(c.id);
@@ -499,14 +554,18 @@ class _CharacterEditorState extends State<_CharacterEditor> {
       children: [
         Container(
           color: t.surfaceHigh,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(
+            horizontal: VisionMetrics.space12,
+            vertical: VisionMetrics.space8,
+          ),
           child: Row(
             children: [
               if (widget.onBack != null)
                 IconButton(
+                  tooltip: MaterialLocalizations.of(context).backButtonTooltip,
                   icon: Icon(
                     Icons.arrow_back,
-                    size: 18,
+                    size: VisionMetrics.iconMedium,
                     color: t.textSecondary,
                   ),
                   onPressed: widget.onBack,
@@ -521,17 +580,17 @@ class _CharacterEditorState extends State<_CharacterEditor> {
                   ),
                   decoration: InputDecoration(
                     border: InputBorder.none,
-                    hintText: 'Character name',
+                    hintText: l.charsNamePlaceholder,
                     hintStyle: TextStyle(color: t.textMinimal),
                   ),
                   onSubmitted: (_) => _save(lib),
                 ),
               ),
               IconButton(
-                tooltip: 'Photoshoot',
+                tooltip: l.charsPhotoshoot,
                 icon: Icon(
                   Icons.photo_camera_outlined,
-                  size: 18,
+                  size: VisionMetrics.iconMedium,
                   color: t.accent,
                 ),
                 onPressed: lib.primaryOutfitFor(c.id) == null
@@ -552,23 +611,28 @@ class _CharacterEditorState extends State<_CharacterEditor> {
                       },
               ),
               IconButton(
-                tooltip: 'Save',
-                icon: Icon(Icons.save_outlined, size: 18, color: t.accent),
+                tooltip: l.commonSave,
+                icon: Icon(
+                  Icons.save_outlined,
+                  size: VisionMetrics.iconMedium,
+                  color: t.accent,
+                ),
                 onPressed: () => _save(lib),
               ),
               IconButton(
-                tooltip: 'Delete character',
+                tooltip: l.charsDelete,
                 icon: Icon(
                   Icons.delete_outline,
-                  size: 18,
+                  size: VisionMetrics.iconMedium,
                   color: t.accentDanger,
                 ),
                 onPressed: () async {
                   final ok = await showConfirmDialog(
                     context,
-                    title: 'Delete character',
-                    message: 'Delete "${c.name}" and its wardrobe?',
-                    confirmLabel: 'Delete',
+                    title: l.charsDelete,
+                    message: l.charsDeleteMessage(c.name),
+                    confirmLabel: l.commonDelete,
+                    cancelLabel: l.commonCancel,
                     confirmColor: t.accentDanger,
                   );
                   if (ok == true && mounted) {
@@ -582,14 +646,14 @@ class _CharacterEditorState extends State<_CharacterEditor> {
         ),
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(VisionMetrics.space16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Text(
-                      'GENDER',
+                      l.charsGender.toUpperCase(),
                       style: TextStyle(
                         color: t.textTertiary,
                         fontSize: t.fontSize(8),
@@ -611,7 +675,7 @@ class _CharacterEditorState extends State<_CharacterEditor> {
                           DropdownMenuItem(
                             value: g,
                             child: Text(
-                              g.isEmpty ? '(unspecified)' : g,
+                              _genderLabel(l, g),
                               style: TextStyle(fontSize: t.fontSize(11)),
                             ),
                           ),
@@ -621,56 +685,50 @@ class _CharacterEditorState extends State<_CharacterEditor> {
                     ..._themeSwatches(t, c, lib),
                   ],
                 ),
-                const SizedBox(height: 14),
-                Text(
-                  'IDENTITY TAGS — no clothing here',
-                  style: TextStyle(
-                    color: t.textTertiary,
-                    fontSize: t.fontSize(8),
-                    letterSpacing: 1.5,
-                    fontWeight: FontWeight.bold,
-                  ),
+                const SizedBox(height: VisionMetrics.space16),
+                SectionTitle(
+                  l.charsIdentityTags.toUpperCase(),
+                  t: t,
+                  variant: SectionTitleVariant.compact,
                 ),
-                const SizedBox(height: 8),
                 TagTextField(
                   controller: _base,
-                  label: 'base — 1girl/1boy, ethnicity, age, permanent marks',
+                  label: l.charsBaseLabel,
                   minLines: 1,
                   maxLines: 3,
                 ),
                 const SizedBox(height: 10),
                 TagTextField(
                   controller: _face,
-                  label: 'face — eye colour/shape, brows, nose, lips',
+                  label: l.charsFaceLabel,
                   minLines: 1,
                   maxLines: 2,
                 ),
                 const SizedBox(height: 10),
                 TagTextField(
                   controller: _hair,
-                  label: 'hair — colour, length, style, texture',
+                  label: l.charsHairLabel,
                   minLines: 1,
                   maxLines: 2,
                 ),
                 const SizedBox(height: 10),
                 TagTextField(
                   controller: _body,
-                  label: 'body — build, proportions, chest',
+                  label: l.charsBodyLabel,
                   minLines: 1,
                   maxLines: 2,
                 ),
                 const SizedBox(height: 10),
                 TagTextField(
                   controller: _negativeTags,
-                  label:
-                      'negative — injected into the UC when this character is used',
+                  label: l.charsNegativeLabel,
                   minLines: 1,
                   maxLines: 2,
                 ),
                 const SizedBox(height: 10),
                 _expander(
                   t,
-                  'NSFW sub-buckets (optional)',
+                  l.charsNsfwSection,
                   _showNsfw,
                   () => setState(() => _showNsfw = !_showNsfw),
                 ),
@@ -678,21 +736,21 @@ class _CharacterEditorState extends State<_CharacterEditor> {
                   const SizedBox(height: 8),
                   TagTextField(
                     controller: _nsfwTop,
-                    label: 'nsfw top',
+                    label: l.charsNsfwTop,
                     minLines: 1,
                     maxLines: 2,
                   ),
                   const SizedBox(height: 8),
                   TagTextField(
                     controller: _nsfwBottom,
-                    label: 'nsfw bottom',
+                    label: l.charsNsfwBottom,
                     minLines: 1,
                     maxLines: 2,
                   ),
                   const SizedBox(height: 8),
                   TagTextField(
                     controller: _nsfwAlways,
-                    label: 'nsfw always',
+                    label: l.charsNsfwAlways,
                     minLines: 1,
                     maxLines: 2,
                   ),
@@ -700,7 +758,7 @@ class _CharacterEditorState extends State<_CharacterEditor> {
                 const SizedBox(height: 10),
                 _expander(
                   t,
-                  'Style identity & description (optional)',
+                  l.charsStyleSection,
                   _showStyle,
                   () => setState(() => _showStyle = !_showStyle),
                 ),
@@ -708,21 +766,21 @@ class _CharacterEditorState extends State<_CharacterEditor> {
                   const SizedBox(height: 8),
                   TagTextField(
                     controller: _artist,
-                    label: 'artist tag',
+                    label: l.charsArtistTag,
                     minLines: 1,
                     maxLines: 1,
                   ),
                   const SizedBox(height: 8),
                   TagTextField(
                     controller: _stylePrefix,
-                    label: 'style prefix',
+                    label: l.charsStylePrefix,
                     minLines: 1,
                     maxLines: 1,
                   ),
                   const SizedBox(height: 8),
                   _plainField(
                     t,
-                    'character description (natural language; not used by NAI image gen)',
+                    l.charsDescriptionLabel,
                     _description,
                     maxLines: 3,
                   ),
@@ -730,7 +788,7 @@ class _CharacterEditorState extends State<_CharacterEditor> {
                 const SizedBox(height: 10),
                 _expander(
                   t,
-                  'Personality / soul (optional)',
+                  l.charsSoulSection,
                   _showSoul,
                   () => setState(() => _showSoul = !_showSoul),
                 ),
@@ -748,67 +806,63 @@ class _CharacterEditorState extends State<_CharacterEditor> {
                         ),
                       ),
                     ),
-                  _plainField(
-                    t,
-                    'soul — long-form personality doc (not used by image gen)',
-                    _soul,
-                    maxLines: 14,
-                  ),
+                  _plainField(t, l.charsSoulLabel, _soul, maxLines: 14),
                 ],
                 const SizedBox(height: 14),
-                Container(
+                SizedBox(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: t.surfaceMid,
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: t.borderSubtle),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'COMBINED TAGS (preview — body + primary outfit)',
-                        style: TextStyle(
-                          color: t.textTertiary,
-                          fontSize: t.fontSize(8),
-                          letterSpacing: 1.5,
+                  child: AppPanel(
+                    variant: AppPanelVariant.inset,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l.charsCombinedTags.toUpperCase(),
+                          style: TextStyle(
+                            color: t.textTertiary,
+                            fontSize: t.fontSize(8),
+                            letterSpacing: 1.5,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      BrowserNativeSelectableText(
-                        text: combined.isEmpty ? '(empty)' : combined,
-                        style: TextStyle(
-                          color: t.textPrimary,
-                          fontSize: t.fontSize(11),
+                        const SizedBox(height: 4),
+                        BrowserNativeSelectableText(
+                          text: combined.isEmpty ? l.charsEmptyValue : combined,
+                          style: TextStyle(
+                            color: t.textPrimary,
+                            fontSize: t.fontSize(11),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: VisionMetrics.space16),
                 _WardrobeSection(
                   characterId: c.id,
                   selectedOutfitId: _selectedOutfitId,
                   onSelectOutfit: (id) =>
                       setState(() => _selectedOutfitId = id),
-                  onApplyToPrompt: _applyToPrompt,
+                  onApplyToPrompt: (outfit, tags, dishevelled) =>
+                      _insertIntoPrompt(c, outfit, tags, dishevelled),
                 ),
                 if (selectedOutfit != null) ...[
-                  const SizedBox(height: 16),
-                  Container(
+                  const SizedBox(height: VisionMetrics.space16),
+                  SizedBox(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: t.surfaceMid,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: t.borderSubtle),
-                    ),
-                    child: OutfitStatePanel(
-                      key: ValueKey('state_${selectedOutfit.id}'),
-                      outfit: selectedOutfit,
-                      onChanged: (updated) => lib.updateOutfit(c.id, updated),
-                      onApplyToPrompt: _applyToPrompt,
+                    child: AppPanel(
+                      variant: AppPanelVariant.inset,
+                      child: OutfitStatePanel(
+                        key: ValueKey('state_${selectedOutfit.id}'),
+                        outfit: selectedOutfit,
+                        onChanged: (updated) => lib.updateOutfit(c.id, updated),
+                        onApplyToPrompt: (tags, dishevelled) =>
+                            _insertIntoPrompt(
+                              c,
+                              selectedOutfit,
+                              tags,
+                              dishevelled,
+                            ),
+                      ),
                     ),
                   ),
                 ],
@@ -825,13 +879,15 @@ class _CharacterEditorState extends State<_CharacterEditor> {
     SavedCharacter c,
     CharacterLibraryNotifier lib,
   ) {
+    final l = context.l;
     Widget swatch(String label, String? hex, void Function(String?) set) {
       final col = hex != null ? _parseHex(hex) : null;
       return Padding(
-        padding: const EdgeInsets.only(left: 6),
+        padding: const EdgeInsets.only(left: VisionMetrics.space4),
         child: Tooltip(
           message: label,
           child: InkWell(
+            borderRadius: VisionMetrics.borderRadius4,
             onTap: () async {
               final picked = await ColorPickerDialog.show(
                 context,
@@ -843,17 +899,27 @@ class _CharacterEditorState extends State<_CharacterEditor> {
               }
             },
             onLongPress: () => set(null),
-            child: Container(
-              width: 18,
-              height: 18,
-              decoration: BoxDecoration(
-                color: col ?? Colors.transparent,
-                borderRadius: BorderRadius.circular(3),
-                border: Border.all(color: t.borderMedium),
+            child: SizedBox(
+              width: context.hitSize,
+              height: context.hitSize,
+              child: Center(
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: col ?? Colors.transparent,
+                    borderRadius: VisionMetrics.borderRadius4,
+                    border: Border.all(color: t.borderMedium),
+                  ),
+                  child: col == null
+                      ? Icon(
+                          Icons.add,
+                          size: VisionMetrics.iconSmall,
+                          color: t.textMinimal,
+                        )
+                      : null,
+                ),
               ),
-              child: col == null
-                  ? Icon(Icons.add, size: 12, color: t.textMinimal)
-                  : null,
             ),
           ),
         ),
@@ -862,7 +928,7 @@ class _CharacterEditorState extends State<_CharacterEditor> {
 
     return [
       Text(
-        'TINT',
+        l.charsTint.toUpperCase(),
         style: TextStyle(
           color: t.textTertiary,
           fontSize: t.fontSize(8),
@@ -870,17 +936,17 @@ class _CharacterEditorState extends State<_CharacterEditor> {
         ),
       ),
       swatch(
-        'accent',
+        l.charsTintAccent,
         c.themeAccent,
         (h) => lib.updateCharacter(c.copyWith(themeAccent: h)),
       ),
       swatch(
-        'accent 2',
+        l.charsTintAccent2,
         c.themeAccentSecondary,
         (h) => lib.updateCharacter(c.copyWith(themeAccentSecondary: h)),
       ),
       swatch(
-        'bg',
+        l.charsTintBg,
         c.themeBg,
         (h) => lib.updateCharacter(c.copyWith(themeBg: h)),
       ),
@@ -895,13 +961,13 @@ class _CharacterEditorState extends State<_CharacterEditor> {
   ) {
     return InkWell(
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: context.hitSize),
         child: Row(
           children: [
             Icon(
               open ? Icons.expand_less : Icons.expand_more,
-              size: 16,
+              size: VisionMetrics.iconMedium,
               color: t.textTertiary,
             ),
             const SizedBox(width: 4),
@@ -968,7 +1034,8 @@ class _WardrobeSection extends StatefulWidget {
   final String characterId;
   final String? selectedOutfitId;
   final ValueChanged<String?> onSelectOutfit;
-  final void Function(String tags, bool dishevelled) onApplyToPrompt;
+  final void Function(ClosetOutfit outfit, String tags, bool dishevelled)
+  onApplyToPrompt;
 
   const _WardrobeSection({
     required this.characterId,
@@ -982,6 +1049,11 @@ class _WardrobeSection extends StatefulWidget {
 }
 
 class _WardrobeSectionState extends State<_WardrobeSection> {
+  /// True from the tap on GENERATE until the request settles (covers the
+  /// parameter dialog too), so a second tap cannot start a second request.
+  bool _busy = false;
+
+  /// True only while the text-generation request itself is running.
   bool _generating = false;
 
   @override
@@ -990,24 +1062,26 @@ class _WardrobeSectionState extends State<_WardrobeSection> {
     final lib = context.watch<CharacterLibraryNotifier>();
     final closet = lib.closetFor(widget.characterId);
     final c = lib.characterById(widget.characterId);
+    final l = context.l;
     final textGen = context.watch<TextGenNotifier>();
-    final hasTextGen =
-        textGen.hasService &&
-        hasBackendPermission(context, BackendPermission.textGenerate);
-    final mobile = isMobile(context);
+    final blocker = _textGenBlocker(
+      context,
+      hasService: textGen.hasService,
+      wardrobe: true,
+    );
+    final hasTextGen = blocker == null;
+    final touch = windowSizeClassOf(context).isTouchSized;
 
     final generateButton = Tooltip(
-      message: hasTextGen
-          ? 'Generate outfits with text generation'
-          : 'Requires text generation (set an API key in Text Gen settings)',
+      message: hasTextGen ? l.charsGenerateOutfitsTooltip : blocker,
       child: TextButton.icon(
-        onPressed: (!hasTextGen || _generating)
+        onPressed: (!hasTextGen || _busy)
             ? null
             : () => _generate(context, lib, c),
         icon: _generating
             ? SizedBox(
-                width: 12,
-                height: 12,
+                width: VisionMetrics.iconSmall,
+                height: VisionMetrics.iconSmall,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
                   color: t.accent,
@@ -1015,25 +1089,26 @@ class _WardrobeSectionState extends State<_WardrobeSection> {
               )
             : Icon(
                 Icons.auto_awesome,
-                size: 14,
+                size: VisionMetrics.iconSmall,
                 color: hasTextGen ? t.accent : t.textMinimal,
               ),
         label: Text(
-          _generating ? 'GENERATING…' : '✨ GENERATE OUTFITS',
+          (_generating ? l.charsGenerating : l.charsGenerateOutfits)
+              .toUpperCase(),
           style: TextStyle(fontSize: t.fontSize(9), letterSpacing: 1),
         ),
       ),
     );
     final newOutfitButton = TextButton.icon(
       onPressed: () => _newOutfit(context, lib),
-      icon: Icon(Icons.add, size: 14, color: t.accent),
+      icon: Icon(Icons.add, size: VisionMetrics.iconSmall, color: t.accent),
       label: Text(
-        'NEW OUTFIT',
+        l.charsNewOutfit.toUpperCase(),
         style: TextStyle(fontSize: t.fontSize(9), letterSpacing: 1),
       ),
     );
     final title = Text(
-      'WARDROBE',
+      l.charsWardrobe.toUpperCase(),
       style: TextStyle(
         color: t.textSecondary,
         fontSize: t.titleSize(10),
@@ -1045,17 +1120,21 @@ class _WardrobeSectionState extends State<_WardrobeSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // On mobile the title + both action buttons overflow a single row and
-        // truncate the labels, so let the buttons wrap onto their own line.
-        if (mobile)
+        // On touch-sized windows the title + both action buttons overflow a
+        // single row and truncate the labels, so let the buttons wrap onto
+        // their own line.
+        if (touch)
           Wrap(
             crossAxisAlignment: WrapCrossAlignment.center,
             alignment: WrapAlignment.spaceBetween,
-            spacing: 6,
-            runSpacing: 4,
+            spacing: VisionMetrics.space4,
+            runSpacing: VisionMetrics.space4,
             children: [
               title,
-              Wrap(spacing: 6, children: [generateButton, newOutfitButton]),
+              Wrap(
+                spacing: VisionMetrics.space4,
+                children: [generateButton, newOutfitButton],
+              ),
             ],
           )
         else
@@ -1064,20 +1143,20 @@ class _WardrobeSectionState extends State<_WardrobeSection> {
               title,
               const Spacer(),
               generateButton,
-              const SizedBox(width: 6),
+              const SizedBox(width: VisionMetrics.space4),
               newOutfitButton,
             ],
           ),
-        const SizedBox(height: 8),
+        const SizedBox(height: VisionMetrics.space8),
         if (closet.isEmpty)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(vertical: VisionMetrics.space8),
             child: Text(
-              'No outfits yet — add one or generate a set.',
+              l.charsNoOutfits,
               style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(10)),
             ),
           )
-        else if (mobile)
+        else if (touch)
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -1086,7 +1165,7 @@ class _WardrobeSectionState extends State<_WardrobeSection> {
                   outfit: o,
                   isPrimary: c?.primaryOutfitId == o.id,
                   isSelected: widget.selectedOutfitId == o.id,
-                  mobile: true,
+                  touch: true,
                   onTapState: () => widget.onSelectOutfit(
                     widget.selectedOutfitId == o.id ? null : o.id,
                   ),
@@ -1099,21 +1178,21 @@ class _WardrobeSectionState extends State<_WardrobeSection> {
                   ),
                   onDelete: () => _confirmDelete(context, lib, o),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: VisionMetrics.space8),
               ],
             ],
           )
         else
           Wrap(
-            spacing: 10,
-            runSpacing: 10,
+            spacing: VisionMetrics.space12,
+            runSpacing: VisionMetrics.space12,
             children: [
               for (final o in closet)
                 _OutfitCard(
                   outfit: o,
                   isPrimary: c?.primaryOutfitId == o.id,
                   isSelected: widget.selectedOutfitId == o.id,
-                  mobile: false,
+                  touch: false,
                   onTapState: () => widget.onSelectOutfit(
                     widget.selectedOutfitId == o.id ? null : o.id,
                   ),
@@ -1141,7 +1220,7 @@ class _WardrobeSectionState extends State<_WardrobeSection> {
       if (body.isNotEmpty) body,
       if (r.tags.isNotEmpty) r.tags,
     ].join(', ');
-    widget.onApplyToPrompt(combined, r.isDishevelled);
+    widget.onApplyToPrompt(o, combined, r.isDishevelled);
   }
 
   Future<void> _confirmDelete(
@@ -1149,12 +1228,14 @@ class _WardrobeSectionState extends State<_WardrobeSection> {
     CharacterLibraryNotifier lib,
     ClosetOutfit o,
   ) async {
-    final t = context.t;
+    final t = context.tRead;
+    final l = context.l;
     final ok = await showConfirmDialog(
       context,
-      title: 'Delete outfit',
-      message: 'Delete "${o.name}"?',
-      confirmLabel: 'Delete',
+      title: l.charsDeleteOutfitTitle,
+      message: l.charsDeleteOutfitMessage(o.name),
+      confirmLabel: l.commonDelete,
+      cancelLabel: l.commonCancel,
       confirmColor: t.accentDanger,
     );
     if (ok == true) {
@@ -1164,7 +1245,9 @@ class _WardrobeSectionState extends State<_WardrobeSection> {
   }
 
   void _newOutfit(BuildContext context, CharacterLibraryNotifier lib) {
-    final draft = ClosetOutfit.create(name: 'New Outfit');
+    final draft = ClosetOutfit.create(
+      name: context.l.charsNewOutfitDefaultName,
+    );
     OutfitEditorSheet.show(
       context,
       outfit: draft,
@@ -1202,25 +1285,24 @@ class _WardrobeSectionState extends State<_WardrobeSection> {
     CharacterLibraryNotifier lib,
     SavedCharacter? c,
   ) async {
-    if (c == null) return;
+    if (c == null || _busy) return;
     final textGen = context.read<TextGenNotifier>();
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    void snack(String msg, {Color? color}) {
-      if (messenger == null) return;
-      messenger.showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: color),
-      );
+    setState(() => _busy = true);
+    // Everything after an await first checks `mounted`: the user can leave the
+    // page while the dialog or the request is open.
+    void snack(String msg, {AppTone tone = AppTone.success}) {
+      if (mounted) showAppSnackBar(this.context, msg, tone: tone);
     }
 
-    final params = await WardrobeGenerateDialog.show(context);
-    if (params == null) return;
-    final service = textGen.service;
-    if (service == null) {
-      snack('TEXT GENERATION NOT CONFIGURED', color: Colors.orange);
-      return;
-    }
-    setState(() => _generating = true);
     try {
+      final params = await WardrobeGenerateDialog.show(context);
+      if (params == null || !mounted) return;
+      final service = textGen.service;
+      if (service == null) {
+        snack(this.context.l.charsTextGenNotConfigured, tone: AppTone.warning);
+        return;
+      }
+      setState(() => _generating = true);
       final svc = WardrobeGeneratorService(service);
       final outfits = await svc.generate(
         characterTags: c.derivedBodyTags.isEmpty ? c.name : c.derivedBodyTags,
@@ -1231,8 +1313,9 @@ class _WardrobeSectionState extends State<_WardrobeSection> {
         model: textGen.model,
         maxTokens: textGen.params.maxLength,
       );
+      if (!mounted) return;
       if (outfits.isEmpty) {
-        snack('NO OUTFITS RETURNED', color: Colors.orange);
+        snack(this.context.l.charsNoOutfitsReturned, tone: AppTone.warning);
         return;
       }
       // Auto-assign primary if exactly one came back flagged.
@@ -1241,11 +1324,16 @@ class _WardrobeSectionState extends State<_WardrobeSection> {
       if (primaryCandidates.length == 1 && c.primaryOutfitId == null) {
         await lib.setPrimaryOutfit(c.id, primaryCandidates.first.outfit.id);
       }
-      snack('ADDED ${outfits.length} OUTFIT(S)');
+      snack(this.context.l.charsOutfitsAdded(outfits.length));
     } catch (e) {
-      snack('Generation failed: $e', color: Colors.red);
+      snack(this.context.l.charsGenerationFailed('$e'), tone: AppTone.error);
     } finally {
-      if (mounted) setState(() => _generating = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _generating = false;
+        });
+      }
     }
   }
 }
@@ -1254,7 +1342,7 @@ class _OutfitCard extends StatelessWidget {
   final ClosetOutfit outfit;
   final bool isPrimary;
   final bool isSelected;
-  final bool mobile;
+  final bool touch;
   final VoidCallback onTapState;
   final VoidCallback onWear;
   final VoidCallback onEdit;
@@ -1265,7 +1353,7 @@ class _OutfitCard extends StatelessWidget {
     required this.outfit,
     required this.isPrimary,
     required this.isSelected,
-    required this.mobile,
+    required this.touch,
     required this.onTapState,
     required this.onWear,
     required this.onEdit,
@@ -1276,6 +1364,7 @@ class _OutfitCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
+    final l = context.l;
     final rendered = (outfit.items != null && outfit.items!.isNotEmpty)
         ? renderItemsToTags(outfit.items!.cast<String, dynamic>()).tags
         : applyConcealment(outfit.tags).tags;
@@ -1286,17 +1375,17 @@ class _OutfitCard extends StatelessWidget {
       if (outfit.slots.isNotEmpty) outfit.slots.join('/'),
     ];
     return Container(
-      width: mobile ? null : 240,
+      width: touch ? null : 240,
       decoration: BoxDecoration(
         color: t.surfaceMid,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(VisionMetrics.radius8),
         border: Border.all(
           color: isSelected ? t.accent : t.borderSubtle,
           width: isSelected ? 1.5 : 1,
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(VisionMetrics.space12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1313,13 +1402,17 @@ class _OutfitCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                InkWell(
-                  onTap: onSetPrimary,
-                  child: Icon(
-                    isPrimary ? Icons.star : Icons.star_border,
-                    size: 16,
-                    color: isPrimary ? t.accentFavorite : t.textMinimal,
+                IconButton(
+                  tooltip: l.charsSetPrimary,
+                  onPressed: onSetPrimary,
+                  padding: EdgeInsets.zero,
+                  constraints: BoxConstraints.tightFor(
+                    width: context.hitSize,
+                    height: context.hitSize,
                   ),
+                  iconSize: VisionMetrics.iconMedium,
+                  color: isPrimary ? t.accentFavorite : t.textMinimal,
+                  icon: Icon(isPrimary ? Icons.star : Icons.star_border),
                 ),
               ],
             ),
@@ -1333,49 +1426,43 @@ class _OutfitCard extends StatelessWidget {
             if (chips.isNotEmpty) ...[
               const SizedBox(height: 6),
               Wrap(
-                spacing: 4,
-                runSpacing: 4,
+                spacing: VisionMetrics.space4,
+                runSpacing: VisionMetrics.space4,
                 children: [
-                  for (final ch in chips)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: t.background.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                      child: Text(
-                        ch,
-                        style: TextStyle(
-                          color: t.textMinimal,
-                          fontSize: t.fontSize(7.5),
-                        ),
-                      ),
-                    ),
+                  for (final ch in chips) AppPill(text: ch, dense: true),
                 ],
               ),
             ],
             const SizedBox(height: 6),
             Row(
               children: [
-                _miniBtn(t, 'WEAR', onWear, accent: true),
-                const SizedBox(width: 4),
-                _miniBtn(t, 'STATE', onTapState, highlighted: isSelected),
-                const SizedBox(width: 4),
-                _miniBtn(t, 'EDIT', onEdit),
+                _miniBtn(
+                  context,
+                  l.charsWear.toUpperCase(),
+                  onWear,
+                  accent: true,
+                ),
+                const SizedBox(width: VisionMetrics.space4),
+                _miniBtn(
+                  context,
+                  l.charsState.toUpperCase(),
+                  onTapState,
+                  highlighted: isSelected,
+                ),
+                const SizedBox(width: VisionMetrics.space4),
+                _miniBtn(context, l.mainEdit.toUpperCase(), onEdit),
                 const Spacer(),
-                InkWell(
-                  onTap: onDelete,
-                  child: Padding(
-                    padding: EdgeInsets.all(mobile ? 6 : 2),
-                    child: Icon(
-                      Icons.delete_outline,
-                      size: mobile ? 18 : 14,
-                      color: t.accentDanger,
-                    ),
+                IconButton(
+                  tooltip: l.charsDeleteOutfitTitle,
+                  onPressed: onDelete,
+                  padding: EdgeInsets.zero,
+                  constraints: BoxConstraints.tightFor(
+                    width: context.hitSize,
+                    height: context.hitSize,
                   ),
+                  iconSize: VisionMetrics.iconMedium,
+                  color: t.accentDanger,
+                  icon: const Icon(Icons.delete_outline),
                 ),
               ],
             ),
@@ -1386,32 +1473,41 @@ class _OutfitCard extends StatelessWidget {
   }
 
   Widget _miniBtn(
-    VisionTokens t,
+    BuildContext context,
     String label,
     VoidCallback onTap, {
     bool accent = false,
     bool highlighted = false,
   }) {
+    final t = context.t;
     final color = accent
         ? t.accent
         : (highlighted ? t.accentEdit : t.textTertiary);
     return InkWell(
       onTap: onTap,
+      borderRadius: VisionMetrics.borderRadius4,
       child: Container(
+        constraints: BoxConstraints(minHeight: context.hitSize),
+        alignment: Alignment.center,
         padding: EdgeInsets.symmetric(
-          horizontal: mobile ? 10 : 6,
-          vertical: mobile ? 8 : 3,
+          horizontal: touch ? VisionMetrics.space12 : VisionMetrics.space8,
         ),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: highlighted ? 0.2 : 0.1),
-          borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: color.withValues(alpha: 0.4)),
+          color: color.withValues(
+            alpha: highlighted
+                ? VisionMetrics.opacityPressed
+                : VisionMetrics.opacityHover,
+          ),
+          borderRadius: VisionMetrics.borderRadius4,
+          border: Border.all(
+            color: color.withValues(alpha: VisionMetrics.opacityDisabled),
+          ),
         ),
         child: Text(
           label,
           style: TextStyle(
             color: color,
-            fontSize: t.fontSize(mobile ? 10 : 8),
+            fontSize: t.fontSize(touch ? 10 : 8),
             letterSpacing: 0.5,
           ),
         ),

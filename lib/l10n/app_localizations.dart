@@ -1072,6 +1072,18 @@ abstract class AppLocalizations {
   /// **'Size (Smallest)'**
   String get gallerySortSizeSmallest;
 
+  /// No description provided for @gallerySortDateAddedNewest.
+  ///
+  /// In en, this message translates to:
+  /// **'Date Added (Newest)'**
+  String get gallerySortDateAddedNewest;
+
+  /// No description provided for @gallerySortDateAddedOldest.
+  ///
+  /// In en, this message translates to:
+  /// **'Date Added (Oldest)'**
+  String get gallerySortDateAddedOldest;
+
   /// No description provided for @galleryNoDemoImages.
   ///
   /// In en, this message translates to:
@@ -1156,6 +1168,66 @@ abstract class AppLocalizations {
   /// **'Add to Album'**
   String get galleryAddToAlbum;
 
+  /// No description provided for @galleryAddedToAlbum.
+  ///
+  /// In en, this message translates to:
+  /// **'Added to {name}'**
+  String galleryAddedToAlbum(String name);
+
+  /// No description provided for @galleryMoveToAlbum.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to Album'**
+  String get galleryMoveToAlbum;
+
+  /// No description provided for @galleryMove.
+  ///
+  /// In en, this message translates to:
+  /// **'Move'**
+  String get galleryMove;
+
+  /// No description provided for @galleryDeleteAlbumTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete album \"{name}\"?'**
+  String galleryDeleteAlbumTitle(String name);
+
+  /// No description provided for @galleryDeleteAlbumMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The images stay in the gallery.'**
+  String get galleryDeleteAlbumMessage;
+
+  /// No description provided for @galleryRemoveFromAlbum.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from album'**
+  String get galleryRemoveFromAlbum;
+
+  /// No description provided for @galleryRemoveFromAlbumTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from album?'**
+  String get galleryRemoveFromAlbumTitle;
+
+  /// No description provided for @galleryRemoveFromAlbumCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {count} images from this album?'**
+  String galleryRemoveFromAlbumCount(int count);
+
+  /// No description provided for @galleryRemoveFromAlbumMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The images stay in the gallery.'**
+  String get galleryRemoveFromAlbumMessage;
+
+  /// No description provided for @galleryRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get galleryRemove;
+
   /// No description provided for @galleryDeleteCount.
   ///
   /// In en, this message translates to:
@@ -1227,6 +1299,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Export failed: {error}'**
   String galleryExportFailed(String error);
+
+  /// No description provided for @galleryExportFolderUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Export folder unavailable. Pick it again in Settings.'**
+  String get galleryExportFolderUnavailable;
 
   /// No description provided for @galleryImagesCopied.
   ///
@@ -1311,6 +1389,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No Metadata'**
   String get galleryNoMetadata;
+
+  /// No description provided for @galleryCopiedToClipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied to clipboard'**
+  String get galleryCopiedToClipboard;
+
+  /// No description provided for @galleryClipboardUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Clipboard not available'**
+  String get galleryClipboardUnavailable;
 
   /// No description provided for @galleryPrompt.
   ///
@@ -1443,6 +1533,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Import failed: {error}'**
   String galleryImportFailed(String error);
+
+  /// No description provided for @galleryImportToEditor.
+  ///
+  /// In en, this message translates to:
+  /// **'Import to editor'**
+  String get galleryImportToEditor;
+
+  /// No description provided for @galleryMetadataImported.
+  ///
+  /// In en, this message translates to:
+  /// **'Metadata imported to editor'**
+  String get galleryMetadataImported;
+
+  /// No description provided for @galleryMetadataNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No metadata found'**
+  String get galleryMetadataNotFound;
 
   /// No description provided for @panelAdvancedSettings.
   ///
@@ -2775,6 +2883,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'PRECISE REFERENCES'**
   String get refPreciseReferences;
+
+  /// No description provided for @refShortLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'REF'**
+  String get refShortLabel;
 
   /// No description provided for @refVibeTransfer.
   ///
@@ -5648,6 +5762,630 @@ abstract class AppLocalizations {
   /// **'MUTUAL'**
   String get charEditorMutual;
 
+  /// No description provided for @charsSelectOrCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'Select or create a character'**
+  String get charsSelectOrCreate;
+
+  /// No description provided for @charsSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search…'**
+  String get charsSearchHint;
+
+  /// No description provided for @charsGenerateTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate a character'**
+  String get charsGenerateTooltip;
+
+  /// No description provided for @charsTextGenNeedsKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Requires text generation (set an API key first)'**
+  String get charsTextGenNeedsKey;
+
+  /// No description provided for @charsTextGenNeedsKeyWardrobe.
+  ///
+  /// In en, this message translates to:
+  /// **'Requires text generation (set an API key in Text Gen settings)'**
+  String get charsTextGenNeedsKeyWardrobe;
+
+  /// No description provided for @charsTextGenNoPermission.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account does not have the text generation permission'**
+  String get charsTextGenNoPermission;
+
+  /// No description provided for @charsNew.
+  ///
+  /// In en, this message translates to:
+  /// **'New character'**
+  String get charsNew;
+
+  /// No description provided for @charsNewDefaultName.
+  ///
+  /// In en, this message translates to:
+  /// **'New Character'**
+  String get charsNewDefaultName;
+
+  /// No description provided for @charsEmptyList.
+  ///
+  /// In en, this message translates to:
+  /// **'No characters yet'**
+  String get charsEmptyList;
+
+  /// No description provided for @charsUnnamed.
+  ///
+  /// In en, this message translates to:
+  /// **'(unnamed)'**
+  String get charsUnnamed;
+
+  /// No description provided for @charsGenerated.
+  ///
+  /// In en, this message translates to:
+  /// **'Character generated'**
+  String get charsGenerated;
+
+  /// No description provided for @charsAddedToPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Added to prompt'**
+  String get charsAddedToPrompt;
+
+  /// No description provided for @charsNamePlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Character name'**
+  String get charsNamePlaceholder;
+
+  /// No description provided for @charsPhotoshoot.
+  ///
+  /// In en, this message translates to:
+  /// **'Photoshoot'**
+  String get charsPhotoshoot;
+
+  /// No description provided for @charsDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete character'**
+  String get charsDelete;
+
+  /// No description provided for @charsDeleteMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete \"{name}\" and its wardrobe?'**
+  String charsDeleteMessage(String name);
+
+  /// No description provided for @charsGender.
+  ///
+  /// In en, this message translates to:
+  /// **'Gender'**
+  String get charsGender;
+
+  /// No description provided for @charsGenderUnspecified.
+  ///
+  /// In en, this message translates to:
+  /// **'(unspecified)'**
+  String get charsGenderUnspecified;
+
+  /// No description provided for @charsGenderFemale.
+  ///
+  /// In en, this message translates to:
+  /// **'female'**
+  String get charsGenderFemale;
+
+  /// No description provided for @charsGenderMale.
+  ///
+  /// In en, this message translates to:
+  /// **'male'**
+  String get charsGenderMale;
+
+  /// No description provided for @charsGenderNonbinary.
+  ///
+  /// In en, this message translates to:
+  /// **'non-binary'**
+  String get charsGenderNonbinary;
+
+  /// No description provided for @charsTint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tint'**
+  String get charsTint;
+
+  /// No description provided for @charsTintAccent.
+  ///
+  /// In en, this message translates to:
+  /// **'Accent'**
+  String get charsTintAccent;
+
+  /// No description provided for @charsTintAccent2.
+  ///
+  /// In en, this message translates to:
+  /// **'Accent 2'**
+  String get charsTintAccent2;
+
+  /// No description provided for @charsTintBg.
+  ///
+  /// In en, this message translates to:
+  /// **'Background'**
+  String get charsTintBg;
+
+  /// No description provided for @charsIdentityTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Identity tags — no clothing here'**
+  String get charsIdentityTags;
+
+  /// No description provided for @charsBaseLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'base — 1girl/1boy, ethnicity, age, permanent marks'**
+  String get charsBaseLabel;
+
+  /// No description provided for @charsFaceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'face — eye colour/shape, brows, nose, lips'**
+  String get charsFaceLabel;
+
+  /// No description provided for @charsHairLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'hair — colour, length, style, texture'**
+  String get charsHairLabel;
+
+  /// No description provided for @charsBodyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'body — build, proportions, chest'**
+  String get charsBodyLabel;
+
+  /// No description provided for @charsNegativeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'negative — injected into the UC when this character is used'**
+  String get charsNegativeLabel;
+
+  /// No description provided for @charsNsfwSection.
+  ///
+  /// In en, this message translates to:
+  /// **'NSFW sub-buckets (optional)'**
+  String get charsNsfwSection;
+
+  /// No description provided for @charsStyleSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Style identity & description (optional)'**
+  String get charsStyleSection;
+
+  /// No description provided for @charsSoulSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Personality / soul (optional)'**
+  String get charsSoulSection;
+
+  /// No description provided for @charsNsfwTop.
+  ///
+  /// In en, this message translates to:
+  /// **'nsfw top'**
+  String get charsNsfwTop;
+
+  /// No description provided for @charsNsfwBottom.
+  ///
+  /// In en, this message translates to:
+  /// **'nsfw bottom'**
+  String get charsNsfwBottom;
+
+  /// No description provided for @charsNsfwAlways.
+  ///
+  /// In en, this message translates to:
+  /// **'nsfw always'**
+  String get charsNsfwAlways;
+
+  /// No description provided for @charsArtistTag.
+  ///
+  /// In en, this message translates to:
+  /// **'artist tag'**
+  String get charsArtistTag;
+
+  /// No description provided for @charsStylePrefix.
+  ///
+  /// In en, this message translates to:
+  /// **'style prefix'**
+  String get charsStylePrefix;
+
+  /// No description provided for @charsDescriptionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'character description (natural language; not used by NAI image gen)'**
+  String get charsDescriptionLabel;
+
+  /// No description provided for @charsSoulLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'soul — long-form personality doc (not used by image gen)'**
+  String get charsSoulLabel;
+
+  /// No description provided for @charsCombinedTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Combined tags (preview — body + primary outfit)'**
+  String get charsCombinedTags;
+
+  /// No description provided for @charsEmptyValue.
+  ///
+  /// In en, this message translates to:
+  /// **'(empty)'**
+  String get charsEmptyValue;
+
+  /// No description provided for @charsWardrobe.
+  ///
+  /// In en, this message translates to:
+  /// **'Wardrobe'**
+  String get charsWardrobe;
+
+  /// No description provided for @charsGenerateOutfitsTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate outfits with text generation'**
+  String get charsGenerateOutfitsTooltip;
+
+  /// No description provided for @charsGenerating.
+  ///
+  /// In en, this message translates to:
+  /// **'Generating…'**
+  String get charsGenerating;
+
+  /// No description provided for @charsGenerateOutfits.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate outfits'**
+  String get charsGenerateOutfits;
+
+  /// No description provided for @charsNewOutfit.
+  ///
+  /// In en, this message translates to:
+  /// **'New outfit'**
+  String get charsNewOutfit;
+
+  /// No description provided for @charsNoOutfits.
+  ///
+  /// In en, this message translates to:
+  /// **'No outfits yet — add one or generate a set.'**
+  String get charsNoOutfits;
+
+  /// No description provided for @charsDeleteOutfitTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete outfit'**
+  String get charsDeleteOutfitTitle;
+
+  /// No description provided for @charsDeleteOutfitMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete \"{name}\"?'**
+  String charsDeleteOutfitMessage(String name);
+
+  /// No description provided for @charsNewOutfitDefaultName.
+  ///
+  /// In en, this message translates to:
+  /// **'New Outfit'**
+  String get charsNewOutfitDefaultName;
+
+  /// No description provided for @charsTextGenNotConfigured.
+  ///
+  /// In en, this message translates to:
+  /// **'Text generation is not configured'**
+  String get charsTextGenNotConfigured;
+
+  /// No description provided for @charsNoOutfitsReturned.
+  ///
+  /// In en, this message translates to:
+  /// **'No outfits returned'**
+  String get charsNoOutfitsReturned;
+
+  /// No description provided for @charsOutfitsAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Added 1 outfit} other{Added {count} outfits}}'**
+  String charsOutfitsAdded(int count);
+
+  /// No description provided for @charsGenerationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Generation failed: {error}'**
+  String charsGenerationFailed(String error);
+
+  /// No description provided for @charsWear.
+  ///
+  /// In en, this message translates to:
+  /// **'Wear'**
+  String get charsWear;
+
+  /// No description provided for @charsState.
+  ///
+  /// In en, this message translates to:
+  /// **'State'**
+  String get charsState;
+
+  /// No description provided for @charsSetPrimary.
+  ///
+  /// In en, this message translates to:
+  /// **'Set as primary outfit'**
+  String get charsSetPrimary;
+
+  /// No description provided for @charsEditOutfit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit outfit'**
+  String get charsEditOutfit;
+
+  /// No description provided for @charsOutfitName.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get charsOutfitName;
+
+  /// No description provided for @charsOutfitNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Rainy Day Chic'**
+  String get charsOutfitNameHint;
+
+  /// No description provided for @charsClothingTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Clothing tags (4–7 garments)'**
+  String get charsClothingTags;
+
+  /// No description provided for @charsNegativeTagsOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Negative tags (optional)'**
+  String get charsNegativeTagsOptional;
+
+  /// No description provided for @charsSeasons.
+  ///
+  /// In en, this message translates to:
+  /// **'Seasons'**
+  String get charsSeasons;
+
+  /// No description provided for @charsWeatherLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Weather'**
+  String get charsWeatherLabel;
+
+  /// No description provided for @charsActivities.
+  ///
+  /// In en, this message translates to:
+  /// **'Activities'**
+  String get charsActivities;
+
+  /// No description provided for @charsTimeSlots.
+  ///
+  /// In en, this message translates to:
+  /// **'Time slots'**
+  String get charsTimeSlots;
+
+  /// No description provided for @charsComfortTemp.
+  ///
+  /// In en, this message translates to:
+  /// **'Comfortable temperature  {start}°C – {end}°C'**
+  String charsComfortTemp(int start, int end);
+
+  /// No description provided for @charsDefaultOutfitName.
+  ///
+  /// In en, this message translates to:
+  /// **'Outfit'**
+  String get charsDefaultOutfitName;
+
+  /// No description provided for @charsGenerateOutfitsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate outfits'**
+  String get charsGenerateOutfitsTitle;
+
+  /// No description provided for @charsHowMany.
+  ///
+  /// In en, this message translates to:
+  /// **'How many: {count}'**
+  String charsHowMany(int count);
+
+  /// No description provided for @charsEraHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Era / setting hint (optional)'**
+  String get charsEraHint;
+
+  /// No description provided for @charsEraHintExample.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. 1920s Paris, Heian-era Japan, near-future'**
+  String get charsEraHintExample;
+
+  /// No description provided for @charsVibeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Vibe hint (optional)'**
+  String get charsVibeHint;
+
+  /// No description provided for @charsVibeHintExample.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. cozy academia, gothic, beachy minimalist'**
+  String get charsVibeHintExample;
+
+  /// No description provided for @charsGenerate.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate'**
+  String get charsGenerate;
+
+  /// No description provided for @charsStateNoGarments.
+  ///
+  /// In en, this message translates to:
+  /// **'No classifiable garments in this outfit\'s tags.'**
+  String get charsStateNoGarments;
+
+  /// No description provided for @charsOutfitState.
+  ///
+  /// In en, this message translates to:
+  /// **'Outfit state'**
+  String get charsOutfitState;
+
+  /// No description provided for @charsDishevelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Dishevelled'**
+  String get charsDishevelled;
+
+  /// No description provided for @charsResetIntact.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset to intact'**
+  String get charsResetIntact;
+
+  /// No description provided for @charsReparse.
+  ///
+  /// In en, this message translates to:
+  /// **'Re-parse from tags'**
+  String get charsReparse;
+
+  /// No description provided for @charsConcealed.
+  ///
+  /// In en, this message translates to:
+  /// **'concealed'**
+  String get charsConcealed;
+
+  /// No description provided for @charsRenderedTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Rendered tags'**
+  String get charsRenderedTags;
+
+  /// No description provided for @charsApplyToPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply to prompt'**
+  String get charsApplyToPrompt;
+
+  /// No description provided for @charsUseTheseTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Use these tags'**
+  String get charsUseTheseTags;
+
+  /// No description provided for @charsTopPrefix.
+  ///
+  /// In en, this message translates to:
+  /// **'Top'**
+  String get charsTopPrefix;
+
+  /// No description provided for @charsBottomPrefix.
+  ///
+  /// In en, this message translates to:
+  /// **'Bottom'**
+  String get charsBottomPrefix;
+
+  /// No description provided for @charsGenTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate character'**
+  String get charsGenTitle;
+
+  /// No description provided for @charsGenVibe.
+  ///
+  /// In en, this message translates to:
+  /// **'Vibe (optional)'**
+  String get charsGenVibe;
+
+  /// No description provided for @charsGenVibeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'describe the vibe — e.g. \"weary war veteran turned baker\" — blank lets the model pick'**
+  String get charsGenVibeHint;
+
+  /// No description provided for @charsGenGenderAny.
+  ///
+  /// In en, this message translates to:
+  /// **'Any (model picks)'**
+  String get charsGenGenderAny;
+
+  /// No description provided for @charsGenEra.
+  ///
+  /// In en, this message translates to:
+  /// **'Era / time period'**
+  String get charsGenEra;
+
+  /// No description provided for @charsGenLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Location (optional)'**
+  String get charsGenLocation;
+
+  /// No description provided for @charsGenLocationHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. a coastal town in Portugal, Winterfell — blank lets the model pick'**
+  String get charsGenLocationHint;
+
+  /// No description provided for @charsGenNsfw.
+  ///
+  /// In en, this message translates to:
+  /// **'NSFW tags'**
+  String get charsGenNsfw;
+
+  /// No description provided for @charsGenNsfwHint.
+  ///
+  /// In en, this message translates to:
+  /// **'also request the split nsfw_* tag buckets'**
+  String get charsGenNsfwHint;
+
+  /// No description provided for @charsGenStyle.
+  ///
+  /// In en, this message translates to:
+  /// **'Style (optional)'**
+  String get charsGenStyle;
+
+  /// No description provided for @charsGenStyleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. an artist tag — blank lets the model pick'**
+  String get charsGenStyleHint;
+
+  /// No description provided for @charsGenWardrobe.
+  ///
+  /// In en, this message translates to:
+  /// **'Starter wardrobe: {count, plural, =1{1 outfit} other{{count} outfits}}'**
+  String charsGenWardrobe(int count);
+
+  /// No description provided for @charsGenMeetNote.
+  ///
+  /// In en, this message translates to:
+  /// **'plus the \"meet\" outfit (always generated).'**
+  String get charsGenMeetNote;
+
+  /// No description provided for @charsGenProgressTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Generating character'**
+  String get charsGenProgressTitle;
+
+  /// No description provided for @charsGenPreparing.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing…'**
+  String get charsGenPreparing;
+
+  /// No description provided for @charsGenProgressNote.
+  ///
+  /// In en, this message translates to:
+  /// **'This makes several model calls — on a free/Tablet-tier token a long personality may take a few continuation passes.'**
+  String get charsGenProgressNote;
+
   /// No description provided for @jukeboxTitle.
   ///
   /// In en, this message translates to:
@@ -6338,6 +7076,12 @@ abstract class AppLocalizations {
   /// **'Slider mode'**
   String get comparisonSliderMode;
 
+  /// No description provided for @comparisonSwap.
+  ///
+  /// In en, this message translates to:
+  /// **'Swap'**
+  String get comparisonSwap;
+
   /// No description provided for @settingsBgRemovalButton.
   ///
   /// In en, this message translates to:
@@ -7010,6 +7754,12 @@ abstract class AppLocalizations {
   /// **'BG REMOVAL FAILED'**
   String get galleryBgRemovalFailed;
 
+  /// No description provided for @galleryRemovingBackgrounds.
+  ///
+  /// In en, this message translates to:
+  /// **'REMOVING BACKGROUNDS'**
+  String get galleryRemovingBackgrounds;
+
   /// No description provided for @naiUpscaleTooLarge.
   ///
   /// In en, this message translates to:
@@ -7105,6 +7855,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'auto-detected from prompt'**
   String get importStylesAutoDetected;
+
+  /// No description provided for @importStylesEmbedded.
+  ///
+  /// In en, this message translates to:
+  /// **'disable - embedded in prompt'**
+  String get importStylesEmbedded;
 
   /// No description provided for @img2imgOutputRes.
   ///

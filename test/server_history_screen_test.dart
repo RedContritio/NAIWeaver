@@ -309,7 +309,7 @@ void main() {
     expect(find.textContaining('Could not load history'), findsOneWidget);
 
     gateway.failHistory = false;
-    await tester.tap(find.text('Retry'));
+    await tester.tap(find.text('RETRY'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Could not load history'), findsNothing);
     expect(_card('item:s00'), findsOneWidget);
@@ -329,7 +329,7 @@ void main() {
     expect(find.textContaining('Could not load history'), findsOneWidget);
 
     gateway.failHistory = false;
-    await tester.tap(find.text('Retry'));
+    await tester.tap(find.text('RETRY'));
     await tester.pumpAndSettle();
     expect(find.textContaining('2 / 2'), findsOneWidget);
     expect(_card('item:s20'), findsOneWidget);
