@@ -181,6 +181,7 @@
   "@galleryResultDownloaded": { "placeholders": { "name": { "type": "String" } } },
   "galleryResultSaveFailed": "结果未保存：{error}",
   "@galleryResultSaveFailed": { "placeholders": { "error": { "type": "String" } } },
+  "galleryNewImageHidden": "新图已保存，但被当前过滤条件隐藏",
   "galleryToggleFavorite": "切换收藏",
   "galleryExportImage": "导出图片",
   "galleryDeleteImageTooltip": "删除图片",

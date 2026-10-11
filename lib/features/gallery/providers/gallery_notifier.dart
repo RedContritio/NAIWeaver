@@ -134,6 +134,13 @@ class GalleryNotifier extends ChangeNotifier {
     return _applySortMode(list);
   }
 
+  /// Position of [basename] in [activeItems], or null when the current
+  /// search, demo, favorites or album filter hides it.
+  int? activeIndexOf(String basename) {
+    final index = activeItems.indexWhere((item) => item.basename == basename);
+    return index < 0 ? null : index;
+  }
+
   List<GalleryItem> _applySortMode(List<GalleryItem> list) {
     final sorted = List<GalleryItem>.from(list);
     switch (_sortMode) {

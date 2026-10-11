@@ -1060,6 +1060,12 @@ abstract class AppLocalizations {
   /// **'Result not saved: {error}'**
   String galleryResultSaveFailed(String error);
 
+  /// No description provided for @galleryNewImageHidden.
+  ///
+  /// In en, this message translates to:
+  /// **'New image saved, but the current filter hides it'**
+  String get galleryNewImageHidden;
+
   /// No description provided for @galleryToggleFavorite.
   ///
   /// In en, this message translates to:

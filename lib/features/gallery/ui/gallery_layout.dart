@@ -1,8 +1,57 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
-double galleryGridBottomInset(bool isSelectionMode) => isSelectionMode ? 80 : 8;
+/// Bottom padding for the gallery grid. A GridView given explicit padding no
+/// longer adds the safe area itself, so the last row has to clear both the
+/// system inset ([safeAreaBottom], e.g. the iOS home indicator) and, in
+/// selection mode, the floating bulk action bar ([actionBarExtent]: the
+/// bar's height plus its offset from the bottom edge).
+double galleryGridBottomInset({
+  required double safeAreaBottom,
+  double actionBarExtent = 0,
+}) => math.max(safeAreaBottom, actionBarExtent) + 8;
+
+/// Reports its child's laid-out height whenever it changes.
+class HeightReporter extends SingleChildRenderObjectWidget {
+  const HeightReporter({
+    super.key,
+    required this.onHeight,
+    required super.child,
+  });
+
+  final ValueChanged<double> onHeight;
+
+  @override
+  RenderHeightReporter createRenderObject(BuildContext context) =>
+      RenderHeightReporter(onHeight);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    RenderHeightReporter renderObject,
+  ) {
+    renderObject.onHeight = onHeight;
+  }
+}
+
+class RenderHeightReporter extends RenderProxyBox {
+  RenderHeightReporter(this.onHeight);
+
+  ValueChanged<double> onHeight;
+  double? _reported;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    final height = size.height;
+    if (height == _reported) return;
+    _reported = height;
+    // Layout must not trigger rebuilds; report after this frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) => onHeight(height));
+  }
+}
 
 class GalleryDetailPanelViewport extends StatelessWidget {
   const GalleryDetailPanelViewport({

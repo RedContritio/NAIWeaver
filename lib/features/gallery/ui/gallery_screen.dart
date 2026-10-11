@@ -65,6 +65,9 @@ class _GalleryScreenState extends State<GalleryScreen> {
   // Info overlay (hover/long-press)
   int? _hoveredIndex;
 
+  // Measured height of the floating bulk action bar.
+  double _bulkBarHeight = 0;
+
   @override
   void initState() {
     super.initState();
@@ -1164,9 +1167,19 @@ class _GalleryScreenState extends State<GalleryScreen> {
     );
   }
 
+  /// Gap between the floating bulk action bar and the bottom edge.
+  double _bulkBarBottom(bool mobile) =>
+      mobile ? MediaQuery.paddingOf(context).bottom + 16 : 16;
+
   Widget _buildGrid(List<GalleryItem> items, bool mobile) {
+    final bottomInset = galleryGridBottomInset(
+      safeAreaBottom: MediaQuery.paddingOf(context).bottom,
+      actionBarExtent: _isSelectionMode
+          ? _bulkBarBottom(mobile) + _bulkBarHeight
+          : 0,
+    );
     final grid = TweenAnimationBuilder<double>(
-      tween: Tween<double>(end: galleryGridBottomInset(_isSelectionMode)),
+      tween: Tween<double>(end: bottomInset),
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
       builder: (context, bottomInset, _) => GridView.builder(
@@ -1443,198 +1456,205 @@ class _GalleryScreenState extends State<GalleryScreen> {
     return Positioned(
       left: 16,
       right: 16,
-      bottom: mobile ? MediaQuery.of(context).padding.bottom + 16 : 16,
-      child: AnimatedSlide(
-        offset: count > 0 ? Offset.zero : const Offset(0, 2),
-        duration: const Duration(milliseconds: 200),
-        child: AnimatedOpacity(
-          opacity: count > 0 ? 1.0 : 0.0,
+      bottom: _bulkBarBottom(mobile),
+      child: HeightReporter(
+        onHeight: (height) {
+          if (mounted && height != _bulkBarHeight) {
+            setState(() => _bulkBarHeight = height);
+          }
+        },
+        child: AnimatedSlide(
+          offset: count > 0 ? Offset.zero : const Offset(0, 2),
           duration: const Duration(milliseconds: 200),
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: mobile ? 16 : 12,
-              vertical: mobile ? 12 : 8,
-            ),
-            decoration: BoxDecoration(
-              color: t.surfaceHigh,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: t.borderMedium),
-              boxShadow: [
-                BoxShadow(
-                  color: t.background.withValues(alpha: 0.8),
-                  blurRadius: 20,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                if (count == 2)
-                  _ActionButton(
-                    icon: Icons.compare,
-                    label: context.l.galleryCompare.toUpperCase(),
-                    color: t.accent,
-                    mobile: mobile,
-                    iconOnly: mobile,
-                    onTap: () {
-                      final sorted = _selectedIndices.toList()..sort();
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ComparisonView(
-                            itemA: items[sorted[0]],
-                            itemB: items[sorted[1]],
+          child: AnimatedOpacity(
+            opacity: count > 0 ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 200),
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: mobile ? 16 : 12,
+                vertical: mobile ? 12 : 8,
+              ),
+              decoration: BoxDecoration(
+                color: t.surfaceHigh,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: t.borderMedium),
+                boxShadow: [
+                  BoxShadow(
+                    color: t.background.withValues(alpha: 0.8),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                  if (count == 2)
+                    _ActionButton(
+                      icon: Icons.compare,
+                      label: context.l.galleryCompare.toUpperCase(),
+                      color: t.accent,
+                      mobile: mobile,
+                      iconOnly: mobile,
+                      onTap: () {
+                        final sorted = _selectedIndices.toList()..sort();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ComparisonView(
+                              itemA: items[sorted[0]],
+                              itemB: items[sorted[1]],
+                            ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-                if (count == 2)
-                  SizedBox(width: mobile ? 12 : 8),
-                _ActionButton(
-                  icon: Icons.copy,
-                  label: context.l.galleryCopy.toUpperCase(),
-                  color: t.accent,
-                  mobile: mobile,
-                  iconOnly: mobile,
-                  onTap: count > 0 ? () {
-                    final gallery = context.read<GalleryNotifier>();
-                    gallery.copyToClipboard(selectedItems);
-                    showAppSnackBar(context, context.l.galleryImagesCopied(selectedItems.length), color: t.accent);
-                    _exitSelectionMode();
-                  } : null,
-                ),
-                SizedBox(width: mobile ? 12 : 8),
-                if (gallery.hasClipboard && gallery.activeAlbumId != null)
+                        );
+                      },
+                    ),
+                  if (count == 2)
+                    SizedBox(width: mobile ? 12 : 8),
                   _ActionButton(
-                    icon: Icons.paste,
-                    label: context.l.galleryPaste.toUpperCase(),
-                    color: t.accentSuccess,
-                    mobile: mobile,
-                    iconOnly: mobile,
-                    onTap: () {
-                      final pasteCount = gallery.clipboard.length;
-                      gallery.pasteToAlbum(gallery.activeAlbumId!);
-                      showAppSnackBar(context, context.l.galleryImagesPasted(pasteCount));
-                    },
-                  ),
-                if (gallery.hasClipboard && gallery.activeAlbumId != null)
-                  SizedBox(width: mobile ? 12 : 8),
-                _ActionButton(
-                  icon: Icons.photo_album,
-                  label: context.l.galleryAlbum.toUpperCase(),
-                  color: t.accent,
-                  mobile: mobile,
-                  iconOnly: mobile,
-                  onTap: count > 0 ? () => _showAddToAlbumDialog(selectedItems) : null,
-                ),
-                SizedBox(width: mobile ? 12 : 8),
-                _ActionButton(
-                  icon: Icons.save_alt,
-                  label: context.l.commonExport.toUpperCase(),
-                  color: t.accent,
-                  mobile: mobile,
-                  iconOnly: mobile,
-                  onTap: count > 0 ? () => _bulkExport(selectedItems) : null,
-                ),
-                SizedBox(width: mobile ? 12 : 8),
-                if (context.read<MLNotifier>().hasBgRemovalModel)
-                  _ActionButton(
-                    icon: Icons.content_cut,
-                    label: context.l.mlRemoveBg.toUpperCase(),
+                    icon: Icons.copy,
+                    label: context.l.galleryCopy.toUpperCase(),
                     color: t.accent,
-                    mobile: mobile,
-                    iconOnly: mobile,
-                    onTap: count > 0 ? () => _bulkRemoveBg(selectedItems) : null,
-                  ),
-                if (context.read<MLNotifier>().hasBgRemovalModel)
-                  SizedBox(width: mobile ? 12 : 8),
-                if (context.read<MLNotifier>().hasUpscaleModel)
-                  _ActionButton(
-                    icon: Icons.zoom_out_map,
-                    label: context.l.mlUpscale.toUpperCase(),
-                    color: t.accent,
-                    mobile: mobile,
-                    iconOnly: mobile,
-                    onTap: count > 0 ? () => _bulkUpscale(selectedItems) : null,
-                  ),
-                if (context.read<MLNotifier>().hasUpscaleModel)
-                  SizedBox(width: mobile ? 12 : 8),
-                if (naiUpscaleAllowed)
-                  _ActionButton(
-                    icon: Icons.cloud_upload_outlined,
-                    label: context.l.naiUpscale.toUpperCase(),
-                    color: t.accentEdit,
-                    mobile: mobile,
-                    iconOnly: mobile,
-                    onTap: count > 0
-                        ? () => _bulkNaiUpscale(
-                              selectedItems,
-                              permissionGranted: naiUpscaleAllowed,
-                            )
-                        : null,
-                  ),
-                if (naiUpscaleAllowed)
-                  SizedBox(width: mobile ? 12 : 8),
-                if (context.read<MLNotifier>().selectedSegmentationModelId != null && count == 1)
-                  _ActionButton(
-                    icon: Icons.auto_awesome,
-                    label: context.l.mlSegment.toUpperCase(),
-                    color: t.accent,
-                    mobile: mobile,
-                    iconOnly: mobile,
-                    onTap: () => _openSegmentation(selectedItems.first),
-                  ),
-                if (context.read<MLNotifier>().selectedSegmentationModelId != null && count == 1)
-                  SizedBox(width: mobile ? 12 : 8),
-                // Send to Canvas (single image)
-                if (count == 1)
-                  _ActionButton(
-                    icon: Icons.brush,
-                    label: context.l.mlCanvas.toUpperCase(),
-                    color: t.accentEdit,
-                    mobile: mobile,
-                    iconOnly: mobile,
-                    onTap: () => _openInCanvas(selectedItems.first),
-                  ),
-                if (count == 1)
-                  SizedBox(width: mobile ? 12 : 8),
-                _ActionButton(
-                  icon: Icons.star,
-                  label: context.l.galleryFavorite.toUpperCase(),
-                  color: t.accentFavorite,
-                  mobile: mobile,
-                  iconOnly: mobile,
-                  onTap: count > 0 ? () => _bulkFavorite(selectedItems) : null,
-                ),
-                // Remove from album (only when viewing an album)
-                if (context.read<GalleryNotifier>().activeAlbumId != null) ...[
-                  SizedBox(width: mobile ? 12 : 8),
-                  _ActionButton(
-                    icon: Icons.playlist_remove,
-                    label: 'REMOVE',
-                    color: t.secondaryText,
                     mobile: mobile,
                     iconOnly: mobile,
                     onTap: count > 0 ? () {
-                      final g = context.read<GalleryNotifier>();
-                      g.removeFromAlbum(g.activeAlbumId!, selectedItems);
-                      setState(() => _selectedIndices.clear());
+                      final gallery = context.read<GalleryNotifier>();
+                      gallery.copyToClipboard(selectedItems);
+                      showAppSnackBar(context, context.l.galleryImagesCopied(selectedItems.length), color: t.accent);
+                      _exitSelectionMode();
                     } : null,
                   ),
-                ],
-                SizedBox(width: mobile ? 12 : 8),
-                _ActionButton(
-                  icon: Icons.delete_outline,
-                  label: context.l.commonDelete.toUpperCase(),
-                  color: t.accentDanger,
-                  mobile: mobile,
-                  iconOnly: mobile,
-                  onTap: count > 0 ? () => _bulkDelete(selectedItems) : null,
+                  SizedBox(width: mobile ? 12 : 8),
+                  if (gallery.hasClipboard && gallery.activeAlbumId != null)
+                    _ActionButton(
+                      icon: Icons.paste,
+                      label: context.l.galleryPaste.toUpperCase(),
+                      color: t.accentSuccess,
+                      mobile: mobile,
+                      iconOnly: mobile,
+                      onTap: () {
+                        final pasteCount = gallery.clipboard.length;
+                        gallery.pasteToAlbum(gallery.activeAlbumId!);
+                        showAppSnackBar(context, context.l.galleryImagesPasted(pasteCount));
+                      },
+                    ),
+                  if (gallery.hasClipboard && gallery.activeAlbumId != null)
+                    SizedBox(width: mobile ? 12 : 8),
+                  _ActionButton(
+                    icon: Icons.photo_album,
+                    label: context.l.galleryAlbum.toUpperCase(),
+                    color: t.accent,
+                    mobile: mobile,
+                    iconOnly: mobile,
+                    onTap: count > 0 ? () => _showAddToAlbumDialog(selectedItems) : null,
+                  ),
+                  SizedBox(width: mobile ? 12 : 8),
+                  _ActionButton(
+                    icon: Icons.save_alt,
+                    label: context.l.commonExport.toUpperCase(),
+                    color: t.accent,
+                    mobile: mobile,
+                    iconOnly: mobile,
+                    onTap: count > 0 ? () => _bulkExport(selectedItems) : null,
+                  ),
+                  SizedBox(width: mobile ? 12 : 8),
+                  if (context.read<MLNotifier>().hasBgRemovalModel)
+                    _ActionButton(
+                      icon: Icons.content_cut,
+                      label: context.l.mlRemoveBg.toUpperCase(),
+                      color: t.accent,
+                      mobile: mobile,
+                      iconOnly: mobile,
+                      onTap: count > 0 ? () => _bulkRemoveBg(selectedItems) : null,
+                    ),
+                  if (context.read<MLNotifier>().hasBgRemovalModel)
+                    SizedBox(width: mobile ? 12 : 8),
+                  if (context.read<MLNotifier>().hasUpscaleModel)
+                    _ActionButton(
+                      icon: Icons.zoom_out_map,
+                      label: context.l.mlUpscale.toUpperCase(),
+                      color: t.accent,
+                      mobile: mobile,
+                      iconOnly: mobile,
+                      onTap: count > 0 ? () => _bulkUpscale(selectedItems) : null,
+                    ),
+                  if (context.read<MLNotifier>().hasUpscaleModel)
+                    SizedBox(width: mobile ? 12 : 8),
+                  if (naiUpscaleAllowed)
+                    _ActionButton(
+                      icon: Icons.cloud_upload_outlined,
+                      label: context.l.naiUpscale.toUpperCase(),
+                      color: t.accentEdit,
+                      mobile: mobile,
+                      iconOnly: mobile,
+                      onTap: count > 0
+                          ? () => _bulkNaiUpscale(
+                                selectedItems,
+                                permissionGranted: naiUpscaleAllowed,
+                              )
+                          : null,
+                    ),
+                  if (naiUpscaleAllowed)
+                    SizedBox(width: mobile ? 12 : 8),
+                  if (context.read<MLNotifier>().selectedSegmentationModelId != null && count == 1)
+                    _ActionButton(
+                      icon: Icons.auto_awesome,
+                      label: context.l.mlSegment.toUpperCase(),
+                      color: t.accent,
+                      mobile: mobile,
+                      iconOnly: mobile,
+                      onTap: () => _openSegmentation(selectedItems.first),
+                    ),
+                  if (context.read<MLNotifier>().selectedSegmentationModelId != null && count == 1)
+                    SizedBox(width: mobile ? 12 : 8),
+                  // Send to Canvas (single image)
+                  if (count == 1)
+                    _ActionButton(
+                      icon: Icons.brush,
+                      label: context.l.mlCanvas.toUpperCase(),
+                      color: t.accentEdit,
+                      mobile: mobile,
+                      iconOnly: mobile,
+                      onTap: () => _openInCanvas(selectedItems.first),
+                    ),
+                  if (count == 1)
+                    SizedBox(width: mobile ? 12 : 8),
+                  _ActionButton(
+                    icon: Icons.star,
+                    label: context.l.galleryFavorite.toUpperCase(),
+                    color: t.accentFavorite,
+                    mobile: mobile,
+                    iconOnly: mobile,
+                    onTap: count > 0 ? () => _bulkFavorite(selectedItems) : null,
+                  ),
+                  // Remove from album (only when viewing an album)
+                  if (context.read<GalleryNotifier>().activeAlbumId != null) ...[
+                    SizedBox(width: mobile ? 12 : 8),
+                    _ActionButton(
+                      icon: Icons.playlist_remove,
+                      label: 'REMOVE',
+                      color: t.secondaryText,
+                      mobile: mobile,
+                      iconOnly: mobile,
+                      onTap: count > 0 ? () {
+                        final g = context.read<GalleryNotifier>();
+                        g.removeFromAlbum(g.activeAlbumId!, selectedItems);
+                        setState(() => _selectedIndices.clear());
+                      } : null,
+                    ),
+                  ],
+                  SizedBox(width: mobile ? 12 : 8),
+                  _ActionButton(
+                    icon: Icons.delete_outline,
+                    label: context.l.commonDelete.toUpperCase(),
+                    color: t.accentDanger,
+                    mobile: mobile,
+                    iconOnly: mobile,
+                    onTap: count > 0 ? () => _bulkDelete(selectedItems) : null,
+                  ),
+                  ],
                 ),
-                ],
               ),
             ),
           ),

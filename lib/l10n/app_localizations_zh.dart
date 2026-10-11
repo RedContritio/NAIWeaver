@@ -525,6 +525,9 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get galleryNewImageHidden => '新图已保存，但被当前过滤条件隐藏';
+
+  @override
   String get galleryToggleFavorite => '切换收藏';
 
   @override

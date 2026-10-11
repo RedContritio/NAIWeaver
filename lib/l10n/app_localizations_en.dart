@@ -540,6 +540,10 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get galleryNewImageHidden =>
+      'New image saved, but the current filter hides it';
+
+  @override
   String get galleryToggleFavorite => 'Toggle favorite';
 
   @override

@@ -25,6 +25,7 @@ import '../../tools/slideshow/models/slideshow_config.dart';
 import '../../tools/slideshow/providers/slideshow_notifier.dart';
 import '../../tools/slideshow/widgets/slideshow_player.dart';
 import '../../tools/tools_hub_screen.dart';
+import '../../tools/widgets/tool_source_picker.dart';
 import 'import_metadata_dialog.dart';
 import '../../../core/ml/ml_notifier.dart';
 import '../../../core/ml/widgets/ml_processing_overlay.dart';
@@ -67,6 +68,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
   // Action buttons scroll indicator
   final ScrollController _actionScrollController = ScrollController();
   bool _showScrollIndicator = true;
+  bool _closing = false;
 
   // Paid NAI actions: one at a time, each with its own loading dialog.
   final _naiFlow = NovelAiImageActionFlow();
@@ -75,6 +77,11 @@ class _ImageDetailViewState extends State<ImageDetailView>
   late final AnimationController _zoomAnimController;
   Animation<Matrix4>? _zoomAnimation;
   Offset? _lastDoubleTapLocal;
+
+  GalleryItem? get _currentItemOrNull {
+    final items = context.read<GalleryNotifier>().activeItems;
+    return _currentIndex < items.length ? items[_currentIndex] : null;
+  }
 
   GalleryItem get _currentItem {
     final gallery = Provider.of<GalleryNotifier>(context, listen: false);
@@ -147,9 +154,11 @@ class _ImageDetailViewState extends State<ImageDetailView>
       setState(() => _isLoadingMetadata = false);
       return;
     }
-    final metadata = await gallery.getMetadata(items[_currentIndex]);
+    final item = items[_currentIndex];
+    final metadata = await gallery.getMetadata(item);
 
-    if (!mounted) return;
+    // A later page change owns the panel now; never show stale metadata.
+    if (!mounted || _currentItemOrNull != item) return;
     if (metadata != null && metadata.containsKey('Comment')) {
       final settings = parseCommentJson(metadata['Comment']!);
       setState(() {
@@ -211,18 +220,57 @@ class _ImageDetailViewState extends State<ImageDetailView>
     }
   }
 
-  /// Jump to the newly inserted image at index 0 after post-processing saves.
-  void _jumpToNewImage() {
+  /// Shows a freshly saved result. It lands wherever the current sort puts
+  /// it, and an album, favorites, search or demo filter may hide it.
+  void _jumpToNewImage(String basename) {
+    final index = context.read<GalleryNotifier>().activeIndexOf(basename);
+    if (index == null) {
+      showAppSnackBar(context, context.l.galleryNewImageHidden);
+      return;
+    }
     setState(() {
-      _currentIndex = 0;
+      _currentIndex = index;
       _isLoadingMetadata = true;
       _promptExpanded = false;
       _isZoomed = false;
       _showScrollIndicator = true;
     });
-    _pageController.jumpToPage(0);
+    _pageController.jumpToPage(index);
     _loadMetadata();
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkActionOverflow());
+  }
+
+  /// The current image just left the active list (deleted, removed from the
+  /// album, or unfavorited while only favorites show). The same index now
+  /// holds the next image, so reload its metadata. When none is left, the
+  /// empty-list guard in [build] closes the view.
+  void _onCurrentItemRemoved() {
+    final items = context.read<GalleryNotifier>().activeItems;
+    if (items.isEmpty) return;
+    setState(() {
+      if (_currentIndex >= items.length) _currentIndex = items.length - 1;
+      _isLoadingMetadata = true;
+      _promptExpanded = false;
+    });
+    _loadMetadata();
+  }
+
+  /// Loads [item] into a tool and opens that tool in place of the gallery.
+  Future<void> _sendToTool(
+    GalleryItem item,
+    String toolId,
+    Future<void> Function(Uint8List bytes) loadSource,
+  ) async {
+    final bytes = await item.file.readAsBytes();
+    if (!mounted) return;
+    await loadSource(bytes);
+    if (!mounted) return;
+    final navigator = Navigator.of(context);
+    navigator.pop(); // detail view
+    navigator.pop(); // gallery
+    navigator.push(
+      MaterialPageRoute(builder: (_) => ToolsHubScreen(initialToolId: toolId)),
+    );
   }
 
   /// Returns (label, color) for post-processed images based on filename prefix.
@@ -461,7 +509,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
       ),
     );
     if (outcome?.destination == ToolResultDestination.gallery && mounted) {
-      _jumpToNewImage();
+      _jumpToNewImage(outputName);
     }
   }
 
@@ -495,7 +543,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
       savedMessage: context.l.mlBgRemovedSavedAs(outputName),
     );
     if (outcome.destination == ToolResultDestination.gallery) {
-      _jumpToNewImage();
+      _jumpToNewImage(outputName);
     }
   }
 
@@ -675,11 +723,15 @@ class _ImageDetailViewState extends State<ImageDetailView>
         ? naiUpscaleAllowed
         : ml.hasUpscaleModel;
 
-    // Guard: if all images deleted, pop
+    // Guard: if all images are gone, pop once (later rebuilds during the exit
+    // transition must not pop the gallery underneath as well).
     if (items.isEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.pop(context);
-      });
+      if (!_closing) {
+        _closing = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) Navigator.pop(context);
+        });
+      }
       return Scaffold(backgroundColor: t.background);
     }
 
@@ -809,7 +861,12 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                     tooltip: context.l.galleryToggleFavorite,
                                     onPressed: () {
                                       gallery.toggleFavorite(item);
-                                      setState(() {});
+                                      if (gallery.showFavoritesOnly &&
+                                          !item.isFavorite) {
+                                        _onCurrentItemRemoved();
+                                      } else {
+                                        setState(() {});
+                                      }
                                     },
                                   ),
                                   _isExporting
@@ -847,19 +904,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                           gallery.activeAlbumId!,
                                           [item],
                                         );
-                                        final newItems = gallery.activeItems;
-                                        if (!context.mounted) return;
-                                        if (newItems.isEmpty) {
-                                          Navigator.pop(context);
-                                        } else {
-                                          setState(() {
-                                            if (_currentIndex >=
-                                                newItems.length) {
-                                              _currentIndex =
-                                                  newItems.length - 1;
-                                            }
-                                          });
-                                        }
+                                        _onCurrentItemRemoved();
                                       },
                                     ),
                                   IconButton(
@@ -885,23 +930,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                         listen: false,
                                       ).deleteItem(item);
                                       if (!context.mounted) return;
-                                      final newItems =
-                                          Provider.of<GalleryNotifier>(
-                                            context,
-                                            listen: false,
-                                          ).activeItems;
-                                      if (newItems.isEmpty) {
-                                        Navigator.pop(context);
-                                      } else {
-                                        setState(() {
-                                          if (_currentIndex >=
-                                              newItems.length) {
-                                            _currentIndex = newItems.length - 1;
-                                          }
-                                          _isLoadingMetadata = true;
-                                        });
-                                        _loadMetadata();
-                                      }
+                                      _onCurrentItemRemoved();
                                     },
                                   ),
                                 ],
@@ -1129,66 +1158,27 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                               .toUpperCase(),
                                           color: t.accentEdit,
                                           mobile: mobile,
-                                          onTap: () async {
-                                            final bytes = await item.file
-                                                .readAsBytes();
-                                            if (!context.mounted) return;
-                                            String? prompt;
-                                            String? negativePrompt;
-                                            final prefs = context
-                                                .read<PreferencesService>();
-                                            if (prefs.img2imgImportPrompt) {
-                                              final metadata = extractMetadata(
-                                                bytes,
-                                              );
-                                              if (metadata != null &&
-                                                  metadata.containsKey(
-                                                    'Comment',
-                                                  )) {
-                                                final json = parseCommentJson(
-                                                  metadata['Comment']!,
-                                                );
-                                                if (json != null) {
-                                                  // Prefer the clean base prompt over the
-                                                  // fully-styled one. The 'prompt' field has
-                                                  // the active style's prefix/suffix already
-                                                  // baked in; img2img re-applies the current
-                                                  // style at generation time, so loading the
-                                                  // styled prompt double-applies it. Older
-                                                  // images without 'original_prompt' fall back
-                                                  // to 'prompt'.
-                                                  prompt =
-                                                      (json['original_prompt']
-                                                          as String?) ??
-                                                      (json['prompt']
-                                                          as String?);
-                                                  negativePrompt =
-                                                      json['uc'] as String?;
-                                                }
-                                              }
-                                            }
-                                            if (!context.mounted) return;
-                                            context
-                                                .read<Img2ImgNotifier>()
-                                                .loadSourceImage(
-                                                  bytes,
-                                                  prompt: prompt,
-                                                  negativePrompt:
-                                                      negativePrompt,
-                                                  filePath: item.file.path,
-                                                );
-                                            Navigator.pop(context);
-                                            Navigator.pop(context);
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    const ToolsHubScreen(
-                                                      initialToolId: 'img2img',
-                                                    ),
-                                              ),
-                                            );
-                                          },
+                                          onTap: () => _sendToTool(
+                                            item,
+                                            'img2img',
+                                            (bytes) {
+                                              final imported =
+                                                  prefs.img2imgImportPrompt
+                                                  ? promptFromImageMetadata(
+                                                      bytes,
+                                                    )
+                                                  : null;
+                                              return context
+                                                  .read<Img2ImgNotifier>()
+                                                  .loadSourceImage(
+                                                    bytes,
+                                                    prompt: imported?.prompt,
+                                                    negativePrompt: imported
+                                                        ?.negativePrompt,
+                                                    filePath: item.file.path,
+                                                  );
+                                            },
+                                          ),
                                         ),
                                         _ViewerAction(
                                           icon: Icons.hd,
@@ -1196,25 +1186,13 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                               .toUpperCase(),
                                           color: t.accent,
                                           mobile: mobile,
-                                          onTap: () async {
-                                            final bytes = await item.file
-                                                .readAsBytes();
-                                            if (!context.mounted) return;
+                                          onTap: () => _sendToTool(
+                                            item,
+                                            'enhance',
                                             context
                                                 .read<EnhanceNotifier>()
-                                                .setSourceImage(bytes);
-                                            Navigator.pop(context);
-                                            Navigator.pop(context);
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    const ToolsHubScreen(
-                                                      initialToolId: 'enhance',
-                                                    ),
-                                              ),
-                                            );
-                                          },
+                                                .setSourceImage,
+                                          ),
                                         ),
                                         _ViewerAction(
                                           icon: Icons.auto_fix_high,
@@ -1222,26 +1200,13 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                               .toUpperCase(),
                                           color: t.accent,
                                           mobile: mobile,
-                                          onTap: () async {
-                                            final bytes = await item.file
-                                                .readAsBytes();
-                                            if (!context.mounted) return;
+                                          onTap: () => _sendToTool(
+                                            item,
+                                            'director_tools',
                                             context
                                                 .read<DirectorToolsNotifier>()
-                                                .setSourceImage(bytes);
-                                            Navigator.pop(context);
-                                            Navigator.pop(context);
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    const ToolsHubScreen(
-                                                      initialToolId:
-                                                          'director_tools',
-                                                    ),
-                                              ),
-                                            );
-                                          },
+                                                .setSourceImage,
+                                          ),
                                         ),
                                         if (canRemoveBackground)
                                           _ViewerAction(

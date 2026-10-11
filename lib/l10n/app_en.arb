@@ -181,6 +181,7 @@
   "@galleryResultDownloaded": { "placeholders": { "name": { "type": "String" } } },
   "galleryResultSaveFailed": "Result not saved: {error}",
   "@galleryResultSaveFailed": { "placeholders": { "error": { "type": "String" } } },
+  "galleryNewImageHidden": "New image saved, but the current filter hides it",
   "galleryToggleFavorite": "Toggle favorite",
   "galleryExportImage": "Export image",
   "galleryDeleteImageTooltip": "Delete image",

@@ -164,6 +164,7 @@
   "gallerySavedTo": "{name}に保存しました",
   "galleryResultDownloaded": "{name}をダウンロードしました",
   "galleryResultSaveFailed": "結果を保存できませんでした: {error}",
+  "galleryNewImageHidden": "新しい画像は保存されましたが、現在のフィルターで非表示になっています",
   "galleryToggleFavorite": "お気に入りを切り替え",
   "galleryExportImage": "画像をエクスポート",
   "galleryDeleteImageTooltip": "画像を削除",

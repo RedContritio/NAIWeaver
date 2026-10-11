@@ -528,6 +528,9 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get galleryNewImageHidden => '新しい画像は保存されましたが、現在のフィルターで非表示になっています';
+
+  @override
   String get galleryToggleFavorite => 'お気に入りを切り替え';
 
   @override
