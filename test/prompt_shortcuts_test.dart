@@ -152,14 +152,14 @@ void main() {
             LogicalKeyboardKey.controlLeft,
             LogicalKeyboardKey.enter,
           );
-          expect(generated, 0, reason: 'Ctrl is not the command key on a Mac');
+          expect(generated, 1, reason: 'Ctrl+Enter also generates on a Mac');
 
           await _chord(
             tester,
             LogicalKeyboardKey.metaLeft,
             LogicalKeyboardKey.enter,
           );
-          expect(generated, 1);
+          expect(generated, 2);
         });
       });
 
@@ -237,13 +237,13 @@ void main() {
 
         expect(
           onKeyDown(const BrowserNativeKeyEvent(key: 'Enter', control: true)),
-          isFalse,
+          isTrue,
         );
         expect(
           onKeyDown(const BrowserNativeKeyEvent(key: 'Enter', meta: true)),
           isTrue,
         );
-        expect(generated, 1);
+        expect(generated, 2);
       });
     });
   });

@@ -765,6 +765,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
     }) => OverlayActionButton(
       icon: icon,
       tooltip: label,
+      label: label,
       color: color,
       onPressed: onTap,
     );

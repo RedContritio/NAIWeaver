@@ -1650,6 +1650,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
     ) => OverlayActionButton(
       icon: icon,
       tooltip: label,
+      label: label,
       color: color,
       onPressed: onTap,
     );
