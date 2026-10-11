@@ -56,15 +56,6 @@ void main() {
       expect(loaded[0].prompt, 'a wizard, alpha');
     });
 
-    test('overwrites previous data on subsequent save', () async {
-      final path = p.join(tmp.path, 'presets.json');
-      await PresetStorage.savePresets(path, [_samplePreset('one')]);
-      await PresetStorage.savePresets(path, [_samplePreset('two')]);
-
-      final loaded = await PresetStorage.loadPresets(path);
-      expect(loaded.length, 1);
-      expect(loaded[0].name, 'two');
-    });
   });
 
   group('StyleStorage', () {

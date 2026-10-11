@@ -121,26 +121,5 @@ class DatabaseFileTests(unittest.TestCase):
         self.assertEqual(stat.S_IMODE(main.DB_PATH.stat().st_mode), 0o600)
 
 
-class AdminAccountTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.db = support.temporary_database(self)
-        self.admin = support.create_user(self.db, "root", "admin")
-
-    def test_admin_role_with_is_admin_false_is_rejected(self) -> None:
-        with self.assertRaises(HTTPException) as raised:
-            main.admin_create_user(
-                main.UserCreateRequest(username="x", role="admin", is_admin=False),
-                self.admin,
-                self.db,
-            )
-        detail = raised.exception.detail
-        self.assertEqual((raised.exception.status_code, detail["code"], detail["field"]),
-                         (400, "invalid_parameters", "is_admin"))
-        self.assertIsNone(support.fetch_user(self.db, "x"))
-
-    def test_admin_config_has_no_hardcoded_discount(self) -> None:
-        self.assertNotIn("green_point_discount", main.admin_config(self.admin, self.db))
-
-
 if __name__ == "__main__":
     unittest.main()

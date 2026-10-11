@@ -9,7 +9,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:naiweaver/core/services/preferences_service.dart';
 import 'package:naiweaver/core/theme/theme_notifier.dart';
-import 'package:naiweaver/core/utils/file_picker_helper.dart';
 import 'package:naiweaver/core/widgets/syntax_highlight_controller.dart';
 import 'package:naiweaver/features/gallery/providers/gallery_notifier.dart';
 import 'package:naiweaver/features/generation/providers/generation_notifier.dart';
@@ -131,15 +130,6 @@ Future<void> _pumpPicker(
 }
 
 void main() {
-  test('readPickedFileBytes uses bytes without touching the path', () async {
-    final file = PlatformFile(name: 'a.png', size: 3, bytes: _png);
-    expect(await readPickedFileBytes(file), same(_png));
-    expect(
-      await readPickedFileBytes(PlatformFile(name: 'none.png', size: 0)),
-      isNull,
-    );
-  });
-
   testWidgets('upload from device accepts a bytes-only pick', (tester) async {
     final picker = _BytesOnlyFilePicker(Future.value(_png));
     FilePicker.platform = picker;

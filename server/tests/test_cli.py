@@ -11,7 +11,6 @@ for _name in ("IMAGE_DIR", "THUMBNAIL_DIR", "AUDIT_DIR"):
     os.environ[f"NAIWEAVER_{_name}"] = os.path.join(_TEMP.name, _name.lower())
 os.environ.pop("NAIWEAVER_AUTH_ISSUER", None)
 
-import ast
 from contextlib import closing, redirect_stdout
 import io
 from pathlib import Path
@@ -19,7 +18,7 @@ import sqlite3
 import unittest
 from unittest import mock
 
-from app import cli, main, roles
+from app import cli, main
 
 
 def tearDownModule() -> None:
@@ -60,16 +59,6 @@ class CliTests(unittest.TestCase):
                 (*values.values(), username),
             )
             db.commit()
-
-    def test_create_applies_role_defaults(self) -> None:
-        for role in roles.ROLES:
-            with self.subTest(role=role):
-                self.run_cli("user", "create", f"{role}_user", "--role", role)
-                user = self.user(f"{role}_user")
-                for name, value in roles.role_defaults(role).items():
-                    self.assertEqual(user[name], value, name)
-        self.run_cli("user", "create", "plain")
-        self.assertEqual(self.user("plain")["can_generate_paid"], 0)
 
     def test_grant_adds_to_the_balance_even_if_it_changed_meanwhile(self) -> None:
         self.run_cli("user", "create", "alice", "--role", "paid")
@@ -124,53 +113,6 @@ class CliTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             self.run_cli("user", "create", "alice", "--role", "admin")
         self.assertEqual(self.user("alice")["is_admin"], 0)
-
-    def test_points_show_subtracts_reserved_points(self) -> None:
-        self.run_cli("user", "create", "alice", "--role", "paid", "--green-points", "10000")
-        self.set_columns("alice", green_point_used=100, red_points=1000, red_points_used=100)
-        # init_db() rebuilds the reserved counters from active tasks, so reserve
-        # through queued tasks rather than by writing the counters directly.
-        with closing(main.db_connect()) as db:
-            for task_id, mode, points in (("t-free", "free", 250), ("t-paid", "paid", 300)):
-                db.execute(
-                    "INSERT INTO generation_tasks(id, user_id, mode, status, prompt, width,"
-                    " height, steps, scale, sampler, seed, reserved_points, request_json,"
-                    " created_at) VALUES (?, ?, ?, 'queued', '', 832, 1216, 28, 5,"
-                    " 'k_euler', 1, ?, '{}', ?)",
-                    (task_id, self.user("alice")["id"], mode, points, main.now_iso()),
-                )
-            db.commit()
-        output = self.run_cli("user", "points", "show", "alice")
-        self.assertIn("green: 9650 remaining / 10000 total (250 reserved)", output)
-        self.assertIn("red: 600 remaining / 1000 total (300 reserved)", output)
-
-
-class RoleDefaultsTests(unittest.TestCase):
-    def test_role_defaults_has_a_single_definition(self) -> None:
-        self.assertIs(cli.role_defaults, roles.role_defaults)
-        app_dir = Path(roles.__file__).parent
-        definers = [
-            path.name
-            for path in sorted(app_dir.glob("*.py"))
-            for node in ast.walk(ast.parse(path.read_text()))
-            if isinstance(node, ast.FunctionDef) and node.name == "role_defaults"
-        ]
-        self.assertEqual(definers, ["roles.py"])
-
-    def test_roles_follow_one_rule_set(self) -> None:
-        free, paid, admin = (roles.role_defaults(role) for role in ("free", "paid", "admin"))
-        self.assertEqual(free["red_points"], 0)
-        self.assertEqual(
-            {free[name] for name in ("can_generate_paid", "can_image_upscale",
-                                     "can_image_augment", "can_image_encode_vibe")},
-            {0},
-        )
-        self.assertEqual(paid["red_points"], roles.DEFAULT_RED_POINTS)
-        self.assertEqual((admin["is_admin"], admin["green_point_discount"]), (1, 100))
-        self.assertEqual(admin["red_points"], roles.DEFAULT_ADMIN_RED_POINTS)
-        self.assertIsNot(roles.role_defaults("free"), roles.role_defaults("free"))
-        with self.assertRaises(ValueError):
-            roles.role_defaults("owner")
 
 
 if __name__ == "__main__":

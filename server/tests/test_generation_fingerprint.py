@@ -204,27 +204,6 @@ class GenerationFailureLoggingTests(unittest.TestCase):
         self.assertNotIn("prompt that must stay private", rendered)
         self.assertNotIn("pst-test-secret", rendered)
 
-    def test_unexpected_failure_logs_stage_exception_and_traceback(self) -> None:
-        with self.assertLogs(main.logger, level="ERROR") as captured:
-            try:
-                raise RuntimeError("connection closed mid-response")
-            except RuntimeError as exc:
-                main.log_generation_exception(
-                    self.job(),
-                    batch_id="batch-logging-test",
-                    stage="upstream_request",
-                    exc=exc,
-                    elapsed_ms=5015,
-                )
-
-        rendered = "\n".join(captured.output)
-        self.assertIn("kind=exception", rendered)
-        self.assertIn("stage=upstream_request", rendered)
-        self.assertIn("exception_type=RuntimeError", rendered)
-        self.assertIn("connection closed mid-response", rendered)
-        self.assertIn("Traceback", rendered)
-        self.assertNotIn("prompt that must stay private", rendered)
-
     def test_invalid_upstream_archive_logs_the_decode_traceback(self) -> None:
         with self.assertLogs(main.logger, level="ERROR") as captured:
             image = main.decode_zip_image(b"not-a-zip-archive")

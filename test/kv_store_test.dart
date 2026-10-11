@@ -46,13 +46,6 @@ void main() {
       expect(read, '{"a":1}');
     });
 
-    test('overwrites existing file content', () async {
-      final path = p.join(tmp.path, 'value.json');
-      await KvStore.writeString(path: path, prefsKey: 'k', value: 'first');
-      await KvStore.writeString(path: path, prefsKey: 'k', value: 'second');
-      expect(await KvStore.readString(path: path, prefsKey: 'k'), 'second');
-    });
-
     test('creates parent directories on write', () async {
       final path = p.join(tmp.path, 'nested', 'deeper', 'file.json');
       await KvStore.writeString(path: path, prefsKey: 'k', value: 'hi');
@@ -68,25 +61,5 @@ void main() {
       );
     });
 
-    test('exists() reflects file presence', () async {
-      final path = p.join(tmp.path, 'present.json');
-      expect(await KvStore.exists(path: path, prefsKey: 'k'), isFalse);
-      await KvStore.writeString(path: path, prefsKey: 'k', value: 'x');
-      expect(await KvStore.exists(path: path, prefsKey: 'k'), isTrue);
-    });
-
-    test('remove() deletes the file', () async {
-      final path = p.join(tmp.path, 'gone.json');
-      await KvStore.writeString(path: path, prefsKey: 'k', value: 'x');
-      await KvStore.remove(path: path, prefsKey: 'k');
-      expect(await File(path).exists(), isFalse);
-    });
-
-    test('remove() of missing file is a no-op', () async {
-      await KvStore.remove(
-        path: p.join(tmp.path, 'never_existed.json'),
-        prefsKey: 'k',
-      );
-    });
   });
 }

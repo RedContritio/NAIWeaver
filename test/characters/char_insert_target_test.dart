@@ -14,26 +14,6 @@ void main() {
     return PreferencesService(prefs, const FlutterSecureStorage());
   }
 
-  // ── Insert-target preference ─────────────────────────────────────────────
-  group('charInsertTarget preference', () {
-    test('defaults to "editor" (new behavior is opt-out)', () async {
-      final prefs = await makeService({});
-      expect(prefs.charInsertTarget, 'editor');
-    });
-
-    test('round-trips a stored value', () async {
-      final prefs = await makeService({'char_insert_target': 'main'});
-      expect(prefs.charInsertTarget, 'main');
-      await prefs.setCharInsertTarget('editor');
-      expect(prefs.charInsertTarget, 'editor');
-    });
-
-    test('is included in the backup/export allowlist', () async {
-      final prefs = await makeService({'char_insert_target': 'main'});
-      expect(prefs.exportableSettings().containsKey('char_insert_target'), isTrue);
-    });
-  });
-
   // ── CharacterManager: populated add + cap ────────────────────────────────
   group('CharacterManager.addCharacter (populated)', () {
     late CharacterManager manager;

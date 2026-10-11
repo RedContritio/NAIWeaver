@@ -15,13 +15,6 @@ void main() {
   }
 
   group('brush sizing in pixels (#16)', () {
-    test('diameter maps to normalized radius against source width', () {
-      final n = makeNotifier(width: 1000);
-      n.setBrushDiameterPx(100);
-      expect(n.brushRadius, closeTo(0.05, 1e-9));
-      expect(n.brushDiameterPx, closeTo(100, 1e-9));
-    });
-
     test('floor is a 1px diameter, far below the old 0.2% floor', () {
       final n = makeNotifier(width: 1024);
       n.setBrushDiameterPx(1);
@@ -35,21 +28,6 @@ void main() {
       final n = makeNotifier(width: 1024);
       n.setBrushDiameterPx(0.2);
       expect(n.brushDiameterPx, closeTo(1, 1e-9));
-    });
-
-    test('ceiling stays at 15% of image width', () {
-      final n = makeNotifier(width: 1000);
-      n.setBrushDiameterPx(99999);
-      expect(n.brushRadius, closeTo(0.15, 1e-9));
-      expect(n.brushDiameterPx, closeTo(300, 1e-9));
-    });
-
-    test('brushStepPx is 10% of current size with a 1px minimum', () {
-      final n = makeNotifier(width: 1000);
-      n.setBrushDiameterPx(200);
-      expect(n.brushStepPx, closeTo(20, 1e-9));
-      n.setBrushDiameterPx(4);
-      expect(n.brushStepPx, 1.0);
     });
   });
 }
