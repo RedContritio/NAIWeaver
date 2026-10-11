@@ -20,6 +20,20 @@ Thanks for your interest in contributing! Here's how to get started.
 - Tools Hub features go in `lib/features/tools/{tool_name}/` (e.g., `director_tools/`, `enhance/`, `ml/`)
 - Shared utilities go in `lib/core/` (services, utils, widgets)
 
+## Tests
+
+Tests cover critical paths only: billing and quotes, the auth session
+lifecycle, request building against the gateway whitelist, generation state,
+history access, data round-trips, and crash or data-loss guards. Don't add
+tests that restate an implementation, fake away the logic under test, or only
+assert layout.
+
+- `flutter test` — VM suite
+- `flutter test --platform chrome test/browser_native_text_area_test.dart test/browser_platform_view_lifecycle_test.dart` — DOM-backed web widgets (skipped on the VM)
+- `node --test test/web/*.test.mjs` — PhotoSwipe bridge key policy
+- `cd server && NAIWEAVER_DATA_DIR=$(mktemp -d) uv run python -m unittest discover -s tests` — gateway; never point tests at the production data directory
+- `test/fixtures/quote_cases.json` and `test/fixtures/image_request_keys.json` are shared by the gateway and Flutter suites; change them together with `docs/GATEWAY_CONTRACT.md`
+
 ## Pull Request Process
 
 1. Fork the repository and create a branch from `master`
