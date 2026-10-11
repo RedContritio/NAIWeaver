@@ -17,7 +17,7 @@ from zipfile import ZipFile
 from fastapi import HTTPException
 from starlette.requests import Request
 
-from app import main
+from app import config, db as gwdb, generation, proxy, state, storage, users
 from app.billing import classify_and_quote
 from app.idempotency import ToolResponseCache
 from app.security import create_jwt
@@ -53,13 +53,13 @@ def temporary_database(testcase: unittest.TestCase) -> sqlite3.Connection:
     """Point the gateway at a fresh file database for one test."""
     directory = tempfile.TemporaryDirectory(prefix="naiweaver-db-")
     testcase.addCleanup(directory.cleanup)
-    patcher = mock.patch.object(main, "DB_PATH", Path(directory.name) / "gateway.sqlite3")
+    patcher = mock.patch.object(config, "DB_PATH", Path(directory.name) / "gateway.sqlite3")
     patcher.start()
     testcase.addCleanup(patcher.stop)
-    db = main.db_connect()
+    db = gwdb.db_connect()
     testcase.addCleanup(db.close)
-    db.executescript(main.SCHEMA)
-    main.migrate_db(db)
+    db.executescript(gwdb.SCHEMA)
+    gwdb.migrate_db(db)
     db.commit()
     return db
 
@@ -71,7 +71,7 @@ def create_user(
     columns = ["username", "password_hash", "created_at", *row]
     db.execute(
         f"INSERT INTO users({', '.join(columns)}) VALUES ({', '.join('?' for _ in columns)})",
-        [username, "unused", main.now_iso(), *row.values()],
+        [username, "unused", gwdb.now_iso(), *row.values()],
     )
     db.commit()
     return fetch_user(db, username)
@@ -85,10 +85,10 @@ def session_cookies(db: sqlite3.Connection, user: sqlite3.Row) -> dict[str, str]
     session_id = secrets.token_urlsafe(12)
     db.execute(
         "INSERT INTO sessions(id, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)",
-        (session_id, user["id"], "2999-01-01T00:00:00+00:00", main.now_iso()),
+        (session_id, user["id"], "2999-01-01T00:00:00+00:00", gwdb.now_iso()),
     )
     db.commit()
-    token = create_jwt({"sub": int(user["id"]), "jti": session_id}, main.SECRET_KEY, 3600)
+    token = create_jwt({"sub": int(user["id"]), "jti": session_id}, config.SECRET_KEY, 3600)
     return {"access_token": token}
 
 
@@ -114,7 +114,7 @@ def generation_request(*, action: str = "generate", **parameters: Any) -> dict[s
 
 def quote_for(db: sqlite3.Connection, user: sqlite3.Row, request: dict[str, Any], images: int):
     _, quote = classify_and_quote(
-        request, main.image_rules_for_user(db, user), images=images
+        request, users.image_rules_for_user(db, user), images=images
     )
     return quote
 
@@ -175,7 +175,7 @@ async def submit(
             "expected_quote": expected,
         }
     ).encode()
-    response = await main.submit_generation_task(
+    response = await generation.submit_generation_task(
         request=make_request("/api/generation-tasks", body), user=user, db=db
     )
     assert response.status_code == 202, response.status_code
@@ -190,20 +190,20 @@ def error_detail(raised: unittest.case._AssertRaisesContext) -> dict[str, Any]:
 
 
 def reset_queue_state() -> None:
-    main.pending_jobs.clear()
-    main.active_user_ids.clear()
-    main.queue_condition = asyncio.Condition()
-    main.queue_virtual_time = 0.0
-    for queue_name in main.queue_last_finish:
-        main.queue_last_finish[queue_name] = 0.0
-    main.upstream_lane = UpstreamLane()
-    main.tool_response_cache = ToolResponseCache()
+    state.pending_jobs.clear()
+    state.active_user_ids.clear()
+    state.queue_condition = asyncio.Condition()
+    state.queue_virtual_time = 0.0
+    for queue_name in state.queue_last_finish:
+        state.queue_last_finish[queue_name] = 0.0
+    state.upstream_lane = UpstreamLane()
+    state.tool_response_cache = ToolResponseCache()
 
 
 def zipped_png() -> bytes:
     buffer = BytesIO()
     with ZipFile(buffer, "w") as archive:
-        archive.writestr("image_0.png", main.fake_png())
+        archive.writestr("image_0.png", storage.fake_png())
     return buffer.getvalue()
 
 
@@ -233,7 +233,7 @@ class FakeNovelAI:
             ("forward_to_novelai", self.forward),
             ("fetch_anlas_balance", self.fetch_balance),
         ):
-            patcher = mock.patch.object(main, name, replacement)
+            patcher = mock.patch.object(proxy, name, replacement)
             patcher.start()
             testcase.addCleanup(patcher.stop)
 

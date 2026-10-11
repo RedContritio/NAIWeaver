@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import tempfile
 
-# Isolate every data path before app.main reads them at import time.
+# Isolate every data path before app config reads them at import time.
 _TEMP = tempfile.TemporaryDirectory(prefix="naiweaver-cli-test-")
 os.environ["NAIWEAVER_DATA_DIR"] = _TEMP.name
 os.environ["NAIWEAVER_DB_PATH"] = os.path.join(_TEMP.name, "naiweaver.sqlite3")
@@ -18,7 +18,7 @@ import sqlite3
 import unittest
 from unittest import mock
 
-from app import cli, main
+from app import cli, config, db as gwdb
 
 
 def tearDownModule() -> None:
@@ -30,15 +30,15 @@ class CliTests(unittest.TestCase):
         temp = tempfile.TemporaryDirectory(prefix="naiweaver-cli-case-")
         self.addCleanup(temp.cleanup)
         root = Path(temp.name)
-        # Patch the module globals too, in case app.main was imported earlier.
+        # Patch the module globals too, in case app.config was imported earlier.
         for name in ("DATA_DIR", "IMAGE_DIR", "THUMBNAIL_DIR", "AUDIT_DIR"):
-            patcher = mock.patch.object(main, name, root / name.lower())
+            patcher = mock.patch.object(config, name, root / name.lower())
             patcher.start()
             self.addCleanup(patcher.stop)
-        patcher = mock.patch.object(main, "DB_PATH", root / "naiweaver.sqlite3")
+        patcher = mock.patch.object(config, "DB_PATH", root / "naiweaver.sqlite3")
         patcher.start()
         self.addCleanup(patcher.stop)
-        self.assertEqual(main.DB_PATH.parent, root)
+        self.assertEqual(config.DB_PATH.parent, root)
 
     def run_cli(self, *argv: str) -> str:
         args = cli.build_parser().parse_args(argv)
@@ -48,12 +48,12 @@ class CliTests(unittest.TestCase):
         return output.getvalue()
 
     def user(self, username: str) -> sqlite3.Row:
-        with closing(main.db_connect()) as db:
+        with closing(gwdb.db_connect()) as db:
             return db.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
 
     def set_columns(self, username: str, **values: int) -> None:
         assignments = ", ".join(f"{name} = ?" for name in values)
-        with closing(main.db_connect()) as db:
+        with closing(gwdb.db_connect()) as db:
             db.execute(
                 f"UPDATE users SET {assignments} WHERE username = ?",
                 (*values.values(), username),
@@ -66,7 +66,7 @@ class CliTests(unittest.TestCase):
 
         def grant_elsewhere(db, username):
             row = original(db, username)
-            with closing(main.db_connect()) as other:
+            with closing(gwdb.db_connect()) as other:
                 other.execute("UPDATE users SET red_points = red_points + 100")
                 other.commit()
             return row
@@ -78,7 +78,7 @@ class CliTests(unittest.TestCase):
     def test_cli_commands_keep_in_flight_tool_reservations(self) -> None:
         self.run_cli("user", "create", "alice", "--role", "paid")
         user = self.user("alice")
-        with closing(main.db_connect()) as db:
+        with closing(gwdb.db_connect()) as db:
             db.execute(
                 "INSERT INTO tool_reservations(user_id, mode, points, tool, created_at) "
                 "VALUES (?, 'paid', 80, 'augment', 'now')",

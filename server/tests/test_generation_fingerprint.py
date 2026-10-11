@@ -10,8 +10,9 @@ import unittest
 from fastapi import HTTPException, status
 from starlette.requests import Request
 
-from app import billing, main
-from app.main import generation_request_fingerprint, submission_request_hash
+from app import billing, config, db as gwdb, generation, history, state, storage
+from app.db import generation_request_fingerprint
+from app.generation import submission_request_hash
 from tests import support
 
 
@@ -74,7 +75,7 @@ class GenerationFingerprintTests(unittest.TestCase):
         request = copy.deepcopy(self.request)
         request["parameters"]["image"] = "large-base64-image"
         request["parameters"]["director_reference_images"] = ["a", "b"]
-        restored = json.loads(main.public_request_json(json.dumps(request)))
+        restored = json.loads(generation.public_request_json(json.dumps(request)))
 
         self.assertEqual(restored["model"], self.request["model"])
         self.assertNotIn("image", restored["parameters"])
@@ -140,8 +141,8 @@ class GenerationModelNormalizationTests(unittest.TestCase):
 
 
 class GenerationFailureLoggingTests(unittest.TestCase):
-    def job(self) -> main.ProxyJob:
-        return main.ProxyJob(
+    def job(self) -> state.ProxyJob:
+        return state.ProxyJob(
             virtual_finish=1.0,
             negative_weight=-100,
             created_at="2026-08-30T00:00:00+00:00",
@@ -179,8 +180,8 @@ class GenerationFailureLoggingTests(unittest.TestCase):
             }
         ).encode()
 
-        with self.assertLogs(main.logger, level="ERROR") as captured:
-            main.log_generation_upstream_failure(
+        with self.assertLogs(config.logger, level="ERROR") as captured:
+            generation.log_generation_upstream_failure(
                 self.job(),
                 batch_id="batch-logging-test",
                 status_code=503,
@@ -205,8 +206,8 @@ class GenerationFailureLoggingTests(unittest.TestCase):
         self.assertNotIn("pst-test-secret", rendered)
 
     def test_invalid_upstream_archive_logs_the_decode_traceback(self) -> None:
-        with self.assertLogs(main.logger, level="ERROR") as captured:
-            image = main.decode_zip_image(b"not-a-zip-archive")
+        with self.assertLogs(config.logger, level="ERROR") as captured:
+            image = storage.decode_zip_image(b"not-a-zip-archive")
 
         self.assertIsNone(image)
         rendered = "\n".join(captured.output)
@@ -230,7 +231,7 @@ class AtomicGenerationBatchTests(unittest.IsolatedAsyncioTestCase):
         first = await support.submit(
             self.db, self.user, request, [123, 124], client_request_id="request-123"
         )
-        self.assertEqual(len(main.pending_jobs), 2)
+        self.assertEqual(len(state.pending_jobs), 2)
 
         replay = await support.submit(
             self.db, self.user, request, [123, 124], client_request_id="request-123"
@@ -240,14 +241,14 @@ class AtomicGenerationBatchTests(unittest.IsolatedAsyncioTestCase):
             [item["id"] for item in replay["items"]],
             [item["id"] for item in first["items"]],
         )
-        self.assertEqual(len(main.pending_jobs), 2)
+        self.assertEqual(len(state.pending_jobs), 2)
 
         with self.assertRaises(HTTPException) as duplicate:
             await support.submit(
                 self.db, self.user, request, [123], client_request_id="request-new-action"
             )
         self.assertEqual(support.error_detail(duplicate)["code"], "duplicate_generation")
-        self.assertEqual(len(main.pending_jobs), 2)
+        self.assertEqual(len(state.pending_jobs), 2)
 
         curated = support.generation_request()
         curated["model"] = "nai-diffusion-4-5-curated"
@@ -255,7 +256,7 @@ class AtomicGenerationBatchTests(unittest.IsolatedAsyncioTestCase):
             self.db, self.user, curated, [123], client_request_id="request-model-change"
         )
         self.assertEqual(len(changed["items"]), 1)
-        self.assertEqual(len(main.pending_jobs), 3)
+        self.assertEqual(len(state.pending_jobs), 3)
 
     async def test_duplicate_batch_is_rejected_before_any_item_is_added(self) -> None:
         with self.assertRaises(HTTPException) as raised:
@@ -265,7 +266,7 @@ class AtomicGenerationBatchTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(raised.exception.status_code, 409)
         self.assertEqual(support.error_detail(raised)["code"], "duplicate_within_batch")
-        self.assertEqual(len(main.pending_jobs), 0)
+        self.assertEqual(len(state.pending_jobs), 0)
         count = self.db.execute("SELECT COUNT(*) FROM generation_tasks").fetchone()[0]
         self.assertEqual(count, 0)
 
@@ -287,7 +288,7 @@ class AtomicGenerationBatchTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(detail["code"], "points_insufficient")
         self.assertEqual(detail["point_kind"], "green")
         self.assertEqual((detail["required"], detail["remaining"]), (40, 39))
-        self.assertEqual(len(main.pending_jobs), 0)
+        self.assertEqual(len(state.pending_jobs), 0)
         account = self.db.execute(
             "SELECT green_points_reserved FROM users WHERE id = ?",
             (self.user["id"],),
@@ -332,7 +333,7 @@ class AtomicGenerationBatchTests(unittest.IsolatedAsyncioTestCase):
             support.make_request("/api/generation-tasks", body).receive,
         )
 
-        response = await main.submit_generation_task(
+        response = await generation.submit_generation_task(
             request=request,
             user=self.user,
             db=self.db,
@@ -379,8 +380,8 @@ class QuotaMigrationTests(unittest.TestCase):
             );
             """
         )
-        db.executescript(main.SCHEMA)
-        created = main.now_iso()
+        db.executescript(gwdb.SCHEMA)
+        created = gwdb.now_iso()
         db.executemany(
             "INSERT INTO users(username, password_hash, is_admin, "
             "can_generate_free, daily_limit, created_at) VALUES (?, 'x', ?, ?, ?, ?)",
@@ -397,12 +398,12 @@ class QuotaMigrationTests(unittest.TestCase):
             "INSERT INTO quota_usage(user_id, quota_date, mode, used) "
             "VALUES (?, ?, 'free', ?)",
             [
-                (free_id, main.today_key(), 2),
+                (free_id, gwdb.today_key(), 2),
                 (free_id, "2000-01-01", 99),
             ],
         )
 
-        main.migrate_db(db)
+        gwdb.migrate_db(db)
 
         migrated = {
             row["username"]: row
@@ -418,11 +419,11 @@ class QuotaMigrationTests(unittest.TestCase):
     def test_interim_point_schema_preserves_ambiguous_user_balances(self) -> None:
         db = sqlite3.connect(":memory:")
         db.row_factory = sqlite3.Row
-        db.executescript(main.SCHEMA)
+        db.executescript(gwdb.SCHEMA)
         db.execute(
             "INSERT INTO users(username, password_hash, green_point_used, "
             "green_point_discount, created_at) VALUES ('interim', 'x', 101, 100, ?)",
-            (main.now_iso(),),
+            (gwdb.now_iso(),),
         )
         user_id = db.execute(
             "SELECT id FROM users WHERE username = 'interim'"
@@ -430,7 +431,7 @@ class QuotaMigrationTests(unittest.TestCase):
         db.execute(
             "INSERT INTO quota_usage(user_id, quota_date, mode, used) "
             "VALUES (?, ?, 'free', 2)",
-            (user_id, main.today_key()),
+            (user_id, gwdb.today_key()),
         )
         db.execute(
             """
@@ -441,10 +442,10 @@ class QuotaMigrationTests(unittest.TestCase):
             ) VALUES ('new-point-task', ?, 'free', 'success', 'p', 832, 1216,
                       28, 5, 'k_euler', 1, 7, 7, '{}', ?)
             """,
-            (user_id, main.now_iso()),
+            (user_id, gwdb.now_iso()),
         )
 
-        main.migrate_db(db)
+        gwdb.migrate_db(db)
         preserved = db.execute(
             "SELECT green_point_used, green_point_discount FROM users WHERE id = ?",
             (user_id,),
@@ -453,7 +454,7 @@ class QuotaMigrationTests(unittest.TestCase):
         self.assertEqual(preserved["green_point_discount"], 100)
 
         db.execute("UPDATE users SET green_point_used = 55 WHERE id = ?", (user_id,))
-        main.migrate_db(db)
+        gwdb.migrate_db(db)
         rerun = db.execute(
             "SELECT green_point_used FROM users WHERE id = ?", (user_id,)
         ).fetchone()
@@ -481,15 +482,15 @@ class QuotaMigrationTests(unittest.TestCase):
             );
             """
         )
-        db.executescript(main.SCHEMA)
+        db.executescript(gwdb.SCHEMA)
         db.execute(
             "INSERT INTO users(username, password_hash, can_generate_free, "
             "daily_limit, paid_daily_limit, paid_point_limit, paid_point_used, created_at) "
             "VALUES ('legacy', 'secret-hash', 1, 200, 50, 1234, 12, ?)",
-            (main.now_iso(),),
+            (gwdb.now_iso(),),
         )
 
-        main.migrate_db(db)
+        gwdb.migrate_db(db)
 
         snapshot = db.execute(
             "SELECT values_json FROM legacy_quota_snapshots WHERE user_id = 1"
@@ -509,11 +510,11 @@ class HistoryPaginationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.db = sqlite3.connect(":memory:")
         self.db.row_factory = sqlite3.Row
-        self.db.executescript(main.SCHEMA)
-        main.migrate_db(self.db)
+        self.db.executescript(gwdb.SCHEMA)
+        gwdb.migrate_db(self.db)
         self.db.execute(
             "INSERT INTO users(username, password_hash, created_at) VALUES ('history', 'x', ?)",
-            (main.now_iso(),),
+            (gwdb.now_iso(),),
         )
         self.user = self.db.execute(
             "SELECT * FROM users WHERE username = 'history'"
@@ -550,7 +551,7 @@ class HistoryPaginationTests(unittest.TestCase):
         self._insert_item("new-1", "new-batch", 1, "2026-01-02T00:00:01+00:00")
         request = Request({"type": "http", "headers": []})
 
-        page = main.history(
+        page = history.history(
             request,
             limit=1,
             offset=0,
@@ -573,7 +574,7 @@ class HistoryPaginationTests(unittest.TestCase):
         self.db.execute(
             "INSERT INTO users(username, password_hash, created_at) "
             "VALUES ('other-user', 'x', ?)",
-            (main.now_iso(),),
+            (gwdb.now_iso(),),
         )
         other_id = self.db.execute(
             "SELECT id FROM users WHERE username = 'other-user'"
@@ -593,8 +594,8 @@ class HistoryPaginationTests(unittest.TestCase):
         )
         request = Request({"type": "http", "headers": []})
 
-        own_page = main.history(request, user=self.user, db=self.db)
-        all_page = main.history(
+        own_page = history.history(request, user=self.user, db=self.db)
+        all_page = history.history(
             request,
             all_users=True,
             user=self.user,
@@ -611,7 +612,7 @@ class HistoryPaginationTests(unittest.TestCase):
         self._insert_item("batch-0", "batch-to-hide", 0, "2026-01-01T00:00:00+00:00")
         self._insert_item("batch-1", "batch-to-hide", 1, "2026-01-01T00:00:01+00:00")
 
-        result = main.delete_history_batch(
+        result = history.delete_history_batch(
             "batch-to-hide", user=self.user, db=self.db
         )
 
@@ -630,7 +631,7 @@ class HistoryPaginationTests(unittest.TestCase):
         )
 
         with self.assertRaises(HTTPException) as raised:
-            main.delete_history_batch("active-batch", user=self.user, db=self.db)
+            history.delete_history_batch("active-batch", user=self.user, db=self.db)
 
         self.assertEqual(raised.exception.status_code, status.HTTP_409_CONFLICT)
         hidden = self.db.execute("SELECT COUNT(*) AS count FROM history_hidden").fetchone()

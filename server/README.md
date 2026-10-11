@@ -215,3 +215,21 @@ NAIWEAVER_FREE_ALLOWANCE_COOLDOWN_SECONDS=1800
 
 Settlements that disagree with their quote are recorded in the
 `billing_anomalies` table.
+
+## Audit retention
+
+Every proxied request and generation submission is audited. The request body
+of an accepted request is stored under `NAIWEAVER_AUDIT_DIR`; a rejected
+generation submission records metadata only, never the body.
+
+Body files older than `NAIWEAVER_AUDIT_RETENTION_DAYS` (default `30`; `0`
+keeps them forever) are deleted at startup and once a day. The audit rows stay
+in the database, lose their body path and are marked
+`request_body_expired_at`; `GET /api/admin/audit/{id}/body` then answers 404
+with an "expired" message, and `GET /api/admin/audit` reports
+`request_body_expired: true`.
+
+## Module layout
+
+`app.main:app` only assembles the application (middleware, error handlers,
+lifespan, routers). See "Gateway server modules" in `ARCHITECTURE.md`.

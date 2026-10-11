@@ -9,7 +9,7 @@ import unittest
 
 from fastapi import HTTPException
 
-from app import billing, main
+from app import admin as admin_routes, billing, config, db as gwdb, generation, proxy, state, users
 from tests import support
 
 
@@ -25,7 +25,7 @@ class ExecutionTestCase(unittest.IsolatedAsyncioTestCase):
         support.reset_queue_state()
 
     def start_worker(self) -> None:
-        self.worker = asyncio.create_task(main.queue_worker())
+        self.worker = asyncio.create_task(generation.queue_worker())
 
     async def stop_worker(self) -> None:
         if self.worker is not None:
@@ -58,12 +58,12 @@ class ExecutionTestCase(unittest.IsolatedAsyncioTestCase):
         )
 
     async def call_tool(self, user, path: str, body: bytes, *, key: str, expected: int | None = None):
-        tool = main.PAID_TOOL_PATHS[path]
+        tool = config.PAID_TOOL_PATHS[path]
         headers = {"Idempotency-Key": key}
         headers["X-NAIWeaver-Expected-Points"] = str(
             billing.TOOL_CAPS[tool] if expected is None else expected
         )
-        return await main.novelai_proxy(
+        return await proxy.novelai_proxy(
             service="image",
             path=path,
             request=support.make_request(f"/api/nai/image/{path}", body, headers=headers),
@@ -181,11 +181,11 @@ class UpstreamLaneTests(ExecutionTestCase):
             self.db, free, support.generation_request(), [1, 2]
         )
         self.start_worker()
-        await support.wait_until(lambda: main.upstream_lane.waiting == 1)
+        await support.wait_until(lambda: state.upstream_lane.waiting == 1)
         later_tool = asyncio.create_task(
             self.call_tool(paid, "ai/encode-vibe", b'{"image":"b"}', key="vibe-key-001")
         )
-        await support.wait_until(lambda: main.upstream_lane.waiting == 2)
+        await support.wait_until(lambda: state.upstream_lane.waiting == 2)
 
         self.fake.gate.set()
         await asyncio.gather(first_tool, later_tool)
@@ -212,7 +212,7 @@ class UpstreamLaneTests(ExecutionTestCase):
         tool = asyncio.create_task(
             self.call_tool(paid, "ai/upscale", b'{"image":"x"}', key="upscale-key-1")
         )
-        await support.wait_until(lambda: main.upstream_lane.waiting >= 1)
+        await support.wait_until(lambda: state.upstream_lane.waiting >= 1)
         self.assertEqual(self.fake.calls, ["ai/generate-image"])
 
         self.fake.gate.set()
@@ -279,7 +279,7 @@ class PaidToolTests(ExecutionTestCase):
 
     async def test_headers_are_required_and_the_price_must_match_the_cap(self) -> None:
         with self.assertRaises(HTTPException) as raised:
-            await main.novelai_proxy(
+            await proxy.novelai_proxy(
                 service="image",
                 path="ai/upscale",
                 request=support.make_request(
@@ -392,13 +392,13 @@ class FreeAllowanceExhaustionTests(ExecutionTestCase):
             [("free_allowance_exhausted", "free", 20)],
         )
 
-        rules = main.image_rules_for_user(self.db, free)
+        rules = users.image_rules_for_user(self.db, free)
         self.assertTrue(rules["free_allowance_exhausted"])
         quote = support.quote_for(self.db, free, support.generation_request(), 1)
         self.assertEqual((quote.mode, quote.reasons), ("paid", ("allowance_exhausted",)))
 
         admin = support.create_user(self.db, "admin-user", "admin")
-        state = main.admin_config(admin, self.db)["free_allowance"]
+        state = admin_routes.admin_config(admin, self.db)["free_allowance"]
         self.assertTrue(state["exhausted"])
         until = datetime.fromisoformat(state["exhausted_until"])
         self.assertAlmostEqual(
@@ -439,12 +439,12 @@ class InterruptionTests(ExecutionTestCase):
         running_id, queued_id = (item["id"] for item in submitted["items"])
         self.db.execute(
             "UPDATE generation_tasks SET status = 'running', started_at = ? WHERE id = ?",
-            (main.now_iso(), running_id),
+            (gwdb.now_iso(), running_id),
         )
         self.db.commit()
         support.reset_queue_state()  # the previous process is gone
 
-        await main.restore_generation_queue()
+        await generation.restore_generation_queue()
 
         rows = {row["id"]: row for row in support.item_rows(self.db, submitted["task_id"])}
         self.assertEqual(
@@ -453,7 +453,7 @@ class InterruptionTests(ExecutionTestCase):
         )
         self.assertEqual(rows[running_id]["released_red_points"], 33)
         self.assertEqual(rows[queued_id]["status"], "queued")
-        self.assertEqual([job.task_id for job in main.pending_jobs], [queued_id])
+        self.assertEqual([job.task_id for job in state.pending_jobs], [queued_id])
         self.assertEqual(self.account(user)["red_points_reserved"], 33)
 
         await self.run_until_final(submitted["task_id"])
@@ -475,7 +475,7 @@ class InterruptionTests(ExecutionTestCase):
         self.assertEqual((item["status"], item["error_code"]), ("failed", "interrupted"))
         self.assertEqual(self.account(user)["red_points_reserved"], 0)
         self.assertEqual(self.account(user)["red_points_used"], 0)
-        self.assertFalse(main.upstream_lane.held)
+        self.assertFalse(state.upstream_lane.held)
 
 
 if __name__ == "__main__":
