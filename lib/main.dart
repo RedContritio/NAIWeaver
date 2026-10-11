@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'core/utils/app_snackbar.dart';
@@ -8,6 +7,7 @@ import 'core/widgets/confirm_dialog.dart';
 import 'core/widgets/browser_native_text_area.dart';
 import 'core/gateway/backend_gateway.dart';
 import 'core/gateway/backend_permissions.dart';
+import 'core/gateway/image_quote.dart';
 import 'core/services/nai_cost_estimator.dart';
 import 'core/services/client_diagnostics.dart';
 import 'core/services/client_diagnostics_runtime.dart';
@@ -41,7 +41,10 @@ import 'core/widgets/pin_lock_gate.dart';
 import 'core/theme/theme_notifier.dart';
 import 'core/theme/theme_extensions.dart';
 import 'core/theme/vision_tokens.dart';
+import 'features/generation/models/generation_quote.dart';
 import 'features/generation/providers/generation_notifier.dart';
+import 'features/generation/services/reference_access_monitor.dart';
+import 'features/generation/widgets/billing_text.dart';
 import 'features/generation/widgets/generation_page_layout.dart';
 import 'features/generation/widgets/generation_mobile_sheet.dart';
 import 'features/generation/widgets/generation_results_workspace.dart';
@@ -239,6 +242,25 @@ void main() {
                 ),
             ),
             ChangeNotifierProvider(create: (_) => VibeTransferNotifier()),
+            ChangeNotifierProxyProvider3<
+              DirectorRefNotifier,
+              VibeTransferNotifier,
+              BackendAuthNotifier,
+              ReferenceAccessMonitor
+            >(
+              create: (context) => ReferenceAccessMonitor(
+                references: Provider.of<DirectorRefNotifier>(
+                  context,
+                  listen: false,
+                ),
+                vibes: Provider.of<VibeTransferNotifier>(
+                  context,
+                  listen: false,
+                ),
+              ),
+              update: (context, references, vibes, auth, monitor) =>
+                  monitor!..update(generationAccessOf(auth).paid),
+            ),
             ChangeNotifierProvider(create: (_) => DirectorToolsNotifier()),
             ChangeNotifierProvider(create: (_) => EnhanceNotifier()),
             ChangeNotifierProvider(create: (_) => TextGenNotifier()),
@@ -316,6 +338,10 @@ void main() {
                       context.read<TextGenNotifier>(),
                     );
                     previous?.updateBackendUserId(backendAuth.user?.id);
+                    previous?.updateGatewayAccess(
+                      backendAuth.rules,
+                      generationAccessOf(backendAuth),
+                    );
                     return previous!;
                   },
             ),
@@ -422,6 +448,7 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
   late Animation<double> _pulseAnimation;
   late VoidCallback _generationListener;
   GenerationNotifier? _listenedGenerationNotifier;
+  ReferenceAccessMonitor? _accessMonitor;
   late VoidCallback _promptDiagnosticsListener;
   late VoidCallback _negativePromptDiagnosticsListener;
   bool _diagnosticControllerListenersAttached = false;
@@ -472,6 +499,8 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
         _negativePromptDiagnosticsListener,
       );
       _diagnosticControllerListenersAttached = true;
+      _accessMonitor = context.read<ReferenceAccessMonitor>()
+        ..addListener(_onReferenceAccessChanged);
       _onGenerationStateChanged(notifier);
       _promptDiagnosticsListener();
       _negativePromptDiagnosticsListener();
@@ -906,14 +935,82 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
         _negativePromptDiagnosticsListener,
       );
     }
+    _accessMonitor?.removeListener(_onReferenceAccessChanged);
     _pulseController.dispose();
     super.dispose();
   }
 
+  /// Tells the user once that references and vibes were paused or resumed.
+  void _onReferenceAccessChanged() {
+    final monitor = _accessMonitor;
+    final notice = monitor?.notice;
+    if (monitor == null || notice == null) return;
+    monitor.acknowledge();
+    // The monitor changes while providers rebuild, not in a frame of its own.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final message = referenceAccessNoticeText(context.l, notice);
+      notice.resumed
+          ? showAppSnackBar(context, message)
+          : showErrorSnackBar(context, message);
+    });
+  }
+
+  /// Asks whether to go on at the price the server decided.
+  Future<bool> _confirmQuote(QuoteConfirmation confirmation) async {
+    if (!mounted) return false;
+    final l = context.l;
+    final price = confirmation.serverMode == QuoteMode.paid
+        ? l.quoteConfirmPriceRed(confirmation.serverPoints)
+        : l.quoteConfirmPriceGreen(confirmation.serverPoints);
+    final reason = confirmation.allowanceExhausted
+        ? l.quoteConfirmReasonAllowance
+        : l.quoteConfirmReasonOther;
+    final confirmed = await showConfirmDialog(
+      context,
+      title: l.quoteConfirmTitle,
+      message:
+          '$price\n${l.quoteConfirmShown(confirmation.shown.points)}\n$reason',
+      confirmLabel: l.quoteConfirmContinue,
+      cancelLabel: l.commonCancel,
+      confirmColor: context.tRead.accent,
+    );
+    return confirmed == true;
+  }
+
+  /// Opens where the references and vibes are managed.
+  void _openInputs(GenerationNotifier notifier) {
+    final sheet = _mobileGenerationSheetKey.currentState;
+    if (sheet != null) {
+      unawaited(sheet.openTab(GenerationMobileTab.inputs));
+      return;
+    }
+    final sidebar = isWidescreenLayout(
+      context,
+      context.read<ThemeNotifier>().sidebarLayoutMode,
+    );
+    if (!sidebar && !notifier.state.isSettingsExpanded) {
+      notifier.toggleSettings();
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final target = ExpandedSettingsContent.referenceSectionKey.currentContext;
+      if (target != null) {
+        Scrollable.ensureVisible(
+          target,
+          duration: const Duration(milliseconds: 250),
+        );
+      }
+    });
+  }
+
   void _startGeneration(GenerationNotifier notifier, int imageBatchLimit) {
+    if (notifier.quote?.canSubmit == false) return;
     final mobileSheet = _mobileGenerationSheetKey.currentState;
     if (mobileSheet != null) unawaited(mobileSheet.collapse());
-    final future = notifier.generate(batchLimit: imageBatchLimit);
+    final future = notifier.generate(
+      batchLimit: imageBatchLimit,
+      confirmQuote: _confirmQuote,
+    );
     if (!useBackendGateway) return;
     future.whenComplete(() {
       if (!mounted) return;
@@ -924,48 +1021,6 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
   void _selectResultImage(GenerationNotifier notifier, String id) {
     _promptFocusNode.unfocus();
     notifier.selectGeneratedImage(id);
-  }
-
-  void _scheduleFreeImageClamp(GenerationState state) {
-    final needsResolutionClamp = !AdvancedSettingsPanel.isFreeResolution(
-      state.width,
-      state.height,
-    );
-    final hasPaidPayloads =
-        context.read<DirectorRefNotifier>().references.isNotEmpty ||
-        context.read<VibeTransferNotifier>().vibes.isNotEmpty;
-    final needsClamp =
-        needsResolutionClamp ||
-        state.steps > 28 ||
-        state.smea ||
-        state.smeaDyn ||
-        hasPaidPayloads;
-    if (!needsClamp) return;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final notifier = context.read<GenerationNotifier>();
-      final current = notifier.state;
-      final currentResolutionAllowed = AdvancedSettingsPanel.isFreeResolution(
-        current.width,
-        current.height,
-      );
-      notifier.updateSettings(
-        width: currentResolutionAllowed ? null : 832,
-        height: currentResolutionAllowed ? null : 1216,
-        steps: current.steps > 28 ? 28 : null,
-        smea: current.smea ? false : null,
-        smeaDyn: current.smeaDyn ? false : null,
-      );
-      final directorRefs = context.read<DirectorRefNotifier>();
-      if (directorRefs.references.isNotEmpty) {
-        directorRefs.clearAll();
-      }
-      final vibeTransfers = context.read<VibeTransferNotifier>();
-      if (vibeTransfers.vibes.isNotEmpty) {
-        vibeTransfers.clearAll();
-      }
-    });
   }
 
   @override
@@ -995,10 +1050,6 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
         ? context.watch<BackendAuthNotifier>().user
         : null;
     final showLocalGallery = !(useBackendGateway && kIsWeb);
-
-    if (isFreeOnlyImageUser(context)) {
-      _scheduleFreeImageClamp(state);
-    }
 
     Widget scaffold = Focus(
       focusNode: _globalFocusNode,
@@ -1320,14 +1371,8 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
 
     final activeDirectorRefCount = context
         .watch<DirectorRefNotifier>()
-        .references
-        .where((reference) => reference.enabled)
-        .length;
-    final activeVibeCount = context
-        .watch<VibeTransferNotifier>()
-        .vibes
-        .where((vibe) => vibe.enabled)
-        .length;
+        .sentCount;
+    final activeVibeCount = context.watch<VibeTransferNotifier>().sentCount;
 
     void manageStyles() {
       String? activeStyle;
@@ -1403,12 +1448,7 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
               );
             },
           ),
-          compactActions: _buildCompactGenerationAction(
-            context,
-            notifier,
-            state,
-            t,
-          ),
+          compactActions: _buildCompactGenerationAction(context, notifier, t),
           prompt: GenerationMobilePromptPage(
             prompt: _buildPromptArea(
               context,
@@ -1666,47 +1706,6 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
   }) {
     final imageGenerationAllowed = canGenerateImage(context);
     final imageBatchLimit = backendImageBatchLimit(context);
-    final paidImageFeaturesAllowed = canUsePaidImageFeatures(context);
-    final vibeFeatureAllowed =
-        paidImageFeaturesAllowed &&
-        hasBackendPermission(context, BackendPermission.imageEncodeVibe);
-    final activeDirectorRefCount = context
-        .watch<DirectorRefNotifier>()
-        .references
-        .where((r) => r.enabled)
-        .length;
-    final activeVibeCount = context
-        .watch<VibeTransferNotifier>()
-        .vibes
-        .where((v) => v.enabled)
-        .length;
-    final usesRedPoints =
-        state.smea ||
-        state.smeaDyn ||
-        activeDirectorRefCount > 0 ||
-        activeVibeCount > 0 ||
-        !isOpusFreeBaseImage(
-          width: state.width.toInt(),
-          height: state.height.toInt(),
-          steps: state.steps.toInt(),
-          hasImageInput: false,
-        );
-    final greenPointDiscount =
-        context.watch<BackendAuthNotifier>().quota?.free.greenPointDiscount ??
-        0;
-    final imageCostEstimate = estimateNaiImageCost(
-      width: state.width.toInt(),
-      height: state.height.toInt(),
-      steps: state.steps.toInt(),
-      smea: state.smea,
-      smeaDyn: state.smeaDyn,
-      serialImages: math.max(1, math.min(state.batchCount, imageBatchLimit)),
-      directorReferenceCount: paidImageFeaturesAllowed
-          ? activeDirectorRefCount
-          : 0,
-      vibeReferenceCount: vibeFeatureAllowed ? activeVibeCount : 0,
-      isOpus: false,
-    );
     final defaultPromptLines = embedded
         ? 4
         : useSidebarStyle
@@ -1717,7 +1716,6 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
       kMainPromptMaxLines,
     );
     final actionWidth = mobile ? 72.0 : 68.0;
-    final showCostEstimate = useBackendGateway && imageGenerationAllowed;
     return Container(
       key: _mainPromptAreaKey,
       padding: embedded
@@ -2044,43 +2042,22 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
               ),
             ),
             action: PromptGenerationAction(
-              estimateHeight: mobile ? 26 : 23,
-              estimate: showCostEstimate
-                  ? _buildGenerationCostBadge(
-                      context,
-                      imageCostEstimate,
-                      mobile,
-                      t,
-                      usesRedPoints,
-                      greenPointDiscount,
+              estimateHeight: _GenerationStatus.heightOf(
+                compact: false,
+                mobile: mobile,
+              ),
+              estimate: imageGenerationAllowed
+                  ? _GenerationStatus(
+                      compact: false,
+                      onOpenInputs: () => _openInputs(notifier),
                     )
                   : null,
-              generateButton: ElevatedButton(
-                onPressed: state.isLoading || !imageGenerationAllowed
-                    ? null
-                    : () {
-                        FocusScope.of(context).unfocus();
-                        _startGeneration(notifier, imageBatchLimit);
-                      },
-                style: ElevatedButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  backgroundColor: t.accent,
-                  foregroundColor: t.background,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  elevation: 0,
-                ),
-                child: state.isLoading
-                    ? SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: t.background,
-                        ),
-                      )
-                    : const Icon(Icons.arrow_forward_ios, size: 16),
+              generateButton: _GenerateButton(
+                compact: false,
+                onPressed: () {
+                  FocusScope.of(context).unfocus();
+                  _startGeneration(notifier, imageBatchLimit);
+                },
               ),
             ),
           ),
@@ -2092,67 +2069,20 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
   Widget _buildCompactGenerationAction(
     BuildContext context,
     GenerationNotifier notifier,
-    GenerationState state,
     VisionTokens t,
   ) {
     final imageGenerationAllowed = canGenerateImage(context);
     final imageBatchLimit = backendImageBatchLimit(context);
-    final paidImageFeaturesAllowed = canUsePaidImageFeatures(context);
-    final vibeFeatureAllowed =
-        paidImageFeaturesAllowed &&
-        hasBackendPermission(context, BackendPermission.imageEncodeVibe);
-    final activeDirectorRefCount = context
-        .watch<DirectorRefNotifier>()
-        .references
-        .where((reference) => reference.enabled)
-        .length;
-    final activeVibeCount = context
-        .watch<VibeTransferNotifier>()
-        .vibes
-        .where((vibe) => vibe.enabled)
-        .length;
-    final usesRedPoints =
-        state.smea ||
-        state.smeaDyn ||
-        activeDirectorRefCount > 0 ||
-        activeVibeCount > 0 ||
-        !isOpusFreeBaseImage(
-          width: state.width.toInt(),
-          height: state.height.toInt(),
-          steps: state.steps.toInt(),
-          hasImageInput: false,
-        );
-    final estimate = estimateNaiImageCost(
-      width: state.width.toInt(),
-      height: state.height.toInt(),
-      steps: state.steps.toInt(),
-      smea: state.smea,
-      smeaDyn: state.smeaDyn,
-      serialImages: math.max(1, math.min(state.batchCount, imageBatchLimit)),
-      directorReferenceCount: paidImageFeaturesAllowed
-          ? activeDirectorRefCount
-          : 0,
-      vibeReferenceCount: vibeFeatureAllowed ? activeVibeCount : 0,
-      isOpus: false,
-    );
-    final greenPointDiscount =
-        context.watch<BackendAuthNotifier>().quota?.free.greenPointDiscount ??
-        0;
-
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (useBackendGateway && imageGenerationAllowed) ...[
+        if (imageGenerationAllowed) ...[
           SizedBox(
-            width: 92,
-            height: 28,
-            child: _buildGenerationCostBadge(
-              context,
-              estimate,
-              true,
-              t,
-              usesRedPoints,
-              greenPointDiscount,
+            width: 104,
+            height: _GenerationStatus.heightOf(compact: true, mobile: true),
+            child: _GenerationStatus(
+              compact: true,
+              onOpenInputs: () => _openInputs(notifier),
             ),
           ),
           const SizedBox(width: 6),
@@ -2160,97 +2090,15 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
         SizedBox(
           width: 42,
           height: 38,
-          child: ElevatedButton(
-            onPressed: state.isLoading || !imageGenerationAllowed
-                ? null
-                : () {
-                    FocusScope.of(context).unfocus();
-                    _startGeneration(notifier, imageBatchLimit);
-                  },
-            style: ElevatedButton.styleFrom(
-              padding: EdgeInsets.zero,
-              backgroundColor: t.accent,
-              foregroundColor: t.background,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(5),
-              ),
-              elevation: 0,
-            ),
-            child: state.isLoading
-                ? SizedBox(
-                    width: 17,
-                    height: 17,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: t.background,
-                    ),
-                  )
-                : const Icon(Icons.arrow_forward_ios, size: 14),
+          child: _GenerateButton(
+            compact: true,
+            onPressed: () {
+              FocusScope.of(context).unfocus();
+              _startGeneration(notifier, imageBatchLimit);
+            },
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildGenerationCostBadge(
-    BuildContext context,
-    NaiImageCostEstimate estimate,
-    bool mobile,
-    VisionTokens t,
-    bool usesRedPoints,
-    int greenPointDiscount,
-  ) {
-    final l = context.l;
-    final costColor = usesRedPoints ? t.accentDanger : t.accentSuccess;
-    final displayedCost = usesRedPoints
-        ? estimate.totalAnlas
-        : (estimate.totalAnlas * (100 - greenPointDiscount) / 100).ceil();
-    final label = '${l.mainEstimatedCostLabel} $displayedCost';
-    final details = <String>[
-      l.mainEstimatedCostTooltip,
-      '${l.mainEstimatedCostBase}: ${estimate.baseAnlas} ${l.mainAnlas}',
-      if (estimate.hasReferenceCost)
-        '${l.mainEstimatedCostReference}: ${estimate.directorReferenceAnlas} ${l.mainAnlas}',
-      if (estimate.hasVibeCost)
-        '${l.mainEstimatedCostVibe}: ${estimate.vibeReferenceAnlas} ${l.mainAnlas}',
-      if (estimate.serialImages > 1)
-        '${l.mainEstimatedCostSerialImages}: ${estimate.serialImages}',
-    ];
-
-    return Tooltip(
-      message: details.join('\n'),
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.symmetric(horizontal: 4, vertical: mobile ? 3 : 2),
-        decoration: BoxDecoration(
-          color: costColor.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: costColor.withValues(alpha: 0.35),
-            width: 0.5,
-          ),
-        ),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.toll, size: mobile ? 13 : 11, color: costColor),
-              const SizedBox(width: 4),
-              Text(
-                label,
-                maxLines: 1,
-                style: TextStyle(
-                  color: t.textSecondary,
-                  fontSize: t.fontSize(mobile ? 10 : 8),
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -2306,6 +2154,331 @@ class _SimpleGeneratorAppState extends State<SimpleGeneratorApp>
           ),
         ],
       ),
+    );
+  }
+}
+
+/// What the next image costs and what it carries, for every layout: the
+/// price of the request that would be sent, then the references and vibes in
+/// it. Gateway prices come from the rules; a direct NovelAI account sees its
+/// Anlas estimate.
+class _GenerationStatus extends StatelessWidget {
+  const _GenerationStatus({required this.compact, required this.onOpenInputs});
+
+  final bool compact;
+  final VoidCallback onOpenInputs;
+
+  static double heightOf({required bool compact, required bool mobile}) =>
+      _badgeHeight(compact: compact, mobile: mobile) + 2 + _indicatorHeight;
+
+  static double _badgeHeight({required bool compact, required bool mobile}) =>
+      compact ? 22 : (mobile ? 26 : 23);
+
+  static const double _indicatorHeight = 14;
+
+  @override
+  Widget build(BuildContext context) {
+    final notifier = context.watch<GenerationNotifier>();
+    final mobile = isMobile(context);
+    final Widget badge;
+    if (useBackendGateway) {
+      final quote = notifier.quote;
+      badge = quote == null
+          ? const SizedBox.shrink()
+          : _QuoteBadge(
+              quote: quote,
+              discount: notifier.imageRules?.greenPointDiscount ?? 0,
+              compact: compact || mobile,
+              onAdjust: notifier.adjustToFreeParameters,
+            );
+    } else {
+      badge = _AnlasBadge(notifier: notifier, compact: compact || mobile);
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: _badgeHeight(compact: compact, mobile: mobile),
+          width: double.infinity,
+          child: badge,
+        ),
+        const SizedBox(height: 2),
+        SizedBox(
+          height: _indicatorHeight,
+          width: double.infinity,
+          child: _ActiveInputsIndicator(onTap: onOpenInputs),
+        ),
+      ],
+    );
+  }
+}
+
+/// The local price: a green or red point, the points, and in the tooltip the
+/// reasons it is red. A free-only account whose request would be red gets the
+/// way back to free parameters here, as an explicit tap.
+class _QuoteBadge extends StatelessWidget {
+  const _QuoteBadge({
+    required this.quote,
+    required this.discount,
+    required this.compact,
+    required this.onAdjust,
+  });
+
+  final GenerationQuote quote;
+  final int discount;
+  final bool compact;
+  final VoidCallback onAdjust;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    final l = context.l;
+    final price = quote.quote;
+    final adjustable = quote.canAdjustToFree;
+    final red = price == null || price.isPaid;
+    final color = red ? t.accentDanger : t.accentSuccess;
+    final label = adjustable
+        ? l.quoteAdjustToFree
+        : price == null
+        ? l.quoteInvalidBadge
+        : '${price.points}';
+    final details = <String>[
+      if (price == null)
+        l.quoteInvalidTooltip(quote.invalidField ?? '')
+      else
+        price.isPaid
+            ? l.quotePointsTooltipPaid(price.points)
+            : l.quotePointsTooltipFree(price.points),
+      if (price != null) ...[
+        for (final reason in price.reasons) '• ${quoteReasonText(l, reason)}',
+        '${l.mainEstimatedCostBase}: ${price.base}',
+        if (price.directorRefs > 0)
+          '${l.mainEstimatedCostReference}: ${price.directorRefs}',
+        if (price.extraVibes > 0)
+          '${l.mainEstimatedCostVibe}: ${price.extraVibes}',
+        if (price.images > 1)
+          '${l.mainEstimatedCostSerialImages}: ${price.images}',
+        if (!price.isPaid && discount > 0) l.quoteDiscountNote(discount),
+      ],
+      if (adjustable) l.quoteAdjustToFreeTooltip,
+      if (quote.blocked && quote.freeAllowanceExhausted)
+        l.quoteFreeAllowanceUnavailable,
+    ];
+
+    return Tooltip(
+      message: details.join('\n'),
+      child: InkWell(
+        onTap: adjustable ? onAdjust : null,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(
+            horizontal: 4,
+            vertical: compact ? 3 : 2,
+          ),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: color.withValues(alpha: 0.35),
+              width: 0.5,
+            ),
+          ),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.toll, size: compact ? 13 : 11, color: color),
+                const SizedBox(width: 4),
+                Text(
+                  label,
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: t.textSecondary,
+                    fontSize: t.fontSize(compact ? 10 : 8),
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A direct NovelAI account is charged Anlas by NovelAI; this is the
+/// estimate from the request that would be sent.
+class _AnlasBadge extends StatelessWidget {
+  const _AnlasBadge({required this.notifier, required this.compact});
+
+  final GenerationNotifier notifier;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    final l = context.l;
+    final parameters =
+        notifier.previewRequest().body['parameters'] as Map<String, dynamic>;
+    int count(String key) => (parameters[key] as List?)?.length ?? 0;
+    final estimate = estimateNaiImageCost(
+      width: parameters['width'] as int,
+      height: parameters['height'] as int,
+      steps: parameters['steps'] as int,
+      smea: parameters['sm'] == true,
+      smeaDyn: parameters['sm_dyn'] == true,
+      serialImages: notifier.state.batchCount,
+      directorReferenceCount: count('director_reference_images'),
+      vibeReferenceCount: count('reference_image_multiple'),
+      isOpus: false,
+    );
+    final details = <String>[
+      l.mainEstimatedCostTooltip,
+      '${l.mainEstimatedCostBase}: ${estimate.baseAnlas} ${l.mainAnlas}',
+      if (estimate.hasReferenceCost)
+        '${l.mainEstimatedCostReference}: ${estimate.directorReferenceAnlas} ${l.mainAnlas}',
+      if (estimate.hasVibeCost)
+        '${l.mainEstimatedCostVibe}: ${estimate.vibeReferenceAnlas} ${l.mainAnlas}',
+      if (estimate.serialImages > 1)
+        '${l.mainEstimatedCostSerialImages}: ${estimate.serialImages}',
+    ];
+    return Tooltip(
+      message: details.join('\n'),
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.symmetric(horizontal: 4, vertical: compact ? 3 : 2),
+        decoration: BoxDecoration(
+          color: t.accent.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: t.accent.withValues(alpha: 0.35),
+            width: 0.5,
+          ),
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.toll, size: compact ? 13 : 11, color: t.accent),
+              const SizedBox(width: 4),
+              Text(
+                '${l.mainEstimatedCostLabel} ${estimate.totalAnlas}',
+                maxLines: 1,
+                style: TextStyle(
+                  color: t.textSecondary,
+                  fontSize: t.fontSize(compact ? 10 : 8),
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// `REF n · VIBE m`: the references and vibes the next image carries, with
+/// the ones held back for lack of access counted apart. Tapping opens where
+/// they are managed. It does not depend on the shelf visibility settings.
+class _ActiveInputsIndicator extends StatelessWidget {
+  const _ActiveInputsIndicator({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    final l = context.l;
+    final directors = context.watch<DirectorRefNotifier>();
+    final vibes = context.watch<VibeTransferNotifier>();
+    final paused = directors.pausedCount + vibes.pausedCount;
+    final style = TextStyle(
+      color: t.textTertiary,
+      fontSize: t.fontSize(8),
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.5,
+    );
+    return Tooltip(
+      message: l.generationInputsTooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(4),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                l.generationInputsActive(directors.sentCount, vibes.sentCount),
+                maxLines: 1,
+                style: style,
+              ),
+              if (paused > 0) ...[
+                Text(' · ', style: style),
+                Icon(
+                  Icons.pause_circle_outline,
+                  size: 10,
+                  color: t.accentDanger,
+                ),
+                const SizedBox(width: 2),
+                Text(
+                  l.generationInputsPaused(paused),
+                  maxLines: 1,
+                  style: style.copyWith(color: t.accentDanger),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The generate button of every layout. It stays off while a generation
+/// runs, when the account cannot generate, or when the request would cost
+/// what the account cannot pay.
+class _GenerateButton extends StatelessWidget {
+  const _GenerateButton({required this.compact, required this.onPressed});
+
+  final bool compact;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    final notifier = context.watch<GenerationNotifier>();
+    final loading = notifier.state.isLoading;
+    final allowed =
+        canGenerateImage(context) && (notifier.quote?.canSubmit ?? true);
+    return ElevatedButton(
+      onPressed: loading || !allowed ? null : onPressed,
+      style: ElevatedButton.styleFrom(
+        padding: EdgeInsets.zero,
+        backgroundColor: t.accent,
+        foregroundColor: t.background,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(compact ? 5 : 4),
+        ),
+        elevation: 0,
+      ),
+      child: loading
+          ? SizedBox(
+              width: compact ? 17 : 20,
+              height: compact ? 17 : 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: t.background,
+              ),
+            )
+          : Icon(Icons.arrow_forward_ios, size: compact ? 14 : 16),
     );
   }
 }

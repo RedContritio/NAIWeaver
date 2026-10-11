@@ -5,6 +5,7 @@ import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/services/reference_library_service.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../director_ref/widgets/reference_add_actions.dart';
+import '../../generation/widgets/billing_text.dart';
 import '../../director_ref/widgets/reference_fields.dart';
 import '../../director_ref/widgets/reference_library_manager.dart';
 import '../models/vibe_transfer.dart';
@@ -25,6 +26,7 @@ class VibeTransferManager extends StatelessWidget {
       context,
       BackendPermission.imageEncodeVibe,
     );
+    final encodeCap = paidToolCapLabel(context, PaidTool.encodeVibe);
 
     return ReferenceLibraryManager<VibeTransfer, SavedVibeTransfer>(
       items: vibes,
@@ -37,6 +39,9 @@ class VibeTransferManager extends StatelessWidget {
         saveTooltip: l.refSaveVibe,
         onSave: onSave,
         onRemove: () => notifier.removeVibe(vibe.id),
+        pausedReason: notifier.isPaused(vibe)
+            ? pausedReasonText(l, notifier.access)
+            : null,
         children: [
           ReferenceSliderField(
             label: l.refStrength,
@@ -58,7 +63,9 @@ class VibeTransferManager extends StatelessWidget {
       emptyIcon: Icons.music_note_outlined,
       emptyTitle: l.refNoVibesAdded,
       emptyDescription: l.refVibeEmptyDescription,
-      addLabel: l.refAddVibe,
+      addLabel: encodeCap == null
+          ? l.refAddVibe
+          : '${l.refAddVibe} ($encodeCap)',
       onAdd: () => pickAndAddVibes(context),
       // Encoding is a paid gateway call; saved vibes can still be loaded.
       addDisabledReason: canEncode ? null : l.refVibeNoPermission,

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../../core/gateway/backend_permissions.dart';
 import '../../../core/services/preferences_service.dart';
 import '../../../core/services/reference_library_service.dart';
 import '../models/director_reference.dart';
@@ -16,15 +17,46 @@ class DirectorRefNotifier extends ChangeNotifier {
   double _defaultStrength = 1.0;
   double _defaultFidelity = 0.8;
   PreferencesService? _prefs;
+  PaidImageAccess _access = PaidImageAccess.allowed;
 
   List<DirectorReference> get references => _references;
   bool get isProcessing => _isProcessing;
   double get defaultStrength => _defaultStrength;
   double get defaultFidelity => _defaultFidelity;
 
+  /// Whether the account can currently send references. Without access the
+  /// references stay in the list, marked paused, and are not sent.
+  PaidImageAccess get access => _access;
+
+  /// Enabled by the user and sent: the user's own switch combined with the
+  /// account's current access.
+  bool isSent(DirectorReference ref) =>
+      ref.enabled && _access == PaidImageAccess.allowed;
+
+  /// Enabled by the user but held back for lack of access.
+  bool isPaused(DirectorReference ref) =>
+      ref.enabled && _access != PaidImageAccess.allowed;
+
+  /// References the user enabled that are held back for lack of access.
+  int get pausedCount => _access == PaidImageAccess.allowed
+      ? 0
+      : _references.where((r) => r.enabled).length;
+
+  int get sentCount => _references.where(isSent).length;
+
+  void updateAccess(PaidImageAccess access) {
+    if (_access == access) return;
+    _access = access;
+    notifyListeners();
+  }
+
   /// Initialize last-applied defaults (typically called from PreferencesService
   /// at app startup).
-  void setDefaults({double? strength, double? fidelity, PreferencesService? prefs}) {
+  void setDefaults({
+    double? strength,
+    double? fidelity,
+    PreferencesService? prefs,
+  }) {
     if (strength != null) _defaultStrength = strength;
     if (fidelity != null) _defaultFidelity = fidelity;
     if (prefs != null) _prefs = prefs;
@@ -59,7 +91,9 @@ class DirectorRefNotifier extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final (_, base64) = await ReferenceImageProcessor.processImage(imageBytes);
+      final (_, base64) = await ReferenceImageProcessor.processImage(
+        imageBytes,
+      );
       final ref = DirectorReference(
         id: _ids.next(),
         originalImageBytes: imageBytes,
@@ -134,8 +168,9 @@ class DirectorRefNotifier extends ChangeNotifier {
         if (ref.processedBase64.isNotEmpty) {
           processed.add(ref);
         } else {
-          final (_, base64) =
-              await ReferenceImageProcessor.processImage(ref.originalImageBytes);
+          final (_, base64) = await ReferenceImageProcessor.processImage(
+            ref.originalImageBytes,
+          );
           processed.add(ref.copyWith(processedBase64: base64));
         }
       }
@@ -157,10 +192,10 @@ class DirectorRefNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Assembles the 5 parallel arrays for API injection.
-  /// Returns null if no references are set.
+  /// Assembles the 5 parallel arrays for API injection from the references
+  /// that are [isSent]. Returns null if there are none.
   DirectorRefPayload? buildPayload() {
-    final active = _references.where((r) => r.enabled).toList();
+    final active = _references.where(isSent).toList();
     if (active.isEmpty) return null;
 
     final images = <String>[];
@@ -172,10 +207,7 @@ class DirectorRefNotifier extends ChangeNotifier {
     for (final ref in active) {
       images.add(ref.processedBase64);
       descriptions.add({
-        'caption': {
-          'base_caption': ref.type.apiCaption,
-          'char_captions': [],
-        },
+        'caption': {'base_caption': ref.type.apiCaption, 'char_captions': []},
         'legacy_uc': false,
       });
       strengths.add(ref.strength);

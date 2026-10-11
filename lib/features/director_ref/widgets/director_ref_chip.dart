@@ -7,11 +7,16 @@ class DirectorRefChip extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onLongPress;
 
+  /// Why the reference is held back although the user enabled it; null when
+  /// it is not paused.
+  final String? pausedReason;
+
   const DirectorRefChip({
     super.key,
     required this.reference,
     required this.onTap,
     required this.onLongPress,
+    this.pausedReason,
   });
 
   IconData get _typeIcon {
@@ -40,9 +45,10 @@ class DirectorRefChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final disabled = !reference.enabled;
+    final paused = pausedReason != null;
+    final disabled = !reference.enabled || paused;
     final border = disabled ? t.textDisabled : _borderColor(context);
-    return Padding(
+    final chip = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 3),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -71,10 +77,16 @@ class DirectorRefChip extends StatelessWidget {
                 padding: const EdgeInsets.all(1),
                 decoration: BoxDecoration(
                   color: t.background.withValues(alpha: 0.7),
-                  borderRadius: const BorderRadius.only(topLeft: Radius.circular(3)),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(3),
+                  ),
                 ),
                 child: Icon(
-                  disabled ? Icons.visibility_off : _typeIcon,
+                  paused
+                      ? Icons.pause_circle_outline
+                      : disabled
+                      ? Icons.visibility_off
+                      : _typeIcon,
                   size: 10,
                   color: border,
                 ),
@@ -84,5 +96,6 @@ class DirectorRefChip extends StatelessWidget {
         ),
       ),
     );
+    return paused ? Tooltip(message: pausedReason!, child: chip) : chip;
   }
 }

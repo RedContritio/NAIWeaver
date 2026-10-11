@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import '../../../core/gateway/backend_permissions.dart';
 import '../../../core/services/novel_ai_service.dart';
 import '../../../core/services/reference_library_service.dart';
 import '../../director_ref/providers/reference_id_allocator.dart';
@@ -12,9 +13,37 @@ class VibeTransferNotifier extends ChangeNotifier {
   final _ids = ReferenceIdAllocator('vibe_');
   NovelAIService? _service;
   bool _useCurated = false;
+  PaidImageAccess _access = PaidImageAccess.allowed;
 
   List<VibeTransfer> get vibes => _vibes;
   bool get isProcessing => _isProcessing;
+
+  /// Whether the account can currently send vibes (encoding a new one needs
+  /// its own permission). Without access the vibes stay in the list, marked
+  /// paused, and are not sent.
+  PaidImageAccess get access => _access;
+
+  /// Enabled by the user and sent: the user's own switch combined with the
+  /// account's current access.
+  bool isSent(VibeTransfer vibe) =>
+      vibe.enabled && _access == PaidImageAccess.allowed;
+
+  /// Enabled by the user but held back for lack of access.
+  bool isPaused(VibeTransfer vibe) =>
+      vibe.enabled && _access != PaidImageAccess.allowed;
+
+  /// Vibes the user enabled that are held back for lack of access.
+  int get pausedCount => _access == PaidImageAccess.allowed
+      ? 0
+      : _vibes.where((v) => v.enabled).length;
+
+  int get sentCount => _vibes.where(isSent).length;
+
+  void updateAccess(PaidImageAccess access) {
+    if (_access == access) return;
+    _access = access;
+    notifyListeners();
+  }
 
   void updateService(NovelAIService service) {
     _service = service;
@@ -36,8 +65,9 @@ class VibeTransferNotifier extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final (preview, b64) =
-          await ReferenceImageProcessor.processVibeImage(imageBytes);
+      final (preview, b64) = await ReferenceImageProcessor.processVibeImage(
+        imageBytes,
+      );
 
       final vibeVectorBytes = await _service!.encodeVibeImage(
         imageBase64: b64,
@@ -127,8 +157,9 @@ class VibeTransferNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// The payload of the vibes that are [isSent]; null if there are none.
   VibeTransferPayload? buildPayload() {
-    final active = _vibes.where((v) => v.enabled).toList();
+    final active = _vibes.where(isSent).toList();
     if (active.isEmpty) return null;
 
     final vectors = <String>[];

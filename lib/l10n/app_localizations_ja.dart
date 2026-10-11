@@ -3846,4 +3846,147 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get serverHistoryBatchDeleteConfirm => 'このバッチのすべての画像を履歴から非表示にしますか？';
+
+  @override
+  String quotePointsTooltipFree(int points) {
+    return '無料 · $points グリーンポイント';
+  }
+
+  @override
+  String quotePointsTooltipPaid(int points) {
+    return '有料 · $points レッドポイント';
+  }
+
+  @override
+  String quoteDiscountNote(int percent) {
+    return 'グリーンポイント割引: $percent%';
+  }
+
+  @override
+  String get quoteInvalidBadge => '無効';
+
+  @override
+  String quoteInvalidTooltip(String field) {
+    return 'このパラメータはサーバーが受け付ける範囲外です（$field）。';
+  }
+
+  @override
+  String get quoteReasonSizeNotFree => 'サイズが無料サイズではありません';
+
+  @override
+  String get quoteReasonStepsOverFreeLimit => 'ステップ数が無料の上限を超えています';
+
+  @override
+  String get quoteReasonSmea => 'SMEA が有効です';
+
+  @override
+  String get quoteReasonImageInput => '画像入力あり（img2img / インペイント）';
+
+  @override
+  String get quoteReasonDirectorRefs => '精密リファレンスを含みます';
+
+  @override
+  String get quoteReasonVibes => 'Vibe を含みます';
+
+  @override
+  String get quoteReasonAllowanceExhausted => '無料枠が一時的に使い切られています';
+
+  @override
+  String get quoteReasonPaidTool => '有料ツール';
+
+  @override
+  String get quoteAdjustToFree => '無料にする';
+
+  @override
+  String get quoteAdjustToFreeTooltip => 'サイズ・ステップ数・SMEA を無料の範囲に戻す';
+
+  @override
+  String get quoteFreeOnlyNotice => 'このアカウントは無料生成のみ可能です。次の設定はレッドポイントを消費します:';
+
+  @override
+  String get quoteFreeAllowanceUnavailable =>
+      '無料枠が一時的に使い切られているため、しばらく無料生成はできません。';
+
+  @override
+  String get quoteAdjustToFreeAction => '無料パラメータに調整';
+
+  @override
+  String get quoteConfirmTitle => '価格が変更されました';
+
+  @override
+  String quoteConfirmPriceRed(int points) {
+    return 'サーバーの価格が適用されます: $points レッドポイント。';
+  }
+
+  @override
+  String quoteConfirmPriceGreen(int points) {
+    return 'サーバーの価格が適用されます: $points グリーンポイント。';
+  }
+
+  @override
+  String quoteConfirmShown(int points) {
+    return '表示されていた価格は $points ポイントでした。';
+  }
+
+  @override
+  String get quoteConfirmReasonAllowance =>
+      '無料枠が一時的に使い切られているため、今回はレッドポイントで課金されます。';
+
+  @override
+  String get quoteConfirmReasonOther => '価格表示後に、価格またはアカウントの状態が変わりました。';
+
+  @override
+  String get quoteConfirmContinue => 'この価格で続行';
+
+  @override
+  String generationInputsActive(int references, int vibes) {
+    return '参照 $references · VIBE $vibes';
+  }
+
+  @override
+  String generationInputsPaused(int count) {
+    return '$count 件停止中';
+  }
+
+  @override
+  String get generationInputsTooltip => '次の画像に付けるリファレンスと Vibe。タップして開きます。';
+
+  @override
+  String get refPausedNoRedPoints => '停止中: レッドポイント不足のため送信されません。';
+
+  @override
+  String get refPausedNoPermission => '停止中: このアカウントは有料ポイントで生成できないため送信されません。';
+
+  @override
+  String refAccessCountRefs(int count) {
+    return '参照 $count 件';
+  }
+
+  @override
+  String refAccessCountVibes(int count) {
+    return 'Vibe $count 件';
+  }
+
+  @override
+  String get refAccessSeparator => '、';
+
+  @override
+  String refAccessPausedNoRedPoints(String items) {
+    return 'レッドポイント不足: $itemsを停止しました。送信されません';
+  }
+
+  @override
+  String refAccessPausedNoPermission(String items) {
+    return '有料生成の権限がありません: $itemsを停止しました。送信されません';
+  }
+
+  @override
+  String refAccessResumed(String items) {
+    return '有料ポイントが使えるようになりました: $itemsは再び送信されます';
+  }
+
+  @override
+  String toolMaxRedPoints(int points) {
+    return '最大 $points レッド';
+  }
 }

@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:gal/gal.dart';
 import 'package:provider/provider.dart';
+import '../../../core/gateway/backend_permissions.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/services/preferences_service.dart';
 import '../../../core/services/saf_export_service.dart';
@@ -724,6 +725,11 @@ class _ImageDetailViewState extends State<ImageDetailView>
     final canUpscale = prefs.upscaleBackend == 'novelai'
         ? naiUpscaleAllowed
         : ml.hasUpscaleModel;
+    // Tools that are charged by NovelAI say what they can cost at most.
+    String withCap(String label, PaidTool tool, {required bool paid}) {
+      final cap = paid ? paidToolCapLabel(context, tool) : null;
+      return (cap == null ? label : '$label · $cap').toUpperCase();
+    }
 
     // Guard: if all images are gone, pop once (later rebuilds during the exit
     // transition must not pop the gallery underneath as well).
@@ -1215,8 +1221,13 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                             icon: ml.isProcessing
                                                 ? Icons.hourglass_top
                                                 : Icons.content_cut,
-                                            label: context.l.mlRemoveBg
-                                                .toUpperCase(),
+                                            label: withCap(
+                                              context.l.mlRemoveBg,
+                                              PaidTool.augment,
+                                              paid:
+                                                  prefs.bgRemovalBackend ==
+                                                  'novelai',
+                                            ),
                                             color: t.accent,
                                             mobile: mobile,
                                             onTap: ml.isProcessing
@@ -1240,8 +1251,13 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                             icon: ml.isProcessing
                                                 ? Icons.hourglass_top
                                                 : Icons.zoom_out_map,
-                                            label: context.l.mlUpscale
-                                                .toUpperCase(),
+                                            label: withCap(
+                                              context.l.mlUpscale,
+                                              PaidTool.upscale,
+                                              paid:
+                                                  prefs.upscaleBackend ==
+                                                  'novelai',
+                                            ),
                                             color: t.accent,
                                             mobile: mobile,
                                             onTap: ml.isProcessing

@@ -5,6 +5,7 @@ import '../../../core/services/reference_library_service.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../models/director_reference.dart';
 import '../providers/director_ref_notifier.dart';
+import '../../generation/widgets/billing_text.dart';
 import 'reference_add_actions.dart';
 import 'reference_fields.dart';
 import 'reference_library_manager.dart';
@@ -33,6 +34,9 @@ class DirectorRefManager extends StatelessWidget {
           saveTooltip: l.refSaveReference,
           onSave: onSave,
           onRemove: () => notifier.removeReference(ref.id),
+          pausedReason: notifier.isPaused(ref)
+              ? pausedReasonText(l, notifier.access)
+              : null,
           children: [
             DirectorRefTypeSelector(
               type: ref.type,

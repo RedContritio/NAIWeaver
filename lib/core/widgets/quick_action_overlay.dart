@@ -84,6 +84,12 @@ class _QuickActionOverlayState extends State<QuickActionOverlay> {
         state.showEnhanceButton && paidImageFeaturesAllowed;
     final bool showDirectorTools =
         state.showDirectorToolsButton && imageAugmentAllowed;
+    // Tools that are charged by NovelAI say what they can cost at most.
+    String withCap(String label, PaidTool tool, {bool paid = true}) {
+      final cap = paid ? paidToolCapLabel(context, tool) : null;
+      return cap == null ? label : '$label · $cap';
+    }
+
     final actions = <Widget>[];
     void addAction(Widget action) {
       if (actions.isNotEmpty) actions.add(const SizedBox(height: 4));
@@ -173,7 +179,11 @@ class _QuickActionOverlayState extends State<QuickActionOverlay> {
                   }
                 },
           icon: Icons.content_cut,
-          label: l.mlRemoveBg,
+          label: withCap(
+            l.mlRemoveBg,
+            PaidTool.augment,
+            paid: bgRemovalBackend == 'novelai',
+          ),
           color: t.accentBgRemoval,
           isProcessing: ml.isProcessing,
           mobile: mobile,
@@ -198,7 +208,11 @@ class _QuickActionOverlayState extends State<QuickActionOverlay> {
                   }
                 },
           icon: Icons.zoom_out_map,
-          label: l.mlUpscale,
+          label: withCap(
+            l.mlUpscale,
+            PaidTool.upscale,
+            paid: upscaleBackend == 'novelai',
+          ),
           color: t.accentUpscale,
           isProcessing: ml.isProcessing,
           mobile: mobile,
@@ -242,7 +256,7 @@ class _QuickActionOverlayState extends State<QuickActionOverlay> {
             );
           },
           icon: Icons.auto_fix_high,
-          label: l.quickActionDirectorTools,
+          label: withCap(l.quickActionDirectorTools, PaidTool.augment),
           color: t.accent,
           mobile: mobile,
         ),
