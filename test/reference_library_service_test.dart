@@ -27,7 +27,8 @@ void main() {
 
     final saved = await ReferenceLibraryService.update(
       path,
-      (library) => library.vibeTransfers = [...library.vibeTransfers, _saved('a')],
+      (library) =>
+          library.vibeTransfers = [...library.vibeTransfers, _saved('a')],
     );
 
     expect(saved?.vibeTransfers.map((v) => v.name), ['a']);
@@ -40,7 +41,10 @@ void main() {
     final blocker = File('${dir.path}/blocker')..writeAsStringSync('x');
     final path = '${blocker.path}/reference_library.json';
 
-    expect(await ReferenceLibraryService.save(path, ReferenceLibrary()), isFalse);
+    expect(
+      await ReferenceLibraryService.save(path, ReferenceLibrary()),
+      isFalse,
+    );
     expect(
       await ReferenceLibraryService.update(path, (library) {
         library.vibeTransfers = [_saved('lost')];

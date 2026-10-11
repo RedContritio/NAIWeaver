@@ -40,12 +40,15 @@ class ReferenceLibraryManager<A, S> extends StatefulWidget {
   });
 
   static const addButtonKey = ValueKey<String>('reference-manager-add');
-  static const disabledReasonKey = ValueKey<String>('reference-manager-add-disabled');
+  static const disabledReasonKey = ValueKey<String>(
+    'reference-manager-add-disabled',
+  );
 
   final List<A> items;
 
   /// Builds the card of a current entry; `onSave` stores it in the library.
-  final Widget Function(BuildContext context, A item, VoidCallback onSave) itemBuilder;
+  final Widget Function(BuildContext context, A item, VoidCallback onSave)
+  itemBuilder;
   final String countLabel;
   final VoidCallback? onClearAll;
   final IconData emptyIcon;
@@ -76,7 +79,8 @@ class _ReferenceLibraryManagerState<A, S>
     extends State<ReferenceLibraryManager<A, S>> {
   List<S> _saved = const [];
 
-  String get _libraryPath => context.read<PathService>().referenceLibraryFilePath;
+  String get _libraryPath =>
+      context.read<PathService>().referenceLibraryFilePath;
 
   @override
   void initState() {
@@ -94,7 +98,8 @@ class _ReferenceLibraryManagerState<A, S>
   Future<bool> _write(List<S> Function(List<S> entries) change) async {
     final library = await ReferenceLibraryService.update(
       _libraryPath,
-      (library) => widget.slot.write(library, change(widget.slot.read(library))),
+      (library) =>
+          widget.slot.write(library, change(widget.slot.read(library))),
     );
     if (!mounted) return library != null;
     if (library == null) {
@@ -213,7 +218,9 @@ class _ReferenceLibraryManagerState<A, S>
       children: [
         ElevatedButton.icon(
           key: ReferenceLibraryManager.addButtonKey,
-          onPressed: reason == null && !widget.isProcessing ? widget.onAdd : null,
+          onPressed: reason == null && !widget.isProcessing
+              ? widget.onAdd
+              : null,
           icon: const Icon(Icons.add_photo_alternate, size: 14),
           label: Text(
             widget.addLabel,
@@ -227,7 +234,9 @@ class _ReferenceLibraryManagerState<A, S>
             backgroundColor: prominent ? t.accent : t.textMinimal,
             foregroundColor: prominent ? t.background : t.textSecondary,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
+            ),
             elevation: 0,
           ),
         ),
@@ -349,7 +358,10 @@ class _SavedEntryTile extends StatelessWidget {
             height: thumbSize,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: accent.withValues(alpha: 0.5), width: 0.5),
+              border: Border.all(
+                color: accent.withValues(alpha: 0.5),
+                width: 0.5,
+              ),
               image: DecorationImage(
                 image: MemoryImage(image),
                 fit: BoxFit.cover,

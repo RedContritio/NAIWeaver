@@ -81,7 +81,9 @@ String vibeEncodeErrorMessage(
   final viaGateway = gateway ?? useBackendGateway;
   // Through the gateway a 401 is our own session; NovelAI's 401s are never
   // forwarded. Without it, 401 means the user's API key is missing or bad.
-  final unauthorized = viaGateway ? l.refErrorSessionExpired : l.refApiKeyMissing;
+  final unauthorized = viaGateway
+      ? l.refErrorSessionExpired
+      : l.refApiKeyMissing;
   if (error is UnauthorizedException) return unauthorized;
   // NovelAIService turns every HTTP/network failure into this exception.
   if (error is! GenerationRequestException) return l.refVibeEncodeFailed;

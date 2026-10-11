@@ -50,7 +50,10 @@ void main() {
 
     test('duplicate ids inside a restored list are made unique', () async {
       final notifier = DirectorRefNotifier();
-      await notifier.setReferences([_ref('ref_0'), _ref('ref_0', strength: 0.9)]);
+      await notifier.setReferences([
+        _ref('ref_0'),
+        _ref('ref_0', strength: 0.9),
+      ]);
 
       final ids = notifier.references.map((r) => r.id).toList();
       expect(ids.toSet(), hasLength(2));
@@ -103,7 +106,9 @@ void main() {
       await notifier.setReferences([_ref('ref_0'), _ref('ref_1')]);
       final before = notifier.references;
 
-      final id = await notifier.addFromSaved(saved(Uint8List.fromList([1, 2, 3])));
+      final id = await notifier.addFromSaved(
+        saved(Uint8List.fromList([1, 2, 3])),
+      );
 
       expect(id, isNull);
       expect(notifier.references, same(before));

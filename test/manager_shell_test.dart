@@ -90,79 +90,101 @@ Future<void> _systemBack(WidgetTester tester) async {
 
 void main() {
   group('ManagerMasterDetailShell', () {
-    testWidgets('phone list keeps the manager header; editor has a back tooltip', (
-      tester,
-    ) async {
-      await _pushHost(tester, size: _mobile);
+    testWidgets(
+      'phone list keeps the manager header; editor has a back tooltip',
+      (tester) async {
+        await _pushHost(tester, size: _mobile);
 
-      expect(find.text('MANAGER'), findsOneWidget);
-      expect(find.byKey(ManagerMasterDetailShell.masterPaneKey), findsOneWidget);
-      expect(find.byKey(ManagerMasterDetailShell.detailPaneKey), findsNothing);
+        expect(find.text('MANAGER'), findsOneWidget);
+        expect(
+          find.byKey(ManagerMasterDetailShell.masterPaneKey),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(ManagerMasterDetailShell.detailPaneKey),
+          findsNothing,
+        );
 
-      await tester.tap(find.text('open item'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('open item'));
+        await tester.pumpAndSettle();
 
-      expect(find.text('MANAGER'), findsNothing);
-      expect(find.text('ITEM'), findsOneWidget);
-      expect(find.byTooltip('Back'), findsOneWidget);
-      expect(tester.getSize(find.byTooltip('Back')).width, greaterThanOrEqualTo(40));
-    });
+        expect(find.text('MANAGER'), findsNothing);
+        expect(find.text('ITEM'), findsOneWidget);
+        expect(find.byTooltip('Back'), findsOneWidget);
+        expect(
+          tester.getSize(find.byTooltip('Back')).width,
+          greaterThanOrEqualTo(40),
+        );
+      },
+    );
 
-    testWidgets('system back returns from the editor to the list, not out of Tools', (
-      tester,
-    ) async {
-      await _pushHost(tester, size: _mobile);
-      await tester.tap(find.text('open item'));
-      await tester.pumpAndSettle();
+    testWidgets(
+      'system back returns from the editor to the list, not out of Tools',
+      (tester) async {
+        await _pushHost(tester, size: _mobile);
+        await tester.tap(find.text('open item'));
+        await tester.pumpAndSettle();
 
-      await _systemBack(tester);
+        await _systemBack(tester);
 
-      expect(find.byType(_ShellHost), findsOneWidget);
-      expect(find.byKey(ManagerMasterDetailShell.masterPaneKey), findsOneWidget);
+        expect(find.byType(_ShellHost), findsOneWidget);
+        expect(
+          find.byKey(ManagerMasterDetailShell.masterPaneKey),
+          findsOneWidget,
+        );
 
-      await _systemBack(tester);
-      expect(find.byType(_ShellHost), findsNothing);
-    });
+        await _systemBack(tester);
+        expect(find.byType(_ShellHost), findsNothing);
+      },
+    );
 
-    testWidgets('back with unsaved changes asks first; cancel stays, discard leaves', (
-      tester,
-    ) async {
-      final log = <String>[];
-      await _pushHost(tester, size: _mobile, dirty: true, log: log);
-      await tester.tap(find.text('open item'));
-      await tester.pumpAndSettle();
+    testWidgets(
+      'back with unsaved changes asks first; cancel stays, discard leaves',
+      (tester) async {
+        final log = <String>[];
+        await _pushHost(tester, size: _mobile, dirty: true, log: log);
+        await tester.tap(find.text('open item'));
+        await tester.pumpAndSettle();
 
-      await _systemBack(tester);
-      expect(find.text('UNSAVED CHANGES'), findsOneWidget);
-      await tester.tap(find.text('CANCEL'));
-      await tester.pumpAndSettle();
-      expect(find.text('editor body'), findsOneWidget);
-      expect(log, isEmpty);
+        await _systemBack(tester);
+        expect(find.text('UNSAVED CHANGES'), findsOneWidget);
+        await tester.tap(find.text('CANCEL'));
+        await tester.pumpAndSettle();
+        expect(find.text('editor body'), findsOneWidget);
+        expect(log, isEmpty);
 
-      await tester.tap(find.byTooltip('Back'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('DISCARD'));
-      await tester.pumpAndSettle();
-      expect(log, ['discard']);
-      expect(find.byKey(ManagerMasterDetailShell.masterPaneKey), findsOneWidget);
-      expect(find.byType(_ShellHost), findsOneWidget);
-    });
+        await tester.tap(find.byTooltip('Back'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('DISCARD'));
+        await tester.pumpAndSettle();
+        expect(log, ['discard']);
+        expect(
+          find.byKey(ManagerMasterDetailShell.masterPaneKey),
+          findsOneWidget,
+        );
+        expect(find.byType(_ShellHost), findsOneWidget);
+      },
+    );
 
-    testWidgets('leaving Tools with unsaved changes on a wide screen asks first', (
-      tester,
-    ) async {
-      final log = <String>[];
-      await _pushHost(tester, size: _desktop, dirty: true, log: log);
-      expect(find.byKey(ManagerMasterDetailShell.detailPaneKey), findsOneWidget);
+    testWidgets(
+      'leaving Tools with unsaved changes on a wide screen asks first',
+      (tester) async {
+        final log = <String>[];
+        await _pushHost(tester, size: _desktop, dirty: true, log: log);
+        expect(
+          find.byKey(ManagerMasterDetailShell.detailPaneKey),
+          findsOneWidget,
+        );
 
-      await _systemBack(tester);
-      expect(find.text('UNSAVED CHANGES'), findsOneWidget);
-      await tester.tap(find.text('SAVE'));
-      await tester.pumpAndSettle();
+        await _systemBack(tester);
+        expect(find.text('UNSAVED CHANGES'), findsOneWidget);
+        await tester.tap(find.text('SAVE'));
+        await tester.pumpAndSettle();
 
-      expect(log, ['save']);
-      expect(find.byType(_ShellHost), findsNothing);
-    });
+        expect(log, ['save']);
+        expect(find.byType(_ShellHost), findsNothing);
+      },
+    );
 
     testWidgets('a clean wide-screen manager closes on back without asking', (
       tester,
@@ -174,7 +196,9 @@ void main() {
     });
   });
 
-  testWidgets('header truncates long names and keeps its actions', (tester) async {
+  testWidgets('header truncates long names and keeps its actions', (
+    tester,
+  ) async {
     await pumpHarness(
       tester,
       SizedBox(

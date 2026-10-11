@@ -33,7 +33,9 @@ DirectorReference _ref(String id, {bool enabled = true}) => DirectorReference(
 /// Lets real file I/O started by the widget finish, then rebuilds.
 Future<void> _settleIo(WidgetTester tester) async {
   for (var i = 0; i < 10; i++) {
-    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 20)),
+    );
     await tester.pump();
   }
 }
@@ -77,47 +79,68 @@ void main() {
   tearDown(() => dir.deleteSync(recursive: true));
 
   group('saving to the library', () {
-    testWidgets('a failed write reports the failure, never success', (tester) async {
+    testWidgets('a failed write reports the failure, never success', (
+      tester,
+    ) async {
       // The library would live inside a regular file, so it cannot be written.
       final blocker = File('${dir.path}/blocker')..writeAsStringSync('x');
-      await _pumpDirectorManager(tester, baseDir: blocker.path, refs: [_ref('ref_0')]);
+      await _pumpDirectorManager(
+        tester,
+        baseDir: blocker.path,
+        refs: [_ref('ref_0')],
+      );
 
       await _saveFirstToLibrary(tester);
 
-      expect(find.text('Could not update the library. Storage may be full.'), findsOneWidget);
+      expect(
+        find.text('Could not update the library. Storage may be full.'),
+        findsOneWidget,
+      );
       expect(find.text('Saved to the library'), findsNothing);
       expect(find.text('SAVED'), findsNothing);
     });
 
-    testWidgets('a successful write confirms and lists the entry', (tester) async {
-      await _pumpDirectorManager(tester, baseDir: dir.path, refs: [_ref('ref_0')]);
+    testWidgets('a successful write confirms and lists the entry', (
+      tester,
+    ) async {
+      await _pumpDirectorManager(
+        tester,
+        baseDir: dir.path,
+        refs: [_ref('ref_0')],
+      );
 
       await _saveFirstToLibrary(tester);
 
       expect(find.text('Saved to the library'), findsOneWidget);
       expect(find.text('hero'), findsOneWidget);
       final stored = await tester.runAsync(
-        () => ReferenceLibraryService.load('${dir.path}/reference_library.json'),
+        () =>
+            ReferenceLibraryService.load('${dir.path}/reference_library.json'),
       );
       expect(stored!.directorRefs.single.name, 'hero');
     });
 
-    testWidgets('leaving the tab while saving does not touch the disposed page', (
-      tester,
-    ) async {
-      await _pumpDirectorManager(tester, baseDir: dir.path, refs: [_ref('ref_0')]);
-      await tester.tap(find.byTooltip('SAVE REFERENCE').first);
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'hero');
-      await tester.tap(find.text('SAVE'));
-      await tester.pump();
+    testWidgets(
+      'leaving the tab while saving does not touch the disposed page',
+      (tester) async {
+        await _pumpDirectorManager(
+          tester,
+          baseDir: dir.path,
+          refs: [_ref('ref_0')],
+        );
+        await tester.tap(find.byTooltip('SAVE REFERENCE').first);
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField), 'hero');
+        await tester.tap(find.text('SAVE'));
+        await tester.pump();
 
-      // The write is still pending; the tab is torn down meanwhile.
-      await tester.pumpWidget(const SizedBox.shrink());
-      await _settleIo(tester);
+        // The write is still pending; the tab is torn down meanwhile.
+        await tester.pumpWidget(const SizedBox.shrink());
+        await _settleIo(tester);
 
-      expect(tester.takeException(), isNull);
-    });
+        expect(tester.takeException(), isNull);
+      },
+    );
   });
 
   group('current entries', () {
@@ -131,9 +154,15 @@ void main() {
       );
 
       final dimmed = tester.widgetList<Opacity>(
-        find.descendant(of: find.byType(ReferenceItemCard), matching: find.byType(Opacity)),
+        find.descendant(
+          of: find.byType(ReferenceItemCard),
+          matching: find.byType(Opacity),
+        ),
       );
-      expect(dimmed.map((o) => o.opacity), everyElement(ReferenceItemCard.disabledOpacity));
+      expect(
+        dimmed.map((o) => o.opacity),
+        everyElement(ReferenceItemCard.disabledOpacity),
+      );
       expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
 
       await tester.tap(find.text('ENABLED'));
@@ -158,7 +187,10 @@ void main() {
   });
 
   group('adding vibes', () {
-    Future<List<String>> pumpGeneric(WidgetTester tester, {String? disabledReason}) async {
+    Future<List<String>> pumpGeneric(
+      WidgetTester tester, {
+      String? disabledReason,
+    }) async {
       final calls = <String>[];
       await pumpHarness(
         tester,
@@ -176,7 +208,11 @@ void main() {
           isProcessing: false,
           slot: ReferenceLibrarySlot.vibeTransfers,
           saveTitle: 'SAVE VIBE',
-          toSaved: (vibe, name) => SavedVibeTransfer(name: name, vibe: vibe, savedAt: DateTime(2026)),
+          toSaved: (vibe, name) => SavedVibeTransfer(
+            name: name,
+            vibe: vibe,
+            savedAt: DateTime(2026),
+          ),
           onLoadSaved: (_) async {},
           savedName: (s) => s.name,
           savedImage: (s) => s.vibe.originalImageBytes,
@@ -192,11 +228,19 @@ void main() {
     testWidgets('the add button is disabled with a reason without permission', (
       tester,
     ) async {
-      final calls = await pumpGeneric(tester, disabledReason: 'Your account is not allowed to encode vibes.');
+      final calls = await pumpGeneric(
+        tester,
+        disabledReason: 'Your account is not allowed to encode vibes.',
+      );
 
-      final button = tester.widget<ElevatedButton>(find.byKey(ReferenceLibraryManager.addButtonKey));
+      final button = tester.widget<ElevatedButton>(
+        find.byKey(ReferenceLibraryManager.addButtonKey),
+      );
       expect(button.onPressed, isNull);
-      expect(find.byKey(ReferenceLibraryManager.disabledReasonKey), findsOneWidget);
+      expect(
+        find.byKey(ReferenceLibraryManager.disabledReasonKey),
+        findsOneWidget,
+      );
 
       await tester.tap(find.byKey(ReferenceLibraryManager.addButtonKey));
       expect(calls, isEmpty);
@@ -215,28 +259,44 @@ void main() {
       );
       await _settleIo(tester);
 
-      final button = tester.widget<ElevatedButton>(find.byKey(ReferenceLibraryManager.addButtonKey));
+      final button = tester.widget<ElevatedButton>(
+        find.byKey(ReferenceLibraryManager.addButtonKey),
+      );
       expect(button.onPressed, isNotNull);
-      expect(find.byKey(ReferenceLibraryManager.disabledReasonKey), findsNothing);
+      expect(
+        find.byKey(ReferenceLibraryManager.disabledReasonKey),
+        findsNothing,
+      );
     });
   });
 
   group('vibe encode errors', () {
     final l = AppLocalizationsEn();
     GenerationRequestException http(int? status, [String code = '']) =>
-        GenerationRequestException(statusCode: status, code: code, message: 'Generation request failed');
+        GenerationRequestException(
+          statusCode: status,
+          code: code,
+          message: 'Generation request failed',
+        );
 
     test('gateway failures map to readable categories', () {
-      String message(Object error) => vibeEncodeErrorMessage(l, error, gateway: true);
+      String message(Object error) =>
+          vibeEncodeErrorMessage(l, error, gateway: true);
 
-      expect(message(http(409, 'points_insufficient')), l.refErrorPointsInsufficient);
+      expect(
+        message(http(409, 'points_insufficient')),
+        l.refErrorPointsInsufficient,
+      );
       expect(message(http(409)), l.refErrorPointsInsufficient);
       expect(message(http(403)), l.refVibeNoPermission);
       expect(message(http(403, 'permission_denied')), l.refVibeNoPermission);
       expect(message(UnauthorizedException()), l.refErrorSessionExpired);
       expect(message(http(null)), l.refErrorNetwork);
       expect(message(http(502)), l.refErrorServiceUnavailable);
-      expect(message(Exception('DioException [bad response]: raw')), l.refVibeEncodeFailed);
+      expect(
+        message(Exception('DioException [bad response]: raw')),
+        l.refVibeEncodeFailed,
+      );
     });
 
     test('direct NovelAI keeps the API-key hint for 401', () {
@@ -244,7 +304,10 @@ void main() {
         vibeEncodeErrorMessage(l, UnauthorizedException(), gateway: false),
         l.refApiKeyMissing,
       );
-      expect(vibeEncodeErrorMessage(l, http(402), gateway: false), l.refErrorPointsInsufficient);
+      expect(
+        vibeEncodeErrorMessage(l, http(402), gateway: false),
+        l.refErrorPointsInsufficient,
+      );
     });
   });
 }

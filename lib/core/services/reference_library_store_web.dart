@@ -18,7 +18,9 @@ const _recordKey = 'reference_library';
 Future<String?> readLibrary(String path, String legacyPrefsKey) async {
   final db = await _open();
   try {
-    final store = db.transaction(_storeName.toJS, 'readonly').objectStore(_storeName);
+    final store = db
+        .transaction(_storeName.toJS, 'readonly')
+        .objectStore(_storeName);
     final value = await _result(store.get(_recordKey.toJS));
     if (value != null) return (value as JSString).toDart;
   } finally {
@@ -30,7 +32,11 @@ Future<String?> readLibrary(String path, String legacyPrefsKey) async {
   return (legacy == null || legacy.isEmpty) ? null : legacy;
 }
 
-Future<void> writeLibrary(String path, String legacyPrefsKey, String value) async {
+Future<void> writeLibrary(
+  String path,
+  String legacyPrefsKey,
+  String value,
+) async {
   final db = await _open();
   try {
     final transaction = db.transaction(_storeName.toJS, 'readwrite');

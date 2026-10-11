@@ -201,7 +201,11 @@ class ManagerListTile extends StatelessWidget {
                 if (menuActions.isNotEmpty)
                   PopupMenuButton<int>(
                     key: menuKey,
-                    icon: Icon(Icons.more_vert, size: 18, color: t.textDisabled),
+                    icon: Icon(
+                      Icons.more_vert,
+                      size: 18,
+                      color: t.textDisabled,
+                    ),
                     color: t.surfaceHigh,
                     style: _managerButtonStyle(),
                     onSelected: (index) => menuActions[index].onSelected(),

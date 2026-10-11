@@ -132,7 +132,8 @@ class ManagerMasterDetailShell extends StatelessWidget {
   Future<void> _handleBlockedPop(BuildContext context, bool detailOpen) async {
     // A blocked pop also blocks the hub's drawer from closing; close it first.
     final scaffold = Scaffold.maybeOf(context);
-    if (scaffold != null && (scaffold.isDrawerOpen || scaffold.isEndDrawerOpen)) {
+    if (scaffold != null &&
+        (scaffold.isDrawerOpen || scaffold.isEndDrawerOpen)) {
       scaffold.closeDrawer();
       scaffold.closeEndDrawer();
       return;

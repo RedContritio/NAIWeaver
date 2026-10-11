@@ -21,7 +21,8 @@ import 'package:provider/single_child_widget.dart';
 
 import 'test_harness.dart';
 
-const _longName = 'AN EXTREMELY LONG NAME THAT KEEPS GOING WELL PAST ANY PANE WIDTH';
+const _longName =
+    'AN EXTREMELY LONG NAME THAT KEEPS GOING WELL PAST ANY PANE WIDTH';
 const _widths = [360.0, 600.0, 680.0];
 
 class _FakeGeneration extends ChangeNotifier implements GenerationNotifier {
@@ -88,7 +89,9 @@ Future<void> _systemBack(WidgetTester tester) async {
 /// Lets real file I/O started by the widget finish, then rebuilds.
 Future<void> _settleIo(WidgetTester tester) async {
   for (var i = 0; i < 10; i++) {
-    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 20)),
+    );
     await tester.pump();
   }
   await tester.pumpAndSettle();
@@ -96,76 +99,94 @@ Future<void> _settleIo(WidgetTester tester) async {
 
 void main() {
   group('PresetManager unsaved edits', () {
-    testWidgets('phone: back from edited preset asks; cancel keeps, discard reverts', (
-      tester,
-    ) async {
-      await pumpHarness(
-        tester,
-        const PresetManager(),
-        providers: _generationProviders(presets: [_preset('ALPHA'), _preset('BETA')]),
-        size: const Size(360, 800),
-      );
+    testWidgets(
+      'phone: back from edited preset asks; cancel keeps, discard reverts',
+      (tester) async {
+        await pumpHarness(
+          tester,
+          const PresetManager(),
+          providers: _generationProviders(
+            presets: [_preset('ALPHA'), _preset('BETA')],
+          ),
+          size: const Size(360, 800),
+        );
 
-      // The phone list keeps the manager header (save / title live there).
-      expect(find.text('PRESET MANAGER'), findsOneWidget);
+        // The phone list keeps the manager header (save / title live there).
+        expect(find.text('PRESET MANAGER'), findsOneWidget);
 
-      await tester.tap(find.text('ALPHA'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.widgetWithText(TextField, 'ALPHA'), 'ALPHA EDITED');
-      await tester.pump();
-      expect(find.byKey(const ValueKey<String>('preset-mobile-save')), findsOneWidget);
+        await tester.tap(find.text('ALPHA'));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.widgetWithText(TextField, 'ALPHA'),
+          'ALPHA EDITED',
+        );
+        await tester.pump();
+        expect(
+          find.byKey(const ValueKey<String>('preset-mobile-save')),
+          findsOneWidget,
+        );
 
-      await _systemBack(tester);
-      expect(find.text('UNSAVED CHANGES'), findsOneWidget);
-      await tester.tap(find.text('CANCEL'));
-      await tester.pumpAndSettle();
-      expect(find.widgetWithText(TextField, 'ALPHA EDITED'), findsOneWidget);
+        await _systemBack(tester);
+        expect(find.text('UNSAVED CHANGES'), findsOneWidget);
+        await tester.tap(find.text('CANCEL'));
+        await tester.pumpAndSettle();
+        expect(find.widgetWithText(TextField, 'ALPHA EDITED'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('Back'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('DISCARD'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Back'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('DISCARD'));
+        await tester.pumpAndSettle();
 
-      expect(find.byKey(ManagerMasterDetailShell.masterPaneKey), findsOneWidget);
-      expect(find.text('ALPHA EDITED'), findsNothing);
+        expect(
+          find.byKey(ManagerMasterDetailShell.masterPaneKey),
+          findsOneWidget,
+        );
+        expect(find.text('ALPHA EDITED'), findsNothing);
 
-      // Nothing is pending any more, so opening another preset is direct.
-      await tester.tap(find.text('BETA'));
-      await tester.pumpAndSettle();
-      expect(find.text('UNSAVED CHANGES'), findsNothing);
-      expect(find.widgetWithText(TextField, 'BETA'), findsOneWidget);
-    });
+        // Nothing is pending any more, so opening another preset is direct.
+        await tester.tap(find.text('BETA'));
+        await tester.pumpAndSettle();
+        expect(find.text('UNSAVED CHANGES'), findsNothing);
+        expect(find.widgetWithText(TextField, 'BETA'), findsOneWidget);
+      },
+    );
 
-    testWidgets('opening another preset with pending edits asks instead of dropping them', (
-      tester,
-    ) async {
-      await pumpHarness(
-        tester,
-        const PresetManager(),
-        providers: _generationProviders(presets: [_preset('ALPHA'), _preset('BETA')]),
-        size: const Size(680, 800),
-      );
+    testWidgets(
+      'opening another preset with pending edits asks instead of dropping them',
+      (tester) async {
+        await pumpHarness(
+          tester,
+          const PresetManager(),
+          providers: _generationProviders(
+            presets: [_preset('ALPHA'), _preset('BETA')],
+          ),
+          size: const Size(680, 800),
+        );
 
-      await tester.tap(find.text('ALPHA'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.widgetWithText(TextField, 'ALPHA'), 'ALPHA EDITED');
-      await tester.pump();
+        await tester.tap(find.text('ALPHA'));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.widgetWithText(TextField, 'ALPHA'),
+          'ALPHA EDITED',
+        );
+        await tester.pump();
 
-      await tester.tap(find.text('BETA'));
-      await tester.pumpAndSettle();
-      expect(find.text('UNSAVED CHANGES'), findsOneWidget);
-      await tester.tap(find.text('CANCEL'));
-      await tester.pumpAndSettle();
-      expect(find.widgetWithText(TextField, 'ALPHA EDITED'), findsOneWidget);
-      expect(find.text('SAVE CHANGES'), findsOneWidget);
+        await tester.tap(find.text('BETA'));
+        await tester.pumpAndSettle();
+        expect(find.text('UNSAVED CHANGES'), findsOneWidget);
+        await tester.tap(find.text('CANCEL'));
+        await tester.pumpAndSettle();
+        expect(find.widgetWithText(TextField, 'ALPHA EDITED'), findsOneWidget);
+        expect(find.text('SAVE CHANGES'), findsOneWidget);
 
-      await tester.tap(find.text('BETA'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('DISCARD'));
-      await tester.pumpAndSettle();
-      expect(find.widgetWithText(TextField, 'BETA'), findsOneWidget);
-      expect(find.text('SAVE CHANGES'), findsNothing);
-    });
+        await tester.tap(find.text('BETA'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('DISCARD'));
+        await tester.pumpAndSettle();
+        expect(find.widgetWithText(TextField, 'BETA'), findsOneWidget);
+        expect(find.text('SAVE CHANGES'), findsNothing);
+      },
+    );
   });
 
   group('managers fit 360/600/680 px with long names', () {
@@ -179,7 +200,10 @@ void main() {
         );
         await tester.tap(find.text(_longName));
         await tester.pumpAndSettle();
-        await tester.enterText(find.widgetWithText(TextField, _longName), '$_longName!');
+        await tester.enterText(
+          find.widgetWithText(TextField, _longName),
+          '$_longName!',
+        );
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
       });
@@ -188,12 +212,17 @@ void main() {
         await pumpHarness(
           tester,
           const StyleEditor(),
-          providers: _generationProviders(styles: [PromptStyle(name: _longName)]),
+          providers: _generationProviders(
+            styles: [PromptStyle(name: _longName)],
+          ),
           size: Size(width, 800),
         );
         await tester.tap(find.text(_longName));
         await tester.pumpAndSettle();
-        await tester.enterText(find.widgetWithText(TextField, _longName), '$_longName!');
+        await tester.enterText(
+          find.widgetWithText(TextField, _longName),
+          '$_longName!',
+        );
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
       });
@@ -201,7 +230,9 @@ void main() {
       testWidgets('wildcards at ${width.toInt()}', (tester) async {
         final dir = Directory.systemTemp.createTempSync('naiweaver_wildcards');
         addTearDown(() => dir.deleteSync(recursive: true));
-        File('${dir.path}/${_longName.replaceAll(' ', '.')}.txt').writeAsStringSync('red\nblue\n');
+        File(
+          '${dir.path}/${_longName.replaceAll(' ', '.')}.txt',
+        ).writeAsStringSync('red\nblue\n');
 
         final service = WildcardService(wildcardDir: dir.path);
         late WildcardNotifier notifier;
@@ -218,13 +249,18 @@ void main() {
         await pumpHarness(
           tester,
           const WildcardManager(),
-          providers: [ChangeNotifierProvider<WildcardNotifier>.value(value: notifier)],
+          providers: [
+            ChangeNotifierProvider<WildcardNotifier>.value(value: notifier),
+          ],
           size: Size(width, 800),
         );
         await tester.tap(find.text(_longName.replaceAll(' ', '.')));
         await _settleIo(tester);
 
-        expect(find.byKey(ManagerMasterDetailShell.detailPaneKey), findsOneWidget);
+        expect(
+          find.byKey(ManagerMasterDetailShell.detailPaneKey),
+          findsOneWidget,
+        );
         // The help stays reachable from the editor on phones too.
         expect(find.byTooltip('WILDCARD HELP'), findsOneWidget);
         expect(tester.takeException(), isNull);
@@ -234,11 +270,19 @@ void main() {
         final dir = Directory.systemTemp.createTempSync('naiweaver_tags');
         addTearDown(() => dir.deleteSync(recursive: true));
         final tagFile = File('${dir.path}/tags.json')
-          ..writeAsStringSync(jsonEncode([
-            {'tag': _longName.toLowerCase().replaceAll(' ', '_'), 'count': 123456, 'type_name': 'character'},
-            {'tag': 'short', 'count': 1, 'type_name': 'general'},
-          ]));
-        final preferences = await testPreferences(initial: {'examples_v2_migrated': true});
+          ..writeAsStringSync(
+            jsonEncode([
+              {
+                'tag': _longName.toLowerCase().replaceAll(' ', '_'),
+                'count': 123456,
+                'type_name': 'character',
+              },
+              {'tag': 'short', 'count': 1, 'type_name': 'general'},
+            ]),
+          );
+        final preferences = await testPreferences(
+          initial: {'examples_v2_migrated': true},
+        );
         final tagService = TagService(filePath: tagFile.path);
         late TagLibraryNotifier notifier;
         await tester.runAsync(() async {
@@ -254,7 +298,9 @@ void main() {
         await tester.pumpWidget(
           harnessApp(
             preferences: preferences,
-            providers: [ChangeNotifierProvider<TagLibraryNotifier>.value(value: notifier)],
+            providers: [
+              ChangeNotifierProvider<TagLibraryNotifier>.value(value: notifier),
+            ],
             home: const Scaffold(body: TagLibraryManager()),
           ),
         );
