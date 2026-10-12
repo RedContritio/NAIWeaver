@@ -5,6 +5,9 @@ import 'package:provider/provider.dart';
 import '../services/preferences_service.dart';
 import '../services/tag_service.dart';
 import '../theme/theme_extensions.dart';
+import '../theme/vision_tokens.dart';
+import '../utils/tag_category_color.dart';
+import '../l10n/l10n_extensions.dart';
 
 /// Shared tag suggestion overlay used across the main generation screen
 /// and all tool editors (preset manager, style editor, etc.).
@@ -34,28 +37,9 @@ class TagSuggestionOverlay extends StatefulWidget {
     this.selectedIndex = -1,
   });
 
-  static Color tagColor(DanbooruTag tag) {
-    switch (tag.typeName.toLowerCase()) {
-      case 'copyright':
-        return const Color(0xFFD880FF);
-      case 'character':
-        return const Color(0xFF00AD00);
-      case 'artist':
-        return const Color(0xFFFF5858);
-      case 'meta':
-        return const Color(0xFFFF9229);
-      case 'wildcard':
-        return const Color(0xFF00BCD4);
-      case 'wildcard_favorite':
-        return const Color(0xFFFFD740);
-      case 'saved_character':
-        return const Color(0xFF7AD7A0);
-      case 'category_shortcut':
-        return const Color(0xFFFF5858);
-      default:
-        return Colors.white;
-    }
-  }
+  /// Accent for [tag] by its category, from the theme tokens.
+  static Color tagColor(VisionTokens t, DanbooruTag tag) =>
+      tagCategoryColor(t, tag.typeName);
 
   @override
   State<TagSuggestionOverlay> createState() => _TagSuggestionOverlayState();
@@ -105,7 +89,9 @@ class _TagSuggestionOverlayState extends State<TagSuggestionOverlay> {
                   border: Border.all(color: t.borderMedium),
                 ),
           child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.3),
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.3,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,9 +101,14 @@ class _TagSuggestionOverlayState extends State<TagSuggestionOverlay> {
                   child: Listener(
                     onPointerSignal: (pointerSignal) {
                       if (pointerSignal is PointerScrollEvent) {
-                        final newOffset = scrollController.offset + pointerSignal.scrollDelta.dy;
+                        final newOffset =
+                            scrollController.offset +
+                            pointerSignal.scrollDelta.dy;
                         scrollController.jumpTo(
-                          newOffset.clamp(0.0, scrollController.position.maxScrollExtent),
+                          newOffset.clamp(
+                            0.0,
+                            scrollController.position.maxScrollExtent,
+                          ),
                         );
                       }
                     },
@@ -127,14 +118,19 @@ class _TagSuggestionOverlayState extends State<TagSuggestionOverlay> {
                       child: Wrap(
                         spacing: 6,
                         runSpacing: 4,
-                        children: List.generate(widget.suggestions.length, (index) {
+                        children: List.generate(widget.suggestions.length, (
+                          index,
+                        ) {
                           final tag = widget.suggestions[index];
-                          final color = TagSuggestionOverlay.tagColor(tag);
+                          final color = TagSuggestionOverlay.tagColor(t, tag);
                           final isHighlighted = index == widget.selectedIndex;
                           return InkWell(
                             onTap: () => _selectTag(tag),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: isHighlighted
                                     ? color.withValues(alpha: 0.35)
@@ -156,7 +152,12 @@ class _TagSuggestionOverlayState extends State<TagSuggestionOverlay> {
                                         color: color,
                                         fontSize: t.fontSize(10),
                                         fontWeight: FontWeight.bold,
-                                        shadows: const [Shadow(color: Colors.black54, blurRadius: 1)],
+                                        shadows: const [
+                                          Shadow(
+                                            color: Colors.black54,
+                                            blurRadius: 1,
+                                          ),
+                                        ],
                                       ),
                                     ),
                                     Text(
@@ -171,7 +172,12 @@ class _TagSuggestionOverlayState extends State<TagSuggestionOverlay> {
                                       style: TextStyle(
                                         color: color.withValues(alpha: 0.6),
                                         fontSize: t.fontSize(9),
-                                        shadows: const [Shadow(color: Colors.black54, blurRadius: 1)],
+                                        shadows: const [
+                                          Shadow(
+                                            color: Colors.black54,
+                                            blurRadius: 1,
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ] else
@@ -181,10 +187,17 @@ class _TagSuggestionOverlayState extends State<TagSuggestionOverlay> {
                                         color: color,
                                         fontSize: t.fontSize(10),
                                         fontWeight: FontWeight.bold,
-                                        shadows: const [Shadow(color: Colors.black54, blurRadius: 1)],
+                                        shadows: const [
+                                          Shadow(
+                                            color: Colors.black54,
+                                            blurRadius: 1,
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                  if (!context.read<PreferencesService>().hideTagValues &&
+                                  if (!context
+                                          .read<PreferencesService>()
+                                          .hideTagValues &&
                                       tag.typeName != 'category_shortcut' &&
                                       tag.typeName != 'saved_character') ...[
                                     const SizedBox(width: 4),
@@ -238,13 +251,15 @@ class _TagSuggestionOverlayState extends State<TagSuggestionOverlay> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                honor ? Icons.check_box_outlined : Icons.check_box_outline_blank,
+                honor
+                    ? Icons.check_box_outlined
+                    : Icons.check_box_outline_blank,
                 size: 13,
                 color: honor ? t.textSecondary : t.textTertiary,
               ),
               const SizedBox(width: 4),
               Text(
-                'honor outfit state',
+                context.l.tagSuggestHonorOutfitState,
                 style: TextStyle(
                   color: honor ? t.textSecondary : t.textTertiary,
                   fontSize: t.fontSize(9),

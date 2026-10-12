@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../../../core/utils/image_utils.dart';
@@ -47,7 +48,7 @@ class MetadataImportResult {
   final List<NaiCharacter> characters;
   final List<NaiInteraction> interactions;
   final bool? autoPositioning;
-  final Uint8List imageBytes;
+  final Uint8List? imageBytes;
   final bool isFuzzyMatched;
 
   MetadataImportResult({
@@ -67,7 +68,7 @@ class MetadataImportResult {
     this.characters = const [],
     this.interactions = const [],
     this.autoPositioning,
-    required this.imageBytes,
+    this.imageBytes,
     this.isFuzzyMatched = false,
   });
 
@@ -193,7 +194,31 @@ class MetadataImportService {
     List<PromptStyle> availableStyles = const [],
   }) async {
     final metadata = await compute(extractMetadata, bytes);
+    return _parseMetadata(
+      metadata,
+      bytes: bytes,
+      smartStyleImport: smartStyleImport,
+      availableStyles: availableStyles,
+    );
+  }
 
+  /// Parse stored generation parameters without reading an image.
+  MetadataImportResult parseGenerationParameters(
+    Map<String, dynamic> parameters,
+  ) {
+    return _parseMetadata(
+      {'Comment': jsonEncode(parameters)},
+      smartStyleImport: false,
+      availableStyles: const [],
+    );
+  }
+
+  MetadataImportResult _parseMetadata(
+    Map<String, String>? metadata, {
+    Uint8List? bytes,
+    required bool smartStyleImport,
+    required List<PromptStyle> availableStyles,
+  }) {
     if (metadata == null || metadata.isEmpty) {
       throw Exception("No metadata found");
     }

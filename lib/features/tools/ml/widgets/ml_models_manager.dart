@@ -11,12 +11,18 @@ import '../../../../core/services/download_manager.dart';
 import '../../../../core/ml/ml_storage_service.dart';
 import '../../../../core/services/preferences_service.dart';
 import '../../../../core/theme/theme_extensions.dart';
-import '../../../../core/theme/vision_tokens.dart';
+import '../../../../core/theme/vision_metrics.dart';
 import '../../../../core/widgets/confirm_dialog.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../../core/l10n/l10n_extensions.dart';
+import '../../../../core/widgets/ui/app_pill.dart';
+import '../../../../core/widgets/ui/app_tone.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../generation/providers/generation_notifier.dart';
+import '../../../../core/ml/ml_model_entry_l10n.dart';
+
+bool get _hasLocalMlPlatform =>
+    kIsWeb || (!Platform.isAndroid && !Platform.isIOS);
 
 class MLModelsManager extends StatefulWidget {
   const MLModelsManager({super.key});
@@ -51,15 +57,18 @@ class _MLModelsManagerState extends State<MLModelsManager> {
     final unknown = <_UnknownModel>[];
 
     await for (final entity in dir.list()) {
-      if (entity is File && (entity.path.endsWith('.onnx') || entity.path.endsWith('.ort'))) {
+      if (entity is File &&
+          (entity.path.endsWith('.onnx') || entity.path.endsWith('.ort'))) {
         final filename = p.basename(entity.path);
         if (!knownFiles.contains(filename)) {
           final stat = await entity.stat();
-          unknown.add(_UnknownModel(
-            path: entity.path,
-            filename: filename,
-            sizeBytes: stat.size,
-          ));
+          unknown.add(
+            _UnknownModel(
+              path: entity.path,
+              filename: filename,
+              sizeBytes: stat.size,
+            ),
+          );
         }
       }
     }
@@ -68,6 +77,15 @@ class _MLModelsManagerState extends State<MLModelsManager> {
   }
 
   Future<void> _deleteUnknown(_UnknownModel model) async {
+    final l = context.l;
+    final confirm = await showConfirmDialog(
+      context,
+      title: l.mlDeleteModelTitle(model.filename),
+      message: l.mlDeleteModelMessage(model.sizeLabel),
+      confirmLabel: l.mlDelete,
+      cancelLabel: l.commonCancel,
+    );
+    if (confirm != true) return;
     try {
       await File(model.path).delete();
       _unknownModels?.remove(model);
@@ -81,379 +99,284 @@ class _MLModelsManagerState extends State<MLModelsManager> {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final mobile = isMobile(context);
+    final l = context.l;
+    final touch = isTouchSized(context);
     final ml = context.watch<MLNotifier>();
+    final prefs = context.watch<PreferencesService>();
+    final hasApiKey = context
+        .watch<GenerationNotifier>()
+        .state
+        .apiKey
+        .isNotEmpty;
     final caps = ml.deviceCapabilities;
+    final noteSize = t.fontSize(touch ? 10 : 8);
+
+    Widget gap(double h) => SizedBox(height: h);
+
+    Widget modelCard(
+      MLModelEntry entry, {
+      required bool isSelected,
+      required VoidCallback onSelect,
+    }) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: VisionMetrics.space8),
+        child: _MLModelCard(
+          entry: entry,
+          ml: ml,
+          caps: caps,
+          isSelected: isSelected,
+          onSelect: onSelect,
+          onDownload: () async {
+            await ml.downloadModel(entry);
+            _refreshStats();
+          },
+          onCancel: () => ml.cancelDownload(entry.id),
+          onDelete: () => _confirmDelete(entry, ml),
+        ),
+      );
+    }
 
     return SingleChildScrollView(
-      padding: EdgeInsets.all(mobile ? 16 : 24),
+      padding: EdgeInsets.all(
+        touch ? VisionMetrics.space16 : VisionMetrics.space24,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
           Text(
-            context.l.mlModels.toUpperCase(),
+            l.mlModels.toUpperCase(),
             style: TextStyle(
               color: t.headerText,
-              fontSize: t.fontSize(mobile ? 14 : 12),
+              fontSize: t.fontSize(touch ? 14 : 12),
               fontWeight: FontWeight.w900,
               letterSpacing: 4,
             ),
           ),
-          const SizedBox(height: 4),
+          gap(VisionMetrics.space4),
           Text(
-            'Download and manage on-device ML models for background removal and upscaling.',
+            l.mlManagerSubtitle,
             style: TextStyle(
               color: t.textDisabled,
-              fontSize: t.fontSize(mobile ? 11 : 9),
+              fontSize: t.fontSize(touch ? 11 : 9),
               letterSpacing: 0.5,
             ),
           ),
-          const SizedBox(height: 16),
+          gap(VisionMetrics.space16),
 
           // Device info + stats row
-          if (caps != null || _stats != null)
-            Column(
-              children: [
-                if (caps != null)
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: mobile ? 14 : 10,
-                      vertical: mobile ? 10 : 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: t.borderSubtle,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          caps.hasGpuAcceleration
-                              ? Icons.memory
-                              : Icons.computer,
-                          size: mobile ? 16 : 12,
-                          color: caps.hasGpuAcceleration
-                              ? t.accentSuccess
-                              : t.accentEdit,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            caps.deviceInfoLabel,
-                            style: TextStyle(
-                              color: t.textSecondary,
-                              fontSize: t.fontSize(mobile ? 11 : 9),
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (caps != null && _stats != null)
-                  const SizedBox(height: 8),
-                if (_stats != null)
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: mobile ? 14 : 10,
-                      vertical: mobile ? 10 : 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: t.borderSubtle,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.storage, size: mobile ? 16 : 12, color: t.textDisabled),
-                        const SizedBox(width: 8),
-                        Text(
-                          _stats!.downloadedCount == 0
-                              ? 'No models downloaded'
-                              : '${_stats!.downloadedCount} model${_stats!.downloadedCount == 1 ? '' : 's'} downloaded \u00b7 ${_stats!.diskUsageLabel}',
-                          style: TextStyle(
-                            color: t.textSecondary,
-                            fontSize: t.fontSize(mobile ? 11 : 9),
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
+          if (caps != null)
+            _InfoRow(
+              icon: caps.hasGpuAcceleration ? Icons.memory : Icons.computer,
+              iconColor: caps.hasGpuAcceleration
+                  ? t.accentSuccess
+                  : t.accentEdit,
+              text: caps.deviceInfoLabel(context.l),
             ),
-          const SizedBox(height: 24),
+          if (caps != null && _stats != null) gap(VisionMetrics.space8),
+          if (_stats != null)
+            _InfoRow(
+              icon: Icons.storage,
+              iconColor: t.textDisabled,
+              text: _stats!.downloadedCount == 0
+                  ? l.mlNoModelsDownloaded
+                  : l.mlModelsDownloaded(
+                      _stats!.downloadedCount,
+                      _stats!.diskUsageLabel,
+                    ),
+            ),
+          gap(VisionMetrics.space24),
 
           // Mobile-only banner: local ML not available
-          if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) ...[
-            Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: mobile ? 14 : 10,
-                vertical: mobile ? 10 : 6,
-              ),
-              decoration: BoxDecoration(
-                color: t.accentEdit.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: t.accentEdit.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.phone_android, size: mobile ? 16 : 12, color: t.accentEdit),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'On mobile devices, upscaling and background removal use the NovelAI API. Local ML models are only available on desktop.',
-                      style: TextStyle(
-                        color: t.accentEdit,
-                        fontSize: t.fontSize(mobile ? 10 : 8),
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+          if (!_hasLocalMlPlatform) ...[
+            _InfoRow(
+              icon: Icons.phone_android,
+              iconColor: t.accentEdit,
+              text: l.mlMobileApiNote,
+              tone: AppTone.info,
             ),
-            const SizedBox(height: 16),
+            gap(VisionMetrics.space16),
           ],
 
           // Background Removal section
-          _SectionHeader(title: 'BACKGROUND REMOVAL', icon: Icons.content_cut),
-          const SizedBox(height: 8),
-          // NAI API bg-removal card
-          _NaiBgRemovalCard(
-            isSelected: context.watch<PreferencesService>().bgRemovalBackend == 'novelai',
-            hasApiKey: context.watch<GenerationNotifier>().state.apiKey.isNotEmpty,
+          _SectionHeader(title: l.mlBgRemoval, icon: Icons.content_cut),
+          gap(VisionMetrics.space8),
+          _NaiBackendCard(
+            title: l.mlNaiApiBgRemoval,
+            description: l.mlNaiApiBgRemovalDesc,
+            isSelected: prefs.bgRemovalBackend == 'novelai',
+            hasApiKey: hasApiKey,
             onSelect: () async {
-              await context.read<PreferencesService>().setBgRemovalBackend('novelai');
+              await prefs.setBgRemovalBackend('novelai');
               if (mounted) setState(() {});
             },
           ),
-          if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) ...[
-            const SizedBox(height: 8),
-            ...MLModelRegistry.backgroundRemovalModels.map((entry) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _MLModelCard(
-                entry: entry,
-                ml: ml,
-                caps: caps,
-                isSelected: ml.selectedBgRemovalModelId == entry.id &&
-                    context.watch<PreferencesService>().bgRemovalBackend == 'ml',
+          if (_hasLocalMlPlatform) ...[
+            gap(VisionMetrics.space8),
+            ...MLModelRegistry.backgroundRemovalModels.map(
+              (entry) => modelCard(
+                entry,
+                isSelected:
+                    ml.selectedBgRemovalModelId == entry.id &&
+                    prefs.bgRemovalBackend == 'ml',
                 onSelect: () async {
                   ml.selectBgRemovalModel(entry.id);
-                  await context.read<PreferencesService>().setBgRemovalBackend('ml');
+                  await prefs.setBgRemovalBackend('ml');
                   if (mounted) setState(() {});
                 },
-                onDownload: () async {
-                  await ml.downloadModel(entry);
-                  _refreshStats();
-                },
-                onCancel: () => ml.cancelDownload(entry.id),
-                onDelete: () => _confirmDelete(entry, ml),
               ),
-            )),
+            ),
           ],
 
-          const SizedBox(height: 24),
+          gap(VisionMetrics.space24),
 
           // Upscaling section
-          _SectionHeader(title: 'UPSCALING', icon: Icons.zoom_out_map),
-          const SizedBox(height: 8),
-          // NAI API upscale card
-          _NaiUpscaleCard(
-            isSelected: context.watch<PreferencesService>().upscaleBackend == 'novelai',
-            hasApiKey: context.watch<GenerationNotifier>().state.apiKey.isNotEmpty,
+          _SectionHeader(title: l.mlUpscaling, icon: Icons.zoom_out_map),
+          gap(VisionMetrics.space8),
+          _NaiBackendCard(
+            title: l.mlNaiApiUpscale,
+            description: l.mlNaiApiUpscaleDesc,
+            isSelected: prefs.upscaleBackend == 'novelai',
+            hasApiKey: hasApiKey,
             onSelect: () async {
-              await context.read<PreferencesService>().setUpscaleBackend('novelai');
+              await prefs.setUpscaleBackend('novelai');
               if (mounted) setState(() {});
             },
           ),
-          if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) ...[
-            const SizedBox(height: 8),
-            ...MLModelRegistry.upscaleModels.map((entry) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _MLModelCard(
-                entry: entry,
-                ml: ml,
-                caps: caps,
-                isSelected: ml.selectedUpscaleModelId == entry.id &&
-                    context.watch<PreferencesService>().upscaleBackend == 'ml',
+          if (_hasLocalMlPlatform) ...[
+            gap(VisionMetrics.space8),
+            ...MLModelRegistry.upscaleModels.map(
+              (entry) => modelCard(
+                entry,
+                isSelected:
+                    ml.selectedUpscaleModelId == entry.id &&
+                    prefs.upscaleBackend == 'ml',
                 onSelect: () async {
                   ml.selectUpscaleModel(entry.id);
-                  await context.read<PreferencesService>().setUpscaleBackend('ml');
+                  await prefs.setUpscaleBackend('ml');
                   if (mounted) setState(() {});
                 },
-                onDownload: () async {
-                  await ml.downloadModel(entry);
-                  _refreshStats();
-                },
-                onCancel: () => ml.cancelDownload(entry.id),
-                onDelete: () => _confirmDelete(entry, ml),
               ),
-            )),
+            ),
           ],
 
-          const SizedBox(height: 24),
+          gap(VisionMetrics.space24),
 
           // Segmentation section (desktop only)
-          if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) ...[
-            _SectionHeader(title: 'SEGMENTATION', icon: Icons.auto_awesome),
-            const SizedBox(height: 4),
+          if (_hasLocalMlPlatform) ...[
+            _SectionHeader(title: l.mlSegmentation, icon: Icons.auto_awesome),
+            gap(VisionMetrics.space4),
             Text(
-              'Interactive object selection using SAM. Downloads both encoder and decoder.',
+              l.mlSegmentationNote,
               style: TextStyle(
                 color: t.textMinimal,
-                fontSize: t.fontSize(mobile ? 10 : 8),
+                fontSize: noteSize,
                 letterSpacing: 0.5,
               ),
             ),
-            const SizedBox(height: 8),
-            ...MLModelRegistry.segmentationModels.map((entry) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _MLModelCard(
-                entry: entry,
-                ml: ml,
-                caps: caps,
+            gap(VisionMetrics.space8),
+            ...MLModelRegistry.segmentationModels.map(
+              (entry) => modelCard(
+                entry,
                 isSelected: entry.id.contains('encoder')
                     ? ml.selectedSegmentationModelId == entry.id
                     : ml.selectedSegmentationModelId != null,
                 onSelect: entry.id.contains('encoder')
                     ? () => ml.selectSegmentationModel(entry.id)
-                    : () {},  // decoder follows encoder
-                onDownload: () async {
-                  await ml.downloadModel(entry);
-                  _refreshStats();
-                },
-                onCancel: () => ml.cancelDownload(entry.id),
-                onDelete: () => _confirmDelete(entry, ml),
+                    : () {}, // decoder follows encoder
               ),
-            )),
+            ),
           ],
 
           // Unknown models section
           if (_unknownModels != null && _unknownModels!.isNotEmpty) ...[
-            const SizedBox(height: 24),
-            _SectionHeader(title: 'UNKNOWN MODELS', icon: Icons.help_outline),
-            const SizedBox(height: 4),
+            gap(VisionMetrics.space24),
+            _SectionHeader(title: l.mlUnknownModels, icon: Icons.help_outline),
+            gap(VisionMetrics.space4),
             Text(
-              'Legacy or unrecognized .onnx/.ort files. Delete to free disk space.',
+              l.mlUnknownModelsNote,
               style: TextStyle(
                 color: t.textMinimal,
-                fontSize: t.fontSize(mobile ? 10 : 8),
+                fontSize: noteSize,
                 letterSpacing: 0.5,
               ),
             ),
-            const SizedBox(height: 8),
-            ..._unknownModels!.map((model) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Container(
-                padding: EdgeInsets.all(mobile ? 14 : 10),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: t.borderSubtle),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            model.filename.toUpperCase(),
-                            style: TextStyle(
-                              color: t.textSecondary,
-                              fontSize: t.fontSize(mobile ? 11 : 9),
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
+            gap(VisionMetrics.space8),
+            ..._unknownModels!.map(
+              (model) => Padding(
+                padding: const EdgeInsets.only(bottom: VisionMetrics.space8),
+                child: Container(
+                  padding: EdgeInsets.all(
+                    touch ? VisionMetrics.space12 : VisionMetrics.space8,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+                    border: Border.all(color: t.borderSubtle),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              model.filename.toUpperCase(),
+                              style: TextStyle(
+                                color: t.textSecondary,
+                                fontSize: t.fontSize(touch ? 11 : 9),
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            model.sizeLabel,
-                            style: TextStyle(
-                              color: t.textDisabled,
-                              fontSize: t.fontSize(mobile ? 10 : 8),
+                            gap(VisionMetrics.radius2),
+                            Text(
+                              model.sizeLabel,
+                              style: TextStyle(
+                                color: t.textDisabled,
+                                fontSize: noteSize,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () => _deleteUnknown(model),
-                      child: Text(
-                        'DELETE',
-                        style: TextStyle(
-                          color: t.accentDanger,
-                          fontSize: t.fontSize(mobile ? 10 : 8),
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
+                          ],
                         ),
                       ),
-                    ),
-                  ],
+                      TextButton(
+                        onPressed: () => _deleteUnknown(model),
+                        child: Text(
+                          l.mlDelete,
+                          style: TextStyle(
+                            color: t.accentDanger,
+                            fontSize: noteSize,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            )),
+            ),
           ],
 
-          const SizedBox(height: 40),
+          gap(VisionMetrics.space24 + VisionMetrics.space16),
         ],
       ),
     );
   }
 
   Future<void> _confirmDelete(MLModelEntry entry, MLNotifier ml) async {
-    final t = context.tRead;
-    final mobile = isMobile(context);
-
-    if (mobile) {
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: t.surfaceHigh,
-        builder: (ctx) => SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: Icon(Icons.delete_outline, color: t.accentDanger),
-                title: Text(
-                  'DELETE ${entry.name.toUpperCase()}?',
-                  style: TextStyle(color: t.accentDanger, fontSize: t.fontSize(12), letterSpacing: 1),
-                ),
-                subtitle: Text(
-                  entry.fileSizeLabel,
-                  style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(10)),
-                ),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  await ml.deleteModel(entry);
-                  _refreshStats();
-                  _scanUnknownModels();
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.close, color: t.textDisabled),
-                title: Text(
-                  'CANCEL',
-                  style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(12), letterSpacing: 1),
-                ),
-                onTap: () => Navigator.pop(ctx),
-              ),
-            ],
-          ),
-        ),
-      );
-    } else {
-      final confirm = await showConfirmDialog(
-        context,
-        title: 'DELETE ${entry.name}?',
-        message: 'This will free ${entry.fileSizeLabel} of disk space.',
-        confirmLabel: 'DELETE',
-        confirmColor: t.accentDanger,
-      );
-      if (confirm == true) {
-        await ml.deleteModel(entry);
-        _refreshStats();
-        _scanUnknownModels();
-      }
+    final l = context.l;
+    final confirm = await showConfirmDialog(
+      context,
+      title: l.mlDeleteModelTitle(entry.name),
+      message: l.mlDeleteModelMessage(entry.fileSizeLabel),
+      confirmLabel: l.mlDelete,
+      cancelLabel: l.commonCancel,
+    );
+    if (confirm == true) {
+      await ml.deleteModel(entry);
+      _refreshStats();
+      _scanUnknownModels();
     }
   }
 }
@@ -463,7 +386,11 @@ class _UnknownModel {
   final String filename;
   final int sizeBytes;
 
-  _UnknownModel({required this.path, required this.filename, required this.sizeBytes});
+  _UnknownModel({
+    required this.path,
+    required this.filename,
+    required this.sizeBytes,
+  });
 
   String get sizeLabel {
     if (sizeBytes >= 1024 * 1024 * 1024) {
@@ -477,6 +404,65 @@ class _UnknownModel {
   }
 }
 
+/// A one-line info strip: icon plus text on a tinted block.
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String text;
+  final AppTone tone;
+
+  const _InfoRow({
+    required this.icon,
+    required this.iconColor,
+    required this.text,
+    this.tone = AppTone.neutral,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    final touch = isTouchSized(context);
+    final accent = tone == AppTone.neutral ? null : tone.color(t);
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: touch ? VisionMetrics.space12 : VisionMetrics.space8,
+        vertical: touch ? VisionMetrics.space8 : VisionMetrics.space4,
+      ),
+      decoration: BoxDecoration(
+        color: accent == null
+            ? t.borderSubtle
+            : accent.withValues(alpha: VisionMetrics.opacityHover),
+        borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+        border: accent == null
+            ? null
+            : Border.all(
+                color: accent.withValues(alpha: VisionMetrics.opacityScrim),
+              ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: touch ? VisionMetrics.iconMedium : VisionMetrics.iconSmall,
+            color: iconColor,
+          ),
+          const SizedBox(width: VisionMetrics.space8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: accent ?? t.textSecondary,
+                fontSize: t.fontSize(touch ? 11 : 9),
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SectionHeader extends StatelessWidget {
   final String title;
   final IconData icon;
@@ -486,21 +472,55 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final mobile = isMobile(context);
+    final touch = isTouchSized(context);
     return Row(
       children: [
-        Icon(icon, size: mobile ? 16 : 12, color: t.accent),
-        const SizedBox(width: 8),
+        Icon(
+          icon,
+          size: touch ? VisionMetrics.iconMedium : VisionMetrics.iconSmall,
+          color: t.accent,
+        ),
+        const SizedBox(width: VisionMetrics.space8),
         Text(
           title,
           style: TextStyle(
             color: t.accent,
-            fontSize: t.fontSize(mobile ? 11 : 9),
+            fontSize: t.fontSize(touch ? 11 : 9),
             fontWeight: FontWeight.bold,
             letterSpacing: 2,
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Round selection indicator shared by every backend/model card.
+class _RadioDot extends StatelessWidget {
+  final bool isSelected;
+
+  const _RadioDot({required this.isSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    final size = isTouchSized(context)
+        ? VisionMetrics.iconMedium
+        : VisionMetrics.iconSmall;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: isSelected ? t.accent : t.borderMedium,
+          width: 2,
+        ),
+        color: isSelected ? t.accent : null,
+      ),
+      child: isSelected
+          ? Icon(Icons.check, size: size - 8, color: t.background)
+          : null,
     );
   }
 }
@@ -526,23 +546,26 @@ class _MLModelCard extends StatelessWidget {
     required this.onDelete,
   });
 
-  Color _recommendationColor(BuildContext context, MLRecommendationLevel level) {
-    final t = context.t;
-    return switch (level) {
-      MLRecommendationLevel.recommended => t.accentSuccess,
-      MLRecommendationLevel.slow => t.accentEdit,
-      MLRecommendationLevel.notRecommended => t.accentDanger,
-      MLRecommendationLevel.unavailable => t.accentDanger,
-    };
-  }
+  AppTone _recommendationTone(MLRecommendationLevel level) => switch (level) {
+    MLRecommendationLevel.recommended => AppTone.success,
+    MLRecommendationLevel.slow => AppTone.warning,
+    MLRecommendationLevel.notRecommended => AppTone.error,
+    MLRecommendationLevel.unavailable => AppTone.error,
+  };
 
-  String _recommendationLabel(BuildContext context, MLRecommendationLevel level, MLDeviceCapabilities caps, MLModelEntry entry) {
-    final l = AppLocalizations.of(context);
+  String _recommendationLabel(
+    AppLocalizations l,
+    MLRecommendationLevel level,
+    MLDeviceCapabilities caps,
+    MLModelEntry entry,
+  ) {
     if (level == MLRecommendationLevel.unavailable) {
-      if (caps.isDesktopOnlyOnMobile(entry)) return 'DESKTOP ONLY \u2014 MAY CRASH';
+      if (caps.isDesktopOnlyOnMobile(entry)) return l.mlDesktopOnlyMayCrash;
       return l.mlNotAvailableOnPlatform;
     }
-    if (level == MLRecommendationLevel.notRecommended && caps.isLowRam(entry)) return l.mlLowRamWarning;
+    if (level == MLRecommendationLevel.notRecommended && caps.isLowRam(entry)) {
+      return l.mlLowRamWarning;
+    }
     return switch (level) {
       MLRecommendationLevel.recommended => l.mlRecommended,
       MLRecommendationLevel.slow => l.mlMayBeSlow,
@@ -551,21 +574,50 @@ class _MLModelCard extends StatelessWidget {
     };
   }
 
-  String? _tierMatchLabel(MLDeviceCapabilities? caps) {
+  /// The device-fit hint and whether it is a warning; null when not relevant.
+  (String, bool)? _tierMatch(AppLocalizations l, MLDeviceCapabilities? caps) {
     if (caps == null) return null;
     final recommended = caps.recommendedTier;
     if (entry.deviceTier == MLDeviceTier.both) return null;
-    if (entry.deviceTier == recommended) return 'RECOMMENDED FOR YOUR DEVICE';
-    if (entry.deviceTier == MLDeviceTier.desktop && recommended == MLDeviceTier.mobile) {
-      return 'MAY BE SLOW ON THIS DEVICE';
+    if (entry.deviceTier == recommended) {
+      return (l.mlRecommendedForDevice, false);
+    }
+    if (entry.deviceTier == MLDeviceTier.desktop &&
+        recommended == MLDeviceTier.mobile) {
+      return (l.mlSlowOnDevice, true);
     }
     return null;
   }
 
+  AppTone _tierTone() => switch (entry.tier) {
+    MLPerformanceTier.fast => AppTone.success,
+    MLPerformanceTier.balanced => AppTone.info,
+    MLPerformanceTier.quality => AppTone.warning,
+  };
+
+  String _tierLabel(AppLocalizations l) => switch (entry.tier) {
+    MLPerformanceTier.fast => l.mlTierFast,
+    MLPerformanceTier.balanced => l.mlTierBalancedShort,
+    MLPerformanceTier.quality => l.mlTierQualityShort,
+  };
+
+  AppTone _deviceTone() => switch (entry.deviceTier) {
+    MLDeviceTier.mobile => AppTone.success,
+    MLDeviceTier.desktop => AppTone.warning,
+    MLDeviceTier.both => AppTone.info,
+  };
+
+  String _deviceLabel(AppLocalizations l) => switch (entry.deviceTier) {
+    MLDeviceTier.mobile => l.mlDeviceMobile,
+    MLDeviceTier.desktop => l.mlDeviceDesktop,
+    MLDeviceTier.both => l.mlDeviceBoth,
+  };
+
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final mobile = isMobile(context);
+    final l = context.l;
+    final touch = isTouchSized(context);
     final state = ml.downloadState(entry.id);
     final isDownloaded = ml.isModelDownloaded(entry.id);
     final isDownloading = state.status == DownloadStatus.downloading;
@@ -573,20 +625,41 @@ class _MLModelCard extends StatelessWidget {
 
     final rec = caps?.recommendation(entry);
     final isUnavailable = rec == MLRecommendationLevel.unavailable;
-    final tierMatch = _tierMatchLabel(caps);
+    final tierMatch = _tierMatch(l, caps);
+    final smallText = t.fontSize(touch ? 10 : 8);
+    final actionStyle = TextStyle(
+      fontSize: smallText,
+      fontWeight: FontWeight.bold,
+      letterSpacing: 1,
+    );
+
+    Widget deleteButton() => IconButton(
+      onPressed: onDelete,
+      tooltip: l.mlDelete,
+      icon: Icon(
+        Icons.delete_outline,
+        size: touch ? VisionMetrics.iconMedium : VisionMetrics.iconSmall,
+        color: t.textDisabled,
+      ),
+    );
 
     return Opacity(
-      opacity: isUnavailable ? 0.45 : 1.0,
-      child: GestureDetector(
+      opacity: isUnavailable ? VisionMetrics.opacityDisabled : 1.0,
+      child: InkWell(
         onTap: isUnavailable ? null : (isDownloaded ? onSelect : null),
+        borderRadius: BorderRadius.circular(VisionMetrics.radius4),
         child: Container(
-          padding: EdgeInsets.all(mobile ? 14 : 10),
+          padding: EdgeInsets.all(
+            touch ? VisionMetrics.space12 : VisionMetrics.space8,
+          ),
           decoration: BoxDecoration(
-            color: isDownloaded ? t.borderSubtle : Colors.transparent,
-            borderRadius: BorderRadius.circular(4),
+            color: isDownloaded ? t.borderSubtle : null,
+            borderRadius: BorderRadius.circular(VisionMetrics.radius4),
             border: Border.all(
-              color: isSelected ? t.accent : (isDownloaded ? t.borderMedium : t.borderSubtle),
-              width: isSelected ? 1.5 : 1,
+              color: isSelected
+                  ? t.accent
+                  : (isDownloaded ? t.borderMedium : t.borderSubtle),
+              width: isSelected ? 2 : VisionMetrics.borderWidth,
             ),
           ),
           child: Column(
@@ -594,24 +667,9 @@ class _MLModelCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  // Selection indicator
                   if (isDownloaded) ...[
-                    Container(
-                      width: mobile ? 18 : 14,
-                      height: mobile ? 18 : 14,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isSelected ? t.accent : t.borderMedium,
-                          width: 2,
-                        ),
-                        color: isSelected ? t.accent : Colors.transparent,
-                      ),
-                      child: isSelected
-                          ? Icon(Icons.check, size: mobile ? 10 : 8, color: t.background)
-                          : null,
-                    ),
-                    const SizedBox(width: 10),
+                    _RadioDot(isSelected: isSelected),
+                    const SizedBox(width: VisionMetrics.space8),
                   ],
 
                   // Model info
@@ -619,63 +677,63 @@ class _MLModelCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                        Wrap(
+                          spacing: VisionMetrics.space4,
+                          runSpacing: VisionMetrics.space4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            Flexible(
-                              child: Text(
-                                entry.name.toUpperCase(),
-                                style: TextStyle(
-                                  color: isDownloaded ? t.textPrimary : t.textSecondary,
-                                  fontSize: t.fontSize(mobile ? 12 : 10),
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1,
-                                ),
+                            Text(
+                              entry.name.toUpperCase(),
+                              style: TextStyle(
+                                color: isDownloaded
+                                    ? t.textPrimary
+                                    : t.textSecondary,
+                                fontSize: t.fontSize(touch ? 12 : 10),
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1,
                               ),
                             ),
-                            const SizedBox(width: 6),
-                            _TierBadge(tier: entry.tier),
-                            const SizedBox(width: 4),
-                            _DeviceTierBadge(deviceTier: entry.deviceTier),
-                            if (rec != null) ...[
-                              const SizedBox(width: 4),
-                              Flexible(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                  decoration: BoxDecoration(
-                                    color: _recommendationColor(context, rec).withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(3),
-                                  ),
-                                  child: Text(
-                                    _recommendationLabel(context, rec, caps!, entry),
-                                    style: TextStyle(
-                                      color: _recommendationColor(context, rec),
-                                      fontSize: t.fontSize(6),
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.5,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
+                            AppPill(
+                              text: _tierLabel(l),
+                              tone: _tierTone(),
+                              dense: true,
+                            ),
+                            AppPill(
+                              text: _deviceLabel(l),
+                              tone: _deviceTone(),
+                              dense: true,
+                            ),
+                            if (rec != null)
+                              AppPill(
+                                text: _recommendationLabel(
+                                  l,
+                                  rec,
+                                  caps!,
+                                  entry,
                                 ),
+                                tone: _recommendationTone(rec),
+                                dense: true,
                               ),
-                            ],
                           ],
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: VisionMetrics.radius2),
                         Text(
-                          '${entry.description} \u00b7 ${entry.fileSizeLabel}',
+                          '${entry.localizedDescription(context.l)} · ${entry.fileSizeLabel}',
                           style: TextStyle(
                             color: t.textDisabled,
-                            fontSize: t.fontSize(mobile ? 10 : 8),
+                            fontSize: smallText,
                             letterSpacing: 0.5,
                           ),
                         ),
                         if (tierMatch != null) ...[
-                          const SizedBox(height: 2),
+                          const SizedBox(height: VisionMetrics.radius2),
                           Text(
-                            tierMatch,
+                            tierMatch.$1,
                             style: TextStyle(
-                              color: tierMatch.contains('SLOW') ? t.accentEdit : t.accentSuccess,
-                              fontSize: t.fontSize(mobile ? 8 : 6),
+                              color: tierMatch.$2
+                                  ? t.accentFavorite
+                                  : t.accentSuccess,
+                              fontSize: t.fontSize(touch ? 9 : 8),
                               fontWeight: FontWeight.bold,
                               letterSpacing: 0.5,
                             ),
@@ -688,79 +746,43 @@ class _MLModelCard extends StatelessWidget {
                   // Action buttons
                   if (isUnavailable)
                     if (isDownloaded)
-                      InkWell(
-                        onTap: onDelete,
-                        borderRadius: BorderRadius.circular(4),
-                        child: Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: Icon(Icons.delete_outline, size: mobile ? 18 : 14, color: t.textDisabled),
-                        ),
-                      )
+                      deleteButton()
                     else
                       const SizedBox.shrink()
                   else if (isDownloading)
                     TextButton(
                       onPressed: onCancel,
                       child: Text(
-                        'CANCEL',
-                        style: TextStyle(
-                          color: t.accentDanger,
-                          fontSize: t.fontSize(mobile ? 10 : 8),
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                        ),
+                        l.mlCancel,
+                        style: actionStyle.copyWith(color: t.accentDanger),
                       ),
                     )
-                  else if (isDownloaded) ...[
+                  else if (isDownloaded)
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.check, size: mobile ? 14 : 11, color: t.accentSuccess),
-                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.check,
+                          size: VisionMetrics.iconSmall,
+                          color: t.accentSuccess,
+                        ),
+                        const SizedBox(width: VisionMetrics.space4),
                         Text(
-                          'DOWNLOADED',
-                          style: TextStyle(
+                          l.mlDownloaded,
+                          style: actionStyle.copyWith(
                             color: t.accentSuccess,
-                            fontSize: t.fontSize(mobile ? 9 : 7),
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1,
+                            fontSize: t.fontSize(touch ? 9 : 8),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        InkWell(
-                          onTap: onDelete,
-                          borderRadius: BorderRadius.circular(4),
-                          child: Padding(
-                            padding: const EdgeInsets.all(4),
-                            child: Icon(Icons.delete_outline, size: mobile ? 18 : 14, color: t.textDisabled),
-                          ),
-                        ),
+                        deleteButton(),
                       ],
-                    ),
-                  ] else if (hasError)
-                    TextButton(
-                      onPressed: onDownload,
-                      child: Text(
-                        'RETRY',
-                        style: TextStyle(
-                          color: t.accent,
-                          fontSize: t.fontSize(mobile ? 10 : 8),
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                        ),
-                      ),
                     )
                   else
                     TextButton(
                       onPressed: onDownload,
                       child: Text(
-                        'DOWNLOAD',
-                        style: TextStyle(
-                          color: t.accent,
-                          fontSize: t.fontSize(mobile ? 10 : 8),
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                        ),
+                        hasError ? l.mlRetry : l.mlDownload,
+                        style: actionStyle.copyWith(color: t.accent),
                       ),
                     ),
                 ],
@@ -768,12 +790,14 @@ class _MLModelCard extends StatelessWidget {
 
               // Download progress bar
               if (isDownloading) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: VisionMetrics.space8),
                 Row(
                   children: [
                     Expanded(
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(2),
+                        borderRadius: BorderRadius.circular(
+                          VisionMetrics.radius2,
+                        ),
                         child: LinearProgressIndicator(
                           value: state.progress,
                           backgroundColor: t.borderSubtle,
@@ -782,12 +806,12 @@ class _MLModelCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: VisionMetrics.space8),
                     Text(
                       '${(state.progress * 100).toStringAsFixed(0)}%',
                       style: TextStyle(
                         color: t.textDisabled,
-                        fontSize: t.fontSize(mobile ? 10 : 8),
+                        fontSize: smallText,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -796,13 +820,13 @@ class _MLModelCard extends StatelessWidget {
               ],
 
               // Error message
-              if (hasError && state.errorMessage != null) ...[
-                const SizedBox(height: 6),
+              if (hasError && state.issue != null) ...[
+                const SizedBox(height: VisionMetrics.space8),
                 Text(
-                  state.errorMessage!.toUpperCase(),
+                  state.issue!.label(context.l).toUpperCase(),
                   style: TextStyle(
                     color: t.accentDanger,
-                    fontSize: t.fontSize(mobile ? 9 : 7),
+                    fontSize: t.fontSize(touch ? 9 : 8),
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -815,12 +839,18 @@ class _MLModelCard extends StatelessWidget {
   }
 }
 
-class _NaiUpscaleCard extends StatelessWidget {
+/// A NovelAI cloud backend (upscale or background removal) shown beside the
+/// local models.
+class _NaiBackendCard extends StatelessWidget {
+  final String title;
+  final String description;
   final bool isSelected;
   final bool hasApiKey;
   final VoidCallback onSelect;
 
-  const _NaiUpscaleCard({
+  const _NaiBackendCard({
+    required this.title,
+    required this.description,
     required this.isSelected,
     required this.hasApiKey,
     required this.onSelect,
@@ -829,90 +859,74 @@ class _NaiUpscaleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final mobile = isMobile(context);
-    return GestureDetector(
+    final l = context.l;
+    final touch = isTouchSized(context);
+    return InkWell(
       onTap: onSelect,
+      borderRadius: BorderRadius.circular(VisionMetrics.radius4),
       child: Container(
-        padding: EdgeInsets.all(mobile ? 14 : 10),
+        padding: EdgeInsets.all(
+          touch ? VisionMetrics.space12 : VisionMetrics.space8,
+        ),
         decoration: BoxDecoration(
-          color: isSelected ? t.borderSubtle : Colors.transparent,
-          borderRadius: BorderRadius.circular(4),
+          color: isSelected ? t.borderSubtle : null,
+          borderRadius: BorderRadius.circular(VisionMetrics.radius4),
           border: Border.all(
             color: isSelected ? t.accent : t.borderSubtle,
-            width: isSelected ? 1.5 : 1,
+            width: isSelected ? 2 : VisionMetrics.borderWidth,
           ),
         ),
         child: Row(
           children: [
-            // Selection indicator
-            Container(
-              width: mobile ? 18 : 14,
-              height: mobile ? 18 : 14,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isSelected ? t.accent : t.borderMedium,
-                  width: 2,
-                ),
-                color: isSelected ? t.accent : Colors.transparent,
-              ),
-              child: isSelected
-                  ? Icon(Icons.check, size: mobile ? 10 : 8, color: t.background)
-                  : null,
+            _RadioDot(isSelected: isSelected),
+            const SizedBox(width: VisionMetrics.space8),
+            Icon(
+              Icons.cloud_outlined,
+              size: touch ? VisionMetrics.iconMedium : VisionMetrics.iconSmall,
+              color: t.accentEdit,
             ),
-            const SizedBox(width: 10),
-            Icon(Icons.cloud_outlined, size: mobile ? 18 : 14, color: t.accentEdit),
-            const SizedBox(width: 10),
+            const SizedBox(width: VisionMetrics.space8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
+                  Wrap(
+                    spacing: VisionMetrics.space4,
+                    runSpacing: VisionMetrics.space4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text(
-                        'NOVELAI API UPSCALE',
+                        title,
                         style: TextStyle(
                           color: isSelected ? t.textPrimary : t.textSecondary,
-                          fontSize: t.fontSize(mobile ? 12 : 10),
+                          fontSize: t.fontSize(touch ? 12 : 10),
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1,
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: t.accentEdit.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        child: Text(
-                          'CLOUD',
-                          style: TextStyle(
-                            color: t.accentEdit,
-                            fontSize: t.fontSize(6),
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
+                      AppPill(
+                        text: l.mlCloud,
+                        tone: AppTone.warning,
+                        dense: true,
                       ),
                     ],
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: VisionMetrics.radius2),
                   Text(
-                    'Up to 4x server-side upscaling via NovelAI API. Requires API key. No download needed.',
+                    description,
                     style: TextStyle(
                       color: t.textDisabled,
-                      fontSize: t.fontSize(mobile ? 10 : 8),
+                      fontSize: t.fontSize(touch ? 10 : 8),
                       letterSpacing: 0.5,
                     ),
                   ),
                   if (!hasApiKey) ...[
-                    const SizedBox(height: 2),
+                    const SizedBox(height: VisionMetrics.radius2),
                     Text(
-                      'NO API KEY SET',
+                      l.mlNoApiKey,
                       style: TextStyle(
                         color: t.accentDanger,
-                        fontSize: t.fontSize(mobile ? 8 : 6),
+                        fontSize: t.fontSize(touch ? 9 : 8),
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.5,
                       ),
@@ -922,199 +936,6 @@ class _NaiUpscaleCard extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NaiBgRemovalCard extends StatelessWidget {
-  final bool isSelected;
-  final bool hasApiKey;
-  final VoidCallback onSelect;
-
-  const _NaiBgRemovalCard({
-    required this.isSelected,
-    required this.hasApiKey,
-    required this.onSelect,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    final mobile = isMobile(context);
-    return GestureDetector(
-      onTap: onSelect,
-      child: Container(
-        padding: EdgeInsets.all(mobile ? 14 : 10),
-        decoration: BoxDecoration(
-          color: isSelected ? t.borderSubtle : Colors.transparent,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: isSelected ? t.accent : t.borderSubtle,
-            width: isSelected ? 1.5 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            // Selection indicator
-            Container(
-              width: mobile ? 18 : 14,
-              height: mobile ? 18 : 14,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isSelected ? t.accent : t.borderMedium,
-                  width: 2,
-                ),
-                color: isSelected ? t.accent : Colors.transparent,
-              ),
-              child: isSelected
-                  ? Icon(Icons.check, size: mobile ? 10 : 8, color: t.background)
-                  : null,
-            ),
-            const SizedBox(width: 10),
-            Icon(Icons.cloud_outlined, size: mobile ? 18 : 14, color: t.accentEdit),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        'NOVELAI API BG REMOVAL',
-                        style: TextStyle(
-                          color: isSelected ? t.textPrimary : t.textSecondary,
-                          fontSize: t.fontSize(mobile ? 12 : 10),
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: t.accentEdit.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        child: Text(
-                          'CLOUD',
-                          style: TextStyle(
-                            color: t.accentEdit,
-                            fontSize: t.fontSize(6),
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Server-side background removal via NovelAI API. Requires API key. No download needed.',
-                    style: TextStyle(
-                      color: t.textDisabled,
-                      fontSize: t.fontSize(mobile ? 10 : 8),
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  if (!hasApiKey) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      'NO API KEY SET',
-                      style: TextStyle(
-                        color: t.accentDanger,
-                        fontSize: t.fontSize(mobile ? 8 : 6),
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TierBadge extends StatelessWidget {
-  final MLPerformanceTier tier;
-
-  const _TierBadge({required this.tier});
-
-  Color _color(VisionTokens t) => switch (tier) {
-        MLPerformanceTier.fast => t.accentSuccess,
-        MLPerformanceTier.balanced => t.accent,
-        MLPerformanceTier.quality => t.accentEdit,
-      };
-
-  String get _label => switch (tier) {
-        MLPerformanceTier.fast => 'FAST',
-        MLPerformanceTier.balanced => 'BAL',
-        MLPerformanceTier.quality => 'HQ',
-      };
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    final c = _color(t);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-      decoration: BoxDecoration(
-        color: c.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(3),
-      ),
-      child: Text(
-        _label,
-        style: TextStyle(
-          color: c,
-          fontSize: t.fontSize(6),
-          fontWeight: FontWeight.bold,
-          letterSpacing: 0.5,
-        ),
-      ),
-    );
-  }
-}
-
-class _DeviceTierBadge extends StatelessWidget {
-  final MLDeviceTier deviceTier;
-
-  const _DeviceTierBadge({required this.deviceTier});
-
-  Color _color(VisionTokens t) => switch (deviceTier) {
-        MLDeviceTier.mobile => t.accentSuccess,
-        MLDeviceTier.desktop => t.accentEdit,
-        MLDeviceTier.both => t.accent,
-      };
-
-  String get _label => switch (deviceTier) {
-        MLDeviceTier.mobile => 'MOBILE',
-        MLDeviceTier.desktop => 'DESKTOP',
-        MLDeviceTier.both => 'BOTH',
-      };
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    final c = _color(t);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-      decoration: BoxDecoration(
-        color: c.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(3),
-      ),
-      child: Text(
-        _label,
-        style: TextStyle(
-          color: c,
-          fontSize: t.fontSize(6),
-          fontWeight: FontWeight.bold,
-          letterSpacing: 0.5,
         ),
       ),
     );

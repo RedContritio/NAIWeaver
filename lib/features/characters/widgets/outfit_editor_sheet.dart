@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/vision_metrics.dart';
 import '../../../core/theme/vision_tokens.dart';
 import '../models/closet_outfit.dart';
 import 'tag_text_field.dart';
@@ -78,7 +80,9 @@ class _OutfitEditorSheetState extends State<OutfitEditorSheet> {
 
   void _save() {
     final updated = widget.outfit.copyWith(
-      name: _name.text.trim().isEmpty ? 'Outfit' : _name.text.trim(),
+      name: _name.text.trim().isEmpty
+          ? context.l.charsDefaultOutfitName
+          : _name.text.trim(),
       tags: _tags.text.trim(),
       negativeTags: _negativeTags.text.trim(),
       seasons: _seasons.toList(),
@@ -88,7 +92,9 @@ class _OutfitEditorSheetState extends State<OutfitEditorSheet> {
       temperatureRange: [_temp.start.round(), _temp.end.round()],
       // Tags changed → drop the stale parsed state; the panel/re-parse will
       // rebuild it.
-      items: _tags.text.trim() == widget.outfit.tags ? widget.outfit.items : null,
+      items: _tags.text.trim() == widget.outfit.tags
+          ? widget.outfit.items
+          : null,
     );
     widget.onSave(updated, _makePrimary);
     Navigator.of(context).pop();
@@ -97,6 +103,7 @@ class _OutfitEditorSheetState extends State<OutfitEditorSheet> {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
+    final l = context.l;
     return Dialog(
       backgroundColor: t.surfaceHigh,
       child: ConstrainedBox(
@@ -107,57 +114,98 @@ class _OutfitEditorSheetState extends State<OutfitEditorSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(widget.outfit.name.isEmpty ? 'NEW OUTFIT' : 'EDIT OUTFIT',
-                  style: TextStyle(
-                      color: t.textSecondary,
-                      fontSize: t.titleSize(11),
-                      letterSpacing: 3,
-                      fontWeight: FontWeight.bold)),
+              Text(
+                (widget.outfit.name.isEmpty
+                        ? l.charsNewOutfit
+                        : l.charsEditOutfit)
+                    .toUpperCase(),
+                style: TextStyle(
+                  color: t.textSecondary,
+                  fontSize: t.titleSize(11),
+                  letterSpacing: 3,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const SizedBox(height: 12),
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _labelled(t, 'NAME'),
+                      _labelled(t, l.charsOutfitName.toUpperCase()),
                       TextField(
                         controller: _name,
-                        style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(13)),
-                        decoration: _inputDeco(t, 'Rainy Day Chic'),
+                        style: TextStyle(
+                          color: t.textPrimary,
+                          fontSize: t.fontSize(13),
+                        ),
+                        decoration: _inputDeco(t, l.charsOutfitNameHint),
                       ),
                       const SizedBox(height: 12),
                       TagTextField(
                         controller: _tags,
-                        label: 'Clothing tags (4–7 garments)',
-                        hint: 'cream knit sweater, navy pleated skirt, charcoal tights, brown ankle boots',
+                        label: l.charsClothingTags,
+                        hint:
+                            'cream knit sweater, navy pleated skirt, charcoal tights, brown ankle boots',
                         minLines: 2,
                         maxLines: 4,
                       ),
                       const SizedBox(height: 12),
                       TagTextField(
                         controller: _negativeTags,
-                        label: 'Negative tags (optional)',
-                        hint: 'bad anatomy, extra straps',
+                        label: l.charsNegativeTagsOptional,
+                        hint: 'bad anatomy, extra straps', // l10n-ignore: example prompt tags
                         minLines: 1,
                         maxLines: 3,
                       ),
                       const SizedBox(height: 12),
-                      _chips(t, 'SEASONS', ClosetOutfit.kSeasons, _seasons),
+                      _chips(
+                        t,
+                        l.charsSeasons.toUpperCase(),
+                        ClosetOutfit.kSeasons,
+                        _seasons,
+                      ),
                       const SizedBox(height: 10),
-                      _chips(t, 'WEATHER', ClosetOutfit.kWeather, _weather),
+                      _chips(
+                        t,
+                        l.charsWeatherLabel.toUpperCase(),
+                        ClosetOutfit.kWeather,
+                        _weather,
+                      ),
                       const SizedBox(height: 10),
-                      _chips(t, 'ACTIVITIES', ClosetOutfit.kActivities, _activities),
+                      _chips(
+                        t,
+                        l.charsActivities.toUpperCase(),
+                        ClosetOutfit.kActivities,
+                        _activities,
+                      ),
                       const SizedBox(height: 10),
-                      _chips(t, 'TIME SLOTS', ClosetOutfit.kTimeSlots, _slots),
+                      _chips(
+                        t,
+                        l.charsTimeSlots.toUpperCase(),
+                        ClosetOutfit.kTimeSlots,
+                        _slots,
+                      ),
                       const SizedBox(height: 14),
-                      _labelled(t, 'COMFORTABLE TEMPERATURE  ${_temp.start.round()}°C – ${_temp.end.round()}°C'),
+                      _labelled(
+                        t,
+                        l
+                            .charsComfortTemp(
+                              _temp.start.round(),
+                              _temp.end.round(),
+                            )
+                            .toUpperCase(),
+                      ),
                       RangeSlider(
                         values: _temp,
                         min: -20,
                         max: 45,
                         divisions: 65,
                         activeColor: t.accent,
-                        labels: RangeLabels('${_temp.start.round()}°', '${_temp.end.round()}°'),
+                        labels: RangeLabels(
+                          '${_temp.start.round()}°',
+                          '${_temp.end.round()}°',
+                        ),
                         onChanged: (v) => setState(() => _temp = v),
                       ),
                       const SizedBox(height: 6),
@@ -165,11 +213,17 @@ class _OutfitEditorSheetState extends State<OutfitEditorSheet> {
                         children: [
                           Checkbox(
                             value: _makePrimary,
-                            onChanged: (v) => setState(() => _makePrimary = v ?? false),
+                            onChanged: (v) =>
+                                setState(() => _makePrimary = v ?? false),
                             activeColor: t.accent,
                           ),
-                          Text('Set as primary outfit',
-                              style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(11))),
+                          Text(
+                            l.charsSetPrimary,
+                            style: TextStyle(
+                              color: t.textSecondary,
+                              fontSize: t.fontSize(11),
+                            ),
+                          ),
                         ],
                       ),
                     ],
@@ -182,19 +236,31 @@ class _OutfitEditorSheetState extends State<OutfitEditorSheet> {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: Text('CANCEL',
-                        style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9))),
+                    child: Text(
+                      l.commonCancel.toUpperCase(),
+                      style: TextStyle(
+                        color: t.textDisabled,
+                        fontSize: t.fontSize(9),
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
                     onPressed: _save,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: t.accent.withValues(alpha: 0.2),
+                      backgroundColor: t.accent.withValues(
+                        alpha: VisionMetrics.opacityPressed,
+                      ),
                       foregroundColor: t.accent,
                       elevation: 0,
                     ),
-                    child: Text('SAVE',
-                        style: TextStyle(fontSize: t.fontSize(9), letterSpacing: 1)),
+                    child: Text(
+                      l.commonSave.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: t.fontSize(9),
+                        letterSpacing: 1,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -206,31 +272,39 @@ class _OutfitEditorSheetState extends State<OutfitEditorSheet> {
   }
 
   Widget _labelled(VisionTokens t, String s) => Padding(
-        padding: const EdgeInsets.only(bottom: 4),
-        child: Text(s,
-            style: TextStyle(
-                color: t.textTertiary,
-                fontSize: t.fontSize(8),
-                letterSpacing: 1.5,
-                fontWeight: FontWeight.bold)),
-      );
+    padding: const EdgeInsets.only(bottom: 4),
+    child: Text(
+      s,
+      style: TextStyle(
+        color: t.textTertiary,
+        fontSize: t.fontSize(8),
+        letterSpacing: 1.5,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  );
 
   InputDecoration _inputDeco(VisionTokens t, String hint) => InputDecoration(
-        hintText: hint,
-        hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(10)),
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        enabledBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: t.borderSubtle),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: t.accent),
-          borderRadius: BorderRadius.circular(4),
-        ),
-      );
+    hintText: hint,
+    hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(10)),
+    isDense: true,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+    enabledBorder: OutlineInputBorder(
+      borderSide: BorderSide(color: t.borderSubtle),
+      borderRadius: VisionMetrics.borderRadius4,
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderSide: BorderSide(color: t.accent),
+      borderRadius: VisionMetrics.borderRadius4,
+    ),
+  );
 
-  Widget _chips(VisionTokens t, String label, List<String> all, Set<String> selected) {
+  Widget _chips(
+    VisionTokens t,
+    String label,
+    List<String> all,
+    Set<String> selected,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -246,11 +320,15 @@ class _OutfitEditorSheetState extends State<OutfitEditorSheet> {
                 showCheckmark: false,
                 visualDensity: VisualDensity.compact,
                 backgroundColor: t.surfaceMid,
-                selectedColor: t.accent.withValues(alpha: 0.25),
+                selectedColor: t.accent.withValues(
+                  alpha: VisionMetrics.opacityPressed,
+                ),
                 side: BorderSide(
-                    color: selected.contains(v) ? t.accent : t.borderSubtle),
+                  color: selected.contains(v) ? t.accent : t.borderSubtle,
+                ),
                 labelStyle: TextStyle(
-                    color: selected.contains(v) ? t.accent : t.textTertiary),
+                  color: selected.contains(v) ? t.accent : t.textTertiary,
+                ),
                 onSelected: (on) => setState(() {
                   if (on) {
                     selected.add(v);

@@ -5,7 +5,9 @@ import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import '../gateway/backend_exception.dart';
 import '../gateway/backend_gateway.dart';
+import 'backend_client.dart';
 import 'text_gen_service.dart';
 
 /// NovelAI text-generation backend.
@@ -30,9 +32,13 @@ import 'text_gen_service.dart';
 class NaiTextService implements TextGenService {
   final Dio _dio = Dio();
   final String _apiKey;
+  final BackendClient _client;
+  final bool _gateway;
   final Random _rng = Random();
 
-  NaiTextService(this._apiKey) {
+  NaiTextService(this._apiKey, {BackendClient? client, bool? gateway})
+    : _client = client ?? BackendClient.shared,
+      _gateway = gateway ?? useBackendGateway {
     _dio.options.connectTimeout = const Duration(seconds: 60);
     _dio.options.receiveTimeout = const Duration(minutes: 5);
     if (kDebugMode) {
@@ -53,7 +59,7 @@ class NaiTextService implements TextGenService {
   // ─── URLs ─────────────────────────────────────────────────────────────────
 
   String _urlFor(TextGenRequest req, {required bool stream}) {
-    final textHost = useBackendGateway
+    final textHost = _gateway
         ? backendUrl('/api/nai/text')
         : 'https://text.novelai.net';
     if (isChatStyleModel(req.model)) {
@@ -82,7 +88,7 @@ class NaiTextService implements TextGenService {
   }
 
   Map<String, String> _headers({required bool stream}) => {
-    if (!useBackendGateway) 'Authorization': 'Bearer $_apiKey',
+    if (!_gateway) 'Authorization': 'Bearer $_apiKey',
     'Content-Type': 'application/json',
     'Accept': stream
         ? 'text/event-stream, application/json'
@@ -92,12 +98,25 @@ class NaiTextService implements TextGenService {
   };
 
   void _requireToken() {
-    if (!useBackendGateway && _apiKey.trim().isEmpty) {
-      throw TextGenException('NovelAI token not set — add it in Settings.');
+    if (!_gateway && _apiKey.trim().isEmpty) {
+      throw TextGenException(
+        'NovelAI token not set — add it in Settings.',
+        cause: TextGenIssue.noToken,
+      );
     }
   }
 
+  /// Posts [body]; through the gateway this goes out once, because a repeated
+  /// POST may be charged again.
+  Future<Response<T>> _post<T>(String url, Object body, Options options) =>
+      (_gateway ? _client.dio : _dio).post<T>(
+        url,
+        data: body,
+        options: options,
+      );
+
   bool _isRetryable(DioException e) {
+    if (_gateway) return false;
     if (e.type == DioExceptionType.connectionError ||
         e.type == DioExceptionType.receiveTimeout ||
         e.type == DioExceptionType.sendTimeout) {
@@ -129,12 +148,13 @@ class NaiTextService implements TextGenService {
     final body = _bodyFor(req, stream: false);
     for (int attempt = 0; attempt < 3; attempt++) {
       try {
-        final response = await _dio.post(
+        final response = await _post<dynamic>(
           url,
-          data: body,
-          options: Options(
+          body,
+          Options(
             headers: _headers(stream: false),
             responseType: ResponseType.json,
+            receiveTimeout: BackendClient.longReceiveTimeout,
           ),
         );
         if (kDebugMode && req.params.enableThinking) {
@@ -239,7 +259,7 @@ class NaiTextService implements TextGenService {
           }
         } catch (e) {
           if (!controller.isClosed) {
-            controller.addError(TextGenException('Text generation failed: $e'));
+            controller.addError(TextGenException('Text generation failed: $e', cause: e));
             await controller.close();
           }
         }
@@ -271,7 +291,7 @@ class NaiTextService implements TextGenService {
           controller.addError(
             streamError is TextGenException
                 ? streamError
-                : TextGenException('Text generation failed: $e'),
+                : TextGenException('Text generation failed: $e', cause: e),
           );
           await controller.close();
         }
@@ -280,12 +300,13 @@ class NaiTextService implements TextGenService {
 
     Future<void> run() async {
       try {
-        final response = await _dio.post<ResponseBody>(
+        final response = await _post<ResponseBody>(
           url,
-          data: body,
-          options: Options(
+          body,
+          Options(
             headers: _headers(stream: true),
             responseType: ResponseType.stream,
+            receiveTimeout: BackendClient.longReceiveTimeout,
           ),
         );
 
@@ -423,7 +444,8 @@ class NaiTextService implements TextGenService {
         final code = e.response?.statusCode;
         // For ambiguous server-side errors (not auth/billing/bad-request), the
         // non-stream endpoint might still work — try it once.
-        if (!emittedAnything &&
+        if (!_gateway &&
+            !emittedAnything &&
             code != 400 &&
             code != 401 &&
             code != 402 &&
@@ -443,7 +465,7 @@ class NaiTextService implements TextGenService {
         }
       } catch (e) {
         if (!controller.isClosed) {
-          controller.addError(TextGenException('Text generation failed: $e'));
+          controller.addError(TextGenException('Text generation failed: $e', cause: e));
           await controller.close();
         }
       }
@@ -460,6 +482,14 @@ class NaiTextService implements TextGenService {
   // ─── error helpers ────────────────────────────────────────────────────────
 
   TextGenException _exceptionForDio(DioException e, String? body) {
+    final gatewayError = e.error;
+    if (gatewayError is BackendException) {
+      return TextGenException(
+        'Text service error (${gatewayError.code})',
+        statusCode: gatewayError.statusCode,
+        cause: gatewayError,
+      );
+    }
     final code = e.response?.statusCode;
     final detail = _serverMessage(body) ?? _trimBody(body);
     if (code == 401) {
@@ -467,6 +497,7 @@ class NaiTextService implements TextGenService {
         'NovelAI rejected the token (401).${detail != null ? ' $detail' : ''} '
         'Check your API key in Settings.',
         statusCode: 401,
+        cause: e,
       );
     }
     if (code == 402) {
@@ -477,6 +508,7 @@ class NaiTextService implements TextGenService {
             : 'NovelAI requires an active subscription for this endpoint/model '
                   '(402).',
         statusCode: 402,
+        cause: e,
       );
     }
     if (code == 403) {
@@ -486,6 +518,7 @@ class NaiTextService implements TextGenService {
             : 'NovelAI refused the request (403) — your tier may not allow this '
                   'model or length.',
         statusCode: 403,
+        cause: e,
       );
     }
     if (code == 400) {
@@ -493,15 +526,20 @@ class NaiTextService implements TextGenService {
         'NovelAI rejected the request (400)'
         '${detail != null ? ': $detail' : ' — bad parameters'}.',
         statusCode: 400,
+        cause: e,
       );
     }
     if (code != null) {
       return TextGenException(
         'NovelAI text API error $code${detail != null ? ': $detail' : ''}',
         statusCode: code,
+        cause: e,
       );
     }
-    return TextGenException('Network error talking to NovelAI: ${e.message}');
+    return TextGenException(
+      'Network error talking to NovelAI: ${e.message}',
+      cause: e,
+    );
   }
 
   /// Materializes a response body into a string, draining a `ResponseBody`

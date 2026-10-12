@@ -15,10 +15,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonDelete => 'Delete';
 
   @override
+  String get commonEdit => 'Edit';
+
+  @override
   String get commonSave => 'Save';
 
   @override
   String get commonClose => 'Close';
+
+  @override
+  String get commonBack => 'Back';
+
+  @override
+  String get commonHelp => 'Help';
 
   @override
   String get commonCreate => 'Create';
@@ -43,6 +52,34 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get commonSaveChanges => 'SAVE CHANGES';
+
+  @override
+  String get commonNameRequired => 'Name cannot be empty';
+
+  @override
+  String get commonDuplicate => 'Duplicate';
+
+  @override
+  String get commonDiscard => 'Discard';
+
+  @override
+  String get commonAddFavorite => 'Add to favorites';
+
+  @override
+  String get commonRemoveFavorite => 'Remove from favorites';
+
+  @override
+  String get commonRetry => 'Retry';
+
+  @override
+  String get commonLoading => 'Loading';
+
+  @override
+  String get commonUnsavedTitle => 'Unsaved changes';
+
+  @override
+  String get commonUnsavedMessage =>
+      'You have unsaved changes. Save them before continuing?';
 
   @override
   String get mainGallery => 'Gallery';
@@ -78,6 +115,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mainEnterPrompt => 'Enter Prompt';
 
   @override
+  String get mainMoreActions => 'More actions';
+
+  @override
   String get mainHelp => 'Help';
 
   @override
@@ -96,9 +136,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mainPresetName => 'Preset Name';
-
-  @override
-  String get mainAdvancedSettings => 'Advanced Settings';
 
   @override
   String get generationSheetPrompt => 'Prompt';
@@ -143,20 +180,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsApiKeyHint => 'pst-xxxx...';
 
   @override
+  String get settingsApiKeyVisibility => 'Show or hide the API key';
+
+  @override
   String get settingsApiManaged => 'NovelAI API Key Managed By Server';
 
   @override
   String get settingsApiManagedDesc =>
       'This web service uses the backend NovelAI token. The browser never stores or sends your NovelAI token.';
-
-  @override
-  String get gatewayUsername => 'Username';
-
-  @override
-  String get gatewayPassword => 'Password';
-
-  @override
-  String get gatewayLogin => 'Log In';
 
   @override
   String get gatewayLogout => 'Log Out';
@@ -180,22 +211,137 @@ class AppLocalizationsEn extends AppLocalizations {
   String get gatewayQuotaPaidLabel => 'Paid points';
 
   @override
-  String get gatewayQuotaFreeShort => 'Free';
-
-  @override
-  String get gatewayQuotaPaidShort => 'Pts';
-
-  @override
   String get gatewayQuotaUnlimited => 'Unlimited';
 
   @override
   String get gatewayQuotaRefresh => 'Tap to refresh your quota';
 
   @override
-  String get gatewayShowPassword => 'Show password';
+  String get gatewayErrNotAuthenticated =>
+      'Your session has expired. Sign in again.';
 
   @override
-  String get gatewayHidePassword => 'Hide password';
+  String get gatewayErrAuthUnavailable =>
+      'The sign-in service is temporarily unavailable. Try again later.';
+
+  @override
+  String get gatewayErrLoginFailed =>
+      'Sign-in could not be verified. Try again.';
+
+  @override
+  String get gatewayErrAccountNotLinked =>
+      'This sign-in is not linked to an account here, or the account is disabled.';
+
+  @override
+  String get gatewayErrPermissionDenied =>
+      'Your account is not allowed to do this.';
+
+  @override
+  String get gatewayErrInvalidParameters =>
+      'The request was rejected as invalid. Check the size, steps and sampler.';
+
+  @override
+  String get gatewayErrPointsInsufficient =>
+      'Not enough points for this request.';
+
+  @override
+  String get gatewayErrQuoteChanged =>
+      'The price has changed. Review the new price and try again.';
+
+  @override
+  String get gatewayErrFreeAllowanceExhausted =>
+      'The free allowance is used up for now, so this request would cost paid points.';
+
+  @override
+  String get gatewayErrQueueFull =>
+      'You have too many unfinished tasks. Wait for some to finish before submitting more.';
+
+  @override
+  String get gatewayErrDuplicateRequest =>
+      'This request id was already used with different content.';
+
+  @override
+  String get gatewayErrRequestTooLarge => 'The request is too large.';
+
+  @override
+  String get gatewayErrUpstream =>
+      'NovelAI could not complete the request. Try again later.';
+
+  @override
+  String get gatewayErrInterrupted =>
+      'The task was interrupted by a server restart. You were not charged; you can retry.';
+
+  @override
+  String get gatewayErrNotFound => 'The requested item was not found.';
+
+  @override
+  String get gatewayErrTaskActive => 'This item is still queued or running.';
+
+  @override
+  String get gatewayErrDuplicateGeneration =>
+      'The parameters did not change. Check the seed.';
+
+  @override
+  String get gatewayErrRateLimited =>
+      'Too many requests. Wait a moment and try again.';
+
+  @override
+  String get gatewayErrServiceUnavailable =>
+      'The service is temporarily unavailable. Try again later.';
+
+  @override
+  String get gatewayErrInternal =>
+      'Something went wrong on the server. Try again later.';
+
+  @override
+  String get gatewayErrNetwork =>
+      'Network error. Check your connection and try again.';
+
+  @override
+  String get gatewayErrTimeout => 'The request timed out. Try again.';
+
+  @override
+  String get gatewayErrUnknown => 'The request failed. Try again later.';
+
+  @override
+  String get gatewayErrDirectAnlas =>
+      'Your NovelAI account does not have enough Anlas for this request.';
+
+  @override
+  String get gatewayErrDirectRateLimited =>
+      'NovelAI is limiting your requests. Wait a moment and try again.';
+
+  @override
+  String get gatewayErrDirectForbidden =>
+      'NovelAI refused this request for your account.';
+
+  @override
+  String get toolErrApiKeyRejected =>
+      'NovelAI rejected the API key. Check it in Settings.';
+
+  @override
+  String get gatewaySessionExpiredTitle => 'Session expired';
+
+  @override
+  String get gatewaySessionExpiredBody =>
+      'Your sign-in has ended. Sign in again to continue; nothing on this page is lost until you do.';
+
+  @override
+  String get gatewaySessionExpiredConfirm => 'Sign in';
+
+  @override
+  String get gatewayAuthContinue => 'Continue with only WebAuth';
+
+  @override
+  String get gatewayAuthRetry => 'Retry';
+
+  @override
+  String get gatewayLoginOpenFailed =>
+      'Could not open the sign-in page. Reload and try again.';
+
+  @override
+  String get gatewayLogoutFailed =>
+      'Could not sign out. You are still signed in; try again.';
 
   @override
   String get settingsAutoSave => 'Auto-Save Images';
@@ -343,19 +489,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsEditPositivePrefix => 'Edit Positive Prefix';
 
   @override
-  String get settingsEditNegativePrefix => 'Edit Negative Prefix';
-
-  @override
   String get settingsDemoPrefixes => 'Demo Prefixes';
 
   @override
-  String get settingsNotSet => '(not set)';
-
-  @override
   String get settingsGithubRepository => 'GitHub Repository';
-
-  @override
-  String get settingsGithubPlaceholder => 'GitHub link placeholder';
 
   @override
   String get galleryTitle => 'Gallery';
@@ -410,6 +547,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get gallerySortSizeSmallest => 'Size (Smallest)';
 
   @override
+  String get gallerySortDateAddedNewest => 'Date Added (Newest)';
+
+  @override
+  String get gallerySortDateAddedOldest => 'Date Added (Oldest)';
+
+  @override
   String get galleryNoDemoImages => 'No demo images selected';
 
   @override
@@ -460,6 +603,42 @@ class AppLocalizationsEn extends AppLocalizations {
   String get galleryAddToAlbum => 'Add to Album';
 
   @override
+  String galleryAddedToAlbum(String name) {
+    return 'Added to $name';
+  }
+
+  @override
+  String get galleryMoveToAlbum => 'Move to Album';
+
+  @override
+  String get galleryMove => 'Move';
+
+  @override
+  String galleryDeleteAlbumTitle(String name) {
+    return 'Delete album \"$name\"?';
+  }
+
+  @override
+  String get galleryDeleteAlbumMessage => 'The images stay in the gallery.';
+
+  @override
+  String get galleryRemoveFromAlbum => 'Remove from album';
+
+  @override
+  String get galleryRemoveFromAlbumTitle => 'Remove from album?';
+
+  @override
+  String galleryRemoveFromAlbumCount(int count) {
+    return 'Remove $count images from this album?';
+  }
+
+  @override
+  String get galleryRemoveFromAlbumMessage => 'The images stay in the gallery.';
+
+  @override
+  String get galleryRemove => 'Remove';
+
+  @override
   String galleryDeleteCount(int count) {
     return 'Delete $count images?';
   }
@@ -506,6 +685,10 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get galleryExportFolderUnavailable =>
+      'Export folder unavailable. Pick it again in Settings.';
+
+  @override
   String galleryImagesCopied(int count) {
     return '$count images copied';
   }
@@ -530,6 +713,20 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String galleryResultDownloaded(String name) {
+    return 'Downloaded $name';
+  }
+
+  @override
+  String galleryResultSaveFailed(String error) {
+    return 'Result not saved: $error';
+  }
+
+  @override
+  String get galleryNewImageHidden =>
+      'New image saved, but the current filter hides it';
+
+  @override
   String get galleryToggleFavorite => 'Toggle favorite';
 
   @override
@@ -543,6 +740,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get galleryNoMetadata => 'No Metadata';
+
+  @override
+  String get galleryCopiedToClipboard => 'Copied to clipboard';
+
+  @override
+  String get galleryClipboardUnavailable => 'Clipboard not available';
 
   @override
   String get galleryPrompt => 'Prompt';
@@ -621,6 +824,15 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get galleryImportToEditor => 'Import to editor';
+
+  @override
+  String get galleryMetadataImported => 'Metadata imported to editor';
+
+  @override
+  String get galleryMetadataNotFound => 'No metadata found';
+
+  @override
   String get panelAdvancedSettings => 'Advanced Settings';
 
   @override
@@ -643,9 +855,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get panelSampler => 'Sampler';
-
-  @override
-  String get panelPostProcessing => 'Post-Processing';
 
   @override
   String get panelStyles => 'Styles';
@@ -675,6 +884,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String panelDeletePresetConfirm(String name) {
     return 'Delete \"$name\"?';
   }
+
+  @override
+  String get panelDeleteResolution => 'Delete Custom Resolution';
+
+  @override
+  String panelDeleteResolutionConfirm(String name) {
+    return 'Delete the custom resolution \"$name\"?';
+  }
+
+  @override
+  String get panelInputsEmptyTitle => 'No reference inputs';
+
+  @override
+  String get panelInputsEmptyMessage =>
+      'Precise references and vibe transfer are paid tools that this account cannot use, and none have been added.';
+
+  @override
+  String get panelInputsHiddenMessage =>
+      'The precise reference and vibe transfer shelves are turned off in Settings.';
 
   @override
   String get panelSaveToAlbum => 'Save to Album';
@@ -803,6 +1031,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Diagnostic reports are available in the authenticated Web app.';
 
   @override
+  String get feedbackInvalid =>
+      'The report was rejected. Shorten the description and try again.';
+
+  @override
   String get helpTitle => 'NAIWeaver';
 
   @override
@@ -828,15 +1060,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get helpShortcutArtistPrefix => 'Filter tag suggestions to artists';
-
-  @override
-  String get helpShortcutSourceAction => 'Character performing action';
-
-  @override
-  String get helpShortcutTargetAction => 'Character receiving action';
-
-  @override
-  String get helpShortcutMutualAction => 'Shared action between characters';
 
   @override
   String get helpShortcutEnter => 'Generate (or select tag suggestion)';
@@ -1150,6 +1373,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tagLibRandom => 'RANDOM';
 
   @override
+  String get tagDetailViewOnDanbooru => 'View on Danbooru';
+
+  @override
+  String get tagDetailNoWiki => 'No wiki description for this tag.';
+
+  @override
+  String get tagDetailCheckDanbooru => 'Check on Danbooru';
+
+  @override
+  String get tagDetailLicense =>
+      'Tag descriptions © Danbooru contributors, CC-BY-SA-4.0';
+
+  @override
   String get presetManager => 'PRESET MANAGER';
 
   @override
@@ -1323,13 +1559,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get refPreciseReferences => 'PRECISE REFERENCES';
 
   @override
+  String get refShortLabel => 'REF';
+
+  @override
   String get refVibeTransfer => 'VIBE TRANSFER';
-
-  @override
-  String get refDialogCancel => 'CANCEL';
-
-  @override
-  String get refDialogSave => 'SAVE';
 
   @override
   String get refNameHint => 'NAME';
@@ -1389,9 +1622,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get refSaveVibe => 'SAVE VIBE';
 
   @override
-  String get refVibeTransfers => 'VIBE TRANSFERS';
-
-  @override
   String refVibeCount(int count) {
     return '$count VIBES';
   }
@@ -1410,6 +1640,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get refVibeLabel => 'VIBE';
 
   @override
+  String get refVibeRemoveConfirm => 'Remove this vibe from the list?';
+
+  @override
   String get refVibeEditorTitle => 'VIBE EDITOR';
 
   @override
@@ -1422,9 +1655,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get refApiKeyMissing => 'API key missing or invalid';
 
   @override
-  String refVibeEncodeFailed(String error) {
-    return 'Failed to encode vibe: $error';
-  }
+  String get refImageProcessFailed =>
+      'Could not read this image. Try another file.';
+
+  @override
+  String get refVibeNoPermission =>
+      'Your account is not allowed to encode vibes.';
+
+  @override
+  String get refErrorPointsInsufficient =>
+      'Not enough points to encode this vibe.';
+
+  @override
+  String get refErrorSessionExpired =>
+      'Your session has expired. Sign in again.';
+
+  @override
+  String get refErrorNetwork =>
+      'Network error. Check your connection and try again.';
+
+  @override
+  String get refErrorServiceUnavailable =>
+      'The service is busy or unavailable. Try again later.';
+
+  @override
+  String get refVibeEncodeFailed =>
+      'Could not encode this vibe. Try again later.';
 
   @override
   String get refLoadSaved => 'LOAD SAVED';
@@ -1437,6 +1693,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get refNoSavedRefs => 'NO SAVED REFERENCES';
+
+  @override
+  String get refRemove => 'Remove';
+
+  @override
+  String get refLibrarySaved => 'Saved to the library';
+
+  @override
+  String get refLibrarySaveFailed =>
+      'Could not update the library. Storage may be full.';
 
   @override
   String get packTitle => 'NAIWEAVER PACKS';
@@ -1469,9 +1735,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get packExportGalleryZipDesc => 'Preserve album hierarchy in folders';
-
-  @override
-  String get packImportDialogTitle => 'Import NAIWeaver Pack';
 
   @override
   String packFailedRead(String error) {
@@ -1560,6 +1823,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String packImportFailed(String error) {
     return 'Import failed: $error';
   }
+
+  @override
+  String get packRefLibrarySaveFailed =>
+      'The saved references could not be stored. Free up storage space and import again.';
+
+  @override
+  String get packSelectAll => 'ALL';
+
+  @override
+  String get packSelectNone => 'NONE';
 
   @override
   String get packExportGalleryTitle => 'EXPORT GALLERY';
@@ -2029,15 +2302,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get img2imgUseAsSource => 'USE AS SOURCE';
 
   @override
-  String get img2imgInpainting => 'INPAINTING';
-
-  @override
-  String get img2imgTitle => 'IMG2IMG';
-
-  @override
-  String get img2imgEditorLabel => 'EDITOR';
-
-  @override
   String get img2imgBackToPicker => 'Back to picker';
 
   @override
@@ -2087,6 +2351,64 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get img2imgClearMaskTitle => 'Clear mask?';
+
+  @override
+  String get img2imgClearMaskMessage =>
+      'All mask strokes will be removed. This cannot be undone.';
+
+  @override
+  String get img2imgClearMaskConfirm => 'Clear';
+
+  @override
+  String get img2imgMaskUndoStroke => 'Undo stroke';
+
+  @override
+  String get img2imgMaskClearTooltip => 'Clear mask';
+
+  @override
+  String get img2imgBrushRound => 'Round brush';
+
+  @override
+  String get img2imgBrushSquare => 'Square brush';
+
+  @override
+  String get img2imgBrushSize => 'SIZE';
+
+  @override
+  String get img2imgMaskDisplay => 'Mask display settings';
+
+  @override
+  String get img2imgMaskSave => 'Save mask';
+
+  @override
+  String get img2imgMaskLoad => 'Load mask';
+
+  @override
+  String get img2imgMaskSaved => 'Mask saved';
+
+  @override
+  String get img2imgMaskColor => 'COLOR';
+
+  @override
+  String get img2imgMaskOpacity => 'OPACITY';
+
+  @override
+  String get img2imgMaskPatternSolid => 'Solid';
+
+  @override
+  String get img2imgMaskPatternStripe => 'Stripe';
+
+  @override
+  String get img2imgMaskPatternCross => 'Cross';
+
+  @override
+  String get img2imgMaskBorder => 'BORDER';
+
+  @override
+  String get img2imgMaskBorderTooltip => 'Show mask border';
+
+  @override
   String get img2imgNoMask => 'NO MASK (full img2img)';
 
   @override
@@ -2113,10 +2435,59 @@ class AppLocalizationsEn extends AppLocalizations {
   String get img2imgBlankCanvasSize => 'CANVAS SIZE';
 
   @override
+  String get img2imgPickerTitle => 'SELECT SOURCE IMAGE';
+
+  @override
+  String get img2imgPickerDesc =>
+      'Choose an image to use as the base for img2img or inpainting';
+
+  @override
+  String get img2imgUseCurrent => 'USE CURRENT GENERATION';
+
+  @override
+  String get img2imgUseCurrentDesc => 'Use the last generated image as source';
+
+  @override
   String get slideshowTitle => 'SLIDESHOW';
 
   @override
   String get slideshowPlayAll => 'PLAY ALL';
+
+  @override
+  String get slideshowPrevious => 'Previous image';
+
+  @override
+  String get slideshowNext => 'Next image';
+
+  @override
+  String get slideshowPause => 'Pause';
+
+  @override
+  String get slideshowResume => 'Resume';
+
+  @override
+  String get slideshowMusic => 'MUSIC';
+
+  @override
+  String get slideshowEnableMusic => 'ENABLE MUSIC';
+
+  @override
+  String get slideshowMusicVolume => 'MUSIC VOLUME';
+
+  @override
+  String get slideshowKaraoke => 'KARAOKE LYRICS';
+
+  @override
+  String get slideshowSongsHint => 'SONGS (TAP TO SELECT, EMPTY = ALL)';
+
+  @override
+  String get slideshowSoundFont => 'SOUNDFONT';
+
+  @override
+  String get slideshowSoundFontDefault => 'DEFAULT';
+
+  @override
+  String get slideshowCategoryAll => 'ALL';
 
   @override
   String get slideshowConfigs => 'CONFIGS';
@@ -2282,6 +2653,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get demoNoImages => 'NO IMAGES IN GALLERY';
 
   @override
+  String get demoGridSize => 'Change grid size';
+
+  @override
   String get cascadeBeatTimeline => 'BEAT TIMELINE';
 
   @override
@@ -2299,6 +2673,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cascadeRemoveBeat => 'Remove Beat';
+
+  @override
+  String get cascadeRemoveBeatMessage =>
+      'This beat and its prompts will be removed from the sequence.';
+
+  @override
+  String get cascadeRemoveActionTag => 'Remove action tag';
 
   @override
   String get settingsCheckForUpdates => 'Check for Updates';
@@ -2342,9 +2723,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsUpdateInstallFailed => 'Could not start the installer';
 
   @override
-  String get settingsUpdateSkipVersion => 'Skip this version';
-
-  @override
   String get settingsUpdateOpenInBrowser => 'Open in browser';
 
   @override
@@ -2380,6 +2758,35 @@ class AppLocalizationsEn extends AppLocalizations {
       'Show your Anlas balance in the top bar';
 
   @override
+  String get settingsCopyButton => 'Copy to Clipboard';
+
+  @override
+  String get settingsCopyButtonDesc => 'Show copy button on generated images';
+
+  @override
+  String get settingsHideTagValues => 'Hide Tag Values';
+
+  @override
+  String get settingsHideTagValuesDesc =>
+      'Hide tag count values in autocomplete suggestions';
+
+  @override
+  String get settingsFontSize => 'Font Size';
+
+  @override
+  String get settingsFontSizeDesc => 'Scales all UI text. Default 100%.';
+
+  @override
+  String get settingsOpenLinkTitle => 'Open External Link';
+
+  @override
+  String get settingsOpenLinkBody =>
+      'You are about to leave NAIWeaver and open a new window:';
+
+  @override
+  String get settingsOpenLinkConfirm => 'Open Link';
+
+  @override
   String get canvasEditorTitle => 'CANVAS EDITOR';
 
   @override
@@ -2402,9 +2809,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get canvasRedo => 'Redo';
-
-  @override
-  String get canvasClear => 'Clear all strokes';
 
   @override
   String get canvasFlatten => 'FLATTEN';
@@ -2431,23 +2835,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get canvasFlattening => 'FLATTENING...';
-
-  @override
-  String get canvasRestoreSession =>
-      'A previous canvas session was found. Restore it?';
-
-  @override
-  String get canvasRestore => 'RESTORE';
-
-  @override
-  String get canvasAutoSave => 'Canvas Auto-Save';
-
-  @override
-  String get canvasAutoSaveDesc =>
-      'Auto-save canvas editing sessions for crash recovery';
-
-  @override
   String get canvasColor => 'COLOR';
 
   @override
@@ -2463,15 +2850,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get canvasLayerDuplicate => 'Duplicate Layer';
 
   @override
-  String get canvasLayerRename => 'Rename';
-
-  @override
-  String get canvasLayerVisible => 'Visible';
-
-  @override
-  String get canvasLayerHidden => 'Hidden';
-
-  @override
   String get canvasLayerOpacity => 'Opacity';
 
   @override
@@ -2480,11 +2858,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get canvasLayerDeleteConfirm =>
       'Delete this layer? Strokes will be lost.';
-
-  @override
-  String canvasLayerDefault(int number) {
-    return 'Layer $number';
-  }
 
   @override
   String get canvasLayerClear => 'Clear Layer';
@@ -2529,9 +2902,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get canvasTextSize => 'SIZE';
 
   @override
-  String get canvasTextPlace => 'PLACE';
-
-  @override
   String get canvasTextFont => 'FONT';
 
   @override
@@ -2541,16 +2911,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get canvasTextDefault => 'Default';
 
   @override
-  String get canvasBlendNormal => 'Normal';
+  String get canvasSelectTool => 'SELECT';
 
   @override
-  String get canvasBlendMultiply => 'Multiply';
+  String get canvasLassoTool => 'LASSO';
 
   @override
-  String get canvasBlendScreen => 'Screen';
+  String get canvasBlurTool => 'BLUR';
 
   @override
-  String get canvasBlendOverlay => 'Overlay';
+  String get canvasCloneTool => 'CLONE';
+
+  @override
+  String get canvasResize => 'Resize canvas';
+
+  @override
+  String get canvasApply => 'APPLY';
+
+  @override
+  String get canvasDeleteSelection => 'Delete selection contents';
+
+  @override
+  String get canvasPaletteTapHint =>
+      'Tap: select  •  Hold: replace with current';
+
+  @override
+  String get canvasPaletteHoldHint => 'Hold to replace';
 
   @override
   String get settingsOutputFolder => 'Output Folder';
@@ -2583,7 +2969,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsOutputFolderBrowse => 'Browse';
 
   @override
-  String get settingsOutputFolderClear => 'Clear';
+  String get settingsFolderUseDefault => 'Use default folder';
 
   @override
   String get settingsUseSdCard => 'Use SD Card';
@@ -2708,6 +3094,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get charEditorShowPresets => 'PRESET';
 
   @override
+  String get charEditorShowTitle => 'TITLE';
+
+  @override
   String get charEditorAiDecidesPosition => 'AI decides position';
 
   @override
@@ -2740,15 +3129,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String charEditorMutualDisplay(String source, String target, String action) {
-    return '$source ↔ $target: $action';
-  }
-
-  @override
   String get charEditorSavePreset => 'SAVE PRESET';
-
-  @override
-  String get charEditorLoadPreset => 'LOAD PRESET';
 
   @override
   String get charEditorPresetName => 'Preset Name';
@@ -2780,6 +3161,360 @@ class AppLocalizationsEn extends AppLocalizations {
   String get charEditorMutual => 'MUTUAL';
 
   @override
+  String get charsSelectOrCreate => 'Select or create a character';
+
+  @override
+  String get charsSearchHint => 'Search…';
+
+  @override
+  String get charsGenerateTooltip => 'Generate a character';
+
+  @override
+  String get charsTextGenNeedsKey =>
+      'Requires text generation (set an API key first)';
+
+  @override
+  String get charsTextGenNeedsKeyWardrobe =>
+      'Requires text generation (set an API key in Text Gen settings)';
+
+  @override
+  String get charsTextGenNoPermission =>
+      'Your account does not have the text generation permission';
+
+  @override
+  String get charsNew => 'New character';
+
+  @override
+  String get charsNewDefaultName => 'New Character';
+
+  @override
+  String get charsEmptyList => 'No characters yet';
+
+  @override
+  String get charsUnnamed => '(unnamed)';
+
+  @override
+  String get charsGenerated => 'Character generated';
+
+  @override
+  String get charsAddedToPrompt => 'Added to prompt';
+
+  @override
+  String get charsNamePlaceholder => 'Character name';
+
+  @override
+  String get charsPhotoshoot => 'Photoshoot';
+
+  @override
+  String get charsDelete => 'Delete character';
+
+  @override
+  String charsDeleteMessage(String name) {
+    return 'Delete \"$name\" and its wardrobe?';
+  }
+
+  @override
+  String get charsGender => 'Gender';
+
+  @override
+  String get charsGenderUnspecified => '(unspecified)';
+
+  @override
+  String get charsGenderFemale => 'female';
+
+  @override
+  String get charsGenderMale => 'male';
+
+  @override
+  String get charsGenderNonbinary => 'non-binary';
+
+  @override
+  String get charsTint => 'Tint';
+
+  @override
+  String get charsTintAccent => 'Accent';
+
+  @override
+  String get charsTintAccent2 => 'Accent 2';
+
+  @override
+  String get charsTintBg => 'Background';
+
+  @override
+  String get charsIdentityTags => 'Identity tags — no clothing here';
+
+  @override
+  String get charsBaseLabel =>
+      'base — 1girl/1boy, ethnicity, age, permanent marks';
+
+  @override
+  String get charsFaceLabel => 'face — eye colour/shape, brows, nose, lips';
+
+  @override
+  String get charsHairLabel => 'hair — colour, length, style, texture';
+
+  @override
+  String get charsBodyLabel => 'body — build, proportions, chest';
+
+  @override
+  String get charsNegativeLabel =>
+      'negative — injected into the UC when this character is used';
+
+  @override
+  String get charsNsfwSection => 'NSFW sub-buckets (optional)';
+
+  @override
+  String get charsStyleSection => 'Style identity & description (optional)';
+
+  @override
+  String get charsSoulSection => 'Personality / soul (optional)';
+
+  @override
+  String get charsNsfwTop => 'nsfw top';
+
+  @override
+  String get charsNsfwBottom => 'nsfw bottom';
+
+  @override
+  String get charsNsfwAlways => 'nsfw always';
+
+  @override
+  String get charsArtistTag => 'artist tag';
+
+  @override
+  String get charsStylePrefix => 'style prefix';
+
+  @override
+  String get charsDescriptionLabel =>
+      'character description (natural language; not used by NAI image gen)';
+
+  @override
+  String get charsSoulLabel =>
+      'soul — long-form personality doc (not used by image gen)';
+
+  @override
+  String get charsCombinedTags =>
+      'Combined tags (preview — body + primary outfit)';
+
+  @override
+  String get charsEmptyValue => '(empty)';
+
+  @override
+  String get charsWardrobe => 'Wardrobe';
+
+  @override
+  String get charsGenerateOutfitsTooltip =>
+      'Generate outfits with text generation';
+
+  @override
+  String get charsGenerating => 'Generating…';
+
+  @override
+  String get charsGenerateOutfits => 'Generate outfits';
+
+  @override
+  String get charsNewOutfit => 'New outfit';
+
+  @override
+  String get charsNoOutfits => 'No outfits yet — add one or generate a set.';
+
+  @override
+  String get charsDeleteOutfitTitle => 'Delete outfit';
+
+  @override
+  String charsDeleteOutfitMessage(String name) {
+    return 'Delete \"$name\"?';
+  }
+
+  @override
+  String get charsNewOutfitDefaultName => 'New Outfit';
+
+  @override
+  String get charsTextGenNotConfigured => 'Text generation is not configured';
+
+  @override
+  String get charsNoOutfitsReturned => 'No outfits returned';
+
+  @override
+  String charsOutfitsAdded(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Added $count outfits',
+      one: 'Added 1 outfit',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String charsGenerationFailed(String error) {
+    return 'Generation failed: $error';
+  }
+
+  @override
+  String get charsWear => 'Wear';
+
+  @override
+  String get charsState => 'State';
+
+  @override
+  String get charsSetPrimary => 'Set as primary outfit';
+
+  @override
+  String get charsEditOutfit => 'Edit outfit';
+
+  @override
+  String get charsOutfitName => 'Name';
+
+  @override
+  String get charsOutfitNameHint => 'Rainy Day Chic';
+
+  @override
+  String get charsClothingTags => 'Clothing tags (4–7 garments)';
+
+  @override
+  String get charsNegativeTagsOptional => 'Negative tags (optional)';
+
+  @override
+  String get charsSeasons => 'Seasons';
+
+  @override
+  String get charsWeatherLabel => 'Weather';
+
+  @override
+  String get charsActivities => 'Activities';
+
+  @override
+  String get charsTimeSlots => 'Time slots';
+
+  @override
+  String charsComfortTemp(int start, int end) {
+    return 'Comfortable temperature  $start°C – $end°C';
+  }
+
+  @override
+  String get charsDefaultOutfitName => 'Outfit';
+
+  @override
+  String get charsGenerateOutfitsTitle => 'Generate outfits';
+
+  @override
+  String charsHowMany(int count) {
+    return 'How many: $count';
+  }
+
+  @override
+  String get charsEraHint => 'Era / setting hint (optional)';
+
+  @override
+  String get charsEraHintExample =>
+      'e.g. 1920s Paris, Heian-era Japan, near-future';
+
+  @override
+  String get charsVibeHint => 'Vibe hint (optional)';
+
+  @override
+  String get charsVibeHintExample =>
+      'e.g. cozy academia, gothic, beachy minimalist';
+
+  @override
+  String get charsGenerate => 'Generate';
+
+  @override
+  String get charsStateNoGarments =>
+      'No classifiable garments in this outfit\'s tags.';
+
+  @override
+  String get charsOutfitState => 'Outfit state';
+
+  @override
+  String get charsDishevelled => 'Dishevelled';
+
+  @override
+  String get charsResetIntact => 'Reset to intact';
+
+  @override
+  String get charsReparse => 'Re-parse from tags';
+
+  @override
+  String get charsConcealed => 'concealed';
+
+  @override
+  String get charsRenderedTags => 'Rendered tags';
+
+  @override
+  String get charsApplyToPrompt => 'Apply to prompt';
+
+  @override
+  String get charsUseTheseTags => 'Use these tags';
+
+  @override
+  String get charsTopPrefix => 'Top';
+
+  @override
+  String get charsBottomPrefix => 'Bottom';
+
+  @override
+  String get charsGenTitle => 'Generate character';
+
+  @override
+  String get charsGenVibe => 'Vibe (optional)';
+
+  @override
+  String get charsGenVibeHint =>
+      'describe the vibe — e.g. \"weary war veteran turned baker\" — blank lets the model pick';
+
+  @override
+  String get charsGenGenderAny => 'Any (model picks)';
+
+  @override
+  String get charsGenEra => 'Era / time period';
+
+  @override
+  String get charsGenLocation => 'Location (optional)';
+
+  @override
+  String get charsGenLocationHint =>
+      'e.g. a coastal town in Portugal, Winterfell — blank lets the model pick';
+
+  @override
+  String get charsGenNsfw => 'NSFW tags';
+
+  @override
+  String get charsGenNsfwHint => 'also request the split nsfw_* tag buckets';
+
+  @override
+  String get charsGenStyle => 'Style (optional)';
+
+  @override
+  String get charsGenStyleHint =>
+      'e.g. an artist tag — blank lets the model pick';
+
+  @override
+  String charsGenWardrobe(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count outfits',
+      one: '1 outfit',
+    );
+    return 'Starter wardrobe: $_temp0';
+  }
+
+  @override
+  String get charsGenMeetNote => 'plus the \"meet\" outfit (always generated).';
+
+  @override
+  String get charsGenProgressTitle => 'Generating character';
+
+  @override
+  String get charsGenPreparing => 'Preparing…';
+
+  @override
+  String get charsGenProgressNote =>
+      'This makes several model calls — on a free/Tablet-tier token a long personality may take a few continuation passes.';
+
+  @override
   String get jukeboxTitle => 'JUKEBOX';
 
   @override
@@ -2799,9 +3534,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get jukeboxSettings => 'SETTINGS';
-
-  @override
-  String get jukeboxQueue => 'QUEUE';
 
   @override
   String get jukeboxQueueEmpty => 'QUEUE IS EMPTY';
@@ -2855,15 +3587,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get jukeboxCategoryRock => 'ROCK';
 
   @override
-  String get jukeboxEnableMusic => 'ENABLE MUSIC';
-
-  @override
-  String get jukeboxMusicVolume => 'MUSIC VOLUME';
-
-  @override
-  String get jukeboxKaraokeLyrics => 'KARAOKE LYRICS';
-
-  @override
   String get mlModels => 'ML MODELS';
 
   @override
@@ -2915,6 +3638,52 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mlRemovePoint => 'REMOVE';
 
   @override
+  String get mlBack => 'BACK';
+
+  @override
+  String get mlEncodingImage => 'Encoding image...';
+
+  @override
+  String get mlTapToSelect => 'Tap on the image to select a region';
+
+  @override
+  String get mlUndoPoint => 'Undo last point';
+
+  @override
+  String get mlClearPoints => 'Clear all points';
+
+  @override
+  String mlPointCount(int count) {
+    return '$count points';
+  }
+
+  @override
+  String get mlOpacity => 'OPACITY';
+
+  @override
+  String get mlEdgeRefine => 'EDGE REFINE';
+
+  @override
+  String get mlThreshold => 'THRESHOLD';
+
+  @override
+  String get mlFeather => 'FEATHER';
+
+  @override
+  String get mlDone => 'DONE';
+
+  @override
+  String get mlUpscaleCompare => 'UPSCALE COMPARE';
+
+  @override
+  String get mlSaved => 'SAVED';
+
+  @override
+  String mlSavedFile(String name) {
+    return 'SAVED: $name';
+  }
+
+  @override
   String get mlTierFast => 'FAST';
 
   @override
@@ -2927,13 +3696,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mlTierQuality => 'QUALITY';
 
   @override
-  String get mlRemovingBg => 'REMOVING BACKGROUNDS';
-
-  @override
   String get mlUpscalingImages => 'UPSCALING IMAGES';
-
-  @override
-  String get mlBgRemovalFailed => 'BG REMOVAL FAILED';
 
   @override
   String get mlUpscaleFailed => 'UPSCALE FAILED';
@@ -2952,6 +3715,87 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mlLowRamWarning => 'LOW RAM — MAY CRASH';
+
+  @override
+  String get mlDesktopOnlyMayCrash => 'DESKTOP ONLY — MAY CRASH';
+
+  @override
+  String get mlDownloadFailed => 'Download failed';
+
+  @override
+  String get mlManagerSubtitle =>
+      'Download and manage on-device ML models for background removal and upscaling.';
+
+  @override
+  String get mlNoModelsDownloaded => 'No models downloaded';
+
+  @override
+  String mlModelsDownloaded(int count, String size) {
+    return 'Models downloaded: $count · $size';
+  }
+
+  @override
+  String get mlMobileApiNote =>
+      'On mobile devices, upscaling and background removal use the NovelAI API. Local ML models are only available on desktop.';
+
+  @override
+  String get mlSegmentationNote =>
+      'Interactive object selection using SAM. Downloads both encoder and decoder.';
+
+  @override
+  String get mlUnknownModels => 'UNKNOWN MODELS';
+
+  @override
+  String get mlUnknownModelsNote =>
+      'Legacy or unrecognized .onnx/.ort files. Delete to free disk space.';
+
+  @override
+  String mlDeleteModelTitle(String name) {
+    return 'Delete $name?';
+  }
+
+  @override
+  String mlDeleteModelMessage(String size) {
+    return 'This will free $size of disk space.';
+  }
+
+  @override
+  String get mlRecommendedForDevice => 'RECOMMENDED FOR YOUR DEVICE';
+
+  @override
+  String get mlSlowOnDevice => 'MAY BE SLOW ON THIS DEVICE';
+
+  @override
+  String get mlNaiApiUpscale => 'NOVELAI API UPSCALE';
+
+  @override
+  String get mlNaiApiUpscaleDesc =>
+      'Up to 4x server-side upscaling via NovelAI API. Requires API key. No download needed.';
+
+  @override
+  String get mlNaiApiBgRemoval => 'NOVELAI API BG REMOVAL';
+
+  @override
+  String get mlNaiApiBgRemovalDesc =>
+      'Server-side background removal via NovelAI API. Requires API key. No download needed.';
+
+  @override
+  String get mlCloud => 'CLOUD';
+
+  @override
+  String get mlNoApiKey => 'NO API KEY SET';
+
+  @override
+  String get mlTierQualityShort => 'HQ';
+
+  @override
+  String get mlDeviceMobile => 'MOBILE';
+
+  @override
+  String get mlDeviceDesktop => 'DESKTOP';
+
+  @override
+  String get mlDeviceBoth => 'BOTH';
 
   @override
   String get mlBgRemovedAndSaved => 'BG REMOVED & SAVED';
@@ -2976,6 +3820,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get toolsEnhance => 'Enhance';
+
+  @override
+  String get toolDiscardResultTitle => 'Discard result?';
+
+  @override
+  String get toolDiscardResultMessage =>
+      'This result has not been saved. Going back discards it.';
+
+  @override
+  String get toolDiscardResultConfirm => 'Discard';
 
   @override
   String get directorToolsTitle => 'DIRECTOR TOOLS';
@@ -3005,6 +3859,96 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get directorToolsMood => 'MOOD';
+
+  @override
+  String get directorToolBgRemoval => 'Remove BG';
+
+  @override
+  String get directorToolLineart => 'Line Art';
+
+  @override
+  String get directorToolSketch => 'Sketch';
+
+  @override
+  String get directorToolColorize => 'Colorize';
+
+  @override
+  String get directorToolEmotion => 'Emotion';
+
+  @override
+  String get directorToolDeclutter => 'Declutter';
+
+  @override
+  String get moodNeutral => 'Neutral';
+
+  @override
+  String get moodHappy => 'Happy';
+
+  @override
+  String get moodSad => 'Sad';
+
+  @override
+  String get moodAngry => 'Angry';
+
+  @override
+  String get moodScared => 'Scared';
+
+  @override
+  String get moodSurprised => 'Surprised';
+
+  @override
+  String get moodTired => 'Tired';
+
+  @override
+  String get moodExcited => 'Excited';
+
+  @override
+  String get moodNervous => 'Nervous';
+
+  @override
+  String get moodThinking => 'Thinking';
+
+  @override
+  String get moodConfused => 'Confused';
+
+  @override
+  String get moodShy => 'Shy';
+
+  @override
+  String get moodDisgusted => 'Disgusted';
+
+  @override
+  String get moodSmug => 'Smug';
+
+  @override
+  String get moodBored => 'Bored';
+
+  @override
+  String get moodLaughing => 'Laughing';
+
+  @override
+  String get moodIrritated => 'Irritated';
+
+  @override
+  String get moodAroused => 'Aroused';
+
+  @override
+  String get moodEmbarrassed => 'Embarrassed';
+
+  @override
+  String get moodWorried => 'Worried';
+
+  @override
+  String get moodLove => 'Love';
+
+  @override
+  String get moodDetermined => 'Determined';
+
+  @override
+  String get moodHurt => 'Hurt';
+
+  @override
+  String get moodPlayful => 'Playful';
 
   @override
   String get directorToolsPrompt => 'PROMPT';
@@ -3047,6 +3991,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get enhanceNoise => 'NOISE';
 
   @override
+  String get enhanceResolutionScale => 'RESOLUTION SCALE';
+
+  @override
   String get enhanceSaved => 'ENHANCED IMAGE SAVED TO GALLERY';
 
   @override
@@ -3065,9 +4012,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get commonMenu => 'Menu';
-
-  @override
-  String get presetDuplicate => 'Duplicate';
 
   @override
   String get presetLoad => 'Load Preset';
@@ -3111,6 +4055,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get naiApiKeyRequired => 'API key required';
 
   @override
+  String get naiActionNotPermitted =>
+      'Your account is not allowed to use this action';
+
+  @override
+  String get naiImageUnreadable => 'Could not read the image size';
+
+  @override
   String get comparisonBefore => 'Before';
 
   @override
@@ -3121,6 +4072,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get comparisonSliderMode => 'Slider mode';
+
+  @override
+  String get comparisonSwap => 'Swap';
 
   @override
   String get settingsBgRemovalButton => 'BG Removal Button';
@@ -3180,19 +4134,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsExportFolderDefault => 'Default (device gallery)';
-
-  @override
-  String get settingsUpscaleBackend => 'Upscale Backend';
-
-  @override
-  String get settingsUpscaleBackendDesc =>
-      'Choose between local ML model or NovelAI API for upscaling';
-
-  @override
-  String get settingsUpscaleBackendMl => 'ML (Local)';
-
-  @override
-  String get settingsUpscaleBackendNovelai => 'NovelAI (API)';
 
   @override
   String get quickActionEnhance => 'Enhance';
@@ -3298,9 +4239,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get jukeboxSelectInstrument => 'SELECT INSTRUMENT';
-
-  @override
-  String get jukeboxWatch => 'WATCH';
 
   @override
   String get jukeboxPlayGame => 'PLAY GAME';
@@ -3438,6 +4376,53 @@ class AppLocalizationsEn extends AppLocalizations {
   String get jukeboxVisualizer => 'VISUALIZER';
 
   @override
+  String get jukeboxToggleVisualizer => 'Toggle visualizer display';
+
+  @override
+  String get jukeboxPrevious => 'Previous';
+
+  @override
+  String get jukeboxNext => 'Next';
+
+  @override
+  String get jukeboxPlay => 'Play';
+
+  @override
+  String get jukeboxPause => 'Pause';
+
+  @override
+  String get jukeboxMute => 'Mute';
+
+  @override
+  String get jukeboxUnmute => 'Unmute';
+
+  @override
+  String get jukeboxRemoveFromQueue => 'Remove from queue';
+
+  @override
+  String get jukeboxFullscreen => 'Fullscreen';
+
+  @override
+  String get jukeboxKaraokeLabel => 'KARAOKE';
+
+  @override
+  String get jukeboxBundled => 'BUNDLED';
+
+  @override
+  String get jukeboxSoundfontDownload => 'DOWNLOAD';
+
+  @override
+  String get jukeboxSoundfontDelete => 'Delete soundfont';
+
+  @override
+  String get jukeboxSoundfontDeleteTitle => 'DELETE SOUNDFONT';
+
+  @override
+  String jukeboxSoundfontDeleteMessage(String name) {
+    return 'Delete $name? You can re-download it later.';
+  }
+
+  @override
   String get jukeboxVizIntensity => 'INTENSITY';
 
   @override
@@ -3483,6 +4468,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get galleryBgRemovalFailed => 'BG REMOVAL FAILED';
 
   @override
+  String get galleryRemovingBackgrounds => 'REMOVING BACKGROUNDS';
+
+  @override
   String naiUpscaleTooLarge(int width, int height) {
     return 'Image too large for NAI upscale (${width}x$height exceeds 2048px limit per side)';
   }
@@ -3495,13 +4483,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get directorToolsFromGallery => 'FROM GALLERY';
-
-  @override
-  String get settingsBgRemovalBackend => 'BG Removal Backend';
-
-  @override
-  String get settingsBgRemovalBackendDesc =>
-      'Choose between local ML model or NovelAI API for background removal';
 
   @override
   String get importDialogTitle => 'IMPORT METADATA';
@@ -3534,13 +4515,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get importStylesAutoDetected => 'auto-detected from prompt';
 
   @override
+  String get importStylesEmbedded => 'disable - embedded in prompt';
+
+  @override
   String get img2imgOutputRes => 'OUTPUT RESOLUTION';
-
-  @override
-  String get img2imgResetRes => 'Reset to source';
-
-  @override
-  String get img2imgChangeRes => 'CHANGE';
 
   @override
   String get duplicateImageWarning =>
@@ -3691,6 +4669,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get textGenOutputEmpty => 'Generated text will appear here.';
 
   @override
+  String get textGenErrNoToken =>
+      'No NovelAI token is set. Add it in Settings.';
+
+  @override
+  String get textGenErrEmptyInput => 'Enter some text to continue from.';
+
+  @override
+  String get textGenClearConfirmTitle => 'Clear output?';
+
+  @override
+  String get textGenClearConfirmMessage =>
+      'The generated text and its reasoning will be removed. Copy it first if you need it.';
+
+  @override
   String get textGenHistory => 'History';
 
   @override
@@ -3742,4 +4734,939 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get serverHistoryBatchDeleteConfirm =>
       'Hide every image in this batch from your history?';
+
+  @override
+  String serverHistoryDeleteFailed(String error) {
+    return 'Delete failed: $error';
+  }
+
+  @override
+  String get serverHistoryDeleteActive =>
+      'Still queued or running; it can be deleted once it finishes.';
+
+  @override
+  String serverHistoryLoadFailed(String error) {
+    return 'Could not load history: $error';
+  }
+
+  @override
+  String get serverHistoryRetry => 'Retry';
+
+  @override
+  String get serverHistoryUsersUnavailable =>
+      'The user list could not be loaded, so the user filter is unavailable.';
+
+  @override
+  String get serverHistoryItemCancelled =>
+      'The task was cancelled. You were not charged.';
+
+  @override
+  String quotePointsTooltipFree(int points) {
+    return 'Free · $points green points';
+  }
+
+  @override
+  String quotePointsTooltipPaid(int points) {
+    return 'Paid · $points red points';
+  }
+
+  @override
+  String quoteDiscountNote(int percent) {
+    return 'Green point discount: $percent%';
+  }
+
+  @override
+  String get quoteInvalidBadge => 'Invalid';
+
+  @override
+  String quoteInvalidTooltip(String field) {
+    return 'These parameters are outside what the server accepts ($field).';
+  }
+
+  @override
+  String get quoteReasonSizeNotFree => 'Size is not a free size';
+
+  @override
+  String get quoteReasonStepsOverFreeLimit => 'Steps above the free limit';
+
+  @override
+  String get quoteReasonSmea => 'SMEA enabled';
+
+  @override
+  String get quoteReasonImageInput => 'Image input (img2img / inpaint)';
+
+  @override
+  String get quoteReasonDirectorRefs => 'Precise references';
+
+  @override
+  String get quoteReasonVibes => 'Vibe transfer';
+
+  @override
+  String get quoteReasonAllowanceExhausted => 'Free allowance used up for now';
+
+  @override
+  String get quoteReasonPaidTool => 'Paid tool';
+
+  @override
+  String get quoteAdjustToFree => 'Make free';
+
+  @override
+  String get quoteAdjustToFreeTooltip =>
+      'Set size, steps and SMEA back to what is free';
+
+  @override
+  String get quoteFreeOnlyNotice =>
+      'Your account can only generate for free. These settings would cost red points:';
+
+  @override
+  String get quoteFreeAllowanceUnavailable =>
+      'The free allowance is used up for now, so free generation is unavailable for a while.';
+
+  @override
+  String get quoteAdjustToFreeAction => 'Adjust to free parameters';
+
+  @override
+  String get quoteConfirmTitle => 'Price changed';
+
+  @override
+  String quoteConfirmPriceRed(int points) {
+    return 'The server price applies: $points red points.';
+  }
+
+  @override
+  String quoteConfirmPriceGreen(int points) {
+    return 'The server price applies: $points green points.';
+  }
+
+  @override
+  String quoteConfirmShown(int points) {
+    return 'The price shown was $points.';
+  }
+
+  @override
+  String get quoteConfirmReasonAllowance =>
+      'The free allowance is used up for now, so this image is charged in red points instead.';
+
+  @override
+  String get quoteConfirmReasonOther =>
+      'Prices or your account changed after the price was shown.';
+
+  @override
+  String get quoteConfirmContinue => 'Continue at this price';
+
+  @override
+  String generationInputsActive(int references, int vibes) {
+    return 'REF $references · VIBE $vibes';
+  }
+
+  @override
+  String generationInputsPaused(int count) {
+    return '$count paused';
+  }
+
+  @override
+  String get generationInputsTooltip =>
+      'References and vibes sent with the next image. Tap to open them.';
+
+  @override
+  String get refPausedNoRedPoints => 'Paused: not enough red points. Not sent.';
+
+  @override
+  String get refPausedNoPermission =>
+      'Paused: this account cannot generate with paid points. Not sent.';
+
+  @override
+  String refAccessCountRefs(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count references',
+      one: '1 reference',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String refAccessCountVibes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count vibes',
+      one: '1 vibe',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get refAccessSeparator => ', ';
+
+  @override
+  String refAccessPausedNoRedPoints(String items) {
+    return 'Not enough red points: $items paused and will not be sent';
+  }
+
+  @override
+  String refAccessPausedNoPermission(String items) {
+    return 'No paid generation permission: $items paused and will not be sent';
+  }
+
+  @override
+  String refAccessResumed(String items) {
+    return 'Paid points available again: $items will be sent again';
+  }
+
+  @override
+  String toolMaxRedPoints(int points) {
+    return 'up to $points red';
+  }
+
+  @override
+  String get generationBusy =>
+      'A generation is already running. Wait for it to finish.';
+
+  @override
+  String get generationFailedFallback => 'Generation failed';
+
+  @override
+  String get generationSeedInvalid =>
+      'The seed must be a whole number from 0 to 4294967295.';
+
+  @override
+  String get generationDropToImport => 'Drop to import settings';
+
+  @override
+  String get generationCancelQueued => 'CANCEL QUEUED';
+
+  @override
+  String get generationResumeWatching => 'RESUME';
+
+  @override
+  String get generationWatchTimedOut =>
+      'Stopped waiting for the server. The images may still finish; resume to check again.';
+
+  @override
+  String get generationItemCancelled => 'Cancelled before it started';
+
+  @override
+  String get generationReuseSeed => 'REUSE SEED';
+
+  @override
+  String get photoshootTitle => 'PHOTOSHOOT';
+
+  @override
+  String get photoshootCharacterNotFound => 'Character not found';
+
+  @override
+  String get photoshootNoOutfit => '(no outfit)';
+
+  @override
+  String get photoshootPreviewPlaceholder => 'YOUR SHOT APPEARS HERE';
+
+  @override
+  String get photoshootTapToView => 'TAP TO VIEW';
+
+  @override
+  String get photoshootTabDress => 'DRESS';
+
+  @override
+  String get photoshootTabScene => 'SCENE';
+
+  @override
+  String get photoshootTabPrompt => 'PROMPT';
+
+  @override
+  String get photoshootNoOutfitHint =>
+      'No outfit to dress — add one from the character editor.';
+
+  @override
+  String get photoshootSaveState => 'SAVE STATE TO OUTFIT';
+
+  @override
+  String get photoshootOutfitStateSaved => 'OUTFIT STATE SAVED';
+
+  @override
+  String get photoshootSectionStyle => 'STYLE';
+
+  @override
+  String get photoshootSectionPose => 'POSE';
+
+  @override
+  String get photoshootSectionEnvironment => 'ENVIRONMENT';
+
+  @override
+  String get photoshootCustomPoseHint => 'custom pose tags…';
+
+  @override
+  String get photoshootCustomEnvHint => 'custom environment tags…';
+
+  @override
+  String photoshootSelectedCount(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String get photoshootClear => 'CLEAR';
+
+  @override
+  String get photoshootNoPresets => 'No presets available';
+
+  @override
+  String get photoshootAssembledPrompt => 'ASSEMBLED PROMPT';
+
+  @override
+  String photoshootTagCount(int count) {
+    return '$count tags';
+  }
+
+  @override
+  String get photoshootEmptyPrompt => '(empty)';
+
+  @override
+  String get photoshootPromptBuiltFrom =>
+      'Built from: style → body → outfit → pose → environment. Adjust in the Dress and Scene tabs.';
+
+  @override
+  String get photoshootGenerate => 'GENERATE';
+
+  @override
+  String get photoshootGenerating => 'GENERATING…';
+
+  @override
+  String get photoshootSend => 'SEND';
+
+  @override
+  String get photoshootSentToMain => 'SENT TO MAIN PROMPT';
+
+  @override
+  String get photoshootGenerated => 'GENERATED';
+
+  @override
+  String photoshootGenerationFailed(String reason) {
+    return 'GENERATION FAILED: $reason';
+  }
+
+  @override
+  String get photoshootSelectOutfit => 'OUTFIT';
+
+  @override
+  String get photoshootStyleCharacterDefault => 'Character default';
+
+  @override
+  String get photoshootStyleAnime => 'Anime';
+
+  @override
+  String get photoshootStylePainterly => 'Painterly';
+
+  @override
+  String get photoshootStylePhotoreal => 'Photoreal';
+
+  @override
+  String get photoshootStyleSketch => 'Sketch';
+
+  @override
+  String get photoshootStyleWatercolor => 'Watercolour';
+
+  @override
+  String get photoshootStyleInk => 'Ink';
+
+  @override
+  String get cascadeHelpTitle => 'CASCADE GUIDE';
+
+  @override
+  String get cascadeHelpOverviewHeader => 'OVERVIEW';
+
+  @override
+  String get cascadeHelpOverviewBody =>
+      'Cascade generates multi-beat scene sequences with consistent characters. Each beat is one generation with its own environment, character poses, and settings. Character appearances are set once in the casting sheet and applied to all beats.';
+
+  @override
+  String get cascadeHelpSetupHeader => 'SETUP FLOW';
+
+  @override
+  String get cascadeHelpStepCreate => 'Create';
+
+  @override
+  String get cascadeHelpStepCreateDesc =>
+      'Set name, character count (0-5), and positioning mode';
+
+  @override
+  String get cascadeHelpStepEdit => 'Edit Beats';
+
+  @override
+  String get cascadeHelpStepEditDesc =>
+      'Set scene/action, environment, character prompts, actions, positions, styles, and settings per beat';
+
+  @override
+  String get cascadeHelpStepCast => 'Cast';
+
+  @override
+  String get cascadeHelpStepCastDesc =>
+      'Save and return to the main screen playback view';
+
+  @override
+  String get cascadeHelpStepGenerate => 'Generate';
+
+  @override
+  String get cascadeHelpStepGenerateDesc =>
+      'Enter character appearances, optional global injection, then generate each beat';
+
+  @override
+  String get cascadeHelpBasePromptHeader => 'BASE PROMPT';
+
+  @override
+  String get cascadeHelpScene => 'Scene / Action';
+
+  @override
+  String get cascadeHelpSceneDesc =>
+      'Base-prompt tags for what is happening and how it is framed (e.g., \"2girls, hugging, wide shot, from above\"). Subject-count, action, and camera tags go here.';
+
+  @override
+  String get cascadeHelpEnvironment => 'Environment';
+
+  @override
+  String get cascadeHelpEnvironmentDesc =>
+      'Base-prompt tags for where the scene takes place (e.g., \"forest, night, indoors\").';
+
+  @override
+  String get cascadeHelpBasePromptNote =>
+      'Both are tags (not prose) and feed the same base prompt — Scene / Action leads, Environment follows.';
+
+  @override
+  String get cascadeHelpSlotsHeader => 'CHARACTER SLOTS';
+
+  @override
+  String get cascadeHelpSlotPositive => 'Positive Prompt';
+
+  @override
+  String get cascadeHelpSlotPositiveDesc =>
+      'Per-beat character tags (e.g., \"happy, sitting\")';
+
+  @override
+  String get cascadeHelpSlotNegative => 'Negative Prompt';
+
+  @override
+  String get cascadeHelpSlotNegativeDesc =>
+      'Per-beat undesired content for this character';
+
+  @override
+  String get cascadeHelpSlotGrid => 'Position Grid';
+
+  @override
+  String get cascadeHelpSlotGridDesc =>
+      '5x5 grid for precise placement (if manual positioning is on)';
+
+  @override
+  String get cascadeHelpSlotActions => 'Action Tags';
+
+  @override
+  String get cascadeHelpSlotActionsDesc =>
+      'Define interactions between characters for this beat';
+
+  @override
+  String get cascadeHelpActionsHeader => 'ACTION INTERACTIONS';
+
+  @override
+  String get cascadeHelpActionsIntro =>
+      'Tap the link icon between character slots to set an interaction for that beat.';
+
+  @override
+  String get cascadeHelpSourceTarget => 'Source → Target';
+
+  @override
+  String get cascadeHelpSourceTargetDesc =>
+      'Directional action (e.g., A hugging B)';
+
+  @override
+  String get cascadeHelpMutual => 'Mutual ↔';
+
+  @override
+  String get cascadeHelpMutualDesc =>
+      'Both characters participate equally (e.g., holding hands)';
+
+  @override
+  String get cascadeHelpActionsNote =>
+      'Tags are embedded as source#action, target#action, or mutual#action in character prompts.';
+
+  @override
+  String get cascadeHelpCastingHeader => 'CASTING SHEET';
+
+  @override
+  String get cascadeHelpCastAppearance => 'Character Appearance';
+
+  @override
+  String get cascadeHelpCastAppearanceDesc =>
+      'Base look for each character (e.g., \"1girl, blue hair\") — shared across all beats';
+
+  @override
+  String get cascadeHelpCastGlobalScene => 'Global Scene';
+
+  @override
+  String get cascadeHelpCastGlobalSceneDesc =>
+      'Scene/action tags applied to every beat (e.g., \"2girls, school uniform\") — leads each beat\'s own Scene / Action tags';
+
+  @override
+  String get cascadeHelpCastInjection => 'Global Injection';
+
+  @override
+  String get cascadeHelpCastInjectionDesc =>
+      'Additional prompt text or style applied to every beat';
+
+  @override
+  String get cascadeHelpCastThumbs => 'Beat Thumbnails';
+
+  @override
+  String get cascadeHelpCastThumbsDesc =>
+      'Tap to select; shows preview after generation';
+
+  @override
+  String get cascadeHelpCastCaption => 'Narration Caption';
+
+  @override
+  String get cascadeHelpCastCaptionDesc =>
+      'Free-text narration shown over the beat preview (display only) — prose, not tags. Toggle with the eye icon. Not saved with the cascade.';
+
+  @override
+  String get cascadeHelpCastExport => 'Export';
+
+  @override
+  String get cascadeHelpCastExportDesc =>
+      'Burn captions into a single beat PNG, or assemble all generated beats into a vertical/horizontal storyboard strip (share icon)';
+
+  @override
+  String get cascadeHelpCastGenerate => 'Generate';
+
+  @override
+  String get cascadeHelpCastGenerateDesc =>
+      'Generates selected beat, auto-advances to next';
+
+  @override
+  String get cascadeHelpPerBeatHeader => 'PER-BEAT SETTINGS';
+
+  @override
+  String get cascadeHelpPerBeatBody =>
+      'Each beat can have its own resolution, sampler, steps, scale, and styles. Styles are toggled per-beat from your style library.';
+
+  @override
+  String get cascadeHelpTipsHeader => 'TIPS';
+
+  @override
+  String get cascadeHelpTip1 =>
+      'Use environment tags for scene changes between beats';
+
+  @override
+  String get cascadeHelpTip2 =>
+      'Keep character appearances consistent in the casting sheet';
+
+  @override
+  String get cascadeHelpTip3 =>
+      'Change action tags per-beat to show interactions evolving';
+
+  @override
+  String get cascadeHelpTip4 =>
+      'Clone beats to quickly iterate on similar scenes';
+
+  @override
+  String get cascadeHelpTip5 =>
+      'Each beat can use different styles for different moods';
+
+  @override
+  String get canvasHelpToolsHeader => 'TOOLS';
+
+  @override
+  String get canvasHelpPaint => 'Paint — freehand brush';
+
+  @override
+  String get canvasHelpErase => 'Erase — remove strokes';
+
+  @override
+  String get canvasHelpLine => 'Line — straight line';
+
+  @override
+  String get canvasHelpRectangle => 'Rectangle — outline or filled';
+
+  @override
+  String get canvasHelpCircle => 'Circle / Ellipse';
+
+  @override
+  String get canvasHelpFill => 'Fill — flood fill area';
+
+  @override
+  String get canvasHelpText => 'Text — add text to canvas';
+
+  @override
+  String get canvasHelpEyedropper => 'Eyedropper — pick color';
+
+  @override
+  String get canvasHelpTransform => 'Transform — move/scale layer';
+
+  @override
+  String get canvasHelpSelect => 'Select — rectangular selection';
+
+  @override
+  String get canvasHelpLasso => 'Lasso — freehand selection';
+
+  @override
+  String get canvasHelpBlur => 'Blur — Gaussian blur brush';
+
+  @override
+  String get canvasHelpClone => 'Clone Stamp — copy from source';
+
+  @override
+  String get canvasHelpNavigationHeader => 'NAVIGATION';
+
+  @override
+  String get canvasHelpKeySpaceDrag => 'Space + drag';
+
+  @override
+  String get canvasHelpPan => 'Pan canvas';
+
+  @override
+  String get canvasHelpKeyScroll => 'Scroll';
+
+  @override
+  String get canvasHelpZoom => 'Zoom in / out';
+
+  @override
+  String get canvasHelpKeyCtrlScroll => 'Ctrl + Scroll';
+
+  @override
+  String get canvasHelpBrushSize => 'Adjust brush size';
+
+  @override
+  String get canvasHelpBrushStep => 'Decrease / increase brush';
+
+  @override
+  String get canvasHelpActionsHeader => 'ACTIONS';
+
+  @override
+  String get canvasHelpKeyEscape => 'Escape';
+
+  @override
+  String get canvasHelpCancelSelection => 'Cancel selection';
+
+  @override
+  String get canvasHelpKeyAltClick => 'Alt + click';
+
+  @override
+  String get canvasHelpSetCloneSource => 'Set clone stamp source';
+
+  @override
+  String get canvasHelpModesHeader => 'MODES';
+
+  @override
+  String get canvasHelpModeSelect => 'Select';
+
+  @override
+  String get canvasHelpModeSelectDesc =>
+      'Rectangular selection with corner handles for move, rotate, and scale.';
+
+  @override
+  String get canvasHelpModeLasso => 'Lasso';
+
+  @override
+  String get canvasHelpModeLassoDesc =>
+      'Freehand selection path with bounding box handles.';
+
+  @override
+  String get canvasHelpModeBlur => 'Blur';
+
+  @override
+  String get canvasHelpModeBlurDesc =>
+      'Applies Gaussian blur. Adjust sigma with the size slider.';
+
+  @override
+  String get canvasHelpModeClone => 'Clone Stamp';
+
+  @override
+  String get canvasHelpModeCloneDesc =>
+      'Copies pixels from a source point. Alt+click to set source, then paint.';
+
+  @override
+  String get canvasHelpModeSmooth => 'Smooth';
+
+  @override
+  String get canvasHelpModeSmoothDesc =>
+      'Toggle in toolbar for anti-aliased brush strokes.';
+
+  @override
+  String get commonApply => 'Apply';
+
+  @override
+  String get commonDefault => 'Default';
+
+  @override
+  String get pinUnlockButton => 'Unlock';
+
+  @override
+  String pinLockoutMessage(int seconds) {
+    return 'Too many attempts. Try again in ${seconds}s';
+  }
+
+  @override
+  String get pinBiometricUnlock => 'Biometric unlock';
+
+  @override
+  String get pinUnlockReason => 'Unlock NAIWeaver';
+
+  @override
+  String get jukeboxPlayerVolume => 'PLAYER VOLUME';
+
+  @override
+  String get jukeboxCategoryCustom => 'CUSTOM';
+
+  @override
+  String galleryShareFailed(String error) {
+    return 'Share failed: $error';
+  }
+
+  @override
+  String get gallerySdCard => 'SD card';
+
+  @override
+  String get canvasQuick => 'QUICK';
+
+  @override
+  String get canvasReset => 'RESET';
+
+  @override
+  String get canvasPalette => 'PALETTE';
+
+  @override
+  String get canvasRecent => 'RECENT';
+
+  @override
+  String get canvasResizeTitle => 'RESIZE CANVAS';
+
+  @override
+  String get canvasAnchor => 'ANCHOR';
+
+  @override
+  String get helpShortcutKeyHoldTap => 'Hold tap';
+
+  @override
+  String get helpShortcutKeyDragDrop => 'Drag & drop PNG';
+
+  @override
+  String get charsDress => 'dress';
+
+  @override
+  String get tagSuggestHonorOutfitState => 'honor outfit state';
+
+  @override
+  String charEditorSheetTitle(int n) {
+    return 'CHARACTER $n EDITOR';
+  }
+
+  @override
+  String get charEditorNameOptional => 'NAME (OPTIONAL)';
+
+  @override
+  String get charEditorCharacterPrompt => 'CHARACTER PROMPT';
+
+  @override
+  String get charEditorEnterTags => 'ENTER TAGS';
+
+  @override
+  String get charEditorCharacterUc => 'CHARACTER UC';
+
+  @override
+  String get charEditorPositionGrid => 'POSITION (5x5 GRID)';
+
+  @override
+  String get charEditorSaveCharacter => 'SAVE CHARACTER';
+
+  @override
+  String get interactionEditorTitle => 'INTERACTION EDITOR';
+
+  @override
+  String get interactionActionLabel => 'ACTION';
+
+  @override
+  String get interactionActionHint => 'ENTER ACTION (e.g., hugging)';
+
+  @override
+  String get interactionDirectionLabel => 'DIRECTION';
+
+  @override
+  String get interactionSave => 'SAVE INTERACTION';
+
+  @override
+  String tagLibPreviewSummary(
+    String prompt,
+    int width,
+    int height,
+    int steps,
+    String scale,
+  ) {
+    return 'P: $prompt | ${width}X$height | STEPS: $steps | SCALE: $scale';
+  }
+
+  @override
+  String panelSectionError(String id, String error) {
+    return 'Error in $id: $error';
+  }
+
+  @override
+  String get mlStageStarting => 'Starting...';
+
+  @override
+  String get mlStagePreprocessing => 'Preprocessing...';
+
+  @override
+  String get mlStageAnalyzing => 'Analyzing image...';
+
+  @override
+  String get mlStageLoadingModel => 'Loading model...';
+
+  @override
+  String get mlStageLoadingEncoder => 'Loading encoder...';
+
+  @override
+  String get mlStageEncodingImage => 'Encoding image...';
+
+  @override
+  String get mlStageRunningInference => 'Running inference...';
+
+  @override
+  String get mlStageGeneratingMatte => 'Generating matte...';
+
+  @override
+  String get mlStageGeneratingMask => 'Generating mask...';
+
+  @override
+  String get mlStageApplyingMask => 'Applying mask...';
+
+  @override
+  String get mlStageSplittingTiles => 'Splitting into tiles...';
+
+  @override
+  String get mlStageUpscalingTiles => 'Upscaling tiles...';
+
+  @override
+  String get mlStageRecombiningAlpha => 'Recombining alpha...';
+
+  @override
+  String get mlStageStitching => 'Stitching result...';
+
+  @override
+  String get mlStageComplete => 'Complete';
+
+  @override
+  String get mlCpuOnly => 'CPU only';
+
+  @override
+  String get mlSegmentEncodeFailed =>
+      'Failed to encode image — check that segmentation models are downloaded';
+
+  @override
+  String get mlSegmentNotEncoded =>
+      'Image not encoded — try re-opening the segment tool';
+
+  @override
+  String get mlSegmentFailed => 'Segmentation failed — try different points';
+
+  @override
+  String get charsGenStepCreating => 'Creating character…';
+
+  @override
+  String get charsGenStepWardrobe => 'Generating wardrobe…';
+
+  @override
+  String get charsGenStepSaving => 'Saving…';
+
+  @override
+  String get charsGenStepDone => 'Done';
+
+  @override
+  String get charsGenErrUnusable =>
+      'The model didn\'t return usable character JSON. Try again, or pick a higher-tier account / larger output length.';
+
+  @override
+  String canvasLayerNameN(int n) {
+    return 'Layer $n';
+  }
+
+  @override
+  String canvasImageLayerNameN(int n) {
+    return 'Image $n';
+  }
+
+  @override
+  String canvasLayerCopyName(String name) {
+    return '$name copy';
+  }
+
+  @override
+  String get canvasSegmentedLayerName => 'Segmented';
+
+  @override
+  String commonCopyName(String name) {
+    return '$name (Copy)';
+  }
+
+  @override
+  String get packDefaultExportName => 'My Pack';
+
+  @override
+  String slideshowDefaultName(int n) {
+    return 'Slideshow $n';
+  }
+
+  @override
+  String get mlModelDescIsnetAnime => 'Binary mask, anime-optimized';
+
+  @override
+  String get mlModelDescRmbgQuantized => 'Alpha matte, quantized';
+
+  @override
+  String get mlModelDescRmbgBest => 'Alpha matte, best quality';
+
+  @override
+  String get mlModelDescUpscaleFast => '2x upscaling, fast and tiny';
+
+  @override
+  String get mlModelDescUpscaleMobile => '2x upscaling, mobile fallback';
+
+  @override
+  String get mlModelDescUpscaleBest => '2x upscaling, best quality';
+
+  @override
+  String get mlModelDescSamEncoder =>
+      'Image encoder for interactive segmentation';
+
+  @override
+  String get mlModelDescSamDecoder =>
+      'Mask decoder for interactive segmentation';
+
+  @override
+  String get soundfontDescNes => '8-bit retro NES sounds';
+
+  @override
+  String get soundfontDescGeneralUser => 'High quality General MIDI soundfont';
+
+  @override
+  String get soundfontDescCat => 'Every instrument is a meowing cat';
+
+  @override
+  String get soundfontDescSnes => '16-bit Super Nintendo sounds';
+
+  @override
+  String get soundfontDescGenesis => 'Sega Genesis YM2612 FM synth';
+
+  @override
+  String get soundfontDescN64Roxie => 'Nintendo 64 game samples';
+
+  @override
+  String get soundfontDescN64Sdk => 'Nintendo 64 SDK default samples';
+
+  @override
+  String get mlDownloadHashMismatch => 'Hash verification failed';
+
+  @override
+  String get startupFailedTitle => 'NAIWeaver could not start';
+
+  @override
+  String mlStageUpscalingTile(int current, int total) {
+    return 'Upscaling tile $current/$total...';
+  }
 }

@@ -24,6 +24,7 @@ import 'widgets/feedback_panel.dart';
 import 'ml/widgets/ml_models_manager.dart';
 import '../text_gen/widgets/text_gen_panel.dart';
 import '../characters/widgets/characters_page.dart';
+import '../../core/theme/vision_metrics.dart';
 
 class ToolsHubScreen extends StatefulWidget {
   final String? initialToolId;
@@ -54,7 +55,7 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
       _activeToolId = _prefs.lastToolId ?? 'settings';
       // On mobile, auto-open the tool drawer when no specific tool was requested
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && isMobile(context)) {
+        if (mounted && windowSizeClassOf(context) == WindowSizeClass.compact) {
           _scaffoldKey.currentState?.openEndDrawer();
         }
       });
@@ -64,6 +65,15 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
   void _selectTool(String id) {
     setState(() => _activeToolId = id);
     _prefs.setLastToolId(id);
+  }
+
+  /// Escape belongs to a focused text field (clearing it, closing its
+  /// suggestions); it must not close the whole hub from inside one.
+  bool _isEditingText() {
+    final focused = FocusManager.instance.primaryFocus?.context;
+    if (focused == null) return false;
+    return focused.widget is EditableText ||
+        focused.findAncestorWidgetOfExactType<EditableText>() != null;
   }
 
   List<ToolItem> _getTools(BuildContext context) {
@@ -176,32 +186,30 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final mobile = isMobile(context);
+    final sizeClass = windowSizeClassOf(context);
+    final mobile = sizeClass == WindowSizeClass.compact;
     final t = context.t;
     final l = context.l;
     final tools = _getTools(context);
+    // Fall back for display only: the remembered tool may be hidden just
+    // while the user's permissions load, and it must survive that moment.
+    // Only an explicit selection (_selectTool) is persisted.
     final activeToolId = tools.any((tool) => tool.id == _activeToolId)
         ? _activeToolId
         : tools.first.id;
     final activeTool = tools.firstWhere((tool) => tool.id == activeToolId);
-    if (activeToolId != _activeToolId) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        _activeToolId = activeToolId;
-        _prefs.setLastToolId(activeToolId);
-      });
-    }
 
     return Focus(
       focusNode: _toolsFocusNode,
       autofocus: true,
       onKeyEvent: (node, event) {
-        if (event is! KeyDownEvent) return KeyEventResult.ignored;
-        if (event.logicalKey == LogicalKeyboardKey.escape) {
-          Navigator.pop(context);
-          return KeyEventResult.handled;
+        if (event is! KeyDownEvent ||
+            event.logicalKey != LogicalKeyboardKey.escape ||
+            _isEditingText()) {
+          return KeyEventResult.ignored;
         }
-        return KeyEventResult.ignored;
+        Navigator.maybePop(context);
+        return KeyEventResult.handled;
       },
       child: Scaffold(
         key: _scaffoldKey,
@@ -209,14 +217,16 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
         appBar: AppBar(
           backgroundColor: t.background,
           elevation: 0,
-          toolbarHeight: mobile ? 48 : 32,
+          toolbarHeight: context.touchSize,
           leading: IconButton(
             icon: Icon(
               Icons.arrow_back,
-              size: mobile ? 20 : 14,
+              size: mobile ? VisionMetrics.iconMedium : VisionMetrics.iconSmall,
               color: t.secondaryText,
             ),
-            onPressed: () => Navigator.pop(context),
+            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+            // maybePop lets an open tool veto leaving (e.g. unsaved edits).
+            onPressed: () => Navigator.maybePop(context),
           ),
           title: Text(
             mobile ? activeTool.name : l.toolsHub.toUpperCase(),
@@ -230,7 +240,11 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
           actions: mobile
               ? [
                   IconButton(
-                    icon: Icon(Icons.menu, size: 22, color: t.secondaryText),
+                    icon: Icon(
+                      Icons.menu,
+                      size: VisionMetrics.iconLarge,
+                      color: t.secondaryText,
+                    ),
                     tooltip: l.commonMenu,
                     onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
                   ),
@@ -245,7 +259,12 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                        padding: const EdgeInsets.fromLTRB(
+                          VisionMetrics.space16,
+                          VisionMetrics.space16,
+                          VisionMetrics.space16,
+                          VisionMetrics.space8,
+                        ),
                         child: Text(
                           l.toolsTitle.toUpperCase(),
                           style: TextStyle(
@@ -269,7 +288,7 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
                               return ListTile(
                                 leading: Icon(
                                   tool.icon,
-                                  size: 20,
+                                  size: VisionMetrics.iconMedium,
                                   color: isActive ? t.accent : t.secondaryText,
                                 ),
                                 title: Text(
@@ -319,11 +338,12 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
     List<ToolItem> tools,
     String activeToolId,
   ) {
-    final screenWidth = MediaQuery.of(context).size.width;
     // Expand sidebar width on wider screens: 180px base, up to 240px on very wide screens
-    final double expandedWidth = screenWidth >= 1600
-        ? 240
-        : (screenWidth >= 1200 ? 210 : 180);
+    final double expandedWidth = switch (windowSizeClassOf(context)) {
+      WindowSizeClass.xlarge => 240,
+      WindowSizeClass.large => 210,
+      _ => 180,
+    };
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -331,11 +351,11 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
       color: t.surfaceMid,
       child: Column(
         children: [
-          const SizedBox(height: 8),
+          const SizedBox(height: VisionMetrics.space8),
           IconButton(
             icon: Icon(
               _isSidebarExpanded ? Icons.chevron_left : Icons.menu,
-              size: 16,
+              size: VisionMetrics.iconMedium,
               color: t.secondaryText,
             ),
             tooltip: _isSidebarExpanded
@@ -344,7 +364,7 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
             onPressed: () =>
                 setState(() => _isSidebarExpanded = !_isSidebarExpanded),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: VisionMetrics.space16),
           Expanded(
             child: Scrollbar(
               controller: _sidebarScrollController,
@@ -368,7 +388,7 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
     return InkWell(
       onTap: () => _selectTool(tool.id),
       child: Container(
-        height: 48,
+        height: context.touchSize + VisionMetrics.space8,
         decoration: BoxDecoration(
           border: Border(
             right: BorderSide(
@@ -383,7 +403,7 @@ class _ToolsHubScreenState extends State<ToolsHubScreen> {
               width: 54,
               child: Icon(
                 tool.icon,
-                size: 16,
+                size: VisionMetrics.iconMedium,
                 color: isActive ? t.accent : t.secondaryText,
               ),
             ),

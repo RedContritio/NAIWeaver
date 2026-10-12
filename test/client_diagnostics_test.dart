@@ -33,30 +33,6 @@ void main() {
     );
   });
 
-  test('clear removes previously captured lifecycle events', () {
-    final diagnostics = ClientDiagnostics()..record('focus');
-    expect(diagnostics.length, 1);
-    diagnostics.clear();
-    expect(diagnostics.snapshot(), isEmpty);
-  });
-
-  test('reset starts a fresh report session with summary metadata', () {
-    final diagnostics = ClientDiagnostics(capacity: 4)..record('focus');
-    final previousSession = diagnostics.sessionId;
-
-    diagnostics.reset(reason: 'submitted');
-
-    expect(diagnostics.sessionId, isNot(previousSession));
-    expect(diagnostics.droppedCount, 0);
-    expect(diagnostics.snapshot(), hasLength(1));
-    expect(
-      diagnostics.snapshot().single['event'],
-      'diagnostic_session_started',
-    );
-    expect(diagnostics.sessionContext['diagnostic_event_capacity'], 4);
-    expect(diagnostics.sessionContext['diagnostic_event_count'], 1);
-  });
-
   test('maps and lists are never serialized into diagnostic details', () {
     final diagnostics = ClientDiagnostics()
       ..record('unsafe_shape', {

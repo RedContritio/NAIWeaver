@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/gateway/backend_error_messages.dart';
 import '../../../core/gateway/backend_gateway.dart';
-import '../../../core/services/backend_auth_api.dart';
+import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/vision_metrics.dart';
+import '../../../core/utils/app_snackbar.dart';
+import '../../../core/widgets/ui/app_states.dart';
 import '../backend_auth_notifier.dart';
 
 class BackendAuthGate extends StatefulWidget {
   final Widget child;
-
   const BackendAuthGate({super.key, required this.child});
 
   @override
@@ -16,239 +19,114 @@ class BackendAuthGate extends StatefulWidget {
 }
 
 class _BackendAuthGateState extends State<BackendAuthGate> {
+  BackendAuthNotifier? _auth;
+  bool _expiredDialogOpen = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!useBackendGateway) return;
+    _auth = context.read<BackendAuthNotifier>()..addListener(_onAuthChanged);
+  }
+
+  @override
+  void dispose() {
+    _auth?.removeListener(_onAuthChanged);
+    super.dispose();
+  }
+
+  void _onAuthChanged() {
+    final auth = _auth!;
+    if (auth.sessionExpired && !_expiredDialogOpen) {
+      _expiredDialogOpen = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _askToSignIn(auth));
+    }
+    if (auth.logoutFailed) {
+      auth.acknowledgeLogoutFailure();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) showErrorSnackBar(context, context.l.gatewayLogoutFailed);
+      });
+    }
+  }
+
+  /// The redirect leaves the page, so it waits for the user's confirmation:
+  /// anything unsaved on this page would be lost.
+  Future<void> _askToSignIn(BackendAuthNotifier auth) async {
+    if (!mounted) return;
+    final t = context.tRead;
+    final l = context.l;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: t.surfaceHigh,
+        title: Text(
+          l.gatewaySessionExpiredTitle.toUpperCase(),
+          style: TextStyle(
+            fontSize: t.titleSize(10),
+            letterSpacing: 2,
+            color: t.textSecondary,
+          ),
+        ),
+        content: Text(
+          l.gatewaySessionExpiredBody,
+          style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(10)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              l.gatewaySessionExpiredConfirm.toUpperCase(),
+              style: TextStyle(color: t.accent, fontSize: t.buttonSize(9)),
+            ),
+          ),
+        ],
+      ),
+    );
+    _expiredDialogOpen = false;
+    await auth.login();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!useBackendGateway) return widget.child;
     final auth = context.watch<BackendAuthNotifier>();
-    if (auth.isLoading) {
-      return Scaffold(
-        backgroundColor: context.t.background,
-        body: Center(
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: context.t.accent,
-          ),
-        ),
-      );
-    }
     if (auth.isAuthenticated) return widget.child;
-    return const _LoginScreen();
-  }
-}
-
-class _ScrollableCenteredAuthBody extends StatelessWidget {
-  final Widget child;
-
-  const _ScrollableCenteredAuthBody({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    const pagePadding = 24.0;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return SingleChildScrollView(
-          key: const ValueKey('backend-auth-scroll-view'),
-          padding: const EdgeInsets.all(pagePadding),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: (constraints.maxHeight - pagePadding * 2)
-                  .clamp(0.0, double.infinity),
-            ),
-            child: Center(child: child),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _LoginScreen extends StatefulWidget {
-  const _LoginScreen();
-
-  @override
-  State<_LoginScreen> createState() => _LoginScreenState();
-}
-
-class _LoginScreenState extends State<_LoginScreen> {
-  Future<BackendWebAuthnOptions>? _optionsFuture;
-  String? _optionsKey;
-  bool _actionInProgress = false;
-
-  Future<BackendWebAuthnOptions> _optionsFor(
-    BuildContext context,
-    String? enrollmentToken,
-  ) {
-    final key = enrollmentToken == null ? 'login' : 'bind:$enrollmentToken';
-    if (_optionsKey != key || _optionsFuture == null) {
-      _optionsKey = key;
-      final auth = context.read<BackendAuthNotifier>();
-      _optionsFuture = enrollmentToken == null
-          ? auth.prepareWebAuthnLogin()
-          : auth.prepareWebAuthnBind(enrollmentToken);
+    final l = context.l;
+    final error = auth.error;
+    // A failed load is retried; only a missing session needs the sign-in.
+    final canRetry = error != null && !error.isNotAuthenticated;
+    final failure = error != null
+        ? backendErrorMessage(l, error)
+        : auth.loginLaunchFailed
+        ? l.gatewayLoginOpenFailed
+        : null;
+    final Widget body;
+    if (auth.isLoading) {
+      body = const LoadingState();
+    } else {
+      final signIn = TextButton(
+        onPressed: auth.login,
+        child: Text(l.gatewayAuthContinue),
+      );
+      body = failure == null
+          ? Center(child: signIn)
+          : Column(
+              children: [
+                Expanded(
+                  child: ErrorState(
+                    message: failure,
+                    onRetry: canRetry ? auth.initialize : null,
+                    retryLabel: l.gatewayAuthRetry,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: VisionMetrics.space24),
+                  child: signIn,
+                ),
+              ],
+            );
     }
-    return _optionsFuture!;
-  }
-
-  void _resetOptions() {
-    _optionsFuture = null;
-    _optionsKey = null;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final auth = context.watch<BackendAuthNotifier>();
-    final t = context.t;
-    final enrollmentToken = Uri.base.queryParameters['token']?.trim();
-    final enrolling = enrollmentToken != null && enrollmentToken.isNotEmpty;
-    final optionsFuture = _optionsFor(
-      context,
-      enrolling ? enrollmentToken : null,
-    );
-    return Scaffold(
-      backgroundColor: t.background,
-      body: SafeArea(
-        child: _ScrollableCenteredAuthBody(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: FutureBuilder<BackendWebAuthnOptions>(
-              future: optionsFuture,
-              builder: (context, snapshot) {
-                final optionsReady = snapshot.hasData;
-                final preparing =
-                    snapshot.connectionState != ConnectionState.done;
-                final errorMessage =
-                    auth.errorMessage ??
-                    (snapshot.hasError ? snapshot.error.toString() : null);
-                final busy = auth.isLoading || _actionInProgress || preparing;
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Image.asset(
-                      'assets/logo.png',
-                      height: 36,
-                      color: t.logoColor,
-                      colorBlendMode: BlendMode.srcIn,
-                    ),
-                    const SizedBox(height: 28),
-                    Text(
-                      enrolling ? '绑定此设备' : '使用通行密钥登录',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: t.textPrimary,
-                        fontSize: t.fontSize(16),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      enrolling
-                          ? '系统会要求你用 Touch ID、Face ID、指纹、Windows Hello 或安全密钥确认。'
-                          : '每次登录都需要通过浏览器保存的通行密钥确认。',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: t.textTertiary,
-                        fontSize: t.fontSize(11),
-                      ),
-                    ),
-                    if (errorMessage != null) ...[
-                      const SizedBox(height: 14),
-                      Text(
-                        errorMessage.toUpperCase(),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: t.accentDanger,
-                          fontSize: t.fontSize(10),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 20),
-                    ElevatedButton.icon(
-                      onPressed: busy || !optionsReady
-                          ? null
-                          : () => enrolling
-                                ? _bind(
-                                    context,
-                                    enrollmentToken,
-                                    snapshot.data!,
-                                  )
-                                : _login(context, snapshot.data!),
-                      icon: busy
-                          ? SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: t.background,
-                              ),
-                            )
-                          : Icon(
-                              enrolling
-                                  ? Icons.phonelink_lock_outlined
-                                  : Icons.fingerprint,
-                              size: 18,
-                            ),
-                      label: Text(
-                        (preparing
-                                ? '准备中'
-                                : enrolling
-                                ? '绑定此设备'
-                                : '登录')
-                            .toUpperCase(),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: t.accent,
-                        foregroundColor: t.background,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _login(
-    BuildContext context,
-    BackendWebAuthnOptions options,
-  ) async {
-    final auth = context.read<BackendAuthNotifier>();
-    final future = auth.loginWithPreparedWebAuthn(options);
-    if (mounted) setState(() => _actionInProgress = true);
-    await future;
-    if (!mounted) return;
-    if (!auth.isAuthenticated) {
-      setState(() {
-        _actionInProgress = false;
-        _resetOptions();
-      });
-    }
-  }
-
-  Future<void> _bind(
-    BuildContext context,
-    String token,
-    BackendWebAuthnOptions options,
-  ) async {
-    final auth = context.read<BackendAuthNotifier>();
-    final future = auth.bindWithPreparedWebAuthn(token, options);
-    if (mounted) setState(() => _actionInProgress = true);
-    await future;
-    if (!mounted) return;
-    if (!auth.isAuthenticated) {
-      setState(() {
-        _actionInProgress = false;
-        _resetOptions();
-      });
-    }
+    return Scaffold(backgroundColor: context.t.background, body: body);
   }
 }

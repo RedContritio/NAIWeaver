@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui' as ui;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -8,11 +7,14 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:gal/gal.dart';
 import 'package:provider/provider.dart';
+import '../../../core/gateway/backend_permissions.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/services/preferences_service.dart';
 import '../../../core/services/saf_export_service.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/vision_metrics.dart';
 import '../../../core/widgets/confirm_dialog.dart';
+import '../../../core/widgets/ui/overlay_action_button.dart';
 import '../../../core/utils/app_snackbar.dart';
 import '../../../core/utils/image_utils.dart';
 import '../../../core/utils/responsive.dart';
@@ -21,11 +23,14 @@ import '../providers/gallery_notifier.dart';
 import '../../generation/providers/generation_notifier.dart';
 import '../../director_ref/providers/director_ref_notifier.dart';
 import '../../vibe_transfer/providers/vibe_transfer_notifier.dart';
+import '../../director_ref/widgets/reference_add_actions.dart'
+    show vibeEncodeErrorMessage;
 import '../../tools/img2img/providers/img2img_notifier.dart';
 import '../../tools/slideshow/models/slideshow_config.dart';
 import '../../tools/slideshow/providers/slideshow_notifier.dart';
 import '../../tools/slideshow/widgets/slideshow_player.dart';
 import '../../tools/tools_hub_screen.dart';
+import '../../tools/widgets/tool_source_picker.dart';
 import 'import_metadata_dialog.dart';
 import '../../../core/ml/ml_notifier.dart';
 import '../../../core/ml/widgets/ml_processing_overlay.dart';
@@ -33,11 +38,12 @@ import '../../../core/ml/widgets/bg_removal_overlay.dart';
 import '../../../core/ml/widgets/upscale_comparison_view.dart';
 import '../../tools/enhance/providers/enhance_notifier.dart';
 import '../../tools/director_tools/providers/director_tools_notifier.dart';
-import '../../../core/services/novel_ai_service.dart';
 import '../../../core/services/novel_ai_image_action_service.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:super_clipboard/super_clipboard.dart';
+import '../services/tool_result_saver.dart';
 import 'gallery_layout.dart';
+import 'novel_ai_image_action_flow.dart';
 
 class ImageDetailView extends StatefulWidget {
   final int initialIndex;
@@ -67,11 +73,20 @@ class _ImageDetailViewState extends State<ImageDetailView>
   // Action buttons scroll indicator
   final ScrollController _actionScrollController = ScrollController();
   bool _showScrollIndicator = true;
+  bool _closing = false;
+
+  // Paid NAI actions: one at a time, each with its own loading dialog.
+  final _naiFlow = NovelAiImageActionFlow();
 
   // Double-tap zoom animation
   late final AnimationController _zoomAnimController;
   Animation<Matrix4>? _zoomAnimation;
   Offset? _lastDoubleTapLocal;
+
+  GalleryItem? get _currentItemOrNull {
+    final items = context.read<GalleryNotifier>().activeItems;
+    return _currentIndex < items.length ? items[_currentIndex] : null;
+  }
 
   GalleryItem get _currentItem {
     final gallery = Provider.of<GalleryNotifier>(context, listen: false);
@@ -144,9 +159,11 @@ class _ImageDetailViewState extends State<ImageDetailView>
       setState(() => _isLoadingMetadata = false);
       return;
     }
-    final metadata = await gallery.getMetadata(items[_currentIndex]);
+    final item = items[_currentIndex];
+    final metadata = await gallery.getMetadata(item);
 
-    if (!mounted) return;
+    // A later page change owns the panel now; never show stale metadata.
+    if (!mounted || _currentItemOrNull != item) return;
     if (metadata != null && metadata.containsKey('Comment')) {
       final settings = parseCommentJson(metadata['Comment']!);
       setState(() {
@@ -208,18 +225,57 @@ class _ImageDetailViewState extends State<ImageDetailView>
     }
   }
 
-  /// Jump to the newly inserted image at index 0 after post-processing saves.
-  void _jumpToNewImage() {
+  /// Shows a freshly saved result. It lands wherever the current sort puts
+  /// it, and an album, favorites, search or demo filter may hide it.
+  void _jumpToNewImage(String basename) {
+    final index = context.read<GalleryNotifier>().activeIndexOf(basename);
+    if (index == null) {
+      showAppSnackBar(context, context.l.galleryNewImageHidden);
+      return;
+    }
     setState(() {
-      _currentIndex = 0;
+      _currentIndex = index;
       _isLoadingMetadata = true;
       _promptExpanded = false;
       _isZoomed = false;
       _showScrollIndicator = true;
     });
-    _pageController.jumpToPage(0);
+    _pageController.jumpToPage(index);
     _loadMetadata();
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkActionOverflow());
+  }
+
+  /// The current image just left the active list (deleted, removed from the
+  /// album, or unfavorited while only favorites show). The same index now
+  /// holds the next image, so reload its metadata. When none is left, the
+  /// empty-list guard in [build] closes the view.
+  void _onCurrentItemRemoved() {
+    final items = context.read<GalleryNotifier>().activeItems;
+    if (items.isEmpty) return;
+    setState(() {
+      if (_currentIndex >= items.length) _currentIndex = items.length - 1;
+      _isLoadingMetadata = true;
+      _promptExpanded = false;
+    });
+    _loadMetadata();
+  }
+
+  /// Loads [item] into a tool and opens that tool in place of the gallery.
+  Future<void> _sendToTool(
+    GalleryItem item,
+    String toolId,
+    Future<void> Function(Uint8List bytes) loadSource,
+  ) async {
+    final bytes = await item.file.readAsBytes();
+    if (!mounted) return;
+    await loadSource(bytes);
+    if (!mounted) return;
+    final navigator = Navigator.of(context);
+    navigator.pop(); // detail view
+    navigator.pop(); // gallery
+    navigator.push(
+      MaterialPageRoute(builder: (_) => ToolsHubScreen(initialToolId: toolId)),
+    );
   }
 
   /// Returns (label, color) for post-processed images based on filename prefix.
@@ -327,7 +383,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
       final fileName = p.basename(sourceFile.path);
       final customFolder = prefs.exportFolderPath;
 
-      // Honor a user-chosen export folder on mobile (previously ignored — the
+      // Honor a user-chosen export folder on touch (previously ignored — the
       // detail-view export always went to the device gallery, symptom #1 of #13).
       if (!kIsWeb &&
           (Platform.isAndroid || Platform.isIOS) &&
@@ -343,9 +399,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
           if (mounted) {
             showErrorSnackBar(
               context,
-              context.l.galleryExportFailed(
-                'Export folder unavailable — re-pick it in Settings',
-              ),
+              context.l.galleryExportFolderUnavailable,
             );
           }
           return;
@@ -420,10 +474,85 @@ class _ImageDetailViewState extends State<ImageDetailView>
     }
   }
 
+  NovelAiImageActionService _naiActions() => NovelAiImageActionService(
+    context.read<GenerationNotifier>().service,
+    saver: ToolResultSaver.of(context),
+  );
+
+  String _outputName(String prefix, GalleryItem item) =>
+      '${prefix}_${p.basenameWithoutExtension(item.file.path)}_'
+      '${generateTimestamp()}.png';
+
+  /// Shows an upscale next to its source; the user (or auto-save) keeps it.
+  Future<void> _reviewUpscale(
+    Uint8List source,
+    Uint8List result,
+    String outputName,
+    Future<ToolResultSaveOutcome> Function() save,
+  ) async {
+    final autoSave = context.read<GenerationNotifier>().state.autoSaveImages;
+    ToolResultSaveOutcome? outcome;
+    await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => UpscaleComparisonView(
+          originalBytes: source,
+          upscaledBytes: result,
+          outputName: outputName,
+          autoSave: autoSave,
+          onSave: () async {
+            final saved = await save();
+            outcome = saved;
+            if (!saved.succeeded && mounted) {
+              showToolResultSaveFeedback(context, saved);
+            }
+            return saved.succeeded;
+          },
+        ),
+      ),
+    );
+    if (outcome?.destination == ToolResultDestination.gallery && mounted) {
+      _jumpToNewImage(outputName);
+    }
+  }
+
+  /// Lets the user refine a background removal, then saves what they keep.
+  Future<void> _reviewBgRemoval(
+    Uint8List result,
+    String outputName,
+    Future<ToolResultSaveOutcome> Function(Uint8List kept) save,
+  ) async {
+    final t = context.tRead;
+    final autoSave = context.read<GenerationNotifier>().state.autoSaveImages;
+    final kept = await showDialog<Uint8List>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog.fullscreen(
+        backgroundColor: t.background,
+        child: BGRemovalOverlay(
+          resultImage: result,
+          onSave: (img) => Navigator.pop(ctx, img),
+          onDiscard: () => Navigator.pop(ctx),
+          autoSave: autoSave,
+        ),
+      ),
+    );
+    if (kept == null || !mounted) return;
+    final outcome = await save(kept);
+    if (!mounted) return;
+    showToolResultSaveFeedback(
+      context,
+      outcome,
+      savedMessage: context.l.mlBgRemovedSavedAs(outputName),
+    );
+    if (outcome.destination == ToolResultDestination.gallery) {
+      _jumpToNewImage(outputName);
+    }
+  }
+
   Future<void> _handleRemoveBg(GalleryItem item) async {
     final ml = context.read<MLNotifier>();
-    final gallery = context.read<GalleryNotifier>();
-    final t = context.tRead;
+    final saver = ToolResultSaver.of(context);
 
     final bytes = await item.file.readAsBytes();
     if (!mounted) return;
@@ -436,41 +565,17 @@ class _ImageDetailViewState extends State<ImageDetailView>
       return;
     }
 
-    // Show BG removal overlay
-    if (!mounted) return;
-    final saved = await showDialog<Uint8List>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => Dialog.fullscreen(
-        backgroundColor: t.background,
-        child: BGRemovalOverlay(
-          resultImage: result,
-          onSave: (img) => Navigator.pop(ctx, img),
-          onDiscard: () => Navigator.pop(ctx),
-          autoSave: context.read<GenerationNotifier>().state.autoSaveImages,
-        ),
-      ),
+    final outputName = _outputName('BG', item);
+    await _reviewBgRemoval(
+      result,
+      outputName,
+      (kept) => saver.save(kept, outputName, sourceBytes: bytes),
     );
-
-    if (saved != null && mounted) {
-      final baseName = p.basenameWithoutExtension(item.file.path);
-      final timestamp = generateTimestamp();
-      final outputName = 'BG_${baseName}_$timestamp.png';
-      await gallery.saveMLResultWithMetadata(
-        saved,
-        outputName,
-        sourceBytes: bytes,
-      );
-      if (mounted) {
-        showAppSnackBar(context, context.l.mlBgRemovedSavedAs(outputName));
-        _jumpToNewImage();
-      }
-    }
   }
 
   Future<void> _handleUpscale(GalleryItem item) async {
     final ml = context.read<MLNotifier>();
-    final gallery = context.read<GalleryNotifier>();
+    final saver = ToolResultSaver.of(context);
 
     final bytes = await item.file.readAsBytes();
     if (!mounted) return;
@@ -483,219 +588,66 @@ class _ImageDetailViewState extends State<ImageDetailView>
       return;
     }
 
-    final baseName = p.basenameWithoutExtension(item.file.path);
-    final timestamp = generateTimestamp();
-    final outputName = 'UP_${baseName}_$timestamp.png';
-
-    if (mounted) {
-      final gen = context.read<GenerationNotifier>();
-      final saved = await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => UpscaleComparisonView(
-            originalBytes: bytes,
-            upscaledBytes: result,
-            outputName: outputName,
-            autoSave: gen.state.autoSaveImages,
-            onSave: () async {
-              await gallery.saveMLResultWithMetadata(
-                result,
-                outputName,
-                sourceBytes: bytes,
-              );
-            },
-          ),
-        ),
-      );
-      if (saved == true && mounted) {
-        _jumpToNewImage();
-      }
-    }
+    final outputName = _outputName('UP', item);
+    await _reviewUpscale(
+      bytes,
+      result,
+      outputName,
+      () => saver.save(result, outputName, sourceBytes: bytes),
+    );
   }
 
-  Future<void> _handleNaiUpscale(GalleryItem item) async {
-    final gen = context.read<GenerationNotifier>();
-    final naiActions = NovelAiImageActionService(gen.service);
-    if (!naiActions.isConfigured(apiKey: gen.state.apiKey)) {
-      showErrorSnackBar(context, context.l.naiApiKeyRequired);
-      return;
-    }
-    final gallery = context.read<GalleryNotifier>();
-
-    final bytes = await item.file.readAsBytes();
-    if (!mounted) return;
-
-    final codec = await ui.instantiateImageCodec(bytes);
-    final frame = await codec.getNextFrame();
-    final w = frame.image.width;
-    final h = frame.image.height;
-    frame.image.dispose();
-
-    final scale = NovelAIService.bestUpscaleScale(w, h);
-    if (scale == null) {
-      if (!mounted) return;
-      showErrorSnackBar(context, context.l.naiUpscaleTooLarge(w, h));
-      return;
-    }
-
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        final t = ctx.tRead;
-        return AlertDialog(
-          backgroundColor: t.surfaceHigh,
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(),
-              const SizedBox(height: 16),
-              Text(
-                context.l.naiUpscaling,
-                style: TextStyle(
-                  fontSize: t.fontSize(10),
-                  letterSpacing: 2,
-                  color: t.textSecondary,
-                ),
-              ),
-            ],
-          ),
+  Future<void> _handleNaiUpscale(
+    GalleryItem item, {
+    required bool permissionGranted,
+  }) {
+    final service = _naiActions();
+    return _naiFlow.run(
+      context,
+      service: service,
+      action: NovelAiImageAction.upscale,
+      permissionGranted: permissionGranted,
+      apiKey: context.read<GenerationNotifier>().state.apiKey,
+      readSource: item.file.readAsBytes,
+      onResult: (source, result) {
+        final outputName = _outputName(
+          NovelAiImageAction.upscale.filePrefix,
+          item,
         );
-      },
-    );
-
-    try {
-      final result = await naiActions.upscale(
-        bytes: bytes,
-        width: w,
-        height: h,
-        scale: scale,
-      );
-      if (!mounted) return;
-      Navigator.of(context).pop();
-
-      final baseName = p.basenameWithoutExtension(item.file.path);
-      final timestamp = generateTimestamp();
-      final outputName = 'NAI_UP_${baseName}_$timestamp.png';
-
-      final saved = await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => UpscaleComparisonView(
-            originalBytes: bytes,
-            upscaledBytes: result,
-            outputName: outputName,
-            autoSave: gen.state.autoSaveImages,
-            onSave: () async {
-              await gallery.saveMLResultWithMetadata(
-                result,
-                outputName,
-                sourceBytes: bytes,
-              );
-            },
-          ),
-        ),
-      );
-      if (saved == true && mounted) {
-        _jumpToNewImage();
-      }
-    } catch (e) {
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      showErrorSnackBar(context, context.l.naiUpscaleFailed);
-    }
-  }
-
-  Future<void> _handleNaiBgRemoval(GalleryItem item) async {
-    final gen = context.read<GenerationNotifier>();
-    final naiActions = NovelAiImageActionService(gen.service);
-    if (!naiActions.isConfigured(apiKey: gen.state.apiKey)) {
-      showErrorSnackBar(context, context.l.naiApiKeyRequired);
-      return;
-    }
-    final gallery = context.read<GalleryNotifier>();
-    final t = context.tRead;
-
-    final bytes = await item.file.readAsBytes();
-    if (!mounted) return;
-
-    final codec = await ui.instantiateImageCodec(bytes);
-    final frame = await codec.getNextFrame();
-    final w = frame.image.width;
-    final h = frame.image.height;
-    frame.image.dispose();
-
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        final t = ctx.tRead;
-        return AlertDialog(
-          backgroundColor: t.surfaceHigh,
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(),
-              const SizedBox(height: 16),
-              Text(
-                ctx.l.naiRemovingBackground,
-                style: TextStyle(
-                  fontSize: t.fontSize(10),
-                  letterSpacing: 2,
-                  color: t.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    try {
-      final result = await naiActions.removeBackground(
-        bytes: bytes,
-        width: w,
-        height: h,
-      );
-      if (!mounted) return;
-      Navigator.of(context).pop();
-
-      // Show BG removal overlay
-      final saved = await showDialog<Uint8List>(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => Dialog.fullscreen(
-          backgroundColor: t.background,
-          child: BGRemovalOverlay(
-            resultImage: result,
-            onSave: (img) => Navigator.pop(ctx, img),
-            onDiscard: () => Navigator.pop(ctx),
-            autoSave: gen.state.autoSaveImages,
-          ),
-        ),
-      );
-
-      if (saved != null && mounted) {
-        final baseName = p.basenameWithoutExtension(item.file.path);
-        final timestamp = generateTimestamp();
-        final outputName = 'BG_${baseName}_$timestamp.png';
-        await gallery.saveMLResultWithMetadata(
-          saved,
+        return _reviewUpscale(
+          source,
+          result,
           outputName,
-          sourceBytes: bytes,
+          () => service.save(result, outputName, sourceBytes: source),
         );
-        if (mounted) {
-          showAppSnackBar(context, context.l.mlBgRemovedSavedAs(outputName));
-          _jumpToNewImage();
-        }
-      }
-    } catch (e) {
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      showErrorSnackBar(context, context.l.naiBgRemovalFailed);
-    }
+      },
+    );
+  }
+
+  Future<void> _handleNaiBgRemoval(
+    GalleryItem item, {
+    required bool permissionGranted,
+  }) {
+    final service = _naiActions();
+    return _naiFlow.run(
+      context,
+      service: service,
+      action: NovelAiImageAction.backgroundRemoval,
+      permissionGranted: permissionGranted,
+      apiKey: context.read<GenerationNotifier>().state.apiKey,
+      readSource: item.file.readAsBytes,
+      onResult: (source, result) {
+        final outputName = _outputName(
+          NovelAiImageAction.backgroundRemoval.filePrefix,
+          item,
+        );
+        return _reviewBgRemoval(
+          result,
+          outputName,
+          (kept) => service.save(kept, outputName, sourceBytes: source),
+        );
+      },
+    );
   }
 
   void _launchSlideshow() {
@@ -739,41 +691,60 @@ class _ImageDetailViewState extends State<ImageDetailView>
         if (mounted) {
           showAppSnackBar(
             context,
-            'COPIED TO CLIPBOARD',
-            color: const Color(0xFF4CAF50),
+            context.l.galleryCopiedToClipboard,
+            color: context.tRead.accentSuccess,
           );
         }
         return;
       }
     } catch (_) {}
-    if (mounted) showErrorSnackBar(context, 'CLIPBOARD NOT AVAILABLE');
+    if (mounted) {
+      showErrorSnackBar(context, context.l.galleryClipboardUnavailable);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final t = context.t;
     final gallery = context.watch<GalleryNotifier>();
-    final mobile = isMobile(context);
+    final touch = windowSizeClassOf(context).isTouchSized;
     final topPadding = MediaQuery.of(context).padding.top;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final items = gallery.activeItems;
     final ml = context.watch<MLNotifier>();
     final prefs = context.read<PreferencesService>();
+    final naiBgRemovalAllowed = hasNovelAiImageActionPermission(
+      context,
+      NovelAiImageAction.backgroundRemoval,
+    );
+    final naiUpscaleAllowed = hasNovelAiImageActionPermission(
+      context,
+      NovelAiImageAction.upscale,
+    );
     final canRemoveBackground = prefs.bgRemovalBackend == 'novelai'
-        ? hasNovelAiImageActionPermission(
+        ? isNovelAiImageActionOffered(
             context,
             NovelAiImageAction.backgroundRemoval,
           )
         : ml.hasBgRemovalModel;
     final canUpscale = prefs.upscaleBackend == 'novelai'
-        ? hasNovelAiImageActionPermission(context, NovelAiImageAction.upscale)
+        ? isNovelAiImageActionOffered(context, NovelAiImageAction.upscale)
         : ml.hasUpscaleModel;
+    // Tools that are charged by NovelAI say what they can cost at most.
+    String withCap(String label, PaidTool tool, {required bool paid}) {
+      final cap = paid ? paidToolCapLabel(context, tool) : null;
+      return (cap == null ? label : '$label · $cap').toUpperCase();
+    }
 
-    // Guard: if all images deleted, pop
+    // Guard: if all images are gone, pop once (later rebuilds during the exit
+    // transition must not pop the gallery underneath as well).
     if (items.isEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.pop(context);
-      });
+      if (!_closing) {
+        _closing = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) Navigator.pop(context);
+        });
+      }
       return Scaffold(backgroundColor: t.background);
     }
 
@@ -783,6 +754,19 @@ class _ImageDetailViewState extends State<ImageDetailView>
     }
 
     final item = items[_currentIndex];
+
+    Widget viewerAction({
+      required IconData icon,
+      required String label,
+      required Color color,
+      required VoidCallback? onTap,
+    }) => OverlayActionButton(
+      icon: icon,
+      tooltip: label,
+      label: label,
+      color: color,
+      onPressed: onTap,
+    );
 
     return Scaffold(
       backgroundColor: t.background,
@@ -870,9 +854,12 @@ class _ImageDetailViewState extends State<ImageDetailView>
                               IconButton(
                                 icon: Icon(
                                   Icons.arrow_back_ios,
-                                  size: mobile ? 20 : 14,
+                                  size: touch ? 20 : 14,
                                   color: t.textSecondary,
                                 ),
+                                tooltip: MaterialLocalizations.of(
+                                  context,
+                                ).backButtonTooltip,
                                 onPressed: () => Navigator.pop(context),
                               ),
                               Expanded(
@@ -881,7 +868,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                     '${_currentIndex + 1} / ${items.length}',
                                     style: TextStyle(
                                       color: t.textDisabled,
-                                      fontSize: t.fontSize(mobile ? 11 : 9),
+                                      fontSize: t.fontSize(touch ? 11 : 9),
                                       letterSpacing: 1,
                                     ),
                                   ),
@@ -895,7 +882,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                       item.isFavorite
                                           ? Icons.star
                                           : Icons.star_outline,
-                                      size: mobile ? 22 : 18,
+                                      size: touch ? 22 : 18,
                                       color: item.isFavorite
                                           ? t.accentFavorite
                                           : t.textSecondary,
@@ -903,15 +890,20 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                     tooltip: context.l.galleryToggleFavorite,
                                     onPressed: () {
                                       gallery.toggleFavorite(item);
-                                      setState(() {});
+                                      if (gallery.showFavoritesOnly &&
+                                          !item.isFavorite) {
+                                        _onCurrentItemRemoved();
+                                      } else {
+                                        setState(() {});
+                                      }
                                     },
                                   ),
                                   _isExporting
                                       ? Padding(
                                           padding: const EdgeInsets.all(12),
                                           child: SizedBox(
-                                            width: mobile ? 22 : 18,
-                                            height: mobile ? 22 : 18,
+                                            width: touch ? 22 : 18,
+                                            height: touch ? 22 : 18,
                                             child: CircularProgressIndicator(
                                               strokeWidth: 2,
                                               color: t.textSecondary,
@@ -921,7 +913,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                       : IconButton(
                                           icon: Icon(
                                             Icons.save_alt,
-                                            size: mobile ? 22 : 18,
+                                            size: touch ? 22 : 18,
                                             color: t.textSecondary,
                                           ),
                                           tooltip: context.l.galleryExportImage,
@@ -932,34 +924,37 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                     IconButton(
                                       icon: Icon(
                                         Icons.playlist_remove,
-                                        size: mobile ? 22 : 18,
+                                        size: touch ? 22 : 18,
                                         color: t.textSecondary,
                                       ),
-                                      tooltip: 'Remove from album',
-                                      onPressed: () {
-                                        gallery.removeFromAlbum(
-                                          gallery.activeAlbumId!,
-                                          [item],
+                                      tooltip: context.l.galleryRemoveFromAlbum,
+                                      onPressed: () async {
+                                        final albumId = gallery.activeAlbumId!;
+                                        final confirm = await showConfirmDialog(
+                                          context,
+                                          title: context
+                                              .l
+                                              .galleryRemoveFromAlbumTitle,
+                                          message: context
+                                              .l
+                                              .galleryRemoveFromAlbumMessage,
+                                          confirmLabel: context.l.galleryRemove,
+                                          cancelLabel: context.l.commonCancel,
                                         );
-                                        final newItems = gallery.activeItems;
-                                        if (!context.mounted) return;
-                                        if (newItems.isEmpty) {
-                                          Navigator.pop(context);
-                                        } else {
-                                          setState(() {
-                                            if (_currentIndex >=
-                                                newItems.length) {
-                                              _currentIndex =
-                                                  newItems.length - 1;
-                                            }
-                                          });
+                                        if (!context.mounted ||
+                                            confirm != true) {
+                                          return;
                                         }
+                                        gallery.removeFromAlbum(albumId, [
+                                          item,
+                                        ]);
+                                        _onCurrentItemRemoved();
                                       },
                                     ),
                                   IconButton(
                                     icon: Icon(
                                       Icons.delete_outline,
-                                      size: mobile ? 22 : 18,
+                                      size: touch ? 22 : 18,
                                       color: t.accentDanger,
                                     ),
                                     tooltip:
@@ -979,23 +974,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                         listen: false,
                                       ).deleteItem(item);
                                       if (!context.mounted) return;
-                                      final newItems =
-                                          Provider.of<GalleryNotifier>(
-                                            context,
-                                            listen: false,
-                                          ).activeItems;
-                                      if (newItems.isEmpty) {
-                                        Navigator.pop(context);
-                                      } else {
-                                        setState(() {
-                                          if (_currentIndex >=
-                                              newItems.length) {
-                                            _currentIndex = newItems.length - 1;
-                                          }
-                                          _isLoadingMetadata = true;
-                                        });
-                                        _loadMetadata();
-                                      }
+                                      _onCurrentItemRemoved();
                                     },
                                   ),
                                 ],
@@ -1019,7 +998,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
                     child: IgnorePointer(
                       ignoring: !_showControls,
                       child: GalleryDetailPanelViewport(
-                        mobile: mobile,
+                        mobile: touch,
                         padding: EdgeInsets.only(
                           bottom: bottomPadding + 12,
                           left: 16,
@@ -1066,7 +1045,7 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                       label,
                                       style: TextStyle(
                                         color: color,
-                                        fontSize: t.fontSize(mobile ? 9 : 7),
+                                        fontSize: t.fontSize(touch ? 9 : 7),
                                         fontWeight: FontWeight.bold,
                                         letterSpacing: 1,
                                       ),
@@ -1095,18 +1074,18 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       color: t.textSecondary,
-                                      fontSize: mobile
+                                      fontSize: touch
                                           ? t.fontSize(12)
                                           : t.fontSize(9),
                                       fontWeight: FontWeight.bold,
                                       letterSpacing: 0.5,
                                       shadows: [
                                         Shadow(
-                                          color: Colors.black,
+                                          color: t.background,
                                           blurRadius: 4,
                                         ),
                                         Shadow(
-                                          color: Colors.black,
+                                          color: t.background,
                                           blurRadius: 8,
                                         ),
                                       ],
@@ -1167,11 +1146,11 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                     letterSpacing: 1,
                                     shadows: [
                                       Shadow(
-                                        color: Colors.black,
+                                        color: t.background,
                                         blurRadius: 4,
                                       ),
                                       Shadow(
-                                        color: Colors.black,
+                                        color: t.background,
                                         blurRadius: 8,
                                       ),
                                     ],
@@ -1185,15 +1164,13 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                     controller: _actionScrollController,
                                     scrollDirection: Axis.horizontal,
                                     child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceEvenly,
+                                      spacing: VisionMetrics.space8,
                                       children: [
-                                        _ViewerAction(
+                                        viewerAction(
                                           icon: Icons.upload_outlined,
                                           label: context.l.galleryPrompt
                                               .toUpperCase(),
                                           color: t.accent,
-                                          mobile: mobile,
                                           onTap: () async {
                                             final notifier = context
                                                 .read<GenerationNotifier>();
@@ -1217,181 +1194,136 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                             Navigator.pop(context);
                                           },
                                         ),
-                                        _ViewerAction(
+                                        viewerAction(
                                           icon: Icons.brush_outlined,
                                           label: context.l.galleryImg2img
                                               .toUpperCase(),
                                           color: t.accentEdit,
-                                          mobile: mobile,
-                                          onTap: () async {
-                                            final bytes = await item.file
-                                                .readAsBytes();
-                                            if (!context.mounted) return;
-                                            String? prompt;
-                                            String? negativePrompt;
-                                            final prefs = context
-                                                .read<PreferencesService>();
-                                            if (prefs.img2imgImportPrompt) {
-                                              final metadata = extractMetadata(
-                                                bytes,
-                                              );
-                                              if (metadata != null &&
-                                                  metadata.containsKey(
-                                                    'Comment',
-                                                  )) {
-                                                final json = parseCommentJson(
-                                                  metadata['Comment']!,
-                                                );
-                                                if (json != null) {
-                                                  // Prefer the clean base prompt over the
-                                                  // fully-styled one. The 'prompt' field has
-                                                  // the active style's prefix/suffix already
-                                                  // baked in; img2img re-applies the current
-                                                  // style at generation time, so loading the
-                                                  // styled prompt double-applies it. Older
-                                                  // images without 'original_prompt' fall back
-                                                  // to 'prompt'.
-                                                  prompt =
-                                                      (json['original_prompt']
-                                                          as String?) ??
-                                                      (json['prompt']
-                                                          as String?);
-                                                  negativePrompt =
-                                                      json['uc'] as String?;
-                                                }
-                                              }
-                                            }
-                                            if (!context.mounted) return;
-                                            context
-                                                .read<Img2ImgNotifier>()
-                                                .loadSourceImage(
-                                                  bytes,
-                                                  prompt: prompt,
-                                                  negativePrompt:
-                                                      negativePrompt,
-                                                  filePath: item.file.path,
-                                                );
-                                            Navigator.pop(context);
-                                            Navigator.pop(context);
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    const ToolsHubScreen(
-                                                      initialToolId: 'img2img',
-                                                    ),
-                                              ),
-                                            );
-                                          },
+                                          onTap: () => _sendToTool(
+                                            item,
+                                            'img2img',
+                                            (bytes) {
+                                              final imported =
+                                                  prefs.img2imgImportPrompt
+                                                  ? promptFromImageMetadata(
+                                                      bytes,
+                                                    )
+                                                  : null;
+                                              return context
+                                                  .read<Img2ImgNotifier>()
+                                                  .loadSourceImage(
+                                                    bytes,
+                                                    prompt: imported?.prompt,
+                                                    negativePrompt: imported
+                                                        ?.negativePrompt,
+                                                    filePath: item.file.path,
+                                                  );
+                                            },
+                                          ),
                                         ),
-                                        _ViewerAction(
+                                        viewerAction(
                                           icon: Icons.hd,
                                           label: context.l.galleryEnhance
                                               .toUpperCase(),
                                           color: t.accent,
-                                          mobile: mobile,
-                                          onTap: () async {
-                                            final bytes = await item.file
-                                                .readAsBytes();
-                                            if (!context.mounted) return;
+                                          onTap: () => _sendToTool(
+                                            item,
+                                            'enhance',
                                             context
                                                 .read<EnhanceNotifier>()
-                                                .setSourceImage(bytes);
-                                            Navigator.pop(context);
-                                            Navigator.pop(context);
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    const ToolsHubScreen(
-                                                      initialToolId: 'enhance',
-                                                    ),
-                                              ),
-                                            );
-                                          },
+                                                .setSourceImage,
+                                          ),
                                         ),
-                                        _ViewerAction(
+                                        viewerAction(
                                           icon: Icons.auto_fix_high,
                                           label: context.l.galleryDirectorTools
                                               .toUpperCase(),
                                           color: t.accent,
-                                          mobile: mobile,
-                                          onTap: () async {
-                                            final bytes = await item.file
-                                                .readAsBytes();
-                                            if (!context.mounted) return;
+                                          onTap: () => _sendToTool(
+                                            item,
+                                            'director_tools',
                                             context
                                                 .read<DirectorToolsNotifier>()
-                                                .setSourceImage(bytes);
-                                            Navigator.pop(context);
-                                            Navigator.pop(context);
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    const ToolsHubScreen(
-                                                      initialToolId:
-                                                          'director_tools',
-                                                    ),
-                                              ),
-                                            );
-                                          },
+                                                .setSourceImage,
+                                          ),
                                         ),
                                         if (canRemoveBackground)
-                                          _ViewerAction(
+                                          viewerAction(
                                             icon: ml.isProcessing
                                                 ? Icons.hourglass_top
                                                 : Icons.content_cut,
-                                            label: context.l.mlRemoveBg
-                                                .toUpperCase(),
+                                            label: withCap(
+                                              context.l.mlRemoveBg,
+                                              PaidTool.augment,
+                                              paid:
+                                                  prefs.bgRemovalBackend ==
+                                                  'novelai',
+                                            ),
                                             color: t.accent,
-                                            mobile: mobile,
                                             onTap: ml.isProcessing
-                                                ? () {}
+                                                ? null
                                                 : () {
                                                     if (prefs
                                                             .bgRemovalBackend ==
                                                         'novelai') {
-                                                      _handleNaiBgRemoval(item);
+                                                      _handleNaiBgRemoval(
+                                                        item,
+                                                        permissionGranted:
+                                                            naiBgRemovalAllowed,
+                                                      );
                                                     } else {
                                                       _handleRemoveBg(item);
                                                     }
                                                   },
                                           ),
                                         if (canUpscale)
-                                          _ViewerAction(
+                                          viewerAction(
                                             icon: ml.isProcessing
                                                 ? Icons.hourglass_top
                                                 : Icons.zoom_out_map,
-                                            label: context.l.mlUpscale
-                                                .toUpperCase(),
+                                            label: withCap(
+                                              context.l.mlUpscale,
+                                              PaidTool.upscale,
+                                              paid:
+                                                  prefs.upscaleBackend ==
+                                                  'novelai',
+                                            ),
                                             color: t.accent,
-                                            mobile: mobile,
                                             onTap: ml.isProcessing
-                                                ? () {}
+                                                ? null
                                                 : () {
                                                     if (prefs.upscaleBackend ==
                                                         'novelai') {
-                                                      _handleNaiUpscale(item);
+                                                      _handleNaiUpscale(
+                                                        item,
+                                                        permissionGranted:
+                                                            naiUpscaleAllowed,
+                                                      );
                                                     } else {
                                                       _handleUpscale(item);
                                                     }
                                                   },
                                           ),
-                                        _ViewerAction(
+                                        viewerAction(
                                           icon: Icons.person_outline,
                                           label: context.l.galleryCharRef
                                               .toUpperCase(),
                                           color: t.accentRefCharacter,
-                                          mobile: mobile,
                                           onTap: () async {
                                             final bytes = await item.file
                                                 .readAsBytes();
                                             if (!context.mounted) return;
-                                            await context
+                                            final id = await context
                                                 .read<DirectorRefNotifier>()
                                                 .addReference(bytes);
                                             if (!context.mounted) return;
+                                            if (id == null) {
+                                              showErrorSnackBar(
+                                                context,
+                                                context.l.refImageProcessFailed,
+                                              );
+                                              return;
+                                            }
                                             showAppSnackBar(
                                               context,
                                               context.l.galleryAddedAsCharRef,
@@ -1399,12 +1331,11 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                             );
                                           },
                                         ),
-                                        _ViewerAction(
+                                        viewerAction(
                                           icon: Icons.palette_outlined,
                                           label: context.l.galleryVibe
                                               .toUpperCase(),
                                           color: t.accentVibeTransfer,
-                                          mobile: mobile,
                                           onTap: () async {
                                             try {
                                               final bytes = await item.file
@@ -1425,31 +1356,32 @@ class _ImageDetailViewState extends State<ImageDetailView>
                                                 context,
                                                 context.l
                                                     .galleryVibeTransferFailed(
-                                                      e.toString(),
+                                                      vibeEncodeErrorMessage(
+                                                        context.l,
+                                                        e,
+                                                      ),
                                                     ),
                                               );
                                             }
                                           },
                                         ),
-                                        _ViewerAction(
+                                        viewerAction(
                                           icon: Icons.slideshow_outlined,
                                           label: context.l.gallerySlideshow
                                               .toUpperCase(),
                                           color: t.textSecondary,
-                                          mobile: mobile,
                                           onTap: _launchSlideshow,
                                         ),
-                                        _ViewerAction(
-                                          icon: mobile
+                                        viewerAction(
+                                          icon: touch
                                               ? Icons.share
                                               : Icons.copy,
-                                          label: mobile
+                                          label: touch
                                               ? context.l.galleryShare
                                                     .toUpperCase()
                                               : context.l.galleryCopy
                                                     .toUpperCase(),
                                           color: t.textSecondary,
-                                          mobile: mobile,
                                           onTap: () =>
                                               _copyImageToClipboard(item),
                                         ),
@@ -1509,49 +1441,6 @@ class _ImageDetailViewState extends State<ImageDetailView>
   }
 }
 
-class _ViewerAction extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final bool mobile;
-  final VoidCallback onTap;
-
-  const _ViewerAction({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.mobile,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: mobile ? 12 : 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: mobile ? 26 : 20, color: color),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: mobile ? t.fontSize(8) : t.fontSize(7),
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _InfoChip extends StatelessWidget {
   final String label;
   final String value;
@@ -1561,12 +1450,12 @@ class _InfoChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final mobile = isMobile(context);
+    final touch = windowSizeClassOf(context).isTouchSized;
     return Container(
       margin: const EdgeInsets.only(right: 8),
       padding: EdgeInsets.symmetric(
-        horizontal: mobile ? 12 : 8,
-        vertical: mobile ? 6 : 4,
+        horizontal: touch ? 12 : 8,
+        vertical: touch ? 6 : 4,
       ),
       decoration: BoxDecoration(
         color: t.borderSubtle,
@@ -1580,7 +1469,7 @@ class _InfoChip extends StatelessWidget {
             label,
             style: TextStyle(
               color: t.textDisabled,
-              fontSize: mobile ? t.fontSize(9) : t.fontSize(7),
+              fontSize: touch ? t.fontSize(9) : t.fontSize(7),
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -1588,7 +1477,7 @@ class _InfoChip extends StatelessWidget {
             value,
             style: TextStyle(
               color: t.textSecondary,
-              fontSize: mobile ? t.fontSize(11) : t.fontSize(9),
+              fontSize: touch ? t.fontSize(11) : t.fontSize(9),
               fontWeight: FontWeight.w900,
             ),
           ),

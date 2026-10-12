@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import '../../../core/utils/file_picker_helper.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -8,38 +7,28 @@ import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/services/path_service.dart';
 import '../../../core/services/reference_library_service.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/vision_metrics.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/widgets/ui/app_sheet.dart';
+import '../../../core/widgets/ui/app_states.dart';
+import '../../generation/widgets/billing_text.dart';
 import '../models/director_reference.dart';
 import '../providers/director_ref_notifier.dart';
 import 'director_ref_chip.dart';
 import 'director_ref_editor_sheet.dart';
+import 'reference_fields.dart' show localizedRefType;
+import 'reference_add_actions.dart';
 
 class DirectorRefShelf extends StatelessWidget {
   const DirectorRefShelf({super.key});
-
-  Future<void> _pickAndAdd(
-    BuildContext context, {
-    bool useFileBrowser = false,
-  }) async {
-    final result = await pickImageFiles(useFileBrowser: useFileBrowser);
-    if (result != null) {
-      final bytes = await readPickedFileBytes(result.files.single);
-      if (bytes == null) return;
-      if (context.mounted) {
-        context.read<DirectorRefNotifier>().addReference(bytes);
-      }
-    }
-  }
 
   void _openEditor(
     BuildContext context,
     DirectorRefNotifier notifier,
     DirectorReference ref,
   ) {
-    showModalBottomSheet(
+    showAppSheet<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) => DirectorRefEditorSheet(
         reference: ref,
         onTypeChanged: (t) => notifier.updateType(ref.id, t),
@@ -71,7 +60,7 @@ class DirectorRefShelf extends StatelessWidget {
       context: context,
       position: position,
       color: t.surfaceHigh,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      shape: RoundedRectangleBorder(borderRadius: VisionMetrics.borderRadius4),
       items: [
         PopupMenuItem(
           value: 'library',
@@ -80,7 +69,7 @@ class DirectorRefShelf extends StatelessWidget {
             children: [
               Icon(
                 Icons.bookmark_outline,
-                size: 14,
+                size: VisionMetrics.iconSmall,
                 color: t.accentRefCharacter,
               ),
               const SizedBox(width: 8),
@@ -103,7 +92,7 @@ class DirectorRefShelf extends StatelessWidget {
             children: [
               Icon(
                 Icons.add_photo_alternate_outlined,
-                size: 14,
+                size: VisionMetrics.iconSmall,
                 color: t.accentRefCharacter,
               ),
               const SizedBox(width: 8),
@@ -125,7 +114,11 @@ class DirectorRefShelf extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.folder_open, size: 14, color: t.accentRefCharacter),
+                Icon(
+                  Icons.folder_open,
+                  size: VisionMetrics.iconSmall,
+                  color: t.accentRefCharacter,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   l.refBrowseFiles,
@@ -145,32 +138,20 @@ class DirectorRefShelf extends StatelessWidget {
     if (value == 'library') {
       _showSavedRefsSheet(context);
     } else if (value == 'pick') {
-      _pickAndAdd(context);
+      pickAndAddReferences(context);
     } else if (value == 'browse') {
-      _pickAndAdd(context, useFileBrowser: true);
+      pickAndAddReferences(context, useFileBrowser: true);
     }
   }
 
   void _showSavedRefsSheet(BuildContext context) {
-    showModalBottomSheet(
+    showAppSheet<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) => SavedRefsSheet(
-        onLoad: (saved) async {
-          final notifier = context.read<DirectorRefNotifier>();
-          await notifier.addReference(saved.reference.originalImageBytes);
-          final refs = notifier.references;
-          if (refs.isNotEmpty) {
-            final last = refs.last;
-            notifier.updateType(last.id, saved.reference.type);
-            notifier.updateStrength(last.id, saved.reference.strength);
-            notifier.updateFidelity(last.id, saved.reference.fidelity);
-          }
-        },
-        onPickImage: () => _pickAndAdd(context),
+        onLoad: (saved) => addSavedReference(context, saved),
+        onPickImage: () => pickAndAddReferences(context),
         onBrowseFiles: !kIsWeb && Platform.isAndroid
-            ? () => _pickAndAdd(context, useFileBrowser: true)
+            ? () => pickAndAddReferences(context, useFileBrowser: true)
             : null,
       ),
     );
@@ -182,11 +163,11 @@ class DirectorRefShelf extends StatelessWidget {
       builder: (context, notifier, _) {
         final refs = notifier.references;
 
-        final mobile = isMobile(context);
+        final touch = windowSizeClassOf(context).isTouchSized;
         return AnimatedSize(
           duration: const Duration(milliseconds: 200),
           child: Container(
-            height: mobile ? 52 : 44,
+            height: touch ? 52 : 44,
             margin: const EdgeInsets.only(top: 2, bottom: 2),
             child: ListView(
               scrollDirection: Axis.horizontal,
@@ -197,6 +178,9 @@ class DirectorRefShelf extends StatelessWidget {
                     reference: ref,
                     onTap: () => _openEditor(context, notifier, ref),
                     onLongPress: () => notifier.removeReference(ref.id),
+                    pausedReason: notifier.isPaused(ref)
+                        ? pausedReasonText(context.l, notifier.access)
+                        : null,
                   ),
                 ),
                 _AddRefButton(
@@ -227,27 +211,36 @@ class _AddRefButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final mobile = isMobile(context);
+    final touch = windowSizeClassOf(context).isTouchSized;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 3),
-      child: GestureDetector(
-        onTap: isProcessing ? null : onTap,
-        onLongPress: isProcessing ? null : onLongPress,
-        child: Container(
-          height: mobile ? 44 : 36,
-          width: mobile ? 52 : 42,
-          decoration: BoxDecoration(
-            color: t.accentRefCharacter.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            'REF',
-            style: TextStyle(
-              fontSize: t.fontSize(mobile ? 9 : 7),
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1,
-              color: t.accentRefCharacter,
+      child: Tooltip(
+        message: context.l.refAddReference,
+        child: Opacity(
+          opacity: isProcessing ? VisionMetrics.opacityDisabled : 1,
+          child: Material(
+            color: t.accentRefCharacter.withValues(
+              alpha: VisionMetrics.opacityPressed,
+            ),
+            borderRadius: VisionMetrics.borderRadius4,
+            child: InkWell(
+              onTap: isProcessing ? null : onTap,
+              onLongPress: isProcessing ? null : onLongPress,
+              borderRadius: VisionMetrics.borderRadius4,
+              child: Container(
+                height: context.hitSize,
+                width: context.hitSize + VisionMetrics.space4,
+                alignment: Alignment.center,
+                child: Text(
+                  context.l.refShortLabel,
+                  style: TextStyle(
+                    fontSize: t.fontSize(touch ? 9 : 7),
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1,
+                    color: t.accentRefCharacter,
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -303,119 +296,54 @@ class _SavedRefsSheetState extends State<SavedRefsSheet> {
   Widget build(BuildContext context) {
     final t = context.t;
     final l = context.l;
-    final mobile = isMobile(context);
 
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.4,
-      ),
-      decoration: BoxDecoration(
-        color: t.surfaceHigh,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-      ),
+    return AppPickerSheet(
+      title: l.refSavedSection,
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Handle bar
-          Padding(
-            padding: const EdgeInsets.only(top: 8, bottom: 4),
-            child: Container(
-              width: 32,
-              height: 3,
-              decoration: BoxDecoration(
-                color: t.borderMedium,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          // Title
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Text(
-              l.refSavedSection,
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: t.fontSize(mobile ? 10 : 8),
-                letterSpacing: 2,
-                color: t.textPrimary,
-              ),
-            ),
-          ),
           // Picker actions (when caller wired them up)
-          if (widget.onPickImage != null || widget.onBrowseFiles != null)
+          if (widget.onPickImage != null)
+            _SavedRefActionTile(
+              icon: Icons.add_photo_alternate_outlined,
+              label: l.refPickImage,
+              onTap: () async {
+                Navigator.pop(context);
+                await widget.onPickImage!();
+              },
+            ),
+          if (widget.onBrowseFiles != null)
+            _SavedRefActionTile(
+              icon: Icons.folder_open,
+              label: l.refBrowseFiles,
+              onTap: () async {
+                Navigator.pop(context);
+                await widget.onBrowseFiles!();
+              },
+            ),
+          if ((widget.onPickImage != null || widget.onBrowseFiles != null) &&
+              _savedRefs.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-              child: Column(
-                children: [
-                  if (widget.onPickImage != null)
-                    _SavedRefActionTile(
-                      icon: Icons.add_photo_alternate_outlined,
-                      label: l.refPickImage,
-                      onTap: () async {
-                        Navigator.pop(context);
-                        await widget.onPickImage!();
-                      },
-                    ),
-                  if (widget.onBrowseFiles != null)
-                    _SavedRefActionTile(
-                      icon: Icons.folder_open,
-                      label: l.refBrowseFiles,
-                      onTap: () async {
-                        Navigator.pop(context);
-                        await widget.onBrowseFiles!();
-                      },
-                    ),
-                  if (_savedRefs.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Divider(color: t.borderSubtle, height: 1),
-                    ),
-                ],
+              padding: const EdgeInsets.symmetric(
+                vertical: VisionMetrics.space4,
               ),
+              child: Divider(color: t.borderSubtle, height: 1),
             ),
           // Content
           if (_loading)
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: t.textMinimal,
-              ),
-            )
+            const LoadingState()
           else if (_savedRefs.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(
-                l.refNoSavedRefs,
-                style: TextStyle(
-                  color: t.textDisabled,
-                  fontSize: t.fontSize(9),
-                  letterSpacing: 1,
-                ),
-              ),
-            )
+            EmptyState(message: l.refNoSavedRefs)
           else
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 4,
-                ),
-                itemCount: _savedRefs.length,
-                itemBuilder: (context, index) {
-                  final saved = _savedRefs[index];
-                  return _SavedRefTile(
-                    saved: saved,
-                    onTap: () {
-                      widget.onLoad(saved);
-                      Navigator.pop(context);
-                    },
-                  );
+            for (final saved in _savedRefs)
+              _SavedRefTile(
+                saved: saved,
+                onTap: () {
+                  widget.onLoad(saved);
+                  Navigator.pop(context);
                 },
               ),
-            ),
-          SizedBox(height: MediaQuery.of(context).padding.bottom + 8),
         ],
       ),
     );
@@ -431,7 +359,7 @@ class _SavedRefTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final mobile = isMobile(context);
+    final touch = windowSizeClassOf(context).isTouchSized;
     final ref = saved.reference;
 
     Widget? preview;
@@ -439,32 +367,30 @@ class _SavedRefTile extends StatelessWidget {
       try {
         preview = Image.memory(
           base64Decode(ref.processedBase64),
-          width: mobile ? 36 : 28,
-          height: mobile ? 36 : 28,
+          width: touch ? 36 : 28,
+          height: touch ? 36 : 28,
           fit: BoxFit.cover,
         );
       } catch (_) {}
     }
 
-    final typeLabel = switch (ref.type) {
-      DirectorReferenceType.character => 'CHAR',
-      DirectorReferenceType.style => 'STYLE',
-      DirectorReferenceType.characterAndStyle => 'C&S',
-    };
+    final typeLabel = localizedRefType(context.l, ref.type);
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(4),
+      borderRadius: VisionMetrics.borderRadius4,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
         child: Row(
           children: [
             Container(
-              width: mobile ? 36 : 28,
-              height: mobile ? 36 : 28,
+              width: touch ? 36 : 28,
+              height: touch ? 36 : 28,
               decoration: BoxDecoration(
-                color: t.accentRefCharacter.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(3),
+                color: t.accentRefCharacter.withValues(
+                  alpha: VisionMetrics.opacityPressed,
+                ),
+                borderRadius: VisionMetrics.borderRadius4,
               ),
               clipBehavior: Clip.antiAlias,
               child:
@@ -481,7 +407,7 @@ class _SavedRefTile extends StatelessWidget {
                     saved.name.toUpperCase(),
                     style: TextStyle(
                       color: t.textPrimary,
-                      fontSize: t.fontSize(mobile ? 10 : 8),
+                      fontSize: t.fontSize(touch ? 10 : 8),
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1,
                     ),
@@ -491,7 +417,7 @@ class _SavedRefTile extends StatelessWidget {
                     typeLabel,
                     style: TextStyle(
                       color: t.textDisabled,
-                      fontSize: t.fontSize(mobile ? 8 : 6),
+                      fontSize: t.fontSize(touch ? 8 : 6),
                       letterSpacing: 1,
                     ),
                   ),
@@ -519,20 +445,22 @@ class _SavedRefActionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final mobile = isMobile(context);
+    final touch = windowSizeClassOf(context).isTouchSized;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(4),
+      borderRadius: VisionMetrics.borderRadius4,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
         child: Row(
           children: [
             Container(
-              width: mobile ? 36 : 28,
-              height: mobile ? 36 : 28,
+              width: touch ? 36 : 28,
+              height: touch ? 36 : 28,
               decoration: BoxDecoration(
-                color: t.accentRefCharacter.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(3),
+                color: t.accentRefCharacter.withValues(
+                  alpha: VisionMetrics.opacityPressed,
+                ),
+                borderRadius: VisionMetrics.borderRadius4,
               ),
               child: Icon(icon, size: 14, color: t.accentRefCharacter),
             ),
@@ -542,7 +470,7 @@ class _SavedRefActionTile extends StatelessWidget {
                 label.toUpperCase(),
                 style: TextStyle(
                   color: t.textPrimary,
-                  fontSize: t.fontSize(mobile ? 10 : 8),
+                  fontSize: t.fontSize(touch ? 10 : 8),
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1,
                 ),

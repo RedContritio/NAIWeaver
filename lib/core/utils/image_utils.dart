@@ -14,6 +14,8 @@ Uint8List injectMetadata(Map<String, dynamic> data) {
     'nai-diffusion-5-full' => 'NovelAI Diffusion V5 657484A5',
     'nai-diffusion-5-full-inpainting' => 'NovelAI Diffusion V5 0ADF9AB7',
     'nai-diffusion-5-curated' => 'NovelAI Diffusion V5 DB276663',
+    'nai-diffusion-4-5-full' => 'NovelAI Diffusion V4.5 4BDE2A90',
+    _ when model.startsWith('nai-diffusion-4-5') => 'NovelAI Diffusion V4.5',
     _ => 'NovelAI Diffusion V5',
   };
 
@@ -31,7 +33,7 @@ Uint8List injectMetadata(Map<String, dynamic> data) {
   };
 
   final encoder = img.PngEncoder();
-  encoder.textData = textChunks;
+  image.textData = textChunks;
 
   return Uint8List.fromList(encoder.encode(image));
 }
@@ -167,7 +169,7 @@ Uint8List stripMetadata(Uint8List bytes) {
   if (image == null) return bytes;
 
   final encoder = img.PngEncoder();
-  encoder.textData = {};
+  image.textData = {};
   return Uint8List.fromList(encoder.encode(image));
 }
 
@@ -222,7 +224,7 @@ Uint8List? convertToPngPreservingMetadata(Map<String, dynamic> data) {
 
   final encoder = img.PngEncoder();
   if (textData != null && textData.isNotEmpty) {
-    encoder.textData = textData;
+    image.textData = textData;
   }
   return Uint8List.fromList(encoder.encode(image));
 }

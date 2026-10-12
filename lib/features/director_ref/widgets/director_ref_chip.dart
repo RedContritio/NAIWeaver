@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/vision_metrics.dart';
 import '../models/director_reference.dart';
 
 class DirectorRefChip extends StatelessWidget {
@@ -7,11 +8,16 @@ class DirectorRefChip extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onLongPress;
 
+  /// Why the reference is held back although the user enabled it; null when
+  /// it is not paused.
+  final String? pausedReason;
+
   const DirectorRefChip({
     super.key,
     required this.reference,
     required this.onTap,
     required this.onLongPress,
+    this.pausedReason,
   });
 
   IconData get _typeIcon {
@@ -40,43 +46,55 @@ class DirectorRefChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final disabled = !reference.enabled;
+    final paused = pausedReason != null;
+    final disabled = !reference.enabled || paused;
     final border = disabled ? t.textDisabled : _borderColor(context);
-    return Padding(
+    final chip = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 3),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         onLongPress: onLongPress,
-        child: Opacity(
-          opacity: disabled ? 0.4 : 1.0,
-          child: Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: border, width: 1.5),
-              image: DecorationImage(
-                image: MemoryImage(reference.originalImageBytes),
-                fit: BoxFit.cover,
-                filterQuality: FilterQuality.medium,
-                colorFilter: disabled
-                    ? const ColorFilter.mode(Colors.grey, BlendMode.saturation)
-                    : null,
-              ),
-            ),
-            child: Align(
-              alignment: Alignment.bottomRight,
+        child: SizedBox(
+          height: context.hitSize,
+          child: Center(
+            child: Opacity(
+              opacity: disabled ? VisionMetrics.opacityDisabled : 1.0,
               child: Container(
-                padding: const EdgeInsets.all(1),
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
-                  color: t.background.withValues(alpha: 0.7),
-                  borderRadius: const BorderRadius.only(topLeft: Radius.circular(3)),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: border, width: 1.5),
+                  image: DecorationImage(
+                    image: MemoryImage(reference.originalImageBytes),
+                    fit: BoxFit.cover,
+                    filterQuality: FilterQuality.medium,
+                    colorFilter: disabled
+                        ? ColorFilter.mode(t.textDisabled, BlendMode.saturation)
+                        : null,
+                  ),
                 ),
-                child: Icon(
-                  disabled ? Icons.visibility_off : _typeIcon,
-                  size: 10,
-                  color: border,
+                child: Align(
+                  alignment: Alignment.bottomRight,
+                  child: Container(
+                    padding: const EdgeInsets.all(1),
+                    decoration: BoxDecoration(
+                      color: t.background.withValues(alpha: 0.7),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(3),
+                      ),
+                    ),
+                    child: Icon(
+                      paused
+                          ? Icons.pause_circle_outline
+                          : disabled
+                          ? Icons.visibility_off
+                          : _typeIcon,
+                      size: 10,
+                      color: border,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -84,5 +102,6 @@ class DirectorRefChip extends StatelessWidget {
         ),
       ),
     );
+    return paused ? Tooltip(message: pausedReason!, child: chip) : chip;
   }
 }

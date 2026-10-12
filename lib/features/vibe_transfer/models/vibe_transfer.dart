@@ -25,12 +25,13 @@ class VibeTransfer {
   });
 
   VibeTransfer copyWith({
+    String? id,
     double? strength,
     double? infoExtracted,
     bool? enabled,
   }) {
     return VibeTransfer(
-      id: id,
+      id: id ?? this.id,
       originalImageBytes: originalImageBytes,
       processedPreview: processedPreview,
       vibeVectorBase64: vibeVectorBase64,

@@ -16,7 +16,7 @@ class DirectorToolsNotifier extends ChangeNotifier {
   EmotionMood _selectedMood = EmotionMood.neutral;
   Uint8List? _resultBytes;
   bool _isProcessing = false;
-  String? _error;
+  Object? _error;
 
   Uint8List? get sourceImageBytes => _sourceImageBytes;
   int get sourceWidth => _sourceWidth;
@@ -27,7 +27,10 @@ class DirectorToolsNotifier extends ChangeNotifier {
   EmotionMood get selectedMood => _selectedMood;
   Uint8List? get resultBytes => _resultBytes;
   bool get isProcessing => _isProcessing;
-  String? get error => _error;
+
+  /// The raw failure of the last run; the UI localizes it (see
+  /// `toolErrorMessage`) so no exception text reaches the user.
+  Object? get error => _error;
   bool get hasSource => _sourceImageBytes != null;
   bool get hasResult => _resultBytes != null;
 
@@ -96,10 +99,8 @@ class DirectorToolsNotifier extends ChangeNotifier {
       );
 
       _resultBytes = result;
-    } on UnauthorizedException {
-      _error = 'Authentication error: check API key';
     } catch (e) {
-      _error = e.toString();
+      _error = e;
     } finally {
       _isProcessing = false;
       notifyListeners();

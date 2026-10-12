@@ -4,7 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/ml/ml_notifier.dart';
+import '../../../../core/l10n/l10n_extensions.dart';
+import '../../../../core/ml/widgets/checkerboard_painter.dart';
 import '../../../../core/theme/theme_extensions.dart';
+import '../../../../core/theme/vision_metrics.dart';
+import '../../../../core/theme/vision_tokens.dart';
+import '../../../../core/widgets/ui/app_pill.dart';
 
 /// Interactive segmentation overlay using SAM (Segment Anything Model).
 /// Users tap to add positive/negative points, the model generates masks in real-time.
@@ -55,8 +60,7 @@ class _SegmentationOverlayState extends State<SegmentationOverlay> {
     setState(() {
       _isEncoding = false;
       if (!ml.hasEncodedImage) {
-        _error = ml.processingError ??
-            'Failed to encode image — check that segmentation models are downloaded';
+        _error = context.l.mlSegmentEncodeFailed;
       }
     });
   }
@@ -67,7 +71,7 @@ class _SegmentationOverlayState extends State<SegmentationOverlay> {
     final ml = context.read<MLNotifier>();
     if (!ml.hasEncodedImage) {
       setState(() {
-        _error = 'Image not encoded — try re-opening the segment tool';
+        _error = context.l.mlSegmentNotEncoded;
       });
       return;
     }
@@ -104,7 +108,7 @@ class _SegmentationOverlayState extends State<SegmentationOverlay> {
     } else if (mounted) {
       setState(() {
         _isDecoding = false;
-        _error = 'Segmentation failed — try different points';
+        _error = context.l.mlSegmentFailed;
       });
     }
   }
@@ -151,6 +155,7 @@ class _SegmentationOverlayState extends State<SegmentationOverlay> {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
+    final l = context.l;
 
     return Column(
       children: [
@@ -164,10 +169,12 @@ class _SegmentationOverlayState extends State<SegmentationOverlay> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         CircularProgressIndicator(
-                            strokeWidth: 2, color: t.accentEdit),
-                        const SizedBox(height: 16),
+                          strokeWidth: 2,
+                          color: t.accentEdit,
+                        ),
+                        const SizedBox(height: VisionMetrics.space16),
                         Text(
-                          'Encoding image...',
+                          l.mlEncodingImage,
                           style: TextStyle(
                             color: t.textTertiary,
                             fontSize: t.fontSize(10),
@@ -177,46 +184,50 @@ class _SegmentationOverlayState extends State<SegmentationOverlay> {
                     ),
                   )
                 // Encoding failed — show centered error instead of useless image
-                : (!context.read<MLNotifier>().hasEncodedImage && _error != null)
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(32),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.error_outline,
-                                  size: 48,
-                                  color: t.accentDanger),
-                              const SizedBox(height: 16),
-                              Text(
-                                _error!,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: t.accentDanger,
-                                  fontSize: t.fontSize(10),
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              TextButton(
-                                onPressed: widget.onDiscard,
-                                child: Text(
-                                  'BACK',
-                                  style: TextStyle(
-                                    color: t.textTertiary,
-                                    fontSize: t.fontSize(9),
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1,
-                                  ),
-                                ),
-                              ),
-                            ],
+                : (!context.read<MLNotifier>().hasEncodedImage &&
+                      _error != null)
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            size: 48,
+                            color: t.accentDanger,
                           ),
-                        ),
-                      )
+                          const SizedBox(height: VisionMetrics.space16),
+                          Text(
+                            _error!,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: t.accentDanger,
+                              fontSize: t.fontSize(10),
+                            ),
+                          ),
+                          const SizedBox(height: VisionMetrics.space24),
+                          TextButton(
+                            onPressed: widget.onDiscard,
+                            child: Text(
+                              l.mlBack,
+                              style: TextStyle(
+                                color: t.textTertiary,
+                                fontSize: t.fontSize(9),
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
                 : LayoutBuilder(
                     builder: (context, constraints) {
                       final ml = context.read<MLNotifier>();
-                      final showHint = ml.hasEncodedImage &&
+                      final showHint =
+                          ml.hasEncodedImage &&
                           _points.isEmpty &&
                           _resultPreview == null;
 
@@ -224,13 +235,17 @@ class _SegmentationOverlayState extends State<SegmentationOverlay> {
                         onTapUp: (details) {
                           // Compute normalized coordinates within the image
                           final imageSize = _computeImageRect(
-                              constraints.biggest, widget.sourceImage);
+                            constraints.biggest,
+                            widget.sourceImage,
+                          );
                           if (imageSize == null) return;
 
                           final localPoint = details.localPosition;
-                          final nx = (localPoint.dx - imageSize.left) /
+                          final nx =
+                              (localPoint.dx - imageSize.left) /
                               imageSize.width;
-                          final ny = (localPoint.dy - imageSize.top) /
+                          final ny =
+                              (localPoint.dy - imageSize.top) /
                               imageSize.height;
 
                           if (nx >= 0 && nx <= 1 && ny >= 0 && ny <= 1) {
@@ -242,7 +257,10 @@ class _SegmentationOverlayState extends State<SegmentationOverlay> {
                           children: [
                             // Checkerboard background
                             CustomPaint(
-                              painter: _CheckerboardPainter(),
+                              painter: CheckerboardPainter(
+                                light: t.surfaceHigh,
+                                dark: t.surfaceMid,
+                              ),
                               size: Size.infinite,
                             ),
                             // Source image with mask overlay
@@ -258,13 +276,15 @@ class _SegmentationOverlayState extends State<SegmentationOverlay> {
                                     if (_points.isNotEmpty)
                                       Positioned.fill(
                                         child: LayoutBuilder(
-                                          builder: (ctx, c) =>
-                                              CustomPaint(
-                                                painter: _PointsPainter(
-                                                  points: _points,
-                                                  size: c.biggest,
-                                                ),
-                                              ),
+                                          builder: (ctx, c) => CustomPaint(
+                                            painter: _PointsPainter(
+                                              points: _points,
+                                              size: c.biggest,
+                                              positiveColor: t.accentSuccess,
+                                              negativeColor: t.accentDanger,
+                                              outlineColor: t.textPrimary,
+                                            ),
+                                          ),
                                         ),
                                       ),
                                   ],
@@ -274,7 +294,9 @@ class _SegmentationOverlayState extends State<SegmentationOverlay> {
                             // Loading overlay
                             if (_isDecoding)
                               Container(
-                                color: Colors.black26,
+                                color: t.background.withValues(
+                                  alpha: VisionMetrics.opacityPressed,
+                                ),
                                 child: Center(
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
@@ -285,20 +307,16 @@ class _SegmentationOverlayState extends State<SegmentationOverlay> {
                             // Instructional hint
                             if (showHint)
                               Center(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 8),
+                                child: DecoratedBox(
                                   decoration: BoxDecoration(
-                                    color: Colors.black54,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    'Tap on the image to select a region',
-                                    style: TextStyle(
-                                      color: t.textMinimal,
-                                      fontSize: t.fontSize(9),
+                                    color: t.background.withValues(
+                                      alpha: VisionMetrics.opacityOverlay,
+                                    ),
+                                    borderRadius: BorderRadius.circular(
+                                      VisionMetrics.radius4,
                                     ),
                                   ),
+                                  child: AppPill(text: l.mlTapToSelect),
                                 ),
                               ),
                             // Error banner
@@ -308,13 +326,21 @@ class _SegmentationOverlayState extends State<SegmentationOverlay> {
                                 left: 8,
                                 right: 8,
                                 child: Container(
-                                  padding: const EdgeInsets.all(12),
+                                  padding: const EdgeInsets.all(
+                                    VisionMetrics.space12,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: t.accentDanger.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(4),
+                                    color: t.accentDanger.withValues(
+                                      alpha: 0.15,
+                                    ),
+                                    borderRadius: BorderRadius.circular(
+                                      VisionMetrics.radius4,
+                                    ),
                                     border: Border.all(
-                                        color: t.accentDanger
-                                            .withValues(alpha: 0.4)),
+                                      color: t.accentDanger.withValues(
+                                        alpha: 0.4,
+                                      ),
+                                    ),
                                   ),
                                   child: Text(
                                     _error!,
@@ -336,7 +362,10 @@ class _SegmentationOverlayState extends State<SegmentationOverlay> {
         ),
         // Toolbar
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(
+            horizontal: VisionMetrics.space16,
+            vertical: VisionMetrics.space12,
+          ),
           decoration: BoxDecoration(
             color: t.surfaceHigh,
             border: Border(top: BorderSide(color: t.borderSubtle)),
@@ -350,43 +379,44 @@ class _SegmentationOverlayState extends State<SegmentationOverlay> {
                   // Add / Remove mode toggle
                   _ModeButton(
                     icon: Icons.add_circle_outline,
-                    label: 'ADD',
+                    label: l.mlAddPoint,
                     isActive: _addMode,
                     onTap: () => setState(() => _addMode = true),
-                    color: Colors.green,
+                    color: t.accentSuccess,
                     t: t,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: VisionMetrics.space8),
                   _ModeButton(
                     icon: Icons.remove_circle_outline,
-                    label: 'REMOVE',
+                    label: l.mlRemovePoint,
                     isActive: !_addMode,
                     onTap: () => setState(() => _addMode = false),
-                    color: Colors.red,
+                    color: t.accentDanger,
                     t: t,
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: VisionMetrics.space16),
                   Container(width: 1, height: 24, color: t.borderSubtle),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: VisionMetrics.space16),
                   // Undo
                   IconButton(
                     icon: Icon(Icons.undo, size: 18, color: t.textTertiary),
                     onPressed: _points.isNotEmpty ? _undoLastPoint : null,
-                    tooltip: 'Undo last point',
-                    splashRadius: 16,
+                    tooltip: l.mlUndoPoint,
                   ),
                   // Clear
                   IconButton(
-                    icon:
-                        Icon(Icons.clear_all, size: 18, color: t.textTertiary),
+                    icon: Icon(
+                      Icons.clear_all,
+                      size: 18,
+                      color: t.textTertiary,
+                    ),
                     onPressed: _points.isNotEmpty ? _clearPoints : null,
-                    tooltip: 'Clear all points',
-                    splashRadius: 16,
+                    tooltip: l.mlClearPoints,
                   ),
                   const Spacer(),
                   // Point count
                   Text(
-                    '${_points.length} point${_points.length == 1 ? '' : 's'}',
+                    l.mlPointCount(_points.length),
                     style: TextStyle(
                       color: t.textMinimal,
                       fontSize: t.fontSize(8),
@@ -394,7 +424,7 @@ class _SegmentationOverlayState extends State<SegmentationOverlay> {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: VisionMetrics.space8),
               // Action buttons
               Row(
                 children: [
@@ -402,7 +432,7 @@ class _SegmentationOverlayState extends State<SegmentationOverlay> {
                   TextButton(
                     onPressed: widget.onDiscard,
                     child: Text(
-                      'DISCARD',
+                      l.mlDiscard,
                       style: TextStyle(
                         color: t.textDisabled,
                         fontSize: t.fontSize(9),
@@ -415,21 +445,25 @@ class _SegmentationOverlayState extends State<SegmentationOverlay> {
                   // Send to Canvas
                   if (widget.onSendToCanvas != null && _resultPreview != null)
                     Padding(
-                      padding: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.only(
+                        right: VisionMetrics.space8,
+                      ),
                       child: OutlinedButton(
                         onPressed: () =>
                             widget.onSendToCanvas!(_resultPreview!),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: t.accentEdit,
                           side: BorderSide(color: t.accentEdit),
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: VisionMetrics.space12,
+                          ),
                           textStyle: TextStyle(
                             fontSize: t.fontSize(9),
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1,
                           ),
                         ),
-                        child: const Text('CANVAS'),
+                        child: Text(l.mlCanvas),
                       ),
                     ),
                   // Save
@@ -442,14 +476,16 @@ class _SegmentationOverlayState extends State<SegmentationOverlay> {
                       foregroundColor: t.textPrimary,
                       disabledBackgroundColor: t.surfaceHigh,
                       disabledForegroundColor: t.textMinimal,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: VisionMetrics.space16,
+                      ),
                       textStyle: TextStyle(
                         fontSize: t.fontSize(9),
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1,
                       ),
                     ),
-                    child: const Text('SAVE'),
+                    child: Text(l.mlSave),
                   ),
                 ],
               ),
@@ -500,7 +536,7 @@ class _ModeButton extends StatelessWidget {
   final bool isActive;
   final VoidCallback onTap;
   final Color color;
-  final dynamic t;
+  final VisionTokens t;
 
   const _ModeButton({
     required this.icon,
@@ -513,33 +549,47 @@ class _ModeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: isActive ? color.withValues(alpha: 0.15) : Colors.transparent,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: isActive ? color : Colors.transparent,
-            width: 1,
+    return Semantics(
+      button: true,
+      selected: isActive,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+        child: Container(
+          constraints: BoxConstraints(minHeight: context.hitSize),
+          padding: const EdgeInsets.symmetric(
+            horizontal: VisionMetrics.space12,
           ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: isActive ? color : t.textTertiary),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: isActive ? color : t.textTertiary,
-                fontSize: t.fontSize(8),
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1,
-              ),
+          decoration: BoxDecoration(
+            color: isActive
+                ? color.withValues(alpha: VisionMetrics.opacityPressed)
+                : null,
+            borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+            border: Border.all(
+              color: isActive ? color : t.borderSubtle,
+              width: VisionMetrics.borderWidth,
             ),
-          ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: VisionMetrics.iconSmall,
+                color: isActive ? color : t.textTertiary,
+              ),
+              const SizedBox(width: VisionMetrics.space4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isActive ? color : t.textTertiary,
+                  fontSize: t.fontSize(8),
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -549,8 +599,17 @@ class _ModeButton extends StatelessWidget {
 class _PointsPainter extends CustomPainter {
   final List<_SegPoint> points;
   final Size size;
+  final Color positiveColor;
+  final Color negativeColor;
+  final Color outlineColor;
 
-  _PointsPainter({required this.points, required this.size});
+  _PointsPainter({
+    required this.points,
+    required this.size,
+    required this.positiveColor,
+    required this.negativeColor,
+    required this.outlineColor,
+  });
 
   @override
   void paint(Canvas canvas, Size canvasSize) {
@@ -560,20 +619,20 @@ class _PointsPainter extends CustomPainter {
 
       // Outer ring
       final ringPaint = Paint()
-        ..color = pt.isPositive ? Colors.green : Colors.red
+        ..color = pt.isPositive ? positiveColor : negativeColor
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2;
       canvas.drawCircle(Offset(x, y), 8, ringPaint);
 
       // Inner dot
       final dotPaint = Paint()
-        ..color = pt.isPositive ? Colors.green : Colors.red
+        ..color = pt.isPositive ? positiveColor : negativeColor
         ..style = PaintingStyle.fill;
       canvas.drawCircle(Offset(x, y), 3, dotPaint);
 
       // White outline for visibility
       final outlinePaint = Paint()
-        ..color = Colors.white
+        ..color = outlineColor
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1;
       canvas.drawCircle(Offset(x, y), 9, outlinePaint);
@@ -582,32 +641,9 @@ class _PointsPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_PointsPainter old) =>
-      old.points.length != points.length || old.size != size;
-}
-
-class _CheckerboardPainter extends CustomPainter {
-  static const _cellSize = 12.0;
-  static const _lightColor = Color(0xFF3A3A3A);
-  static const _darkColor = Color(0xFF2A2A2A);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final lightPaint = Paint()..color = _lightColor;
-    final darkPaint = Paint()..color = _darkColor;
-
-    for (double y = 0; y < size.height; y += _cellSize) {
-      for (double x = 0; x < size.width; x += _cellSize) {
-        final col = (x / _cellSize).floor();
-        final row = (y / _cellSize).floor();
-        final paint = (col + row) % 2 == 0 ? lightPaint : darkPaint;
-        canvas.drawRect(
-          Rect.fromLTWH(x, y, _cellSize, _cellSize),
-          paint,
-        );
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+      old.points.length != points.length ||
+      old.size != size ||
+      old.positiveColor != positiveColor ||
+      old.negativeColor != negativeColor ||
+      old.outlineColor != outlineColor;
 }

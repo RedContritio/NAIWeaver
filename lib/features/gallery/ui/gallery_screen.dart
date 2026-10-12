@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'dart:ui' as ui;
 import 'package:file_picker/file_picker.dart';
 import '../../../core/utils/file_picker_helper.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -12,16 +10,28 @@ import 'package:gal/gal.dart';
 import 'package:provider/provider.dart';
 import '../../../core/gateway/backend_permissions.dart';
 import '../../../core/l10n/l10n_extensions.dart';
+import '../../../core/services/novel_ai_image_action_service.dart';
 import '../../../core/services/preferences_service.dart';
 import '../../../core/services/saf_export_service.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/vision_metrics.dart';
 import '../../../core/widgets/confirm_dialog.dart';
+import '../../../core/widgets/text_input_dialog.dart';
+import '../../../core/widgets/ui/app_panel.dart';
+import '../../../core/widgets/ui/app_pill.dart';
+import '../../../core/widgets/ui/app_sheet.dart';
+import '../../../core/widgets/ui/app_states.dart';
+import '../../../core/widgets/ui/app_tone.dart';
+import '../../../core/widgets/ui/overlay_action_button.dart';
 import '../../../core/widgets/progress_dialog.dart';
+import '../../../core/widgets/section_title.dart';
 import '../../../core/utils/app_snackbar.dart';
 import '../../../core/utils/image_utils.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/utils/timestamp_utils.dart';
 import '../providers/gallery_notifier.dart';
+import '../services/gallery_import_service.dart';
+import '../services/tool_result_saver.dart';
 import '../../generation/providers/generation_notifier.dart';
 import '../../tools/img2img/providers/img2img_notifier.dart';
 import '../../../core/ml/ml_notifier.dart';
@@ -32,6 +42,7 @@ import 'comparison_view.dart';
 import 'gallery_layout.dart';
 import 'image_detail_view.dart';
 import 'import_metadata_dialog.dart';
+import 'novel_ai_image_action_flow.dart';
 
 class GalleryScreen extends StatefulWidget {
   const GalleryScreen({super.key});
@@ -52,7 +63,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
   bool _isSelectionMode = false;
   final Set<int> _selectedIndices = {};
 
-  // Drag-to-select state (mobile long-press-then-drag)
+  // Drag-to-select state (touch long-press-then-drag)
   final Set<int> _dragSelectedIndices = {};
   bool _isDragging = false;
 
@@ -63,6 +74,9 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
   // Info overlay (hover/long-press)
   int? _hoveredIndex;
+
+  // Measured height of the floating bulk action bar.
+  double _bulkBarHeight = 0;
 
   @override
   void initState() {
@@ -76,7 +90,9 @@ class _GalleryScreenState extends State<GalleryScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _crossAxisCount ??= context.read<PreferencesService>().galleryGridColumns ?? (isMobile(context) ? 2 : 4);
+    _crossAxisCount ??=
+        context.read<PreferencesService>().galleryGridColumns ??
+        (windowSizeClassOf(context).isTouchSized ? 2 : 4);
   }
 
   @override
@@ -138,7 +154,10 @@ class _GalleryScreenState extends State<GalleryScreen> {
     final x = localPosition.dx;
     final y = localPosition.dy + _scrollController.offset;
 
-    final col = ((x - padding) / (cellSize + spacing)).floor().clamp(0, cols - 1);
+    final col = ((x - padding) / (cellSize + spacing)).floor().clamp(
+      0,
+      cols - 1,
+    );
     final row = ((y - padding) / (cellSize + spacing)).floor();
     if (row < 0) return null;
 
@@ -177,7 +196,10 @@ class _GalleryScreenState extends State<GalleryScreen> {
       final cellBottom = cellTop + cellSize;
 
       // Check overlap
-      if (cellRight > left && cellLeft < right && cellBottom > top && cellTop < bottom) {
+      if (cellRight > left &&
+          cellLeft < right &&
+          cellBottom > top &&
+          cellTop < bottom) {
         result.add(i);
       }
     }
@@ -196,20 +218,27 @@ class _GalleryScreenState extends State<GalleryScreen> {
     final t = context.tRead;
     final prefs = context.read<PreferencesService>();
     try {
-      // Honor a user-chosen export folder on mobile (previously ignored — the
+      // Honor a user-chosen export folder on touch (previously ignored — the
       // bulk export always went to the device gallery, symptom #1 of #13).
       final customFolder = prefs.exportFolderPath;
-      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS) && customFolder.isNotEmpty) {
+      if (!kIsWeb &&
+          (Platform.isAndroid || Platform.isIOS) &&
+          customFolder.isNotEmpty) {
         // A SAF target may have lost its grant (card removed / permission
         // revoked); a legacy plain filesystem path is unreachable under Android
         // scoped storage. Either way, guide the user to re-pick it (issue #13).
-        final unreachable = SafExportService.isStalePlainPath(customFolder) ||
+        final unreachable =
+            SafExportService.isStalePlainPath(customFolder) ||
             (SafExportService.isSafUri(customFolder) &&
                 !await SafExportService.instance.hasWriteAccess(customFolder));
         if (unreachable) {
           if (mounted) {
-            showErrorSnackBar(context, context.l.galleryExportFailed(
-                'Export folder unavailable — re-pick it in Settings'));
+            showErrorSnackBar(
+              context,
+              context.l.galleryExportFailed(
+                context.l.galleryExportFolderUnavailable,
+              ),
+            );
           }
           _exitSelectionMode();
           return;
@@ -229,7 +258,11 @@ class _GalleryScreenState extends State<GalleryScreen> {
           copied++;
         }
         if (mounted) {
-          showAppSnackBar(context, context.l.gallerySavedToDeviceCount(copied, selectedItems.length), color: t.accent);
+          showAppSnackBar(
+            context,
+            context.l.gallerySavedToDeviceCount(copied, selectedItems.length),
+            color: t.accent,
+          );
         }
       } else if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
         final album = prefs.exportAlbumName;
@@ -244,7 +277,11 @@ class _GalleryScreenState extends State<GalleryScreen> {
           saved++;
         }
         if (mounted) {
-          showAppSnackBar(context, context.l.gallerySavedToDeviceCount(saved, selectedItems.length), color: t.accent);
+          showAppSnackBar(
+            context,
+            context.l.gallerySavedToDeviceCount(saved, selectedItems.length),
+            color: t.accent,
+          );
         }
       } else {
         final dirPath = await FilePicker.platform.getDirectoryPath(
@@ -261,7 +298,11 @@ class _GalleryScreenState extends State<GalleryScreen> {
           copied++;
         }
         if (mounted) {
-          showAppSnackBar(context, context.l.galleryExportedToFolder(copied, p.basename(dirPath)), color: t.accent);
+          showAppSnackBar(
+            context,
+            context.l.galleryExportedToFolder(copied, p.basename(dirPath)),
+            color: t.accent,
+          );
         }
       }
     } catch (e) {
@@ -280,22 +321,46 @@ class _GalleryScreenState extends State<GalleryScreen> {
       message: context.l.galleryCannotUndo,
       confirmLabel: context.l.commonDelete,
       confirmColor: t.accentDanger,
-      messageFontSize: isMobile(context) ? t.fontSize(12) : null,
+      messageFontSize: windowSizeClassOf(context).isTouchSized
+          ? t.fontSize(12)
+          : null,
     );
     if (!mounted || confirm != true) return;
-    await Provider.of<GalleryNotifier>(context, listen: false).deleteItems(selectedItems);
+    await Provider.of<GalleryNotifier>(
+      context,
+      listen: false,
+    ).deleteItems(selectedItems);
     if (!mounted) return;
     _exitSelectionMode();
   }
 
+  Future<void> _bulkRemoveFromAlbum(List<GalleryItem> selectedItems) async {
+    final confirm = await showConfirmDialog(
+      context,
+      title: context.l.galleryRemoveFromAlbumCount(selectedItems.length),
+      message: context.l.galleryRemoveFromAlbumMessage,
+      confirmLabel: context.l.galleryRemove,
+      cancelLabel: context.l.commonCancel,
+    );
+    if (!mounted || confirm != true) return;
+    final gallery = context.read<GalleryNotifier>();
+    final albumId = gallery.activeAlbumId;
+    if (albumId == null) return;
+    gallery.removeFromAlbum(albumId, selectedItems);
+    setState(() => _selectedIndices.clear());
+  }
+
   void _bulkFavorite(List<GalleryItem> selectedItems) {
-    Provider.of<GalleryNotifier>(context, listen: false).addToFavorites(selectedItems);
+    Provider.of<GalleryNotifier>(
+      context,
+      listen: false,
+    ).addToFavorites(selectedItems);
     _exitSelectionMode();
   }
 
   Future<void> _openSegmentation(GalleryItem item) async {
     _exitSelectionMode();
-    final gallery = context.read<GalleryNotifier>();
+    final saver = ToolResultSaver.of(context);
     final imageBytes = await item.file.readAsBytes();
     if (!mounted) return;
     Navigator.push(
@@ -311,14 +376,20 @@ class _GalleryScreenState extends State<GalleryScreen> {
                 onSave: (resultBytes) async {
                   final baseName = p.basenameWithoutExtension(item.file.path);
                   final ts = DateTime.now().millisecondsSinceEpoch;
-                  await gallery.saveMLResult(resultBytes, 'SEG_${baseName}_$ts.png');
-                  if (ctx.mounted) Navigator.pop(ctx);
+                  final outcome = await saveToolResult(
+                    ctx,
+                    bytes: resultBytes,
+                    fileName: 'SEG_${baseName}_$ts.png',
+                    sourceBytes: imageBytes,
+                    saver: saver,
+                  );
+                  if (outcome.succeeded && ctx.mounted) Navigator.pop(ctx);
                 },
                 onDiscard: () => Navigator.pop(ctx),
                 onSendToCanvas: (resultBytes) {
                   Navigator.pop(ctx);
                   final canvasNotifier = context.read<CanvasNotifier>();
-                  canvasNotifier.addImageLayer(resultBytes, name: 'Segmented');
+                  canvasNotifier.addImageLayer(resultBytes, name: context.l.canvasSegmentedLayerName);
                 },
               ),
             ),
@@ -353,104 +424,114 @@ class _GalleryScreenState extends State<GalleryScreen> {
     );
   }
 
-  Future<void> _bulkRemoveBg(List<GalleryItem> selectedItems) async {
-    final ml = context.read<MLNotifier>();
-    final gallery = context.read<GalleryNotifier>();
+  /// Runs a local ML model over [selectedItems] and saves each result with
+  /// its source metadata. Only images that were processed and saved count.
+  Future<void> _bulkLocalMl(
+    List<GalleryItem> selectedItems, {
+    required String title,
+    required String filePrefix,
+    required Future<Uint8List?> Function(Uint8List bytes) process,
+    required String Function(int succeeded, int total) summary,
+  }) async {
+    final saver = ToolResultSaver.of(context);
     final total = selectedItems.length;
-    int completed = 0;
+    var succeeded = 0;
 
-    final progress = mounted ? showProgressDialog(context, title: 'REMOVING BACKGROUNDS') : null;
+    final progress = showProgressDialog(context, title: title);
 
-    for (final item in selectedItems) {
-      final bytes = await item.file.readAsBytes();
-      final result = await ml.removeBackground(bytes);
-      if (result != null) {
-        final baseName = p.basenameWithoutExtension(item.file.path);
-        final timestamp = generateTimestamp();
-        await gallery.saveMLResult(result, 'BG_${baseName}_$timestamp.png');
-      }
-      completed++;
-      progress?.update(completed, total);
-    }
-
-    progress?.close();
-
-    if (mounted) {
-      showAppSnackBar(context, context.l.mlBgRemovedCount(completed, total));
-    }
-    _exitSelectionMode();
-  }
-
-  Future<void> _bulkUpscale(List<GalleryItem> selectedItems) async {
-    final ml = context.read<MLNotifier>();
-    final gallery = context.read<GalleryNotifier>();
-    final total = selectedItems.length;
-    int completed = 0;
-
-    final progress = mounted ? showProgressDialog(context, title: context.l.mlUpscalingImages) : null;
-
-    for (final item in selectedItems) {
-      final bytes = await item.file.readAsBytes();
-      final result = await ml.upscaleImage(bytes);
-      if (result != null) {
-        final baseName = p.basenameWithoutExtension(item.file.path);
-        final timestamp = generateTimestamp();
-        await gallery.saveMLResult(result, 'UP_${baseName}_$timestamp.png');
-      }
-      completed++;
-      progress?.update(completed, total);
-    }
-
-    progress?.close();
-
-    if (mounted) {
-      showAppSnackBar(context, context.l.mlUpscaledCount(completed, total));
-    }
-    _exitSelectionMode();
-  }
-
-  Future<void> _bulkNaiUpscale(List<GalleryItem> selectedItems) async {
-    final gen = context.read<GenerationNotifier>();
-    if (gen.state.apiKey.isEmpty) {
-      showErrorSnackBar(context, context.l.naiApiKeyRequired);
-      return;
-    }
-    final gallery = context.read<GalleryNotifier>();
-    final total = selectedItems.length;
-    int completed = 0;
-
-    final progress = mounted ? showProgressDialog(context, title: context.l.naiUpscaling, progressColor: context.tRead.accentEdit) : null;
-
-    for (final item in selectedItems) {
+    for (var i = 0; i < total; i++) {
+      final item = selectedItems[i];
       try {
         final bytes = await item.file.readAsBytes();
-        final codec = await ui.instantiateImageCodec(bytes);
-        final frame = await codec.getNextFrame();
-        final w = frame.image.width;
-        final h = frame.image.height;
-        frame.image.dispose();
-
-        final imageBase64 = base64Encode(bytes);
-        final result = await gen.service.upscaleImage(
-          imageBase64: imageBase64,
-          width: w,
-          height: h,
-          scale: 4,
-        );
-        final baseName = p.basenameWithoutExtension(item.file.path);
-        final timestamp = generateTimestamp();
-        await gallery.saveMLResult(result, 'NAI_UP_${baseName}_$timestamp.png');
+        final result = await process(bytes);
+        if (result != null) {
+          final baseName = p.basenameWithoutExtension(item.file.path);
+          final outcome = await saver.save(
+            result,
+            '${filePrefix}_${baseName}_${generateTimestamp()}.png',
+            sourceBytes: bytes,
+          );
+          if (outcome.succeeded) succeeded++;
+        }
       } catch (e) {
-        debugPrint('_GalleryScreenState._bulkNaiUpscale: $e');
+        debugPrint('_GalleryScreenState._bulkLocalMl: $e');
       }
-      completed++;
-      progress?.update(completed, total);
+      progress.update(i + 1, total);
     }
 
-    progress?.close();
+    progress.close();
+    _showBatchSummary(
+      summary(succeeded, total),
+      allSucceeded: succeeded == total,
+    );
+    _exitSelectionMode();
+  }
+
+  void _showBatchSummary(String message, {required bool allSucceeded}) {
+    if (!mounted) return;
+    if (allSucceeded) {
+      showAppSnackBar(context, message);
+    } else {
+      showErrorSnackBar(context, message);
+    }
+  }
+
+  Future<void> _bulkRemoveBg(List<GalleryItem> selectedItems) => _bulkLocalMl(
+    selectedItems,
+    title: context.l.galleryRemovingBackgrounds,
+    filePrefix: 'BG',
+    process: context.read<MLNotifier>().removeBackground,
+    summary: context.l.mlBgRemovedCount,
+  );
+
+  Future<void> _bulkUpscale(List<GalleryItem> selectedItems) => _bulkLocalMl(
+    selectedItems,
+    title: context.l.mlUpscalingImages,
+    filePrefix: 'UP',
+    process: context.read<MLNotifier>().upscaleImage,
+    summary: context.l.mlUpscaledCount,
+  );
+
+  Future<void> _bulkNaiUpscale(
+    List<GalleryItem> selectedItems, {
+    required bool permissionGranted,
+  }) async {
+    final gen = context.read<GenerationNotifier>();
+    final service = NovelAiImageActionService(
+      gen.service,
+      saver: ToolResultSaver.of(context),
+    );
+    final blocker = service.blocker(
+      apiKey: gen.state.apiKey,
+      permissionGranted: permissionGranted,
+    );
+    if (blocker != null) {
+      showErrorSnackBar(
+        context,
+        novelAiImageActionBlockerMessage(context.l, blocker),
+      );
+      return;
+    }
+
+    final progress = showProgressDialog(
+      context,
+      title: context.l.naiUpscaling,
+      progressColor: context.tRead.accentEdit,
+    );
+    final result = await service.upscaleAll([
+      for (final item in selectedItems)
+        NovelAiImageActionSource(
+          baseName: p.basenameWithoutExtension(item.file.path),
+          readBytes: item.file.readAsBytes,
+        ),
+    ], onProgress: progress.update);
+    progress.close();
 
     if (mounted) {
-      showAppSnackBar(context, context.l.naiUpscaledCount(completed, total));
+      _showBatchSummary(
+        context.l.naiUpscaledCount(result.succeeded, result.total),
+        allSucceeded: result.succeeded == result.total,
+      );
     }
     _exitSelectionMode();
   }
@@ -462,15 +543,10 @@ class _GalleryScreenState extends State<GalleryScreen> {
     final result = await pickImageFiles(allowMultiple: true);
     if (result == null || result.files.isEmpty) return;
 
-    final filePaths = result.files
-        .where((f) => f.path != null)
-        .map((f) => f.path!)
-        .toList();
-    if (filePaths.isEmpty) return;
-
-    final showProgress = filePaths.length >= 3;
+    final sources = result.files.map(GalleryImportSource.picked).toList();
+    final showProgress = sources.length >= 3;
     int currentProgress = 0;
-    int totalProgress = filePaths.length;
+    int totalProgress = sources.length;
     StateSetter? dialogSetState;
 
     if (showProgress && mounted) {
@@ -485,22 +561,34 @@ class _GalleryScreenState extends State<GalleryScreen> {
               backgroundColor: t.surfaceHigh,
               title: Text(
                 context.l.galleryImporting.toUpperCase(),
-                style: TextStyle(fontSize: t.fontSize(10), letterSpacing: 2, color: t.textSecondary),
+                style: TextStyle(
+                  fontSize: t.fontSize(10),
+                  letterSpacing: 2,
+                  color: t.textSecondary,
+                ),
               ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   LinearProgressIndicator(
-                    value: totalProgress > 0 ? currentProgress / totalProgress : 0,
+                    value: totalProgress > 0
+                        ? currentProgress / totalProgress
+                        : 0,
                     backgroundColor: t.borderSubtle,
                     color: t.accent,
                   ),
                   const SizedBox(height: 12),
                   Text(
                     currentProgress > 0
-                        ? context.l.galleryImportProgress(currentProgress, totalProgress)
+                        ? context.l.galleryImportProgress(
+                            currentProgress,
+                            totalProgress,
+                          )
                         : context.l.galleryImportPreparing,
-                    style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(10)),
+                    style: TextStyle(
+                      color: t.textDisabled,
+                      fontSize: t.fontSize(10),
+                    ),
                   ),
                 ],
               ),
@@ -512,7 +600,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
     try {
       final importResult = await gallery.importFiles(
-        filePaths,
+        sources,
         onProgress: (current, total) {
           currentProgress = current;
           totalProgress = total;
@@ -528,9 +616,15 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
       String message;
       if (importResult.converted > 0) {
-        message = context.l.galleryImportConverted(importResult.succeeded, importResult.converted);
+        message = context.l.galleryImportConverted(
+          importResult.succeeded,
+          importResult.converted,
+        );
       } else {
-        message = context.l.galleryImportSuccess(importResult.succeeded, importResult.withMetadata);
+        message = context.l.galleryImportSuccess(
+          importResult.succeeded,
+          importResult.withMetadata,
+        );
       }
 
       if (importResult.filesWithMetadata.isNotEmpty) {
@@ -539,7 +633,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
           message,
           color: t.accent,
           action: SnackBarAction(
-            label: 'IMPORT TO EDITOR',
+            label: context.l.galleryImportToEditor.toUpperCase(),
             textColor: t.accent,
             onPressed: () {
               if (!mounted) return;
@@ -564,34 +658,49 @@ class _GalleryScreenState extends State<GalleryScreen> {
       final notifier = context.read<GenerationNotifier>();
       final result = await notifier.parseImageMetadata(file);
       if (!mounted) return;
-      final categories = await showImportMetadataDialog(context, result: result);
+      final categories = await showImportMetadataDialog(
+        context,
+        result: result,
+      );
       if (categories == null || !mounted) return;
       notifier.applyImportedMetadata(result, categories);
-      showAppSnackBar(context, 'Metadata imported to editor');
+      showAppSnackBar(context, context.l.galleryMetadataImported);
     } catch (e) {
-      if (mounted) showErrorSnackBar(context, 'No metadata found');
+      if (mounted) {
+        showErrorSnackBar(context, context.l.galleryMetadataNotFound);
+      }
     }
   }
 
   String _sortModeLabel(BuildContext context, GallerySortMode mode) {
     switch (mode) {
-      case GallerySortMode.dateDesc: return context.l.gallerySortDateNewest.toUpperCase();
-      case GallerySortMode.dateAsc: return context.l.gallerySortDateOldest.toUpperCase();
-      case GallerySortMode.nameAsc: return context.l.gallerySortNameAZ.toUpperCase();
-      case GallerySortMode.nameDesc: return context.l.gallerySortNameZA.toUpperCase();
-      case GallerySortMode.sizeDesc: return context.l.gallerySortSizeLargest.toUpperCase();
-      case GallerySortMode.sizeAsc: return context.l.gallerySortSizeSmallest.toUpperCase();
-      case GallerySortMode.dateAddedDesc: return 'DATE ADDED (NEWEST)';
-      case GallerySortMode.dateAddedAsc: return 'DATE ADDED (OLDEST)';
+      case GallerySortMode.dateDesc:
+        return context.l.gallerySortDateNewest.toUpperCase();
+      case GallerySortMode.dateAsc:
+        return context.l.gallerySortDateOldest.toUpperCase();
+      case GallerySortMode.nameAsc:
+        return context.l.gallerySortNameAZ.toUpperCase();
+      case GallerySortMode.nameDesc:
+        return context.l.gallerySortNameZA.toUpperCase();
+      case GallerySortMode.sizeDesc:
+        return context.l.gallerySortSizeLargest.toUpperCase();
+      case GallerySortMode.sizeAsc:
+        return context.l.gallerySortSizeSmallest.toUpperCase();
+      case GallerySortMode.dateAddedDesc:
+        return context.l.gallerySortDateAddedNewest.toUpperCase();
+      case GallerySortMode.dateAddedAsc:
+        return context.l.gallerySortDateAddedOldest.toUpperCase();
     }
   }
 
-  Widget _buildAlbumStrip(GalleryNotifier gallery, bool mobile) {
+  Widget _buildAlbumStrip(GalleryNotifier gallery, bool touch) {
     final t = context.t;
-    if (gallery.albums.isEmpty && !_isSelectionMode && !gallery.hasClipboard) return const SizedBox.shrink();
+    if (gallery.albums.isEmpty && !_isSelectionMode && !gallery.hasClipboard) {
+      return const SizedBox.shrink();
+    }
 
     return Container(
-      height: mobile ? 42 : 34,
+      height: context.hitSize + VisionMetrics.space4,
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: t.borderSubtle)),
       ),
@@ -622,53 +731,35 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   label: context.l.galleryAll.toUpperCase(),
                   count: gallery.items.length,
                   isActive: gallery.activeAlbumId == null,
-                  mobile: mobile,
+                  touch: touch,
                   onTap: () => gallery.setActiveAlbum(null),
                 ),
                 for (int i = 0; i < gallery.albums.length; i++)
-                  _buildAlbumChip(gallery, i, mobile),
+                  _buildAlbumChip(gallery, i, touch),
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () => _showCreateAlbumDialog(gallery),
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: mobile ? 12 : 8),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: t.borderMedium),
-                ),
-                child: Icon(Icons.add, size: mobile ? 16 : 12, color: t.textDisabled),
-              ),
+          IconButton(
+            tooltip: context.l.galleryNewAlbum,
+            onPressed: () => _showCreateAlbumDialog(gallery),
+            padding: EdgeInsets.zero,
+            constraints: BoxConstraints.tightFor(
+              width: context.hitSize,
+              height: context.hitSize,
             ),
+            iconSize: VisionMetrics.iconMedium,
+            color: t.textDisabled,
+            icon: const Icon(Icons.add),
           ),
           if (gallery.hasClipboard)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: GestureDetector(
+              padding: const EdgeInsets.symmetric(
+                horizontal: VisionMetrics.space4,
+              ),
+              child: AppPill(
+                text: context.l.galleryCopiedCount(gallery.clipboard.length),
+                tone: AppTone.success,
                 onTap: () => _showClipboardMenu(gallery),
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: mobile ? 10 : 6),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    color: t.accentSuccess.withValues(alpha: 0.15),
-                    border: Border.all(color: t.accentSuccess.withValues(alpha: 0.4)),
-                  ),
-                  child: Center(
-                    child: Text(
-                      context.l.galleryCopiedCount(gallery.clipboard.length).toUpperCase(),
-                      style: TextStyle(
-                        color: t.accentSuccess,
-                        fontSize: t.fontSize(mobile ? 9 : 7),
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ),
-                ),
               ),
             ),
         ],
@@ -680,13 +771,13 @@ class _GalleryScreenState extends State<GalleryScreen> {
   /// on the already-selected album opens rename/delete, and reordering only
   /// starts from a long-press on touch layouts so a plain horizontal swipe
   /// scrolls the strip. Desktop keeps the immediate mouse drag.
-  Widget _buildAlbumChip(GalleryNotifier gallery, int i, bool mobile) {
+  Widget _buildAlbumChip(GalleryNotifier gallery, int i, bool touch) {
     final album = gallery.albums[i];
     final chip = _AlbumChip(
       label: album.name,
       count: gallery.albumItemCount(album.id),
       isActive: gallery.activeAlbumId == album.id,
-      mobile: mobile,
+      touch: touch,
       onTap: () {
         if (gallery.activeAlbumId == album.id) {
           _showAlbumOptionsDialog(gallery, album.id, album.name);
@@ -695,165 +786,178 @@ class _GalleryScreenState extends State<GalleryScreen> {
         }
       },
     );
-    return mobile
+    return touch
         ? ReorderableDelayedDragStartListener(
-            key: ValueKey(album.id), index: i + 1, child: chip)
+            key: ValueKey(album.id),
+            index: i + 1,
+            child: chip,
+          )
         : ReorderableDragStartListener(
-            key: ValueKey(album.id), index: i + 1, child: chip);
+            key: ValueKey(album.id),
+            index: i + 1,
+            child: chip,
+          );
   }
 
   void _showClipboardMenu(GalleryNotifier gallery) {
-    final t = context.tRead;
-    final mobile = isMobile(context);
-    showModalBottomSheet(
+    showAppSheet<void>(
       context: context,
-      backgroundColor: t.surfaceHigh,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Text(
-                context.l.galleryImagesCopiedCount(gallery.clipboard.length).toUpperCase(),
-                style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(mobile ? 12 : 10), letterSpacing: 2, fontWeight: FontWeight.bold),
-              ),
-            ),
-            for (final album in gallery.albums)
+      builder: (ctx) {
+        final t = ctx.t;
+        final l = ctx.l;
+        final touch = windowSizeClassOf(ctx).isTouchSized;
+        return AppPickerSheet(
+          title: l.galleryImagesCopiedCount(gallery.clipboard.length),
+          child: Column(
+            children: [
+              for (final album in gallery.albums)
+                ListTile(
+                  leading: Icon(
+                    Icons.paste,
+                    size: VisionMetrics.iconMedium,
+                    color: t.accentSuccess,
+                  ),
+                  title: Text(
+                    l.galleryPasteInto(album.name).toUpperCase(),
+                    style: TextStyle(
+                      color: t.textSecondary,
+                      fontSize: t.fontSize(touch ? 13 : 11),
+                    ),
+                  ),
+                  onTap: () {
+                    final pasteCount = gallery.clipboard.length;
+                    gallery.pasteToAlbum(album.id);
+                    Navigator.pop(ctx);
+                    showAppSnackBar(
+                      context,
+                      l.galleryPastedIntoAlbum(pasteCount, album.name),
+                    );
+                  },
+                ),
               ListTile(
-                leading: Icon(Icons.paste, size: 18, color: t.accentSuccess),
+                leading: Icon(
+                  Icons.clear,
+                  size: VisionMetrics.iconMedium,
+                  color: t.accentDanger,
+                ),
                 title: Text(
-                  context.l.galleryPasteInto(album.name).toUpperCase(),
-                  style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(mobile ? 13 : 11)),
+                  l.galleryClearClipboard.toUpperCase(),
+                  style: TextStyle(
+                    color: t.accentDanger,
+                    fontSize: t.fontSize(touch ? 13 : 11),
+                  ),
                 ),
                 onTap: () {
-                  final pasteCount = gallery.clipboard.length;
-                  gallery.pasteToAlbum(album.id);
+                  gallery.clearClipboard();
                   Navigator.pop(ctx);
-                  showAppSnackBar(context, context.l.galleryPastedIntoAlbum(pasteCount, album.name));
                 },
               ),
-            ListTile(
-              leading: Icon(Icons.clear, size: 18, color: t.accentDanger),
-              title: Text(context.l.galleryClearClipboard.toUpperCase(), style: TextStyle(color: t.accentDanger, fontSize: t.fontSize(mobile ? 13 : 11))),
-              onTap: () {
-                gallery.clearClipboard();
-                Navigator.pop(ctx);
-              },
-            ),
-          ],
-        ),
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  void _showCreateAlbumDialog(GalleryNotifier gallery) {
-    final controller = TextEditingController();
-    final t = context.tRead;
-    showDialog(
+  Future<void> _showCreateAlbumDialog(GalleryNotifier gallery) async {
+    final name = await showTextInputDialog(
+      context,
+      title: context.l.galleryNewAlbum.toUpperCase(),
+      confirmLabel: context.l.commonCreate,
+      hintText: context.l.galleryAlbumName.toUpperCase(),
+    );
+    if (name != null) gallery.createAlbum(name);
+  }
+
+  void _showAlbumOptionsDialog(
+    GalleryNotifier gallery,
+    String albumId,
+    String currentName,
+  ) {
+    showAppSheet<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: t.surfaceHigh,
-        title: Text(context.l.galleryNewAlbum.toUpperCase(), style: TextStyle(fontSize: t.fontSize(10), letterSpacing: 2, color: t.textSecondary)),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(13)),
-          decoration: InputDecoration(
-            hintText: context.l.galleryAlbumName.toUpperCase(),
-            hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9)),
-            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: t.borderMedium)),
+      builder: (ctx) {
+        final t = ctx.t;
+        final l = ctx.l;
+        return AppPickerSheet(
+          child: Column(
+            children: [
+              ListTile(
+                leading: Icon(
+                  Icons.edit,
+                  size: VisionMetrics.iconMedium,
+                  color: t.textSecondary,
+                ),
+                title: Text(
+                  l.commonRename.toUpperCase(),
+                  style: TextStyle(
+                    color: t.textSecondary,
+                    fontSize: t.fontSize(11),
+                    letterSpacing: 1,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showRenameAlbumDialog(gallery, albumId, currentName);
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.delete_outline,
+                  size: VisionMetrics.iconMedium,
+                  color: t.accentDanger,
+                ),
+                title: Text(
+                  l.commonDelete.toUpperCase(),
+                  style: TextStyle(
+                    color: t.accentDanger,
+                    fontSize: t.fontSize(11),
+                    letterSpacing: 1,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _confirmDeleteAlbum(gallery, albumId, currentName);
+                },
+              ),
+            ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(ctx.l.commonCancel.toUpperCase(), style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9))),
-          ),
-          TextButton(
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                gallery.createAlbum(controller.text.trim());
-                Navigator.pop(ctx);
-              }
-            },
-            child: Text(ctx.l.commonCreate.toUpperCase(), style: TextStyle(color: t.accent, fontSize: t.fontSize(9))),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  void _showAlbumOptionsDialog(GalleryNotifier gallery, String albumId, String currentName) {
-    final t = context.tRead;
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: t.surfaceHigh,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: Icon(Icons.edit, size: 18, color: t.textSecondary),
-              title: Text(context.l.commonRename.toUpperCase(), style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(11), letterSpacing: 1)),
-              onTap: () {
-                Navigator.pop(ctx);
-                _showRenameAlbumDialog(gallery, albumId, currentName);
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.delete_outline, size: 18, color: t.accentDanger),
-              title: Text(context.l.commonDelete.toUpperCase(), style: TextStyle(color: t.accentDanger, fontSize: t.fontSize(11), letterSpacing: 1)),
-              onTap: () {
-                Navigator.pop(ctx);
-                gallery.deleteAlbum(albumId);
-              },
-            ),
-          ],
-        ),
-      ),
+  Future<void> _confirmDeleteAlbum(
+    GalleryNotifier gallery,
+    String albumId,
+    String name,
+  ) async {
+    final confirm = await showConfirmDialog(
+      context,
+      title: context.l.galleryDeleteAlbumTitle(name),
+      message: context.l.galleryDeleteAlbumMessage,
+      confirmLabel: context.l.commonDelete,
+      cancelLabel: context.l.commonCancel,
     );
+    if (confirm == true) gallery.deleteAlbum(albumId);
   }
 
-  void _showRenameAlbumDialog(GalleryNotifier gallery, String albumId, String currentName) {
-    final controller = TextEditingController(text: currentName);
-    final t = context.tRead;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: t.surfaceHigh,
-        title: Text(context.l.galleryRenameAlbum.toUpperCase(), style: TextStyle(fontSize: t.fontSize(10), letterSpacing: 2, color: t.textSecondary)),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(13)),
-          decoration: InputDecoration(
-            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: t.borderMedium)),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(ctx.l.commonCancel.toUpperCase(), style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9))),
-          ),
-          TextButton(
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                gallery.renameAlbum(albumId, controller.text.trim());
-                Navigator.pop(ctx);
-              }
-            },
-            child: Text(ctx.l.commonRename.toUpperCase(), style: TextStyle(color: t.accent, fontSize: t.fontSize(9))),
-          ),
-        ],
-      ),
+  Future<void> _showRenameAlbumDialog(
+    GalleryNotifier gallery,
+    String albumId,
+    String currentName,
+  ) async {
+    final name = await showTextInputDialog(
+      context,
+      title: context.l.galleryRenameAlbum.toUpperCase(),
+      confirmLabel: context.l.commonRename,
+      initialValue: currentName,
     );
+    if (name != null) gallery.renameAlbum(albumId, name);
   }
 
   void _showAddToAlbumDialog(List<GalleryItem> selectedItems) {
     final gallery = context.read<GalleryNotifier>();
-    final t = context.tRead;
     final currentAlbumId = gallery.activeAlbumId;
 
     if (gallery.albums.isEmpty) {
@@ -862,21 +966,22 @@ class _GalleryScreenState extends State<GalleryScreen> {
       return;
     }
 
-    showModalBottomSheet(
+    showAppSheet<void>(
       context: context,
-      backgroundColor: t.surfaceHigh,
-      builder: (ctx) => _AddToAlbumSheet(
-        gallery: gallery,
-        selectedItems: selectedItems,
-        currentAlbumId: currentAlbumId,
-        onDone: () {
-          Navigator.pop(ctx);
-          _exitSelectionMode();
-        },
-        onCreateAlbum: () {
-          Navigator.pop(ctx);
-          _showCreateAlbumDialog(gallery);
-        },
+      builder: (ctx) => AppPickerSheet(
+        child: _AddToAlbumSheet(
+          gallery: gallery,
+          selectedItems: selectedItems,
+          currentAlbumId: currentAlbumId,
+          onDone: () {
+            Navigator.pop(ctx);
+            _exitSelectionMode();
+          },
+          onCreateAlbum: () {
+            Navigator.pop(ctx);
+            _showCreateAlbumDialog(gallery);
+          },
+        ),
       ),
     );
   }
@@ -885,9 +990,9 @@ class _GalleryScreenState extends State<GalleryScreen> {
   Widget build(BuildContext context) {
     final t = context.t;
     final gallery = context.watch<GalleryNotifier>();
-    final mobile = isMobile(context);
-    final maxCols = mobile ? 4 : 8;
-    final minCols = mobile ? 2 : 3;
+    final touch = windowSizeClassOf(context).isTouchSized;
+    final maxCols = touch ? 4 : 8;
+    final minCols = touch ? 2 : 3;
     final activeItems = gallery.activeItems;
 
     return Focus(
@@ -912,7 +1017,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
           return KeyEventResult.handled;
         }
         if (event.logicalKey == LogicalKeyboardKey.delete &&
-            _isSelectionMode && _selectedIndices.isNotEmpty) {
+            _isSelectionMode &&
+            _selectedIndices.isNotEmpty) {
           final selectedItems = _selectedIndices
               .where((i) => i < activeItems.length)
               .map((i) => activeItems[i])
@@ -923,74 +1029,83 @@ class _GalleryScreenState extends State<GalleryScreen> {
         return KeyEventResult.ignored;
       },
       child: Scaffold(
-      backgroundColor: t.background,
-      appBar: _buildAppBar(gallery, activeItems, mobile, maxCols, minCols),
-      body: Column(
-        children: [
-          // Album strip
-          _buildAlbumStrip(gallery, mobile),
-          // Grid content
-          Expanded(
-            child: gallery.isLoading
-                ? Center(
-                    child: CircularProgressIndicator(strokeWidth: 2, color: t.textMinimal))
-                : activeItems.isEmpty
-                    ? Center(
-                        child: Text(
-                          gallery.demoMode
-                              ? context.l.galleryNoDemoImages.toUpperCase()
-                              : gallery.showFavoritesOnly
-                                  ? context.l.galleryNoFavorites.toUpperCase()
-                                  : gallery.activeAlbumId != null
-                                      ? context.l.galleryNoImagesInAlbum.toUpperCase()
-                                      : context.l.galleryNoImagesFound.toUpperCase(),
-                          style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(10), letterSpacing: 2),
-                        ))
-                    : Stack(
-                        children: [
-                          _buildGrid(activeItems, mobile),
-                          // Desktop drag rectangle overlay
-                          if (_isRectDragging && _dragStart != null && _dragCurrent != null)
-                            Positioned.fill(
-                              child: IgnorePointer(
-                                child: CustomPaint(
-                                  painter: _DragRectPainter(
-                                    start: _dragStart!,
-                                    end: _dragCurrent!,
-                                  ),
+        backgroundColor: t.background,
+        appBar: _buildAppBar(gallery, activeItems, touch, maxCols, minCols),
+        body: Column(
+          children: [
+            // Album strip
+            _buildAlbumStrip(gallery, touch),
+            // Grid content
+            Expanded(
+              child: gallery.isLoading
+                  ? const LoadingState()
+                  : activeItems.isEmpty
+                  ? EmptyState(
+                      icon: Icons.photo_library_outlined,
+                      message: gallery.demoMode
+                          ? context.l.galleryNoDemoImages
+                          : gallery.showFavoritesOnly
+                          ? context.l.galleryNoFavorites
+                          : gallery.activeAlbumId != null
+                          ? context.l.galleryNoImagesInAlbum
+                          : context.l.galleryNoImagesFound,
+                    )
+                  : Stack(
+                      children: [
+                        _buildGrid(activeItems, touch),
+                        // Desktop drag rectangle overlay
+                        if (_isRectDragging &&
+                            _dragStart != null &&
+                            _dragCurrent != null)
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: CustomPaint(
+                                painter: _DragRectPainter(
+                                  start: _dragStart!,
+                                  end: _dragCurrent!,
+                                  color: t.textPrimary,
                                 ),
                               ),
                             ),
-                          // Bulk action bar
-                          if (_isSelectionMode)
-                            _buildBulkActionBar(activeItems),
-                        ],
-                      ),
-          ),
-        ],
+                          ),
+                        // Bulk action bar
+                        if (_isSelectionMode) _buildBulkActionBar(activeItems),
+                      ],
+                    ),
+            ),
+          ],
+        ),
       ),
-    ),
     );
   }
 
   PreferredSizeWidget _buildAppBar(
-      GalleryNotifier gallery, List<GalleryItem> items, bool mobile, int maxCols, int minCols) {
+    GalleryNotifier gallery,
+    List<GalleryItem> items,
+    bool touch,
+    int maxCols,
+    int minCols,
+  ) {
     final t = context.t;
     if (_isSelectionMode) {
       return AppBar(
         backgroundColor: t.background,
         elevation: 0,
         centerTitle: true,
-        toolbarHeight: mobile ? 56 : 40,
+        toolbarHeight: touch ? 56 : 40,
         leading: IconButton(
-          icon: Icon(Icons.close, size: mobile ? 22 : 16, color: t.textSecondary),
+          icon: Icon(
+            Icons.close,
+            size: touch ? 22 : 16,
+            color: t.textSecondary,
+          ),
           onPressed: _exitSelectionMode,
         ),
         title: Text(
           context.l.gallerySelectedCount(_selectedIndices.length).toUpperCase(),
           style: TextStyle(
             letterSpacing: 2,
-            fontSize: mobile ? t.fontSize(14) : t.fontSize(10),
+            fontSize: touch ? t.fontSize(14) : t.fontSize(10),
             fontWeight: FontWeight.w900,
             color: t.textSecondary,
           ),
@@ -1001,10 +1116,12 @@ class _GalleryScreenState extends State<GalleryScreen> {
               _selectedIndices.length == items.length
                   ? Icons.deselect
                   : Icons.select_all,
-              size: mobile ? 22 : 16,
+              size: touch ? 22 : 16,
               color: t.textDisabled,
             ),
-            tooltip: _selectedIndices.length == items.length ? context.l.galleryDeselectAll : context.l.gallerySelectAll,
+            tooltip: _selectedIndices.length == items.length
+                ? context.l.galleryDeselectAll
+                : context.l.gallerySelectAll,
             onPressed: () => _selectAll(items),
           ),
         ],
@@ -1013,29 +1130,38 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
     return AppBar(
       title: _isSearching
-          ? (mobile
-              ? null
-              : TextField(
-                  controller: _searchController,
-                  autofocus: true,
-                  style: TextStyle(color: t.accent, fontSize: t.fontSize(12)),
-                  decoration: InputDecoration(
-                    hintText: context.l.gallerySearchTags.toUpperCase(),
-                    hintStyle: TextStyle(
-                        color: t.textDisabled, fontSize: t.fontSize(10), letterSpacing: 2),
-                    border: InputBorder.none,
-                  ),
-                  onChanged: (value) => gallery.setSearchQuery(value),
-                ))
-          : (mobile
-              ? null
-              : Text((gallery.demoMode ? context.l.galleryDemoTitle : context.l.galleryTitle).toUpperCase(),
-                  style: TextStyle(
+          ? (touch
+                ? null
+                : TextField(
+                    controller: _searchController,
+                    autofocus: true,
+                    style: TextStyle(color: t.accent, fontSize: t.fontSize(12)),
+                    decoration: InputDecoration(
+                      hintText: context.l.gallerySearchTags.toUpperCase(),
+                      hintStyle: TextStyle(
+                        color: t.textDisabled,
+                        fontSize: t.fontSize(10),
+                        letterSpacing: 2,
+                      ),
+                      border: InputBorder.none,
+                    ),
+                    onChanged: (value) => gallery.setSearchQuery(value),
+                  ))
+          : (touch
+                ? null
+                : Text(
+                    (gallery.demoMode
+                            ? context.l.galleryDemoTitle
+                            : context.l.galleryTitle)
+                        .toUpperCase(),
+                    style: TextStyle(
                       letterSpacing: 4,
                       fontSize: t.fontSize(10),
                       fontWeight: FontWeight.w900,
-                      color: t.textSecondary))),
-      bottom: (mobile && _isSearching)
+                      color: t.textSecondary,
+                    ),
+                  )),
+      bottom: (touch && _isSearching)
           ? PreferredSize(
               preferredSize: const Size.fromHeight(48),
               child: Padding(
@@ -1046,7 +1172,11 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   style: TextStyle(color: t.accent, fontSize: t.fontSize(14)),
                   decoration: InputDecoration(
                     hintText: context.l.gallerySearchTags.toUpperCase(),
-                    hintStyle: TextStyle(color: t.textDisabled, fontSize: t.fontSize(12), letterSpacing: 2),
+                    hintStyle: TextStyle(
+                      color: t.textDisabled,
+                      fontSize: t.fontSize(12),
+                      letterSpacing: 2,
+                    ),
                     border: InputBorder.none,
                   ),
                   onChanged: (value) => gallery.setSearchQuery(value),
@@ -1057,9 +1187,13 @@ class _GalleryScreenState extends State<GalleryScreen> {
       backgroundColor: t.background,
       elevation: 0,
       centerTitle: true,
-      toolbarHeight: mobile ? 56 : 40,
+      toolbarHeight: touch ? 56 : 40,
       leading: IconButton(
-        icon: Icon(Icons.arrow_back_ios, size: mobile ? 20 : 14, color: t.textDisabled),
+        icon: Icon(
+          Icons.arrow_back_ios,
+          size: touch ? 20 : 14,
+          color: t.textDisabled,
+        ),
         onPressed: () {
           if (_isSearching) {
             setState(() {
@@ -1074,15 +1208,21 @@ class _GalleryScreenState extends State<GalleryScreen> {
       ),
       actions: [
         IconButton(
-          icon: Icon(Icons.add_photo_alternate, size: mobile ? 22 : 16, color: t.secondaryText),
+          icon: Icon(
+            Icons.add_photo_alternate,
+            size: touch ? 22 : 16,
+            color: t.secondaryText,
+          ),
           tooltip: context.l.galleryImport,
           onPressed: _importImages,
         ),
         IconButton(
           icon: Icon(
             gallery.showFavoritesOnly ? Icons.star : Icons.star_outline,
-            size: mobile ? 22 : 16,
-            color: gallery.showFavoritesOnly ? t.accentFavorite : t.secondaryText,
+            size: touch ? 22 : 16,
+            color: gallery.showFavoritesOnly
+                ? t.accentFavorite
+                : t.secondaryText,
           ),
           tooltip: context.l.galleryFavoritesFilter,
           onPressed: () {
@@ -1090,7 +1230,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
           },
         ),
         PopupMenuButton<GallerySortMode>(
-          icon: Icon(Icons.sort, size: mobile ? 20 : 16, color: t.secondaryText),
+          icon: Icon(Icons.sort, size: touch ? 20 : 16, color: t.secondaryText),
           tooltip: context.l.gallerySort,
           color: t.surfaceHigh,
           onSelected: (mode) => gallery.setSortMode(mode),
@@ -1108,8 +1248,10 @@ class _GalleryScreenState extends State<GalleryScreen> {
                     Text(
                       _sortModeLabel(context, mode),
                       style: TextStyle(
-                        color: gallery.sortMode == mode ? t.accent : t.textSecondary,
-                        fontSize: t.fontSize(mobile ? 12 : 10),
+                        color: gallery.sortMode == mode
+                            ? t.accent
+                            : t.textSecondary,
+                        fontSize: t.fontSize(touch ? 12 : 10),
                         letterSpacing: 1,
                       ),
                     ),
@@ -1119,7 +1261,11 @@ class _GalleryScreenState extends State<GalleryScreen> {
           ],
         ),
         IconButton(
-          icon: Icon(Icons.checklist, size: mobile ? 20 : 16, color: t.secondaryText),
+          icon: Icon(
+            Icons.checklist,
+            size: touch ? 20 : 16,
+            color: t.secondaryText,
+          ),
           tooltip: context.l.gallerySelectMode,
           onPressed: () {
             setState(() {
@@ -1128,18 +1274,29 @@ class _GalleryScreenState extends State<GalleryScreen> {
           },
         ),
         IconButton(
-          icon: Icon(Icons.grid_view, size: mobile ? 20 : 16, color: t.secondaryText),
+          icon: Icon(
+            Icons.grid_view,
+            size: touch ? 20 : 16,
+            color: t.secondaryText,
+          ),
           tooltip: context.l.galleryColumnsCount(_crossAxisCount!),
           onPressed: () {
             setState(() {
-              _crossAxisCount = _crossAxisCount! >= maxCols ? minCols : _crossAxisCount! + 1;
+              _crossAxisCount = _crossAxisCount! >= maxCols
+                  ? minCols
+                  : _crossAxisCount! + 1;
             });
-            context.read<PreferencesService>().setGalleryGridColumns(_crossAxisCount!);
+            context.read<PreferencesService>().setGalleryGridColumns(
+              _crossAxisCount!,
+            );
           },
         ),
         IconButton(
-          icon: Icon(_isSearching ? Icons.close : Icons.search,
-              size: mobile ? 20 : 16, color: t.secondaryText),
+          icon: Icon(
+            _isSearching ? Icons.close : Icons.search,
+            size: touch ? 20 : 16,
+            color: t.secondaryText,
+          ),
           onPressed: () {
             setState(() {
               if (_isSearching) {
@@ -1154,9 +1311,19 @@ class _GalleryScreenState extends State<GalleryScreen> {
     );
   }
 
-  Widget _buildGrid(List<GalleryItem> items, bool mobile) {
+  /// Gap between the floating bulk action bar and the bottom edge.
+  double _bulkBarBottom(bool touch) =>
+      touch ? MediaQuery.paddingOf(context).bottom + 16 : 16;
+
+  Widget _buildGrid(List<GalleryItem> items, bool touch) {
+    final bottomInset = galleryGridBottomInset(
+      safeAreaBottom: MediaQuery.paddingOf(context).bottom,
+      actionBarExtent: _isSelectionMode
+          ? _bulkBarBottom(touch) + _bulkBarHeight
+          : 0,
+    );
     final grid = TweenAnimationBuilder<double>(
-      tween: Tween<double>(end: galleryGridBottomInset(_isSelectionMode)),
+      tween: Tween<double>(end: bottomInset),
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
       builder: (context, bottomInset, _) => GridView.builder(
@@ -1175,12 +1342,12 @@ class _GalleryScreenState extends State<GalleryScreen> {
           childAspectRatio: 1,
         ),
         itemCount: items.length,
-        itemBuilder: (context, index) => _buildGridItem(items, index, mobile),
+        itemBuilder: (context, index) => _buildGridItem(items, index, touch),
       ),
     );
 
     late final Widget content;
-    if (mobile) {
+    if (touch) {
       content = GestureDetector(
         onLongPressStart: (details) {
           final idx = _cellIndexFromOffset(details.localPosition, items.length);
@@ -1234,7 +1401,11 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   _dragCurrent = details.localPosition;
                 });
                 // Live selection feedback
-                final indices = _indicesInRect(_dragStart!, _dragCurrent!, items.length);
+                final indices = _indicesInRect(
+                  _dragStart!,
+                  _dragCurrent!,
+                  items.length,
+                );
                 setState(() {
                   _dragSelectedIndices
                     ..clear()
@@ -1264,7 +1435,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
       controller: _scrollController,
       interactive: true,
       thumbVisibility: true,
-      thickness: mobile ? 12 : 8,
+      thickness: touch ? 12 : 8,
       radius: const Radius.circular(6),
       minThumbLength: 48,
       crossAxisMargin: 2,
@@ -1274,10 +1445,12 @@ class _GalleryScreenState extends State<GalleryScreen> {
     );
   }
 
-  Widget _buildGridItem(List<GalleryItem> items, int index, bool mobile) {
+  Widget _buildGridItem(List<GalleryItem> items, int index, bool touch) {
     final t = context.t;
     final item = items[index];
-    final isSelected = _selectedIndices.contains(index) || _dragSelectedIndices.contains(index);
+    final isSelected =
+        _selectedIndices.contains(index) ||
+        _dragSelectedIndices.contains(index);
     final showInfo = _hoveredIndex == index && !_isSelectionMode;
 
     Widget tile = Container(
@@ -1303,13 +1476,15 @@ class _GalleryScreenState extends State<GalleryScreen> {
             // A corrupted file (failed generation, interrupted write) must
             // degrade to a placeholder, not error the whole grid (issue #24).
             errorBuilder: (context, error, stackTrace) => Center(
-              child: Icon(Icons.broken_image_outlined,
-                  size: 24, color: t.textMinimal),
+              child: Icon(
+                Icons.broken_image_outlined,
+                size: 24,
+                color: t.textMinimal,
+              ),
             ),
           ),
           // Dim overlay when selected
-          if (isSelected)
-            Container(color: t.background.withValues(alpha: 0.3)),
+          if (isSelected) Container(color: t.background.withValues(alpha: 0.3)),
           // Info overlay on hover / long-press
           if (showInfo)
             Positioned.fill(
@@ -1322,17 +1497,26 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   children: [
                     if (item.prompt != null && item.prompt!.isNotEmpty)
                       Text(
-                        item.prompt!.length > 60 ? '${item.prompt!.substring(0, 60)}...' : item.prompt!,
+                        item.prompt!.length > 60
+                            ? '${item.prompt!.substring(0, 60)}...'
+                            : item.prompt!,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(mobile ? 10 : 8), fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: t.textSecondary,
+                          fontSize: t.fontSize(touch ? 10 : 8),
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     const SizedBox(height: 4),
                     Text(
                       item.basename,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(mobile ? 8 : 7)),
+                      style: TextStyle(
+                        color: t.textDisabled,
+                        fontSize: t.fontSize(touch ? 8 : 7),
+                      ),
                     ),
                   ],
                 ),
@@ -1343,7 +1527,11 @@ class _GalleryScreenState extends State<GalleryScreen> {
             Positioned(
               top: 4,
               left: 4,
-              child: Icon(Icons.star, size: mobile ? 18 : 14, color: t.accentFavorite),
+              child: Icon(
+                Icons.star,
+                size: touch ? 18 : 14,
+                color: t.accentFavorite,
+              ),
             ),
           // Canvas layers badge (bottom-left)
           if (item.hasCanvasState)
@@ -1356,7 +1544,11 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   color: t.accentEdit.withValues(alpha: 0.8),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: Icon(Icons.palette, size: mobile ? 16 : 13, color: Colors.white),
+                child: Icon(
+                  Icons.palette,
+                  size: touch ? 16 : 13,
+                  color: t.textPrimary,
+                ),
               ),
             ),
           // Selection checkmark (top-right)
@@ -1365,18 +1557,26 @@ class _GalleryScreenState extends State<GalleryScreen> {
               top: 4,
               right: 4,
               child: Container(
-                width: mobile ? 24 : 20,
-                height: mobile ? 24 : 20,
+                width: touch ? 24 : 20,
+                height: touch ? 24 : 20,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: isSelected ? t.accent : t.background.withValues(alpha: 0.5),
+                  color: isSelected
+                      ? t.accent
+                      : t.background.withValues(alpha: 0.5),
                   border: Border.all(
-                    color: isSelected ? t.accent : t.accent.withValues(alpha: 0.5),
+                    color: isSelected
+                        ? t.accent
+                        : t.accent.withValues(alpha: 0.5),
                     width: 2,
                   ),
                 ),
                 child: isSelected
-                    ? Icon(Icons.check, size: mobile ? 14 : 12, color: t.background)
+                    ? Icon(
+                        Icons.check,
+                        size: touch ? 14 : 12,
+                        color: t.background,
+                      )
                     : null,
               ),
             ),
@@ -1385,7 +1585,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
     );
 
     // Wrap with hover detection on desktop
-    if (!mobile) {
+    if (!touch) {
       tile = MouseRegion(
         onEnter: (_) => setState(() => _hoveredIndex = index),
         onExit: (_) => setState(() => _hoveredIndex = null),
@@ -1409,7 +1609,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
           );
         }
       },
-      onLongPress: mobile
+      onLongPress: touch
           ? null // Handled by parent GestureDetector for drag support
           : () {
               if (!_isSelectionMode) {
@@ -1420,259 +1620,210 @@ class _GalleryScreenState extends State<GalleryScreen> {
     );
   }
 
+  /// The label of a tool NovelAI charges for, with the most it can cost for
+  /// [count] images.
+  String _withCap(String label, PaidTool tool, int count) {
+    final cap = paidToolCapLabel(context, tool, count: max(1, count));
+    return (cap == null ? label : '$label · $cap').toUpperCase();
+  }
+
   Widget _buildBulkActionBar(List<GalleryItem> items) {
     final t = context.t;
-    final mobile = isMobile(context);
+    final touch = windowSizeClassOf(context).isTouchSized;
     final gallery = context.watch<GalleryNotifier>();
-    final selectedItems =
-        _selectedIndices.where((i) => i < items.length).map((i) => items[i]).toList();
+    final selectedItems = _selectedIndices
+        .where((i) => i < items.length)
+        .map((i) => items[i])
+        .toList();
     final count = _selectedIndices.length;
+    final l = context.l;
+    final ml = context.read<MLNotifier>();
+    final naiUpscaleOffered = isNovelAiImageActionOffered(
+      context,
+      NovelAiImageAction.upscale,
+    );
+    Widget action(
+      IconData icon,
+      String label,
+      Color color,
+      VoidCallback? onTap,
+    ) => OverlayActionButton(
+      icon: icon,
+      tooltip: label,
+      label: label,
+      color: color,
+      onPressed: onTap,
+    );
 
     return Positioned(
-      left: 16,
-      right: 16,
-      bottom: mobile ? MediaQuery.of(context).padding.bottom + 16 : 16,
-      child: AnimatedSlide(
-        offset: count > 0 ? Offset.zero : const Offset(0, 2),
-        duration: const Duration(milliseconds: 200),
-        child: AnimatedOpacity(
-          opacity: count > 0 ? 1.0 : 0.0,
+      left: VisionMetrics.space16,
+      right: VisionMetrics.space16,
+      bottom: _bulkBarBottom(touch),
+      child: HeightReporter(
+        onHeight: (height) {
+          if (mounted && height != _bulkBarHeight) {
+            setState(() => _bulkBarHeight = height);
+          }
+        },
+        child: AnimatedSlide(
+          offset: count > 0 ? Offset.zero : const Offset(0, 2),
           duration: const Duration(milliseconds: 200),
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: mobile ? 16 : 12,
-              vertical: mobile ? 12 : 8,
-            ),
-            decoration: BoxDecoration(
-              color: t.surfaceHigh,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: t.borderMedium),
-              boxShadow: [
-                BoxShadow(
-                  color: t.background.withValues(alpha: 0.8),
-                  blurRadius: 20,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                if (count == 2)
-                  _ActionButton(
-                    icon: Icons.compare,
-                    label: context.l.galleryCompare.toUpperCase(),
-                    color: t.accent,
-                    mobile: mobile,
-                    iconOnly: mobile,
-                    onTap: () {
-                      final sorted = _selectedIndices.toList()..sort();
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ComparisonView(
-                            itemA: items[sorted[0]],
-                            itemB: items[sorted[1]],
-                          ),
-                        ),
-                      );
-                    },
+          child: AnimatedOpacity(
+            opacity: count > 0 ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 200),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+                boxShadow: [
+                  BoxShadow(
+                    color: t.background.withValues(
+                      alpha: VisionMetrics.opacityOverlay,
+                    ),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
                   ),
-                if (count == 2)
-                  SizedBox(width: mobile ? 12 : 8),
-                _ActionButton(
-                  icon: Icons.copy,
-                  label: context.l.galleryCopy.toUpperCase(),
-                  color: t.accent,
-                  mobile: mobile,
-                  iconOnly: mobile,
-                  onTap: count > 0 ? () {
-                    final gallery = context.read<GalleryNotifier>();
-                    gallery.copyToClipboard(selectedItems);
-                    showAppSnackBar(context, context.l.galleryImagesCopied(selectedItems.length), color: t.accent);
-                    _exitSelectionMode();
-                  } : null,
-                ),
-                SizedBox(width: mobile ? 12 : 8),
-                if (gallery.hasClipboard && gallery.activeAlbumId != null)
-                  _ActionButton(
-                    icon: Icons.paste,
-                    label: context.l.galleryPaste.toUpperCase(),
-                    color: t.accentSuccess,
-                    mobile: mobile,
-                    iconOnly: mobile,
-                    onTap: () {
-                      final pasteCount = gallery.clipboard.length;
-                      gallery.pasteToAlbum(gallery.activeAlbumId!);
-                      showAppSnackBar(context, context.l.galleryImagesPasted(pasteCount));
-                    },
-                  ),
-                if (gallery.hasClipboard && gallery.activeAlbumId != null)
-                  SizedBox(width: mobile ? 12 : 8),
-                _ActionButton(
-                  icon: Icons.photo_album,
-                  label: context.l.galleryAlbum.toUpperCase(),
-                  color: t.accent,
-                  mobile: mobile,
-                  iconOnly: mobile,
-                  onTap: count > 0 ? () => _showAddToAlbumDialog(selectedItems) : null,
-                ),
-                SizedBox(width: mobile ? 12 : 8),
-                _ActionButton(
-                  icon: Icons.save_alt,
-                  label: context.l.commonExport.toUpperCase(),
-                  color: t.accent,
-                  mobile: mobile,
-                  iconOnly: mobile,
-                  onTap: count > 0 ? () => _bulkExport(selectedItems) : null,
-                ),
-                SizedBox(width: mobile ? 12 : 8),
-                if (context.read<MLNotifier>().hasBgRemovalModel)
-                  _ActionButton(
-                    icon: Icons.content_cut,
-                    label: context.l.mlRemoveBg.toUpperCase(),
-                    color: t.accent,
-                    mobile: mobile,
-                    iconOnly: mobile,
-                    onTap: count > 0 ? () => _bulkRemoveBg(selectedItems) : null,
-                  ),
-                if (context.read<MLNotifier>().hasBgRemovalModel)
-                  SizedBox(width: mobile ? 12 : 8),
-                if (context.read<MLNotifier>().hasUpscaleModel)
-                  _ActionButton(
-                    icon: Icons.zoom_out_map,
-                    label: context.l.mlUpscale.toUpperCase(),
-                    color: t.accent,
-                    mobile: mobile,
-                    iconOnly: mobile,
-                    onTap: count > 0 ? () => _bulkUpscale(selectedItems) : null,
-                  ),
-                if (context.read<MLNotifier>().hasUpscaleModel)
-                  SizedBox(width: mobile ? 12 : 8),
-                if (context.read<GenerationNotifier>().state.apiKey.isNotEmpty &&
-                    hasBackendPermission(context, BackendPermission.imageUpscale))
-                  _ActionButton(
-                    icon: Icons.cloud_upload_outlined,
-                    label: context.l.naiUpscale.toUpperCase(),
-                    color: t.accentEdit,
-                    mobile: mobile,
-                    iconOnly: mobile,
-                    onTap: count > 0 ? () => _bulkNaiUpscale(selectedItems) : null,
-                  ),
-                if (context.read<GenerationNotifier>().state.apiKey.isNotEmpty &&
-                    hasBackendPermission(context, BackendPermission.imageUpscale))
-                  SizedBox(width: mobile ? 12 : 8),
-                if (context.read<MLNotifier>().selectedSegmentationModelId != null && count == 1)
-                  _ActionButton(
-                    icon: Icons.auto_awesome,
-                    label: context.l.mlSegment.toUpperCase(),
-                    color: t.accent,
-                    mobile: mobile,
-                    iconOnly: mobile,
-                    onTap: () => _openSegmentation(selectedItems.first),
-                  ),
-                if (context.read<MLNotifier>().selectedSegmentationModelId != null && count == 1)
-                  SizedBox(width: mobile ? 12 : 8),
-                // Send to Canvas (single image)
-                if (count == 1)
-                  _ActionButton(
-                    icon: Icons.brush,
-                    label: context.l.mlCanvas.toUpperCase(),
-                    color: t.accentEdit,
-                    mobile: mobile,
-                    iconOnly: mobile,
-                    onTap: () => _openInCanvas(selectedItems.first),
-                  ),
-                if (count == 1)
-                  SizedBox(width: mobile ? 12 : 8),
-                _ActionButton(
-                  icon: Icons.star,
-                  label: context.l.galleryFavorite.toUpperCase(),
-                  color: t.accentFavorite,
-                  mobile: mobile,
-                  iconOnly: mobile,
-                  onTap: count > 0 ? () => _bulkFavorite(selectedItems) : null,
-                ),
-                // Remove from album (only when viewing an album)
-                if (context.read<GalleryNotifier>().activeAlbumId != null) ...[
-                  SizedBox(width: mobile ? 12 : 8),
-                  _ActionButton(
-                    icon: Icons.playlist_remove,
-                    label: 'REMOVE',
-                    color: t.secondaryText,
-                    mobile: mobile,
-                    iconOnly: mobile,
-                    onTap: count > 0 ? () {
-                      final g = context.read<GalleryNotifier>();
-                      g.removeFromAlbum(g.activeAlbumId!, selectedItems);
-                      setState(() => _selectedIndices.clear());
-                    } : null,
-                  ),
-                ],
-                SizedBox(width: mobile ? 12 : 8),
-                _ActionButton(
-                  icon: Icons.delete_outline,
-                  label: context.l.commonDelete.toUpperCase(),
-                  color: t.accentDanger,
-                  mobile: mobile,
-                  iconOnly: mobile,
-                  onTap: count > 0 ? () => _bulkDelete(selectedItems) : null,
-                ),
                 ],
               ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final bool mobile;
-  final bool iconOnly;
-  final VoidCallback? onTap;
-
-  const _ActionButton({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.mobile,
-    this.iconOnly = false,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    return Tooltip(
-      message: label,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(4),
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: mobile ? 8 : 6, vertical: 4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: mobile ? 20 : 14, color: color),
-              if (!iconOnly) ...[
-                const SizedBox(width: 4),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: mobile ? t.fontSize(10) : t.fontSize(8),
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
+              child: AppPanel(
+                variant: AppPanelVariant.raised,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: VisionMetrics.space8,
+                  vertical: VisionMetrics.space4,
+                ),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    spacing: VisionMetrics.space4,
+                    children: [
+                      if (count == 2)
+                        action(Icons.compare, l.galleryCompare, t.accent, () {
+                          final sorted = _selectedIndices.toList()..sort();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ComparisonView(
+                                itemA: items[sorted[0]],
+                                itemB: items[sorted[1]],
+                              ),
+                            ),
+                          );
+                        }),
+                      action(
+                        Icons.copy,
+                        l.galleryCopy,
+                        t.accent,
+                        count > 0
+                            ? () {
+                                gallery.copyToClipboard(selectedItems);
+                                showAppSnackBar(
+                                  context,
+                                  l.galleryImagesCopied(selectedItems.length),
+                                  color: t.accent,
+                                );
+                                _exitSelectionMode();
+                              }
+                            : null,
+                      ),
+                      if (gallery.hasClipboard && gallery.activeAlbumId != null)
+                        action(
+                          Icons.paste,
+                          l.galleryPaste,
+                          t.accentSuccess,
+                          () {
+                            final pasteCount = gallery.clipboard.length;
+                            gallery.pasteToAlbum(gallery.activeAlbumId!);
+                            showAppSnackBar(
+                              context,
+                              l.galleryImagesPasted(pasteCount),
+                            );
+                          },
+                        ),
+                      action(
+                        Icons.photo_album,
+                        l.galleryAlbum,
+                        t.accent,
+                        count > 0
+                            ? () => _showAddToAlbumDialog(selectedItems)
+                            : null,
+                      ),
+                      action(
+                        Icons.save_alt,
+                        l.commonExport,
+                        t.accent,
+                        count > 0 ? () => _bulkExport(selectedItems) : null,
+                      ),
+                      if (ml.hasBgRemovalModel)
+                        action(
+                          Icons.content_cut,
+                          l.mlRemoveBg,
+                          t.accent,
+                          count > 0 ? () => _bulkRemoveBg(selectedItems) : null,
+                        ),
+                      if (ml.hasUpscaleModel)
+                        action(
+                          Icons.zoom_out_map,
+                          l.mlUpscale,
+                          t.accent,
+                          count > 0 ? () => _bulkUpscale(selectedItems) : null,
+                        ),
+                      if (naiUpscaleOffered)
+                        action(
+                          Icons.cloud_upload_outlined,
+                          _withCap(l.naiUpscale, PaidTool.upscale, count),
+                          t.accentEdit,
+                          count > 0
+                              ? () => _bulkNaiUpscale(
+                                  selectedItems,
+                                  permissionGranted:
+                                      hasNovelAiImageActionPermission(
+                                        context,
+                                        NovelAiImageAction.upscale,
+                                      ),
+                                )
+                              : null,
+                        ),
+                      if (ml.selectedSegmentationModelId != null && count == 1)
+                        action(
+                          Icons.auto_awesome,
+                          l.mlSegment,
+                          t.accent,
+                          () => _openSegmentation(selectedItems.first),
+                        ),
+                      // Send to Canvas (single image)
+                      if (count == 1)
+                        action(
+                          Icons.brush,
+                          l.mlCanvas,
+                          t.accentEdit,
+                          () => _openInCanvas(selectedItems.first),
+                        ),
+                      action(
+                        Icons.star,
+                        l.galleryFavorite,
+                        t.accentFavorite,
+                        count > 0 ? () => _bulkFavorite(selectedItems) : null,
+                      ),
+                      // Remove from album (only when viewing an album)
+                      if (gallery.activeAlbumId != null)
+                        action(
+                          Icons.playlist_remove,
+                          l.galleryRemove,
+                          t.secondaryText,
+                          count > 0
+                              ? () => _bulkRemoveFromAlbum(selectedItems)
+                              : null,
+                        ),
+                      action(
+                        Icons.delete_outline,
+                        l.commonDelete,
+                        t.accentDanger,
+                        count > 0 ? () => _bulkDelete(selectedItems) : null,
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ],
+              ),
+            ),
           ),
         ),
       ),
@@ -1684,7 +1835,7 @@ class _AlbumChip extends StatelessWidget {
   final String label;
   final int count;
   final bool isActive;
-  final bool mobile;
+  final bool touch;
   final VoidCallback onTap;
 
   const _AlbumChip({
@@ -1692,7 +1843,7 @@ class _AlbumChip extends StatelessWidget {
     required this.label,
     required this.count,
     required this.isActive,
-    required this.mobile,
+    required this.touch,
     required this.onTap,
   });
 
@@ -1706,7 +1857,7 @@ class _AlbumChip extends StatelessWidget {
           '$label ($count)',
           style: TextStyle(
             color: isActive ? t.background : t.textSecondary,
-            fontSize: t.fontSize(mobile ? 10 : 8),
+            fontSize: t.fontSize(touch ? 10 : 8),
             letterSpacing: 1,
             fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
           ),
@@ -1714,7 +1865,7 @@ class _AlbumChip extends StatelessWidget {
         backgroundColor: isActive ? t.accent : t.borderSubtle,
         side: BorderSide(color: isActive ? t.accent : t.borderMedium),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        padding: EdgeInsets.symmetric(horizontal: mobile ? 8 : 4),
+        padding: EdgeInsets.symmetric(horizontal: touch ? 8 : 4),
         onPressed: onTap,
       ),
     );
@@ -1724,17 +1875,22 @@ class _AlbumChip extends StatelessWidget {
 class _DragRectPainter extends CustomPainter {
   final Offset start;
   final Offset end;
+  final Color color;
 
-  _DragRectPainter({required this.start, required this.end});
+  _DragRectPainter({
+    required this.start,
+    required this.end,
+    required this.color,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Rect.fromPoints(start, end);
     final fillPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.1)
+      ..color = color.withValues(alpha: VisionMetrics.opacityHover)
       ..style = PaintingStyle.fill;
     final borderPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.4)
+      ..color = color.withValues(alpha: VisionMetrics.opacityDisabled)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     canvas.drawRect(rect, fillPaint);
@@ -1743,7 +1899,9 @@ class _DragRectPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DragRectPainter oldDelegate) =>
-      start != oldDelegate.start || end != oldDelegate.end;
+      start != oldDelegate.start ||
+      end != oldDelegate.end ||
+      color != oldDelegate.color;
 }
 
 class _AddToAlbumSheet extends StatefulWidget {
@@ -1771,78 +1929,90 @@ class _AddToAlbumSheetState extends State<_AddToAlbumSheet> {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final mobile = isMobile(context);
+    final l = context.l;
+    final touch = windowSizeClassOf(context).isTouchSized;
     final showMoveToggle = widget.currentAlbumId != null;
 
-    return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Row(
-              children: [
-                Text(
-                  (_moveMode ? 'MOVE TO ALBUM' : context.l.galleryAddToAlbum).toUpperCase(),
-                  style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(mobile ? 12 : 10), letterSpacing: 2, fontWeight: FontWeight.bold),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionTitle(
+          (_moveMode ? l.galleryMoveToAlbum : l.galleryAddToAlbum)
+              .toUpperCase(),
+          t: t,
+          trailing: showMoveToggle
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  spacing: VisionMetrics.space4,
+                  children: [
+                    Text(
+                      l.galleryMove.toUpperCase(),
+                      style: TextStyle(
+                        color: _moveMode ? t.accent : t.textDisabled,
+                        fontSize: t.fontSize(touch ? 10 : 8),
+                        letterSpacing: 1,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Switch(
+                      value: _moveMode,
+                      onChanged: (v) => setState(() => _moveMode = v),
+                      activeTrackColor: t.accent,
+                    ),
+                  ],
+                )
+              : null,
+        ),
+        for (final album in widget.gallery.albums)
+          if (album.id != widget.currentAlbumId)
+            ListTile(
+              leading: Icon(
+                Icons.photo_album,
+                size: VisionMetrics.iconMedium,
+                color: t.textDisabled,
+              ),
+              title: Text(
+                album.name,
+                style: TextStyle(
+                  color: t.textSecondary,
+                  fontSize: t.fontSize(touch ? 13 : 11),
                 ),
-                if (showMoveToggle) ...[
-                  const Spacer(),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'MOVE',
-                        style: TextStyle(
-                          color: _moveMode ? t.accent : t.textDisabled,
-                          fontSize: t.fontSize(mobile ? 10 : 8),
-                          letterSpacing: 1,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      SizedBox(
-                        height: 24,
-                        child: Switch(
-                          value: _moveMode,
-                          onChanged: (v) => setState(() => _moveMode = v),
-                          activeTrackColor: t.accent,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
+              ),
+              trailing: Text(
+                '${widget.gallery.albumItemCount(album.id)}',
+                style: TextStyle(
+                  color: t.textDisabled,
+                  fontSize: t.fontSize(touch ? 11 : 9),
+                ),
+              ),
+              onTap: () {
+                widget.gallery.addToAlbum(album.id, widget.selectedItems);
+                if (_moveMode && widget.currentAlbumId != null) {
+                  widget.gallery.removeFromAlbum(
+                    widget.currentAlbumId!,
+                    widget.selectedItems,
+                  );
+                }
+                widget.onDone();
+              },
+            ),
+        ListTile(
+          leading: Icon(
+            Icons.add,
+            size: VisionMetrics.iconMedium,
+            color: t.accent,
+          ),
+          title: Text(
+            l.galleryNewAlbum.toUpperCase(),
+            style: TextStyle(
+              color: t.accent,
+              fontSize: t.fontSize(touch ? 13 : 11),
             ),
           ),
-          for (final album in widget.gallery.albums)
-            if (album.id != widget.currentAlbumId)
-              ListTile(
-                leading: Icon(Icons.photo_album, size: 18, color: t.textDisabled),
-                title: Text(
-                  album.name,
-                  style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(mobile ? 13 : 11)),
-                ),
-                trailing: Text(
-                  '${widget.gallery.albumItemCount(album.id)}',
-                  style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(mobile ? 11 : 9)),
-                ),
-                onTap: () {
-                  widget.gallery.addToAlbum(album.id, widget.selectedItems);
-                  if (_moveMode && widget.currentAlbumId != null) {
-                    widget.gallery.removeFromAlbum(widget.currentAlbumId!, widget.selectedItems);
-                  }
-                  widget.onDone();
-                },
-              ),
-          ListTile(
-            leading: Icon(Icons.add, size: 18, color: t.accent),
-            title: Text(context.l.galleryNewAlbum.toUpperCase(), style: TextStyle(color: t.accent, fontSize: t.fontSize(mobile ? 13 : 11))),
-            onTap: widget.onCreateAlbum,
-          ),
-        ],
-      ),
+          onTap: widget.onCreateAlbum,
+        ),
+      ],
     );
   }
 }

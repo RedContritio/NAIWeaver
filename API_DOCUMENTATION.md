@@ -106,7 +106,7 @@ NAIWeaver supports multi-participant interactions where multiple characters can 
 
 Set `action: "img2img"` in the request body. For inpainting, set `action: "infill"` and use the model `nai-diffusion-5-full-inpainting`. NovelAI currently routes Curated inpainting through `nai-diffusion-4-5-curated-inpainting`.
 
-**Current V5 limitation:** NovelAI has not yet enabled Precise Reference or Vibe Transfer for V5. V5 Full supports native inpainting; Curated inpainting currently uses the V4.5 Curated compatibility model.
+**Current V5 limitation:** NovelAI has not yet enabled Precise Reference or Vibe Transfer for V5, so requests using either run on the V4.5 models (see below). V5 Full supports native inpainting; Curated inpainting currently uses the V4.5 Curated compatibility model.
 
 ### Director Reference (Precise Reference) Parameters
 
@@ -247,6 +247,12 @@ Content-Type: application/x-zip-compressed
 ```
 
 ### With Director Reference + Vibe Transfer
+
+V5 does not support these yet, so a request with any vibe or Precise Reference
+image uses `nai-diffusion-4-5-full` / `nai-diffusion-4-5-curated`
+(`nai-diffusion-4-5-full-inpainting` / `nai-diffusion-4-5-curated-inpainting`
+for `infill`), the same model the vibes were encoded with.
+
 ```json
 {
   "parameters": {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/l10n/l10n_extensions.dart';
 import '../../../../core/theme/theme_extensions.dart';
 import '../character_gen_service.dart';
 import '../providers/character_gen_notifier.dart';
@@ -24,10 +25,12 @@ class CharacterGenProgressDialog extends StatefulWidget {
   }
 
   @override
-  State<CharacterGenProgressDialog> createState() => _CharacterGenProgressDialogState();
+  State<CharacterGenProgressDialog> createState() =>
+      _CharacterGenProgressDialogState();
 }
 
-class _CharacterGenProgressDialogState extends State<CharacterGenProgressDialog> {
+class _CharacterGenProgressDialogState
+    extends State<CharacterGenProgressDialog> {
   bool _started = false;
 
   @override
@@ -68,6 +71,7 @@ class _CharacterGenProgressDialogState extends State<CharacterGenProgressDialog>
   @override
   Widget build(BuildContext context) {
     final t = context.t;
+    final l = context.l;
     final notifier = context.watch<CharacterGenNotifier>();
     final p = notifier.progress;
     final frac = _fractionFor(p);
@@ -76,12 +80,15 @@ class _CharacterGenProgressDialogState extends State<CharacterGenProgressDialog>
       canPop: false,
       child: AlertDialog(
         backgroundColor: t.surfaceHigh,
-        title: Text('GENERATING CHARACTER',
-            style: TextStyle(
-                color: t.textSecondary,
-                fontSize: t.titleSize(11),
-                letterSpacing: 3,
-                fontWeight: FontWeight.bold)),
+        title: Text(
+          l.charsGenProgressTitle.toUpperCase(),
+          style: TextStyle(
+            color: t.textSecondary,
+            fontSize: t.titleSize(11),
+            letterSpacing: 3,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         content: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 400),
           child: Column(
@@ -95,14 +102,19 @@ class _CharacterGenProgressDialogState extends State<CharacterGenProgressDialog>
               ),
               const SizedBox(height: 14),
               Text(
-                p?.text ?? 'Preparing…',
-                style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(12)),
+                p?.text(l) ?? l.charsGenPreparing,
+                style: TextStyle(
+                  color: t.textPrimary,
+                  fontSize: t.fontSize(12),
+                ),
               ),
               const SizedBox(height: 6),
               Text(
-                'This makes several model calls — on a free/Tablet-tier token a '
-                'long personality may take a few continuation passes.',
-                style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(8.5)),
+                l.charsGenProgressNote,
+                style: TextStyle(
+                  color: t.textMinimal,
+                  fontSize: t.fontSize(8.5),
+                ),
               ),
             ],
           ),
@@ -110,8 +122,14 @@ class _CharacterGenProgressDialogState extends State<CharacterGenProgressDialog>
         actions: [
           TextButton(
             onPressed: notifier.isGenerating ? () => notifier.cancel() : null,
-            child: Text('CANCEL',
-                style: TextStyle(color: t.accentDanger, fontSize: t.fontSize(9), letterSpacing: 1)),
+            child: Text(
+              l.commonCancel.toUpperCase(),
+              style: TextStyle(
+                color: t.accentDanger,
+                fontSize: t.fontSize(9),
+                letterSpacing: 1,
+              ),
+            ),
           ),
         ],
       ),

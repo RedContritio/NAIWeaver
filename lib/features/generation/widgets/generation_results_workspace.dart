@@ -4,16 +4,17 @@ import 'package:flutter/material.dart';
 
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
-import '../../../core/utils/responsive.dart';
+import '../../../core/theme/vision_metrics.dart';
 import '../../../core/widgets/quick_action_overlay.dart';
+import '../../../core/widgets/card_action_layout.dart';
 import '../providers/generation_notifier.dart';
 import 'result_set_viewer.dart';
 
 enum ResultSetWorkspaceMode { grid, viewer }
 
 class ResultSetGridSpec {
-  static const padding = 12.0;
-  static const spacing = 10.0;
+  static const padding = VisionMetrics.space12;
+  static const spacing = VisionMetrics.space12;
   static const maxCardExtent = 240.0;
   static const cardAspectRatio = 1.0;
 
@@ -38,12 +39,10 @@ class ResultSetGridSpec {
   }
 }
 
-ResultSetViewItem _viewItemFor(GeneratedImageItem item) {
+ResultSetViewItem _viewItemFor(BuildContext context, GeneratedImageItem item) {
   final bytes = item.bytes;
-  final failed =
-      item.progress == GenerationTaskProgress.failed ||
-      item.progress == GenerationTaskProgress.rejected ||
-      item.progress == GenerationTaskProgress.cancelled;
+  // An item the client stopped following shows why, like a failed one.
+  final failed = item.isFailed || item.retryable;
   return ResultSetViewItem(
     id: item.id,
     position: item.batchIndex,
@@ -54,7 +53,9 @@ ResultSetViewItem _viewItemFor(GeneratedImageItem item) {
     seed: item.seed,
     isLoading: item.isLoading,
     isGenerating: item.progress == GenerationTaskProgress.generating,
-    errorMessage: failed ? item.errorMessage ?? 'Generation failed' : null,
+    errorMessage: failed
+        ? item.errorMessage ?? context.l.generationFailedFallback
+        : null,
   );
 }
 
@@ -88,7 +89,7 @@ class _GenerationResultsWorkspaceState
     final images = widget.state.generatedImages;
     final onSelect =
         widget.onSelectImage ?? widget.notifier.selectGeneratedImage;
-    final viewItems = images.map(_viewItemFor).toList();
+    final viewItems = [for (final item in images) _viewItemFor(context, item)];
     if (viewItems.isEmpty && widget.state.generatedImage != null) {
       viewItems.add(
         ResultSetViewItem(
@@ -109,10 +110,47 @@ class _GenerationResultsWorkspaceState
       mobile: widget.mobile,
       pulseAnimation: widget.pulseAnimation,
       isDragging: widget.state.isDragging,
+      headerTrailingBuilder: (context, _) => _batchActions(context),
       previewOverlay:
           widget.showQuickActions && widget.state.generatedImage != null
           ? const QuickActionOverlay()
           : null,
+    );
+  }
+
+  /// Cancelling what is still queued, and following again what the client
+  /// stopped following; null when neither applies.
+  Widget? _batchActions(BuildContext context) {
+    final notifier = widget.notifier;
+    final cancel = notifier.canCancelQueued;
+    final resume = notifier.canResumeWatching;
+    if (!cancel && !resume) return null;
+    final t = context.t;
+    final l = context.l;
+    Widget action(String label, VoidCallback onTap, Color color) => TextButton(
+      onPressed: onTap,
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: t.fontSize(10),
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1,
+        ),
+      ),
+    );
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (resume)
+          action(l.generationResumeWatching, notifier.resumeWatching, t.accent),
+        if (cancel)
+          action(
+            l.generationCancelQueued,
+            notifier.cancelQueued,
+            t.accentDanger,
+          ),
+      ],
     );
   }
 }
@@ -145,8 +183,10 @@ class ResultSetWorkspace extends StatefulWidget {
   final bool isDragging;
   final Widget? previewOverlay;
   final Widget? headerLeading;
-  final Widget Function(BuildContext, ResultSetWorkspaceMode)?
+  final Widget? Function(BuildContext, ResultSetWorkspaceMode)?
   headerTrailingBuilder;
+
+  /// Builds the action itself; [CardActionLayout] supplies its frame and position.
   final Widget Function(BuildContext, ResultSetViewItem)?
   gridItemTrailingBuilder;
   final ResultSetWorkspaceMode initialMode;
@@ -187,12 +227,17 @@ class _ResultSetWorkspaceState extends State<ResultSetWorkspace> {
       children: [
         if (showHeader)
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            padding: const EdgeInsets.fromLTRB(
+              VisionMetrics.space12,
+              VisionMetrics.space8,
+              VisionMetrics.space12,
+              VisionMetrics.space4,
+            ),
             child: Row(
               children: [
                 if (widget.headerLeading != null) ...[
                   widget.headerLeading!,
-                  const SizedBox(width: 8),
+                  const SizedBox(width: VisionMetrics.space8),
                 ],
                 if (hasResultSet)
                   _ResultsToolbar(
@@ -258,12 +303,12 @@ class _ResultsToolbar extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: t.surfaceHigh.withValues(alpha: 0.92),
+        color: t.surfaceHigh,
         border: Border.all(color: t.borderMedium),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(VisionMetrics.radius4),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: t.background.withValues(alpha: VisionMetrics.opacityHover),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -284,9 +329,15 @@ class _ResultsToolbar extends StatelessWidget {
             tooltip: l.mainResultsViewer,
             onTap: () => onModeChanged(ResultSetWorkspaceMode.viewer),
           ),
-          Container(width: 1, height: 18, color: t.borderMedium),
+          Container(
+            width: VisionMetrics.borderWidth,
+            height: VisionMetrics.iconMedium,
+            color: t.borderMedium,
+          ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.symmetric(
+              horizontal: VisionMetrics.space8,
+            ),
             child: Text(
               countLabel,
               style: TextStyle(
@@ -320,19 +371,22 @@ class _ModeButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.t;
     final color = selected ? t.background : t.textTertiary;
+    final size = context.hitSize;
+    final radius = BorderRadius.circular(VisionMetrics.radius4);
+    // The fill is painted by the Material so the ripple stays above it.
     return Tooltip(
       message: tooltip,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          width: 34,
-          height: 32,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: selected ? t.accent : Colors.transparent,
-            borderRadius: BorderRadius.circular(5),
+      child: Material(
+        color: selected ? t.accent : Colors.transparent,
+        borderRadius: radius,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: radius,
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: Icon(icon, size: VisionMetrics.iconMedium, color: color),
           ),
-          child: Icon(icon, size: 17, color: color),
         ),
       ),
     );
@@ -378,7 +432,7 @@ class _ResultsGrid extends StatelessWidget {
   }
 }
 
-class _ResultSetGridTile extends StatefulWidget {
+class _ResultSetGridTile extends StatelessWidget {
   const _ResultSetGridTile({
     required this.item,
     required this.selected,
@@ -394,79 +448,15 @@ class _ResultSetGridTile extends StatefulWidget {
   final Widget? trailing;
 
   @override
-  State<_ResultSetGridTile> createState() => _ResultSetGridTileState();
-}
-
-class _ResultSetGridTileState extends State<_ResultSetGridTile> {
-  bool _hovered = false;
-
-  @override
   Widget build(BuildContext context) {
-    final t = context.t;
-    final title = widget.item.infoTitle?.trim() ?? '';
-    final subtitle = widget.item.infoSubtitle?.trim() ?? '';
-    final showInfo = _hovered && (title.isNotEmpty || subtitle.isNotEmpty);
-    Widget tile = Stack(
-      children: [
-        Positioned.fill(
-          child: ResultSetThumbnail(
-            item: widget.item,
-            selected: widget.selected,
-            onTap: widget.onOpen ?? widget.onSelect,
-            showFooter: false,
-          ),
-        ),
-        if (showInfo)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: ColoredBox(
-                color: t.background.withValues(alpha: 0.75),
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (title.isNotEmpty)
-                        Text(
-                          title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: t.textSecondary,
-                            fontSize: t.fontSize(9),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      if (title.isNotEmpty && subtitle.isNotEmpty)
-                        const SizedBox(height: 4),
-                      if (subtitle.isNotEmpty)
-                        Text(
-                          subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: t.textDisabled,
-                            fontSize: t.fontSize(8),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        if (widget.trailing != null)
-          Positioned(top: 5, right: 5, child: widget.trailing!),
-      ],
+    return CardActionLayout(
+      content: ResultSetThumbnail(
+        item: item,
+        selected: selected,
+        onTap: onOpen ?? onSelect,
+        showFooter: false,
+      ),
+      action: trailing,
     );
-    if (!isMobile(context)) {
-      tile = MouseRegion(
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: tile,
-      );
-    }
-    return tile;
   }
 }

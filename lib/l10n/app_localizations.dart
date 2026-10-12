@@ -112,6 +112,12 @@ abstract class AppLocalizations {
   /// **'Delete'**
   String get commonDelete;
 
+  /// No description provided for @commonEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get commonEdit;
+
   /// No description provided for @commonSave.
   ///
   /// In en, this message translates to:
@@ -123,6 +129,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Close'**
   String get commonClose;
+
+  /// No description provided for @commonBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get commonBack;
+
+  /// No description provided for @commonHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Help'**
+  String get commonHelp;
 
   /// No description provided for @commonCreate.
   ///
@@ -171,6 +189,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'SAVE CHANGES'**
   String get commonSaveChanges;
+
+  /// No description provided for @commonNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Name cannot be empty'**
+  String get commonNameRequired;
+
+  /// No description provided for @commonDuplicate.
+  ///
+  /// In en, this message translates to:
+  /// **'Duplicate'**
+  String get commonDuplicate;
+
+  /// No description provided for @commonDiscard.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard'**
+  String get commonDiscard;
+
+  /// No description provided for @commonAddFavorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to favorites'**
+  String get commonAddFavorite;
+
+  /// No description provided for @commonRemoveFavorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from favorites'**
+  String get commonRemoveFavorite;
+
+  /// No description provided for @commonRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get commonRetry;
+
+  /// No description provided for @commonLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading'**
+  String get commonLoading;
+
+  /// No description provided for @commonUnsavedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsaved changes'**
+  String get commonUnsavedTitle;
+
+  /// No description provided for @commonUnsavedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'You have unsaved changes. Save them before continuing?'**
+  String get commonUnsavedMessage;
 
   /// No description provided for @mainGallery.
   ///
@@ -238,6 +310,12 @@ abstract class AppLocalizations {
   /// **'Enter Prompt'**
   String get mainEnterPrompt;
 
+  /// No description provided for @mainMoreActions.
+  ///
+  /// In en, this message translates to:
+  /// **'More actions'**
+  String get mainMoreActions;
+
   /// No description provided for @mainHelp.
   ///
   /// In en, this message translates to:
@@ -273,12 +351,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Preset Name'**
   String get mainPresetName;
-
-  /// No description provided for @mainAdvancedSettings.
-  ///
-  /// In en, this message translates to:
-  /// **'Advanced Settings'**
-  String get mainAdvancedSettings;
 
   /// No description provided for @generationSheetPrompt.
   ///
@@ -364,6 +436,12 @@ abstract class AppLocalizations {
   /// **'pst-xxxx...'**
   String get settingsApiKeyHint;
 
+  /// No description provided for @settingsApiKeyVisibility.
+  ///
+  /// In en, this message translates to:
+  /// **'Show or hide the API key'**
+  String get settingsApiKeyVisibility;
+
   /// No description provided for @settingsApiManaged.
   ///
   /// In en, this message translates to:
@@ -375,24 +453,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This web service uses the backend NovelAI token. The browser never stores or sends your NovelAI token.'**
   String get settingsApiManagedDesc;
-
-  /// No description provided for @gatewayUsername.
-  ///
-  /// In en, this message translates to:
-  /// **'Username'**
-  String get gatewayUsername;
-
-  /// No description provided for @gatewayPassword.
-  ///
-  /// In en, this message translates to:
-  /// **'Password'**
-  String get gatewayPassword;
-
-  /// No description provided for @gatewayLogin.
-  ///
-  /// In en, this message translates to:
-  /// **'Log In'**
-  String get gatewayLogin;
 
   /// No description provided for @gatewayLogout.
   ///
@@ -436,18 +496,6 @@ abstract class AppLocalizations {
   /// **'Paid points'**
   String get gatewayQuotaPaidLabel;
 
-  /// No description provided for @gatewayQuotaFreeShort.
-  ///
-  /// In en, this message translates to:
-  /// **'Free'**
-  String get gatewayQuotaFreeShort;
-
-  /// No description provided for @gatewayQuotaPaidShort.
-  ///
-  /// In en, this message translates to:
-  /// **'Pts'**
-  String get gatewayQuotaPaidShort;
-
   /// No description provided for @gatewayQuotaUnlimited.
   ///
   /// In en, this message translates to:
@@ -460,17 +508,209 @@ abstract class AppLocalizations {
   /// **'Tap to refresh your quota'**
   String get gatewayQuotaRefresh;
 
-  /// No description provided for @gatewayShowPassword.
+  /// No description provided for @gatewayErrNotAuthenticated.
   ///
   /// In en, this message translates to:
-  /// **'Show password'**
-  String get gatewayShowPassword;
+  /// **'Your session has expired. Sign in again.'**
+  String get gatewayErrNotAuthenticated;
 
-  /// No description provided for @gatewayHidePassword.
+  /// No description provided for @gatewayErrAuthUnavailable.
   ///
   /// In en, this message translates to:
-  /// **'Hide password'**
-  String get gatewayHidePassword;
+  /// **'The sign-in service is temporarily unavailable. Try again later.'**
+  String get gatewayErrAuthUnavailable;
+
+  /// No description provided for @gatewayErrLoginFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in could not be verified. Try again.'**
+  String get gatewayErrLoginFailed;
+
+  /// No description provided for @gatewayErrAccountNotLinked.
+  ///
+  /// In en, this message translates to:
+  /// **'This sign-in is not linked to an account here, or the account is disabled.'**
+  String get gatewayErrAccountNotLinked;
+
+  /// No description provided for @gatewayErrPermissionDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account is not allowed to do this.'**
+  String get gatewayErrPermissionDenied;
+
+  /// No description provided for @gatewayErrInvalidParameters.
+  ///
+  /// In en, this message translates to:
+  /// **'The request was rejected as invalid. Check the size, steps and sampler.'**
+  String get gatewayErrInvalidParameters;
+
+  /// No description provided for @gatewayErrPointsInsufficient.
+  ///
+  /// In en, this message translates to:
+  /// **'Not enough points for this request.'**
+  String get gatewayErrPointsInsufficient;
+
+  /// No description provided for @gatewayErrQuoteChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'The price has changed. Review the new price and try again.'**
+  String get gatewayErrQuoteChanged;
+
+  /// No description provided for @gatewayErrFreeAllowanceExhausted.
+  ///
+  /// In en, this message translates to:
+  /// **'The free allowance is used up for now, so this request would cost paid points.'**
+  String get gatewayErrFreeAllowanceExhausted;
+
+  /// No description provided for @gatewayErrQueueFull.
+  ///
+  /// In en, this message translates to:
+  /// **'You have too many unfinished tasks. Wait for some to finish before submitting more.'**
+  String get gatewayErrQueueFull;
+
+  /// No description provided for @gatewayErrDuplicateRequest.
+  ///
+  /// In en, this message translates to:
+  /// **'This request id was already used with different content.'**
+  String get gatewayErrDuplicateRequest;
+
+  /// No description provided for @gatewayErrRequestTooLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'The request is too large.'**
+  String get gatewayErrRequestTooLarge;
+
+  /// No description provided for @gatewayErrUpstream.
+  ///
+  /// In en, this message translates to:
+  /// **'NovelAI could not complete the request. Try again later.'**
+  String get gatewayErrUpstream;
+
+  /// No description provided for @gatewayErrInterrupted.
+  ///
+  /// In en, this message translates to:
+  /// **'The task was interrupted by a server restart. You were not charged; you can retry.'**
+  String get gatewayErrInterrupted;
+
+  /// No description provided for @gatewayErrNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'The requested item was not found.'**
+  String get gatewayErrNotFound;
+
+  /// No description provided for @gatewayErrTaskActive.
+  ///
+  /// In en, this message translates to:
+  /// **'This item is still queued or running.'**
+  String get gatewayErrTaskActive;
+
+  /// No description provided for @gatewayErrDuplicateGeneration.
+  ///
+  /// In en, this message translates to:
+  /// **'The parameters did not change. Check the seed.'**
+  String get gatewayErrDuplicateGeneration;
+
+  /// No description provided for @gatewayErrRateLimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many requests. Wait a moment and try again.'**
+  String get gatewayErrRateLimited;
+
+  /// No description provided for @gatewayErrServiceUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The service is temporarily unavailable. Try again later.'**
+  String get gatewayErrServiceUnavailable;
+
+  /// No description provided for @gatewayErrInternal.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong on the server. Try again later.'**
+  String get gatewayErrInternal;
+
+  /// No description provided for @gatewayErrNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Network error. Check your connection and try again.'**
+  String get gatewayErrNetwork;
+
+  /// No description provided for @gatewayErrTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'The request timed out. Try again.'**
+  String get gatewayErrTimeout;
+
+  /// No description provided for @gatewayErrUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'The request failed. Try again later.'**
+  String get gatewayErrUnknown;
+
+  /// No description provided for @gatewayErrDirectAnlas.
+  ///
+  /// In en, this message translates to:
+  /// **'Your NovelAI account does not have enough Anlas for this request.'**
+  String get gatewayErrDirectAnlas;
+
+  /// No description provided for @gatewayErrDirectRateLimited.
+  ///
+  /// In en, this message translates to:
+  /// **'NovelAI is limiting your requests. Wait a moment and try again.'**
+  String get gatewayErrDirectRateLimited;
+
+  /// No description provided for @gatewayErrDirectForbidden.
+  ///
+  /// In en, this message translates to:
+  /// **'NovelAI refused this request for your account.'**
+  String get gatewayErrDirectForbidden;
+
+  /// No description provided for @toolErrApiKeyRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'NovelAI rejected the API key. Check it in Settings.'**
+  String get toolErrApiKeyRejected;
+
+  /// No description provided for @gatewaySessionExpiredTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Session expired'**
+  String get gatewaySessionExpiredTitle;
+
+  /// No description provided for @gatewaySessionExpiredBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your sign-in has ended. Sign in again to continue; nothing on this page is lost until you do.'**
+  String get gatewaySessionExpiredBody;
+
+  /// No description provided for @gatewaySessionExpiredConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get gatewaySessionExpiredConfirm;
+
+  /// No description provided for @gatewayAuthContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue with only WebAuth'**
+  String get gatewayAuthContinue;
+
+  /// No description provided for @gatewayAuthRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get gatewayAuthRetry;
+
+  /// No description provided for @gatewayLoginOpenFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open the sign-in page. Reload and try again.'**
+  String get gatewayLoginOpenFailed;
+
+  /// No description provided for @gatewayLogoutFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not sign out. You are still signed in; try again.'**
+  String get gatewayLogoutFailed;
 
   /// No description provided for @settingsAutoSave.
   ///
@@ -730,35 +970,17 @@ abstract class AppLocalizations {
   /// **'Edit Positive Prefix'**
   String get settingsEditPositivePrefix;
 
-  /// No description provided for @settingsEditNegativePrefix.
-  ///
-  /// In en, this message translates to:
-  /// **'Edit Negative Prefix'**
-  String get settingsEditNegativePrefix;
-
   /// No description provided for @settingsDemoPrefixes.
   ///
   /// In en, this message translates to:
   /// **'Demo Prefixes'**
   String get settingsDemoPrefixes;
 
-  /// No description provided for @settingsNotSet.
-  ///
-  /// In en, this message translates to:
-  /// **'(not set)'**
-  String get settingsNotSet;
-
   /// No description provided for @settingsGithubRepository.
   ///
   /// In en, this message translates to:
   /// **'GitHub Repository'**
   String get settingsGithubRepository;
-
-  /// No description provided for @settingsGithubPlaceholder.
-  ///
-  /// In en, this message translates to:
-  /// **'GitHub link placeholder'**
-  String get settingsGithubPlaceholder;
 
   /// No description provided for @galleryTitle.
   ///
@@ -856,6 +1078,18 @@ abstract class AppLocalizations {
   /// **'Size (Smallest)'**
   String get gallerySortSizeSmallest;
 
+  /// No description provided for @gallerySortDateAddedNewest.
+  ///
+  /// In en, this message translates to:
+  /// **'Date Added (Newest)'**
+  String get gallerySortDateAddedNewest;
+
+  /// No description provided for @gallerySortDateAddedOldest.
+  ///
+  /// In en, this message translates to:
+  /// **'Date Added (Oldest)'**
+  String get gallerySortDateAddedOldest;
+
   /// No description provided for @galleryNoDemoImages.
   ///
   /// In en, this message translates to:
@@ -940,6 +1174,66 @@ abstract class AppLocalizations {
   /// **'Add to Album'**
   String get galleryAddToAlbum;
 
+  /// No description provided for @galleryAddedToAlbum.
+  ///
+  /// In en, this message translates to:
+  /// **'Added to {name}'**
+  String galleryAddedToAlbum(String name);
+
+  /// No description provided for @galleryMoveToAlbum.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to Album'**
+  String get galleryMoveToAlbum;
+
+  /// No description provided for @galleryMove.
+  ///
+  /// In en, this message translates to:
+  /// **'Move'**
+  String get galleryMove;
+
+  /// No description provided for @galleryDeleteAlbumTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete album \"{name}\"?'**
+  String galleryDeleteAlbumTitle(String name);
+
+  /// No description provided for @galleryDeleteAlbumMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The images stay in the gallery.'**
+  String get galleryDeleteAlbumMessage;
+
+  /// No description provided for @galleryRemoveFromAlbum.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from album'**
+  String get galleryRemoveFromAlbum;
+
+  /// No description provided for @galleryRemoveFromAlbumTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from album?'**
+  String get galleryRemoveFromAlbumTitle;
+
+  /// No description provided for @galleryRemoveFromAlbumCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {count} images from this album?'**
+  String galleryRemoveFromAlbumCount(int count);
+
+  /// No description provided for @galleryRemoveFromAlbumMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The images stay in the gallery.'**
+  String get galleryRemoveFromAlbumMessage;
+
+  /// No description provided for @galleryRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get galleryRemove;
+
   /// No description provided for @galleryDeleteCount.
   ///
   /// In en, this message translates to:
@@ -1012,6 +1306,12 @@ abstract class AppLocalizations {
   /// **'Export failed: {error}'**
   String galleryExportFailed(String error);
 
+  /// No description provided for @galleryExportFolderUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Export folder unavailable. Pick it again in Settings.'**
+  String get galleryExportFolderUnavailable;
+
   /// No description provided for @galleryImagesCopied.
   ///
   /// In en, this message translates to:
@@ -1048,6 +1348,24 @@ abstract class AppLocalizations {
   /// **'Saved to {name}'**
   String gallerySavedTo(String name);
 
+  /// No description provided for @galleryResultDownloaded.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloaded {name}'**
+  String galleryResultDownloaded(String name);
+
+  /// No description provided for @galleryResultSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Result not saved: {error}'**
+  String galleryResultSaveFailed(String error);
+
+  /// No description provided for @galleryNewImageHidden.
+  ///
+  /// In en, this message translates to:
+  /// **'New image saved, but the current filter hides it'**
+  String get galleryNewImageHidden;
+
   /// No description provided for @galleryToggleFavorite.
   ///
   /// In en, this message translates to:
@@ -1077,6 +1395,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No Metadata'**
   String get galleryNoMetadata;
+
+  /// No description provided for @galleryCopiedToClipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied to clipboard'**
+  String get galleryCopiedToClipboard;
+
+  /// No description provided for @galleryClipboardUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Clipboard not available'**
+  String get galleryClipboardUnavailable;
 
   /// No description provided for @galleryPrompt.
   ///
@@ -1210,6 +1540,24 @@ abstract class AppLocalizations {
   /// **'Import failed: {error}'**
   String galleryImportFailed(String error);
 
+  /// No description provided for @galleryImportToEditor.
+  ///
+  /// In en, this message translates to:
+  /// **'Import to editor'**
+  String get galleryImportToEditor;
+
+  /// No description provided for @galleryMetadataImported.
+  ///
+  /// In en, this message translates to:
+  /// **'Metadata imported to editor'**
+  String get galleryMetadataImported;
+
+  /// No description provided for @galleryMetadataNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No metadata found'**
+  String get galleryMetadataNotFound;
+
   /// No description provided for @panelAdvancedSettings.
   ///
   /// In en, this message translates to:
@@ -1257,12 +1605,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sampler'**
   String get panelSampler;
-
-  /// No description provided for @panelPostProcessing.
-  ///
-  /// In en, this message translates to:
-  /// **'Post-Processing'**
-  String get panelPostProcessing;
 
   /// No description provided for @panelStyles.
   ///
@@ -1317,6 +1659,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Delete \"{name}\"?'**
   String panelDeletePresetConfirm(String name);
+
+  /// No description provided for @panelDeleteResolution.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Custom Resolution'**
+  String get panelDeleteResolution;
+
+  /// No description provided for @panelDeleteResolutionConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete the custom resolution \"{name}\"?'**
+  String panelDeleteResolutionConfirm(String name);
+
+  /// No description provided for @panelInputsEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No reference inputs'**
+  String get panelInputsEmptyTitle;
+
+  /// No description provided for @panelInputsEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Precise references and vibe transfer are paid tools that this account cannot use, and none have been added.'**
+  String get panelInputsEmptyMessage;
+
+  /// No description provided for @panelInputsHiddenMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The precise reference and vibe transfer shelves are turned off in Settings.'**
+  String get panelInputsHiddenMessage;
 
   /// No description provided for @panelSaveToAlbum.
   ///
@@ -1558,6 +1930,12 @@ abstract class AppLocalizations {
   /// **'Diagnostic reports are available in the authenticated Web app.'**
   String get feedbackUnavailable;
 
+  /// No description provided for @feedbackInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'The report was rejected. Shorten the description and try again.'**
+  String get feedbackInvalid;
+
   /// No description provided for @helpTitle.
   ///
   /// In en, this message translates to:
@@ -1611,24 +1989,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Filter tag suggestions to artists'**
   String get helpShortcutArtistPrefix;
-
-  /// No description provided for @helpShortcutSourceAction.
-  ///
-  /// In en, this message translates to:
-  /// **'Character performing action'**
-  String get helpShortcutSourceAction;
-
-  /// No description provided for @helpShortcutTargetAction.
-  ///
-  /// In en, this message translates to:
-  /// **'Character receiving action'**
-  String get helpShortcutTargetAction;
-
-  /// No description provided for @helpShortcutMutualAction.
-  ///
-  /// In en, this message translates to:
-  /// **'Shared action between characters'**
-  String get helpShortcutMutualAction;
 
   /// No description provided for @helpShortcutEnter.
   ///
@@ -2194,6 +2554,30 @@ abstract class AppLocalizations {
   /// **'RANDOM'**
   String get tagLibRandom;
 
+  /// No description provided for @tagDetailViewOnDanbooru.
+  ///
+  /// In en, this message translates to:
+  /// **'View on Danbooru'**
+  String get tagDetailViewOnDanbooru;
+
+  /// No description provided for @tagDetailNoWiki.
+  ///
+  /// In en, this message translates to:
+  /// **'No wiki description for this tag.'**
+  String get tagDetailNoWiki;
+
+  /// No description provided for @tagDetailCheckDanbooru.
+  ///
+  /// In en, this message translates to:
+  /// **'Check on Danbooru'**
+  String get tagDetailCheckDanbooru;
+
+  /// No description provided for @tagDetailLicense.
+  ///
+  /// In en, this message translates to:
+  /// **'Tag descriptions © Danbooru contributors, CC-BY-SA-4.0'**
+  String get tagDetailLicense;
+
   /// No description provided for @presetManager.
   ///
   /// In en, this message translates to:
@@ -2512,23 +2896,17 @@ abstract class AppLocalizations {
   /// **'PRECISE REFERENCES'**
   String get refPreciseReferences;
 
+  /// No description provided for @refShortLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'REF'**
+  String get refShortLabel;
+
   /// No description provided for @refVibeTransfer.
   ///
   /// In en, this message translates to:
   /// **'VIBE TRANSFER'**
   String get refVibeTransfer;
-
-  /// No description provided for @refDialogCancel.
-  ///
-  /// In en, this message translates to:
-  /// **'CANCEL'**
-  String get refDialogCancel;
-
-  /// No description provided for @refDialogSave.
-  ///
-  /// In en, this message translates to:
-  /// **'SAVE'**
-  String get refDialogSave;
 
   /// No description provided for @refNameHint.
   ///
@@ -2638,12 +3016,6 @@ abstract class AppLocalizations {
   /// **'SAVE VIBE'**
   String get refSaveVibe;
 
-  /// No description provided for @refVibeTransfers.
-  ///
-  /// In en, this message translates to:
-  /// **'VIBE TRANSFERS'**
-  String get refVibeTransfers;
-
   /// No description provided for @refVibeCount.
   ///
   /// In en, this message translates to:
@@ -2674,6 +3046,12 @@ abstract class AppLocalizations {
   /// **'VIBE'**
   String get refVibeLabel;
 
+  /// No description provided for @refVibeRemoveConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove this vibe from the list?'**
+  String get refVibeRemoveConfirm;
+
   /// No description provided for @refVibeEditorTitle.
   ///
   /// In en, this message translates to:
@@ -2698,11 +3076,47 @@ abstract class AppLocalizations {
   /// **'API key missing or invalid'**
   String get refApiKeyMissing;
 
+  /// No description provided for @refImageProcessFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not read this image. Try another file.'**
+  String get refImageProcessFailed;
+
+  /// No description provided for @refVibeNoPermission.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account is not allowed to encode vibes.'**
+  String get refVibeNoPermission;
+
+  /// No description provided for @refErrorPointsInsufficient.
+  ///
+  /// In en, this message translates to:
+  /// **'Not enough points to encode this vibe.'**
+  String get refErrorPointsInsufficient;
+
+  /// No description provided for @refErrorSessionExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Your session has expired. Sign in again.'**
+  String get refErrorSessionExpired;
+
+  /// No description provided for @refErrorNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Network error. Check your connection and try again.'**
+  String get refErrorNetwork;
+
+  /// No description provided for @refErrorServiceUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The service is busy or unavailable. Try again later.'**
+  String get refErrorServiceUnavailable;
+
   /// No description provided for @refVibeEncodeFailed.
   ///
   /// In en, this message translates to:
-  /// **'Failed to encode vibe: {error}'**
-  String refVibeEncodeFailed(String error);
+  /// **'Could not encode this vibe. Try again later.'**
+  String get refVibeEncodeFailed;
 
   /// No description provided for @refLoadSaved.
   ///
@@ -2727,6 +3141,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'NO SAVED REFERENCES'**
   String get refNoSavedRefs;
+
+  /// No description provided for @refRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get refRemove;
+
+  /// No description provided for @refLibrarySaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to the library'**
+  String get refLibrarySaved;
+
+  /// No description provided for @refLibrarySaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not update the library. Storage may be full.'**
+  String get refLibrarySaveFailed;
 
   /// No description provided for @packTitle.
   ///
@@ -2787,12 +3219,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Preserve album hierarchy in folders'**
   String get packExportGalleryZipDesc;
-
-  /// No description provided for @packImportDialogTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Import NAIWeaver Pack'**
-  String get packImportDialogTitle;
 
   /// No description provided for @packFailedRead.
   ///
@@ -2919,6 +3345,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Import failed: {error}'**
   String packImportFailed(String error);
+
+  /// No description provided for @packRefLibrarySaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The saved references could not be stored. Free up storage space and import again.'**
+  String get packRefLibrarySaveFailed;
+
+  /// No description provided for @packSelectAll.
+  ///
+  /// In en, this message translates to:
+  /// **'ALL'**
+  String get packSelectAll;
+
+  /// No description provided for @packSelectNone.
+  ///
+  /// In en, this message translates to:
+  /// **'NONE'**
+  String get packSelectNone;
 
   /// No description provided for @packExportGalleryTitle.
   ///
@@ -3784,24 +4228,6 @@ abstract class AppLocalizations {
   /// **'USE AS SOURCE'**
   String get img2imgUseAsSource;
 
-  /// No description provided for @img2imgInpainting.
-  ///
-  /// In en, this message translates to:
-  /// **'INPAINTING'**
-  String get img2imgInpainting;
-
-  /// No description provided for @img2imgTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'IMG2IMG'**
-  String get img2imgTitle;
-
-  /// No description provided for @img2imgEditorLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'EDITOR'**
-  String get img2imgEditorLabel;
-
   /// No description provided for @img2imgBackToPicker.
   ///
   /// In en, this message translates to:
@@ -3892,6 +4318,120 @@ abstract class AppLocalizations {
   /// **'MASK: {count} strokes'**
   String img2imgMaskStrokes(int count);
 
+  /// No description provided for @img2imgClearMaskTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear mask?'**
+  String get img2imgClearMaskTitle;
+
+  /// No description provided for @img2imgClearMaskMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'All mask strokes will be removed. This cannot be undone.'**
+  String get img2imgClearMaskMessage;
+
+  /// No description provided for @img2imgClearMaskConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get img2imgClearMaskConfirm;
+
+  /// No description provided for @img2imgMaskUndoStroke.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo stroke'**
+  String get img2imgMaskUndoStroke;
+
+  /// No description provided for @img2imgMaskClearTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear mask'**
+  String get img2imgMaskClearTooltip;
+
+  /// No description provided for @img2imgBrushRound.
+  ///
+  /// In en, this message translates to:
+  /// **'Round brush'**
+  String get img2imgBrushRound;
+
+  /// No description provided for @img2imgBrushSquare.
+  ///
+  /// In en, this message translates to:
+  /// **'Square brush'**
+  String get img2imgBrushSquare;
+
+  /// No description provided for @img2imgBrushSize.
+  ///
+  /// In en, this message translates to:
+  /// **'SIZE'**
+  String get img2imgBrushSize;
+
+  /// No description provided for @img2imgMaskDisplay.
+  ///
+  /// In en, this message translates to:
+  /// **'Mask display settings'**
+  String get img2imgMaskDisplay;
+
+  /// No description provided for @img2imgMaskSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save mask'**
+  String get img2imgMaskSave;
+
+  /// No description provided for @img2imgMaskLoad.
+  ///
+  /// In en, this message translates to:
+  /// **'Load mask'**
+  String get img2imgMaskLoad;
+
+  /// No description provided for @img2imgMaskSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Mask saved'**
+  String get img2imgMaskSaved;
+
+  /// No description provided for @img2imgMaskColor.
+  ///
+  /// In en, this message translates to:
+  /// **'COLOR'**
+  String get img2imgMaskColor;
+
+  /// No description provided for @img2imgMaskOpacity.
+  ///
+  /// In en, this message translates to:
+  /// **'OPACITY'**
+  String get img2imgMaskOpacity;
+
+  /// No description provided for @img2imgMaskPatternSolid.
+  ///
+  /// In en, this message translates to:
+  /// **'Solid'**
+  String get img2imgMaskPatternSolid;
+
+  /// No description provided for @img2imgMaskPatternStripe.
+  ///
+  /// In en, this message translates to:
+  /// **'Stripe'**
+  String get img2imgMaskPatternStripe;
+
+  /// No description provided for @img2imgMaskPatternCross.
+  ///
+  /// In en, this message translates to:
+  /// **'Cross'**
+  String get img2imgMaskPatternCross;
+
+  /// No description provided for @img2imgMaskBorder.
+  ///
+  /// In en, this message translates to:
+  /// **'BORDER'**
+  String get img2imgMaskBorder;
+
+  /// No description provided for @img2imgMaskBorderTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Show mask border'**
+  String get img2imgMaskBorderTooltip;
+
   /// No description provided for @img2imgNoMask.
   ///
   /// In en, this message translates to:
@@ -3940,6 +4480,30 @@ abstract class AppLocalizations {
   /// **'CANVAS SIZE'**
   String get img2imgBlankCanvasSize;
 
+  /// No description provided for @img2imgPickerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'SELECT SOURCE IMAGE'**
+  String get img2imgPickerTitle;
+
+  /// No description provided for @img2imgPickerDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose an image to use as the base for img2img or inpainting'**
+  String get img2imgPickerDesc;
+
+  /// No description provided for @img2imgUseCurrent.
+  ///
+  /// In en, this message translates to:
+  /// **'USE CURRENT GENERATION'**
+  String get img2imgUseCurrent;
+
+  /// No description provided for @img2imgUseCurrentDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the last generated image as source'**
+  String get img2imgUseCurrentDesc;
+
   /// No description provided for @slideshowTitle.
   ///
   /// In en, this message translates to:
@@ -3951,6 +4515,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'PLAY ALL'**
   String get slideshowPlayAll;
+
+  /// No description provided for @slideshowPrevious.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous image'**
+  String get slideshowPrevious;
+
+  /// No description provided for @slideshowNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next image'**
+  String get slideshowNext;
+
+  /// No description provided for @slideshowPause.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get slideshowPause;
+
+  /// No description provided for @slideshowResume.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume'**
+  String get slideshowResume;
+
+  /// No description provided for @slideshowMusic.
+  ///
+  /// In en, this message translates to:
+  /// **'MUSIC'**
+  String get slideshowMusic;
+
+  /// No description provided for @slideshowEnableMusic.
+  ///
+  /// In en, this message translates to:
+  /// **'ENABLE MUSIC'**
+  String get slideshowEnableMusic;
+
+  /// No description provided for @slideshowMusicVolume.
+  ///
+  /// In en, this message translates to:
+  /// **'MUSIC VOLUME'**
+  String get slideshowMusicVolume;
+
+  /// No description provided for @slideshowKaraoke.
+  ///
+  /// In en, this message translates to:
+  /// **'KARAOKE LYRICS'**
+  String get slideshowKaraoke;
+
+  /// No description provided for @slideshowSongsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'SONGS (TAP TO SELECT, EMPTY = ALL)'**
+  String get slideshowSongsHint;
+
+  /// No description provided for @slideshowSoundFont.
+  ///
+  /// In en, this message translates to:
+  /// **'SOUNDFONT'**
+  String get slideshowSoundFont;
+
+  /// No description provided for @slideshowSoundFontDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'DEFAULT'**
+  String get slideshowSoundFontDefault;
+
+  /// No description provided for @slideshowCategoryAll.
+  ///
+  /// In en, this message translates to:
+  /// **'ALL'**
+  String get slideshowCategoryAll;
 
   /// No description provided for @slideshowConfigs.
   ///
@@ -4252,6 +4888,12 @@ abstract class AppLocalizations {
   /// **'NO IMAGES IN GALLERY'**
   String get demoNoImages;
 
+  /// No description provided for @demoGridSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Change grid size'**
+  String get demoGridSize;
+
   /// No description provided for @cascadeBeatTimeline.
   ///
   /// In en, this message translates to:
@@ -4281,6 +4923,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Remove Beat'**
   String get cascadeRemoveBeat;
+
+  /// No description provided for @cascadeRemoveBeatMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This beat and its prompts will be removed from the sequence.'**
+  String get cascadeRemoveBeatMessage;
+
+  /// No description provided for @cascadeRemoveActionTag.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove action tag'**
+  String get cascadeRemoveActionTag;
 
   /// No description provided for @settingsCheckForUpdates.
   ///
@@ -4354,12 +5008,6 @@ abstract class AppLocalizations {
   /// **'Could not start the installer'**
   String get settingsUpdateInstallFailed;
 
-  /// No description provided for @settingsUpdateSkipVersion.
-  ///
-  /// In en, this message translates to:
-  /// **'Skip this version'**
-  String get settingsUpdateSkipVersion;
-
   /// No description provided for @settingsUpdateOpenInBrowser.
   ///
   /// In en, this message translates to:
@@ -4426,6 +5074,60 @@ abstract class AppLocalizations {
   /// **'Show your Anlas balance in the top bar'**
   String get settingsAnlasTrackerDesc;
 
+  /// No description provided for @settingsCopyButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy to Clipboard'**
+  String get settingsCopyButton;
+
+  /// No description provided for @settingsCopyButtonDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Show copy button on generated images'**
+  String get settingsCopyButtonDesc;
+
+  /// No description provided for @settingsHideTagValues.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide Tag Values'**
+  String get settingsHideTagValues;
+
+  /// No description provided for @settingsHideTagValuesDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide tag count values in autocomplete suggestions'**
+  String get settingsHideTagValuesDesc;
+
+  /// No description provided for @settingsFontSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Font Size'**
+  String get settingsFontSize;
+
+  /// No description provided for @settingsFontSizeDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Scales all UI text. Default 100%.'**
+  String get settingsFontSizeDesc;
+
+  /// No description provided for @settingsOpenLinkTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Open External Link'**
+  String get settingsOpenLinkTitle;
+
+  /// No description provided for @settingsOpenLinkBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You are about to leave NAIWeaver and open a new window:'**
+  String get settingsOpenLinkBody;
+
+  /// No description provided for @settingsOpenLinkConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Link'**
+  String get settingsOpenLinkConfirm;
+
   /// No description provided for @canvasEditorTitle.
   ///
   /// In en, this message translates to:
@@ -4474,12 +5176,6 @@ abstract class AppLocalizations {
   /// **'Redo'**
   String get canvasRedo;
 
-  /// No description provided for @canvasClear.
-  ///
-  /// In en, this message translates to:
-  /// **'Clear all strokes'**
-  String get canvasClear;
-
   /// No description provided for @canvasFlatten.
   ///
   /// In en, this message translates to:
@@ -4522,36 +5218,6 @@ abstract class AppLocalizations {
   /// **'Flatten failed: {error}'**
   String canvasFlattenFailed(String error);
 
-  /// No description provided for @canvasFlattening.
-  ///
-  /// In en, this message translates to:
-  /// **'FLATTENING...'**
-  String get canvasFlattening;
-
-  /// No description provided for @canvasRestoreSession.
-  ///
-  /// In en, this message translates to:
-  /// **'A previous canvas session was found. Restore it?'**
-  String get canvasRestoreSession;
-
-  /// No description provided for @canvasRestore.
-  ///
-  /// In en, this message translates to:
-  /// **'RESTORE'**
-  String get canvasRestore;
-
-  /// No description provided for @canvasAutoSave.
-  ///
-  /// In en, this message translates to:
-  /// **'Canvas Auto-Save'**
-  String get canvasAutoSave;
-
-  /// No description provided for @canvasAutoSaveDesc.
-  ///
-  /// In en, this message translates to:
-  /// **'Auto-save canvas editing sessions for crash recovery'**
-  String get canvasAutoSaveDesc;
-
   /// No description provided for @canvasColor.
   ///
   /// In en, this message translates to:
@@ -4582,24 +5248,6 @@ abstract class AppLocalizations {
   /// **'Duplicate Layer'**
   String get canvasLayerDuplicate;
 
-  /// No description provided for @canvasLayerRename.
-  ///
-  /// In en, this message translates to:
-  /// **'Rename'**
-  String get canvasLayerRename;
-
-  /// No description provided for @canvasLayerVisible.
-  ///
-  /// In en, this message translates to:
-  /// **'Visible'**
-  String get canvasLayerVisible;
-
-  /// No description provided for @canvasLayerHidden.
-  ///
-  /// In en, this message translates to:
-  /// **'Hidden'**
-  String get canvasLayerHidden;
-
   /// No description provided for @canvasLayerOpacity.
   ///
   /// In en, this message translates to:
@@ -4617,12 +5265,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Delete this layer? Strokes will be lost.'**
   String get canvasLayerDeleteConfirm;
-
-  /// No description provided for @canvasLayerDefault.
-  ///
-  /// In en, this message translates to:
-  /// **'Layer {number}'**
-  String canvasLayerDefault(int number);
 
   /// No description provided for @canvasLayerClear.
   ///
@@ -4708,12 +5350,6 @@ abstract class AppLocalizations {
   /// **'SIZE'**
   String get canvasTextSize;
 
-  /// No description provided for @canvasTextPlace.
-  ///
-  /// In en, this message translates to:
-  /// **'PLACE'**
-  String get canvasTextPlace;
-
   /// No description provided for @canvasTextFont.
   ///
   /// In en, this message translates to:
@@ -4732,29 +5368,59 @@ abstract class AppLocalizations {
   /// **'Default'**
   String get canvasTextDefault;
 
-  /// No description provided for @canvasBlendNormal.
+  /// No description provided for @canvasSelectTool.
   ///
   /// In en, this message translates to:
-  /// **'Normal'**
-  String get canvasBlendNormal;
+  /// **'SELECT'**
+  String get canvasSelectTool;
 
-  /// No description provided for @canvasBlendMultiply.
+  /// No description provided for @canvasLassoTool.
   ///
   /// In en, this message translates to:
-  /// **'Multiply'**
-  String get canvasBlendMultiply;
+  /// **'LASSO'**
+  String get canvasLassoTool;
 
-  /// No description provided for @canvasBlendScreen.
+  /// No description provided for @canvasBlurTool.
   ///
   /// In en, this message translates to:
-  /// **'Screen'**
-  String get canvasBlendScreen;
+  /// **'BLUR'**
+  String get canvasBlurTool;
 
-  /// No description provided for @canvasBlendOverlay.
+  /// No description provided for @canvasCloneTool.
   ///
   /// In en, this message translates to:
-  /// **'Overlay'**
-  String get canvasBlendOverlay;
+  /// **'CLONE'**
+  String get canvasCloneTool;
+
+  /// No description provided for @canvasResize.
+  ///
+  /// In en, this message translates to:
+  /// **'Resize canvas'**
+  String get canvasResize;
+
+  /// No description provided for @canvasApply.
+  ///
+  /// In en, this message translates to:
+  /// **'APPLY'**
+  String get canvasApply;
+
+  /// No description provided for @canvasDeleteSelection.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete selection contents'**
+  String get canvasDeleteSelection;
+
+  /// No description provided for @canvasPaletteTapHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap: select  •  Hold: replace with current'**
+  String get canvasPaletteTapHint;
+
+  /// No description provided for @canvasPaletteHoldHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold to replace'**
+  String get canvasPaletteHoldHint;
 
   /// No description provided for @settingsOutputFolder.
   ///
@@ -4810,11 +5476,11 @@ abstract class AppLocalizations {
   /// **'Browse'**
   String get settingsOutputFolderBrowse;
 
-  /// No description provided for @settingsOutputFolderClear.
+  /// No description provided for @settingsFolderUseDefault.
   ///
   /// In en, this message translates to:
-  /// **'Clear'**
-  String get settingsOutputFolderClear;
+  /// **'Use default folder'**
+  String get settingsFolderUseDefault;
 
   /// No description provided for @settingsUseSdCard.
   ///
@@ -5032,6 +5698,12 @@ abstract class AppLocalizations {
   /// **'PRESET'**
   String get charEditorShowPresets;
 
+  /// No description provided for @charEditorShowTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'TITLE'**
+  String get charEditorShowTitle;
+
   /// No description provided for @charEditorAiDecidesPosition.
   ///
   /// In en, this message translates to:
@@ -5084,23 +5756,11 @@ abstract class AppLocalizations {
     String action,
   );
 
-  /// No description provided for @charEditorMutualDisplay.
-  ///
-  /// In en, this message translates to:
-  /// **'{source} ↔ {target}: {action}'**
-  String charEditorMutualDisplay(String source, String target, String action);
-
   /// No description provided for @charEditorSavePreset.
   ///
   /// In en, this message translates to:
   /// **'SAVE PRESET'**
   String get charEditorSavePreset;
-
-  /// No description provided for @charEditorLoadPreset.
-  ///
-  /// In en, this message translates to:
-  /// **'LOAD PRESET'**
-  String get charEditorLoadPreset;
 
   /// No description provided for @charEditorPresetName.
   ///
@@ -5156,6 +5816,630 @@ abstract class AppLocalizations {
   /// **'MUTUAL'**
   String get charEditorMutual;
 
+  /// No description provided for @charsSelectOrCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'Select or create a character'**
+  String get charsSelectOrCreate;
+
+  /// No description provided for @charsSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search…'**
+  String get charsSearchHint;
+
+  /// No description provided for @charsGenerateTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate a character'**
+  String get charsGenerateTooltip;
+
+  /// No description provided for @charsTextGenNeedsKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Requires text generation (set an API key first)'**
+  String get charsTextGenNeedsKey;
+
+  /// No description provided for @charsTextGenNeedsKeyWardrobe.
+  ///
+  /// In en, this message translates to:
+  /// **'Requires text generation (set an API key in Text Gen settings)'**
+  String get charsTextGenNeedsKeyWardrobe;
+
+  /// No description provided for @charsTextGenNoPermission.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account does not have the text generation permission'**
+  String get charsTextGenNoPermission;
+
+  /// No description provided for @charsNew.
+  ///
+  /// In en, this message translates to:
+  /// **'New character'**
+  String get charsNew;
+
+  /// No description provided for @charsNewDefaultName.
+  ///
+  /// In en, this message translates to:
+  /// **'New Character'**
+  String get charsNewDefaultName;
+
+  /// No description provided for @charsEmptyList.
+  ///
+  /// In en, this message translates to:
+  /// **'No characters yet'**
+  String get charsEmptyList;
+
+  /// No description provided for @charsUnnamed.
+  ///
+  /// In en, this message translates to:
+  /// **'(unnamed)'**
+  String get charsUnnamed;
+
+  /// No description provided for @charsGenerated.
+  ///
+  /// In en, this message translates to:
+  /// **'Character generated'**
+  String get charsGenerated;
+
+  /// No description provided for @charsAddedToPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Added to prompt'**
+  String get charsAddedToPrompt;
+
+  /// No description provided for @charsNamePlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Character name'**
+  String get charsNamePlaceholder;
+
+  /// No description provided for @charsPhotoshoot.
+  ///
+  /// In en, this message translates to:
+  /// **'Photoshoot'**
+  String get charsPhotoshoot;
+
+  /// No description provided for @charsDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete character'**
+  String get charsDelete;
+
+  /// No description provided for @charsDeleteMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete \"{name}\" and its wardrobe?'**
+  String charsDeleteMessage(String name);
+
+  /// No description provided for @charsGender.
+  ///
+  /// In en, this message translates to:
+  /// **'Gender'**
+  String get charsGender;
+
+  /// No description provided for @charsGenderUnspecified.
+  ///
+  /// In en, this message translates to:
+  /// **'(unspecified)'**
+  String get charsGenderUnspecified;
+
+  /// No description provided for @charsGenderFemale.
+  ///
+  /// In en, this message translates to:
+  /// **'female'**
+  String get charsGenderFemale;
+
+  /// No description provided for @charsGenderMale.
+  ///
+  /// In en, this message translates to:
+  /// **'male'**
+  String get charsGenderMale;
+
+  /// No description provided for @charsGenderNonbinary.
+  ///
+  /// In en, this message translates to:
+  /// **'non-binary'**
+  String get charsGenderNonbinary;
+
+  /// No description provided for @charsTint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tint'**
+  String get charsTint;
+
+  /// No description provided for @charsTintAccent.
+  ///
+  /// In en, this message translates to:
+  /// **'Accent'**
+  String get charsTintAccent;
+
+  /// No description provided for @charsTintAccent2.
+  ///
+  /// In en, this message translates to:
+  /// **'Accent 2'**
+  String get charsTintAccent2;
+
+  /// No description provided for @charsTintBg.
+  ///
+  /// In en, this message translates to:
+  /// **'Background'**
+  String get charsTintBg;
+
+  /// No description provided for @charsIdentityTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Identity tags — no clothing here'**
+  String get charsIdentityTags;
+
+  /// No description provided for @charsBaseLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'base — 1girl/1boy, ethnicity, age, permanent marks'**
+  String get charsBaseLabel;
+
+  /// No description provided for @charsFaceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'face — eye colour/shape, brows, nose, lips'**
+  String get charsFaceLabel;
+
+  /// No description provided for @charsHairLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'hair — colour, length, style, texture'**
+  String get charsHairLabel;
+
+  /// No description provided for @charsBodyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'body — build, proportions, chest'**
+  String get charsBodyLabel;
+
+  /// No description provided for @charsNegativeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'negative — injected into the UC when this character is used'**
+  String get charsNegativeLabel;
+
+  /// No description provided for @charsNsfwSection.
+  ///
+  /// In en, this message translates to:
+  /// **'NSFW sub-buckets (optional)'**
+  String get charsNsfwSection;
+
+  /// No description provided for @charsStyleSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Style identity & description (optional)'**
+  String get charsStyleSection;
+
+  /// No description provided for @charsSoulSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Personality / soul (optional)'**
+  String get charsSoulSection;
+
+  /// No description provided for @charsNsfwTop.
+  ///
+  /// In en, this message translates to:
+  /// **'nsfw top'**
+  String get charsNsfwTop;
+
+  /// No description provided for @charsNsfwBottom.
+  ///
+  /// In en, this message translates to:
+  /// **'nsfw bottom'**
+  String get charsNsfwBottom;
+
+  /// No description provided for @charsNsfwAlways.
+  ///
+  /// In en, this message translates to:
+  /// **'nsfw always'**
+  String get charsNsfwAlways;
+
+  /// No description provided for @charsArtistTag.
+  ///
+  /// In en, this message translates to:
+  /// **'artist tag'**
+  String get charsArtistTag;
+
+  /// No description provided for @charsStylePrefix.
+  ///
+  /// In en, this message translates to:
+  /// **'style prefix'**
+  String get charsStylePrefix;
+
+  /// No description provided for @charsDescriptionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'character description (natural language; not used by NAI image gen)'**
+  String get charsDescriptionLabel;
+
+  /// No description provided for @charsSoulLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'soul — long-form personality doc (not used by image gen)'**
+  String get charsSoulLabel;
+
+  /// No description provided for @charsCombinedTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Combined tags (preview — body + primary outfit)'**
+  String get charsCombinedTags;
+
+  /// No description provided for @charsEmptyValue.
+  ///
+  /// In en, this message translates to:
+  /// **'(empty)'**
+  String get charsEmptyValue;
+
+  /// No description provided for @charsWardrobe.
+  ///
+  /// In en, this message translates to:
+  /// **'Wardrobe'**
+  String get charsWardrobe;
+
+  /// No description provided for @charsGenerateOutfitsTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate outfits with text generation'**
+  String get charsGenerateOutfitsTooltip;
+
+  /// No description provided for @charsGenerating.
+  ///
+  /// In en, this message translates to:
+  /// **'Generating…'**
+  String get charsGenerating;
+
+  /// No description provided for @charsGenerateOutfits.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate outfits'**
+  String get charsGenerateOutfits;
+
+  /// No description provided for @charsNewOutfit.
+  ///
+  /// In en, this message translates to:
+  /// **'New outfit'**
+  String get charsNewOutfit;
+
+  /// No description provided for @charsNoOutfits.
+  ///
+  /// In en, this message translates to:
+  /// **'No outfits yet — add one or generate a set.'**
+  String get charsNoOutfits;
+
+  /// No description provided for @charsDeleteOutfitTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete outfit'**
+  String get charsDeleteOutfitTitle;
+
+  /// No description provided for @charsDeleteOutfitMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete \"{name}\"?'**
+  String charsDeleteOutfitMessage(String name);
+
+  /// No description provided for @charsNewOutfitDefaultName.
+  ///
+  /// In en, this message translates to:
+  /// **'New Outfit'**
+  String get charsNewOutfitDefaultName;
+
+  /// No description provided for @charsTextGenNotConfigured.
+  ///
+  /// In en, this message translates to:
+  /// **'Text generation is not configured'**
+  String get charsTextGenNotConfigured;
+
+  /// No description provided for @charsNoOutfitsReturned.
+  ///
+  /// In en, this message translates to:
+  /// **'No outfits returned'**
+  String get charsNoOutfitsReturned;
+
+  /// No description provided for @charsOutfitsAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Added 1 outfit} other{Added {count} outfits}}'**
+  String charsOutfitsAdded(int count);
+
+  /// No description provided for @charsGenerationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Generation failed: {error}'**
+  String charsGenerationFailed(String error);
+
+  /// No description provided for @charsWear.
+  ///
+  /// In en, this message translates to:
+  /// **'Wear'**
+  String get charsWear;
+
+  /// No description provided for @charsState.
+  ///
+  /// In en, this message translates to:
+  /// **'State'**
+  String get charsState;
+
+  /// No description provided for @charsSetPrimary.
+  ///
+  /// In en, this message translates to:
+  /// **'Set as primary outfit'**
+  String get charsSetPrimary;
+
+  /// No description provided for @charsEditOutfit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit outfit'**
+  String get charsEditOutfit;
+
+  /// No description provided for @charsOutfitName.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get charsOutfitName;
+
+  /// No description provided for @charsOutfitNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Rainy Day Chic'**
+  String get charsOutfitNameHint;
+
+  /// No description provided for @charsClothingTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Clothing tags (4–7 garments)'**
+  String get charsClothingTags;
+
+  /// No description provided for @charsNegativeTagsOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Negative tags (optional)'**
+  String get charsNegativeTagsOptional;
+
+  /// No description provided for @charsSeasons.
+  ///
+  /// In en, this message translates to:
+  /// **'Seasons'**
+  String get charsSeasons;
+
+  /// No description provided for @charsWeatherLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Weather'**
+  String get charsWeatherLabel;
+
+  /// No description provided for @charsActivities.
+  ///
+  /// In en, this message translates to:
+  /// **'Activities'**
+  String get charsActivities;
+
+  /// No description provided for @charsTimeSlots.
+  ///
+  /// In en, this message translates to:
+  /// **'Time slots'**
+  String get charsTimeSlots;
+
+  /// No description provided for @charsComfortTemp.
+  ///
+  /// In en, this message translates to:
+  /// **'Comfortable temperature  {start}°C – {end}°C'**
+  String charsComfortTemp(int start, int end);
+
+  /// No description provided for @charsDefaultOutfitName.
+  ///
+  /// In en, this message translates to:
+  /// **'Outfit'**
+  String get charsDefaultOutfitName;
+
+  /// No description provided for @charsGenerateOutfitsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate outfits'**
+  String get charsGenerateOutfitsTitle;
+
+  /// No description provided for @charsHowMany.
+  ///
+  /// In en, this message translates to:
+  /// **'How many: {count}'**
+  String charsHowMany(int count);
+
+  /// No description provided for @charsEraHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Era / setting hint (optional)'**
+  String get charsEraHint;
+
+  /// No description provided for @charsEraHintExample.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. 1920s Paris, Heian-era Japan, near-future'**
+  String get charsEraHintExample;
+
+  /// No description provided for @charsVibeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Vibe hint (optional)'**
+  String get charsVibeHint;
+
+  /// No description provided for @charsVibeHintExample.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. cozy academia, gothic, beachy minimalist'**
+  String get charsVibeHintExample;
+
+  /// No description provided for @charsGenerate.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate'**
+  String get charsGenerate;
+
+  /// No description provided for @charsStateNoGarments.
+  ///
+  /// In en, this message translates to:
+  /// **'No classifiable garments in this outfit\'s tags.'**
+  String get charsStateNoGarments;
+
+  /// No description provided for @charsOutfitState.
+  ///
+  /// In en, this message translates to:
+  /// **'Outfit state'**
+  String get charsOutfitState;
+
+  /// No description provided for @charsDishevelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Dishevelled'**
+  String get charsDishevelled;
+
+  /// No description provided for @charsResetIntact.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset to intact'**
+  String get charsResetIntact;
+
+  /// No description provided for @charsReparse.
+  ///
+  /// In en, this message translates to:
+  /// **'Re-parse from tags'**
+  String get charsReparse;
+
+  /// No description provided for @charsConcealed.
+  ///
+  /// In en, this message translates to:
+  /// **'concealed'**
+  String get charsConcealed;
+
+  /// No description provided for @charsRenderedTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Rendered tags'**
+  String get charsRenderedTags;
+
+  /// No description provided for @charsApplyToPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply to prompt'**
+  String get charsApplyToPrompt;
+
+  /// No description provided for @charsUseTheseTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Use these tags'**
+  String get charsUseTheseTags;
+
+  /// No description provided for @charsTopPrefix.
+  ///
+  /// In en, this message translates to:
+  /// **'Top'**
+  String get charsTopPrefix;
+
+  /// No description provided for @charsBottomPrefix.
+  ///
+  /// In en, this message translates to:
+  /// **'Bottom'**
+  String get charsBottomPrefix;
+
+  /// No description provided for @charsGenTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate character'**
+  String get charsGenTitle;
+
+  /// No description provided for @charsGenVibe.
+  ///
+  /// In en, this message translates to:
+  /// **'Vibe (optional)'**
+  String get charsGenVibe;
+
+  /// No description provided for @charsGenVibeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'describe the vibe — e.g. \"weary war veteran turned baker\" — blank lets the model pick'**
+  String get charsGenVibeHint;
+
+  /// No description provided for @charsGenGenderAny.
+  ///
+  /// In en, this message translates to:
+  /// **'Any (model picks)'**
+  String get charsGenGenderAny;
+
+  /// No description provided for @charsGenEra.
+  ///
+  /// In en, this message translates to:
+  /// **'Era / time period'**
+  String get charsGenEra;
+
+  /// No description provided for @charsGenLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Location (optional)'**
+  String get charsGenLocation;
+
+  /// No description provided for @charsGenLocationHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. a coastal town in Portugal, Winterfell — blank lets the model pick'**
+  String get charsGenLocationHint;
+
+  /// No description provided for @charsGenNsfw.
+  ///
+  /// In en, this message translates to:
+  /// **'NSFW tags'**
+  String get charsGenNsfw;
+
+  /// No description provided for @charsGenNsfwHint.
+  ///
+  /// In en, this message translates to:
+  /// **'also request the split nsfw_* tag buckets'**
+  String get charsGenNsfwHint;
+
+  /// No description provided for @charsGenStyle.
+  ///
+  /// In en, this message translates to:
+  /// **'Style (optional)'**
+  String get charsGenStyle;
+
+  /// No description provided for @charsGenStyleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. an artist tag — blank lets the model pick'**
+  String get charsGenStyleHint;
+
+  /// No description provided for @charsGenWardrobe.
+  ///
+  /// In en, this message translates to:
+  /// **'Starter wardrobe: {count, plural, =1{1 outfit} other{{count} outfits}}'**
+  String charsGenWardrobe(int count);
+
+  /// No description provided for @charsGenMeetNote.
+  ///
+  /// In en, this message translates to:
+  /// **'plus the \"meet\" outfit (always generated).'**
+  String get charsGenMeetNote;
+
+  /// No description provided for @charsGenProgressTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Generating character'**
+  String get charsGenProgressTitle;
+
+  /// No description provided for @charsGenPreparing.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing…'**
+  String get charsGenPreparing;
+
+  /// No description provided for @charsGenProgressNote.
+  ///
+  /// In en, this message translates to:
+  /// **'This makes several model calls — on a free/Tablet-tier token a long personality may take a few continuation passes.'**
+  String get charsGenProgressNote;
+
   /// No description provided for @jukeboxTitle.
   ///
   /// In en, this message translates to:
@@ -5197,12 +6481,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'SETTINGS'**
   String get jukeboxSettings;
-
-  /// No description provided for @jukeboxQueue.
-  ///
-  /// In en, this message translates to:
-  /// **'QUEUE'**
-  String get jukeboxQueue;
 
   /// No description provided for @jukeboxQueueEmpty.
   ///
@@ -5306,24 +6584,6 @@ abstract class AppLocalizations {
   /// **'ROCK'**
   String get jukeboxCategoryRock;
 
-  /// No description provided for @jukeboxEnableMusic.
-  ///
-  /// In en, this message translates to:
-  /// **'ENABLE MUSIC'**
-  String get jukeboxEnableMusic;
-
-  /// No description provided for @jukeboxMusicVolume.
-  ///
-  /// In en, this message translates to:
-  /// **'MUSIC VOLUME'**
-  String get jukeboxMusicVolume;
-
-  /// No description provided for @jukeboxKaraokeLyrics.
-  ///
-  /// In en, this message translates to:
-  /// **'KARAOKE LYRICS'**
-  String get jukeboxKaraokeLyrics;
-
   /// No description provided for @mlModels.
   ///
   /// In en, this message translates to:
@@ -5426,6 +6686,90 @@ abstract class AppLocalizations {
   /// **'REMOVE'**
   String get mlRemovePoint;
 
+  /// No description provided for @mlBack.
+  ///
+  /// In en, this message translates to:
+  /// **'BACK'**
+  String get mlBack;
+
+  /// No description provided for @mlEncodingImage.
+  ///
+  /// In en, this message translates to:
+  /// **'Encoding image...'**
+  String get mlEncodingImage;
+
+  /// No description provided for @mlTapToSelect.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap on the image to select a region'**
+  String get mlTapToSelect;
+
+  /// No description provided for @mlUndoPoint.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo last point'**
+  String get mlUndoPoint;
+
+  /// No description provided for @mlClearPoints.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all points'**
+  String get mlClearPoints;
+
+  /// No description provided for @mlPointCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} points'**
+  String mlPointCount(int count);
+
+  /// No description provided for @mlOpacity.
+  ///
+  /// In en, this message translates to:
+  /// **'OPACITY'**
+  String get mlOpacity;
+
+  /// No description provided for @mlEdgeRefine.
+  ///
+  /// In en, this message translates to:
+  /// **'EDGE REFINE'**
+  String get mlEdgeRefine;
+
+  /// No description provided for @mlThreshold.
+  ///
+  /// In en, this message translates to:
+  /// **'THRESHOLD'**
+  String get mlThreshold;
+
+  /// No description provided for @mlFeather.
+  ///
+  /// In en, this message translates to:
+  /// **'FEATHER'**
+  String get mlFeather;
+
+  /// No description provided for @mlDone.
+  ///
+  /// In en, this message translates to:
+  /// **'DONE'**
+  String get mlDone;
+
+  /// No description provided for @mlUpscaleCompare.
+  ///
+  /// In en, this message translates to:
+  /// **'UPSCALE COMPARE'**
+  String get mlUpscaleCompare;
+
+  /// No description provided for @mlSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'SAVED'**
+  String get mlSaved;
+
+  /// No description provided for @mlSavedFile.
+  ///
+  /// In en, this message translates to:
+  /// **'SAVED: {name}'**
+  String mlSavedFile(String name);
+
   /// No description provided for @mlTierFast.
   ///
   /// In en, this message translates to:
@@ -5450,23 +6794,11 @@ abstract class AppLocalizations {
   /// **'QUALITY'**
   String get mlTierQuality;
 
-  /// No description provided for @mlRemovingBg.
-  ///
-  /// In en, this message translates to:
-  /// **'REMOVING BACKGROUNDS'**
-  String get mlRemovingBg;
-
   /// No description provided for @mlUpscalingImages.
   ///
   /// In en, this message translates to:
   /// **'UPSCALING IMAGES'**
   String get mlUpscalingImages;
-
-  /// No description provided for @mlBgRemovalFailed.
-  ///
-  /// In en, this message translates to:
-  /// **'BG REMOVAL FAILED'**
-  String get mlBgRemovalFailed;
 
   /// No description provided for @mlUpscaleFailed.
   ///
@@ -5504,6 +6836,144 @@ abstract class AppLocalizations {
   /// **'LOW RAM — MAY CRASH'**
   String get mlLowRamWarning;
 
+  /// No description provided for @mlDesktopOnlyMayCrash.
+  ///
+  /// In en, this message translates to:
+  /// **'DESKTOP ONLY — MAY CRASH'**
+  String get mlDesktopOnlyMayCrash;
+
+  /// No description provided for @mlDownloadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Download failed'**
+  String get mlDownloadFailed;
+
+  /// No description provided for @mlManagerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Download and manage on-device ML models for background removal and upscaling.'**
+  String get mlManagerSubtitle;
+
+  /// No description provided for @mlNoModelsDownloaded.
+  ///
+  /// In en, this message translates to:
+  /// **'No models downloaded'**
+  String get mlNoModelsDownloaded;
+
+  /// No description provided for @mlModelsDownloaded.
+  ///
+  /// In en, this message translates to:
+  /// **'Models downloaded: {count} · {size}'**
+  String mlModelsDownloaded(int count, String size);
+
+  /// No description provided for @mlMobileApiNote.
+  ///
+  /// In en, this message translates to:
+  /// **'On mobile devices, upscaling and background removal use the NovelAI API. Local ML models are only available on desktop.'**
+  String get mlMobileApiNote;
+
+  /// No description provided for @mlSegmentationNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Interactive object selection using SAM. Downloads both encoder and decoder.'**
+  String get mlSegmentationNote;
+
+  /// No description provided for @mlUnknownModels.
+  ///
+  /// In en, this message translates to:
+  /// **'UNKNOWN MODELS'**
+  String get mlUnknownModels;
+
+  /// No description provided for @mlUnknownModelsNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Legacy or unrecognized .onnx/.ort files. Delete to free disk space.'**
+  String get mlUnknownModelsNote;
+
+  /// No description provided for @mlDeleteModelTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {name}?'**
+  String mlDeleteModelTitle(String name);
+
+  /// No description provided for @mlDeleteModelMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This will free {size} of disk space.'**
+  String mlDeleteModelMessage(String size);
+
+  /// No description provided for @mlRecommendedForDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'RECOMMENDED FOR YOUR DEVICE'**
+  String get mlRecommendedForDevice;
+
+  /// No description provided for @mlSlowOnDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'MAY BE SLOW ON THIS DEVICE'**
+  String get mlSlowOnDevice;
+
+  /// No description provided for @mlNaiApiUpscale.
+  ///
+  /// In en, this message translates to:
+  /// **'NOVELAI API UPSCALE'**
+  String get mlNaiApiUpscale;
+
+  /// No description provided for @mlNaiApiUpscaleDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Up to 4x server-side upscaling via NovelAI API. Requires API key. No download needed.'**
+  String get mlNaiApiUpscaleDesc;
+
+  /// No description provided for @mlNaiApiBgRemoval.
+  ///
+  /// In en, this message translates to:
+  /// **'NOVELAI API BG REMOVAL'**
+  String get mlNaiApiBgRemoval;
+
+  /// No description provided for @mlNaiApiBgRemovalDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Server-side background removal via NovelAI API. Requires API key. No download needed.'**
+  String get mlNaiApiBgRemovalDesc;
+
+  /// No description provided for @mlCloud.
+  ///
+  /// In en, this message translates to:
+  /// **'CLOUD'**
+  String get mlCloud;
+
+  /// No description provided for @mlNoApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'NO API KEY SET'**
+  String get mlNoApiKey;
+
+  /// No description provided for @mlTierQualityShort.
+  ///
+  /// In en, this message translates to:
+  /// **'HQ'**
+  String get mlTierQualityShort;
+
+  /// No description provided for @mlDeviceMobile.
+  ///
+  /// In en, this message translates to:
+  /// **'MOBILE'**
+  String get mlDeviceMobile;
+
+  /// No description provided for @mlDeviceDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'DESKTOP'**
+  String get mlDeviceDesktop;
+
+  /// No description provided for @mlDeviceBoth.
+  ///
+  /// In en, this message translates to:
+  /// **'BOTH'**
+  String get mlDeviceBoth;
+
   /// No description provided for @mlBgRemovedAndSaved.
   ///
   /// In en, this message translates to:
@@ -5539,6 +7009,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Enhance'**
   String get toolsEnhance;
+
+  /// No description provided for @toolDiscardResultTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard result?'**
+  String get toolDiscardResultTitle;
+
+  /// No description provided for @toolDiscardResultMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This result has not been saved. Going back discards it.'**
+  String get toolDiscardResultMessage;
+
+  /// No description provided for @toolDiscardResultConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard'**
+  String get toolDiscardResultConfirm;
 
   /// No description provided for @directorToolsTitle.
   ///
@@ -5593,6 +7081,186 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'MOOD'**
   String get directorToolsMood;
+
+  /// No description provided for @directorToolBgRemoval.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove BG'**
+  String get directorToolBgRemoval;
+
+  /// No description provided for @directorToolLineart.
+  ///
+  /// In en, this message translates to:
+  /// **'Line Art'**
+  String get directorToolLineart;
+
+  /// No description provided for @directorToolSketch.
+  ///
+  /// In en, this message translates to:
+  /// **'Sketch'**
+  String get directorToolSketch;
+
+  /// No description provided for @directorToolColorize.
+  ///
+  /// In en, this message translates to:
+  /// **'Colorize'**
+  String get directorToolColorize;
+
+  /// No description provided for @directorToolEmotion.
+  ///
+  /// In en, this message translates to:
+  /// **'Emotion'**
+  String get directorToolEmotion;
+
+  /// No description provided for @directorToolDeclutter.
+  ///
+  /// In en, this message translates to:
+  /// **'Declutter'**
+  String get directorToolDeclutter;
+
+  /// No description provided for @moodNeutral.
+  ///
+  /// In en, this message translates to:
+  /// **'Neutral'**
+  String get moodNeutral;
+
+  /// No description provided for @moodHappy.
+  ///
+  /// In en, this message translates to:
+  /// **'Happy'**
+  String get moodHappy;
+
+  /// No description provided for @moodSad.
+  ///
+  /// In en, this message translates to:
+  /// **'Sad'**
+  String get moodSad;
+
+  /// No description provided for @moodAngry.
+  ///
+  /// In en, this message translates to:
+  /// **'Angry'**
+  String get moodAngry;
+
+  /// No description provided for @moodScared.
+  ///
+  /// In en, this message translates to:
+  /// **'Scared'**
+  String get moodScared;
+
+  /// No description provided for @moodSurprised.
+  ///
+  /// In en, this message translates to:
+  /// **'Surprised'**
+  String get moodSurprised;
+
+  /// No description provided for @moodTired.
+  ///
+  /// In en, this message translates to:
+  /// **'Tired'**
+  String get moodTired;
+
+  /// No description provided for @moodExcited.
+  ///
+  /// In en, this message translates to:
+  /// **'Excited'**
+  String get moodExcited;
+
+  /// No description provided for @moodNervous.
+  ///
+  /// In en, this message translates to:
+  /// **'Nervous'**
+  String get moodNervous;
+
+  /// No description provided for @moodThinking.
+  ///
+  /// In en, this message translates to:
+  /// **'Thinking'**
+  String get moodThinking;
+
+  /// No description provided for @moodConfused.
+  ///
+  /// In en, this message translates to:
+  /// **'Confused'**
+  String get moodConfused;
+
+  /// No description provided for @moodShy.
+  ///
+  /// In en, this message translates to:
+  /// **'Shy'**
+  String get moodShy;
+
+  /// No description provided for @moodDisgusted.
+  ///
+  /// In en, this message translates to:
+  /// **'Disgusted'**
+  String get moodDisgusted;
+
+  /// No description provided for @moodSmug.
+  ///
+  /// In en, this message translates to:
+  /// **'Smug'**
+  String get moodSmug;
+
+  /// No description provided for @moodBored.
+  ///
+  /// In en, this message translates to:
+  /// **'Bored'**
+  String get moodBored;
+
+  /// No description provided for @moodLaughing.
+  ///
+  /// In en, this message translates to:
+  /// **'Laughing'**
+  String get moodLaughing;
+
+  /// No description provided for @moodIrritated.
+  ///
+  /// In en, this message translates to:
+  /// **'Irritated'**
+  String get moodIrritated;
+
+  /// No description provided for @moodAroused.
+  ///
+  /// In en, this message translates to:
+  /// **'Aroused'**
+  String get moodAroused;
+
+  /// No description provided for @moodEmbarrassed.
+  ///
+  /// In en, this message translates to:
+  /// **'Embarrassed'**
+  String get moodEmbarrassed;
+
+  /// No description provided for @moodWorried.
+  ///
+  /// In en, this message translates to:
+  /// **'Worried'**
+  String get moodWorried;
+
+  /// No description provided for @moodLove.
+  ///
+  /// In en, this message translates to:
+  /// **'Love'**
+  String get moodLove;
+
+  /// No description provided for @moodDetermined.
+  ///
+  /// In en, this message translates to:
+  /// **'Determined'**
+  String get moodDetermined;
+
+  /// No description provided for @moodHurt.
+  ///
+  /// In en, this message translates to:
+  /// **'Hurt'**
+  String get moodHurt;
+
+  /// No description provided for @moodPlayful.
+  ///
+  /// In en, this message translates to:
+  /// **'Playful'**
+  String get moodPlayful;
 
   /// No description provided for @directorToolsPrompt.
   ///
@@ -5672,6 +7340,12 @@ abstract class AppLocalizations {
   /// **'NOISE'**
   String get enhanceNoise;
 
+  /// No description provided for @enhanceResolutionScale.
+  ///
+  /// In en, this message translates to:
+  /// **'RESOLUTION SCALE'**
+  String get enhanceResolutionScale;
+
   /// No description provided for @enhanceSaved.
   ///
   /// In en, this message translates to:
@@ -5707,12 +7381,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Menu'**
   String get commonMenu;
-
-  /// No description provided for @presetDuplicate.
-  ///
-  /// In en, this message translates to:
-  /// **'Duplicate'**
-  String get presetDuplicate;
 
   /// No description provided for @presetLoad.
   ///
@@ -5792,6 +7460,18 @@ abstract class AppLocalizations {
   /// **'API key required'**
   String get naiApiKeyRequired;
 
+  /// No description provided for @naiActionNotPermitted.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account is not allowed to use this action'**
+  String get naiActionNotPermitted;
+
+  /// No description provided for @naiImageUnreadable.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not read the image size'**
+  String get naiImageUnreadable;
+
   /// No description provided for @comparisonBefore.
   ///
   /// In en, this message translates to:
@@ -5815,6 +7495,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Slider mode'**
   String get comparisonSliderMode;
+
+  /// No description provided for @comparisonSwap.
+  ///
+  /// In en, this message translates to:
+  /// **'Swap'**
+  String get comparisonSwap;
 
   /// No description provided for @settingsBgRemovalButton.
   ///
@@ -5917,30 +7603,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Default (device gallery)'**
   String get settingsExportFolderDefault;
-
-  /// No description provided for @settingsUpscaleBackend.
-  ///
-  /// In en, this message translates to:
-  /// **'Upscale Backend'**
-  String get settingsUpscaleBackend;
-
-  /// No description provided for @settingsUpscaleBackendDesc.
-  ///
-  /// In en, this message translates to:
-  /// **'Choose between local ML model or NovelAI API for upscaling'**
-  String get settingsUpscaleBackendDesc;
-
-  /// No description provided for @settingsUpscaleBackendMl.
-  ///
-  /// In en, this message translates to:
-  /// **'ML (Local)'**
-  String get settingsUpscaleBackendMl;
-
-  /// No description provided for @settingsUpscaleBackendNovelai.
-  ///
-  /// In en, this message translates to:
-  /// **'NovelAI (API)'**
-  String get settingsUpscaleBackendNovelai;
 
   /// No description provided for @quickActionEnhance.
   ///
@@ -6145,12 +7807,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'SELECT INSTRUMENT'**
   String get jukeboxSelectInstrument;
-
-  /// No description provided for @jukeboxWatch.
-  ///
-  /// In en, this message translates to:
-  /// **'WATCH'**
-  String get jukeboxWatch;
 
   /// No description provided for @jukeboxPlayGame.
   ///
@@ -6410,6 +8066,96 @@ abstract class AppLocalizations {
   /// **'VISUALIZER'**
   String get jukeboxVisualizer;
 
+  /// No description provided for @jukeboxToggleVisualizer.
+  ///
+  /// In en, this message translates to:
+  /// **'Toggle visualizer display'**
+  String get jukeboxToggleVisualizer;
+
+  /// No description provided for @jukeboxPrevious.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous'**
+  String get jukeboxPrevious;
+
+  /// No description provided for @jukeboxNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get jukeboxNext;
+
+  /// No description provided for @jukeboxPlay.
+  ///
+  /// In en, this message translates to:
+  /// **'Play'**
+  String get jukeboxPlay;
+
+  /// No description provided for @jukeboxPause.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get jukeboxPause;
+
+  /// No description provided for @jukeboxMute.
+  ///
+  /// In en, this message translates to:
+  /// **'Mute'**
+  String get jukeboxMute;
+
+  /// No description provided for @jukeboxUnmute.
+  ///
+  /// In en, this message translates to:
+  /// **'Unmute'**
+  String get jukeboxUnmute;
+
+  /// No description provided for @jukeboxRemoveFromQueue.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from queue'**
+  String get jukeboxRemoveFromQueue;
+
+  /// No description provided for @jukeboxFullscreen.
+  ///
+  /// In en, this message translates to:
+  /// **'Fullscreen'**
+  String get jukeboxFullscreen;
+
+  /// No description provided for @jukeboxKaraokeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'KARAOKE'**
+  String get jukeboxKaraokeLabel;
+
+  /// No description provided for @jukeboxBundled.
+  ///
+  /// In en, this message translates to:
+  /// **'BUNDLED'**
+  String get jukeboxBundled;
+
+  /// No description provided for @jukeboxSoundfontDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'DOWNLOAD'**
+  String get jukeboxSoundfontDownload;
+
+  /// No description provided for @jukeboxSoundfontDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete soundfont'**
+  String get jukeboxSoundfontDelete;
+
+  /// No description provided for @jukeboxSoundfontDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'DELETE SOUNDFONT'**
+  String get jukeboxSoundfontDeleteTitle;
+
+  /// No description provided for @jukeboxSoundfontDeleteMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {name}? You can re-download it later.'**
+  String jukeboxSoundfontDeleteMessage(String name);
+
   /// No description provided for @jukeboxVizIntensity.
   ///
   /// In en, this message translates to:
@@ -6488,6 +8234,12 @@ abstract class AppLocalizations {
   /// **'BG REMOVAL FAILED'**
   String get galleryBgRemovalFailed;
 
+  /// No description provided for @galleryRemovingBackgrounds.
+  ///
+  /// In en, this message translates to:
+  /// **'REMOVING BACKGROUNDS'**
+  String get galleryRemovingBackgrounds;
+
   /// No description provided for @naiUpscaleTooLarge.
   ///
   /// In en, this message translates to:
@@ -6511,18 +8263,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'FROM GALLERY'**
   String get directorToolsFromGallery;
-
-  /// No description provided for @settingsBgRemovalBackend.
-  ///
-  /// In en, this message translates to:
-  /// **'BG Removal Backend'**
-  String get settingsBgRemovalBackend;
-
-  /// No description provided for @settingsBgRemovalBackendDesc.
-  ///
-  /// In en, this message translates to:
-  /// **'Choose between local ML model or NovelAI API for background removal'**
-  String get settingsBgRemovalBackendDesc;
 
   /// No description provided for @importDialogTitle.
   ///
@@ -6584,23 +8324,17 @@ abstract class AppLocalizations {
   /// **'auto-detected from prompt'**
   String get importStylesAutoDetected;
 
+  /// No description provided for @importStylesEmbedded.
+  ///
+  /// In en, this message translates to:
+  /// **'disable - embedded in prompt'**
+  String get importStylesEmbedded;
+
   /// No description provided for @img2imgOutputRes.
   ///
   /// In en, this message translates to:
   /// **'OUTPUT RESOLUTION'**
   String get img2imgOutputRes;
-
-  /// No description provided for @img2imgResetRes.
-  ///
-  /// In en, this message translates to:
-  /// **'Reset to source'**
-  String get img2imgResetRes;
-
-  /// No description provided for @img2imgChangeRes.
-  ///
-  /// In en, this message translates to:
-  /// **'CHANGE'**
-  String get img2imgChangeRes;
 
   /// No description provided for @duplicateImageWarning.
   ///
@@ -6884,6 +8618,30 @@ abstract class AppLocalizations {
   /// **'Generated text will appear here.'**
   String get textGenOutputEmpty;
 
+  /// No description provided for @textGenErrNoToken.
+  ///
+  /// In en, this message translates to:
+  /// **'No NovelAI token is set. Add it in Settings.'**
+  String get textGenErrNoToken;
+
+  /// No description provided for @textGenErrEmptyInput.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter some text to continue from.'**
+  String get textGenErrEmptyInput;
+
+  /// No description provided for @textGenClearConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear output?'**
+  String get textGenClearConfirmTitle;
+
+  /// No description provided for @textGenClearConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The generated text and its reasoning will be removed. Copy it first if you need it.'**
+  String get textGenClearConfirmMessage;
+
   /// No description provided for @textGenHistory.
   ///
   /// In en, this message translates to:
@@ -6985,6 +8743,1614 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Hide every image in this batch from your history?'**
   String get serverHistoryBatchDeleteConfirm;
+
+  /// No description provided for @serverHistoryDeleteFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete failed: {error}'**
+  String serverHistoryDeleteFailed(String error);
+
+  /// No description provided for @serverHistoryDeleteActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Still queued or running; it can be deleted once it finishes.'**
+  String get serverHistoryDeleteActive;
+
+  /// No description provided for @serverHistoryLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load history: {error}'**
+  String serverHistoryLoadFailed(String error);
+
+  /// No description provided for @serverHistoryRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get serverHistoryRetry;
+
+  /// No description provided for @serverHistoryUsersUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The user list could not be loaded, so the user filter is unavailable.'**
+  String get serverHistoryUsersUnavailable;
+
+  /// No description provided for @serverHistoryItemCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'The task was cancelled. You were not charged.'**
+  String get serverHistoryItemCancelled;
+
+  /// No description provided for @quotePointsTooltipFree.
+  ///
+  /// In en, this message translates to:
+  /// **'Free · {points} green points'**
+  String quotePointsTooltipFree(int points);
+
+  /// No description provided for @quotePointsTooltipPaid.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid · {points} red points'**
+  String quotePointsTooltipPaid(int points);
+
+  /// No description provided for @quoteDiscountNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Green point discount: {percent}%'**
+  String quoteDiscountNote(int percent);
+
+  /// No description provided for @quoteInvalidBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid'**
+  String get quoteInvalidBadge;
+
+  /// No description provided for @quoteInvalidTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'These parameters are outside what the server accepts ({field}).'**
+  String quoteInvalidTooltip(String field);
+
+  /// No description provided for @quoteReasonSizeNotFree.
+  ///
+  /// In en, this message translates to:
+  /// **'Size is not a free size'**
+  String get quoteReasonSizeNotFree;
+
+  /// No description provided for @quoteReasonStepsOverFreeLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'Steps above the free limit'**
+  String get quoteReasonStepsOverFreeLimit;
+
+  /// No description provided for @quoteReasonSmea.
+  ///
+  /// In en, this message translates to:
+  /// **'SMEA enabled'**
+  String get quoteReasonSmea;
+
+  /// No description provided for @quoteReasonImageInput.
+  ///
+  /// In en, this message translates to:
+  /// **'Image input (img2img / inpaint)'**
+  String get quoteReasonImageInput;
+
+  /// No description provided for @quoteReasonDirectorRefs.
+  ///
+  /// In en, this message translates to:
+  /// **'Precise references'**
+  String get quoteReasonDirectorRefs;
+
+  /// No description provided for @quoteReasonVibes.
+  ///
+  /// In en, this message translates to:
+  /// **'Vibe transfer'**
+  String get quoteReasonVibes;
+
+  /// No description provided for @quoteReasonAllowanceExhausted.
+  ///
+  /// In en, this message translates to:
+  /// **'Free allowance used up for now'**
+  String get quoteReasonAllowanceExhausted;
+
+  /// No description provided for @quoteReasonPaidTool.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid tool'**
+  String get quoteReasonPaidTool;
+
+  /// No description provided for @quoteAdjustToFree.
+  ///
+  /// In en, this message translates to:
+  /// **'Make free'**
+  String get quoteAdjustToFree;
+
+  /// No description provided for @quoteAdjustToFreeTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Set size, steps and SMEA back to what is free'**
+  String get quoteAdjustToFreeTooltip;
+
+  /// No description provided for @quoteFreeOnlyNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account can only generate for free. These settings would cost red points:'**
+  String get quoteFreeOnlyNotice;
+
+  /// No description provided for @quoteFreeAllowanceUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The free allowance is used up for now, so free generation is unavailable for a while.'**
+  String get quoteFreeAllowanceUnavailable;
+
+  /// No description provided for @quoteAdjustToFreeAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjust to free parameters'**
+  String get quoteAdjustToFreeAction;
+
+  /// No description provided for @quoteConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Price changed'**
+  String get quoteConfirmTitle;
+
+  /// No description provided for @quoteConfirmPriceRed.
+  ///
+  /// In en, this message translates to:
+  /// **'The server price applies: {points} red points.'**
+  String quoteConfirmPriceRed(int points);
+
+  /// No description provided for @quoteConfirmPriceGreen.
+  ///
+  /// In en, this message translates to:
+  /// **'The server price applies: {points} green points.'**
+  String quoteConfirmPriceGreen(int points);
+
+  /// No description provided for @quoteConfirmShown.
+  ///
+  /// In en, this message translates to:
+  /// **'The price shown was {points}.'**
+  String quoteConfirmShown(int points);
+
+  /// No description provided for @quoteConfirmReasonAllowance.
+  ///
+  /// In en, this message translates to:
+  /// **'The free allowance is used up for now, so this image is charged in red points instead.'**
+  String get quoteConfirmReasonAllowance;
+
+  /// No description provided for @quoteConfirmReasonOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Prices or your account changed after the price was shown.'**
+  String get quoteConfirmReasonOther;
+
+  /// No description provided for @quoteConfirmContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue at this price'**
+  String get quoteConfirmContinue;
+
+  /// No description provided for @generationInputsActive.
+  ///
+  /// In en, this message translates to:
+  /// **'REF {references} · VIBE {vibes}'**
+  String generationInputsActive(int references, int vibes);
+
+  /// No description provided for @generationInputsPaused.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} paused'**
+  String generationInputsPaused(int count);
+
+  /// No description provided for @generationInputsTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'References and vibes sent with the next image. Tap to open them.'**
+  String get generationInputsTooltip;
+
+  /// No description provided for @refPausedNoRedPoints.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused: not enough red points. Not sent.'**
+  String get refPausedNoRedPoints;
+
+  /// No description provided for @refPausedNoPermission.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused: this account cannot generate with paid points. Not sent.'**
+  String get refPausedNoPermission;
+
+  /// No description provided for @refAccessCountRefs.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 reference} other{{count} references}}'**
+  String refAccessCountRefs(int count);
+
+  /// No description provided for @refAccessCountVibes.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 vibe} other{{count} vibes}}'**
+  String refAccessCountVibes(int count);
+
+  /// No description provided for @refAccessSeparator.
+  ///
+  /// In en, this message translates to:
+  /// **', '**
+  String get refAccessSeparator;
+
+  /// No description provided for @refAccessPausedNoRedPoints.
+  ///
+  /// In en, this message translates to:
+  /// **'Not enough red points: {items} paused and will not be sent'**
+  String refAccessPausedNoRedPoints(String items);
+
+  /// No description provided for @refAccessPausedNoPermission.
+  ///
+  /// In en, this message translates to:
+  /// **'No paid generation permission: {items} paused and will not be sent'**
+  String refAccessPausedNoPermission(String items);
+
+  /// No description provided for @refAccessResumed.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid points available again: {items} will be sent again'**
+  String refAccessResumed(String items);
+
+  /// No description provided for @toolMaxRedPoints.
+  ///
+  /// In en, this message translates to:
+  /// **'up to {points} red'**
+  String toolMaxRedPoints(int points);
+
+  /// No description provided for @generationBusy.
+  ///
+  /// In en, this message translates to:
+  /// **'A generation is already running. Wait for it to finish.'**
+  String get generationBusy;
+
+  /// No description provided for @generationFailedFallback.
+  ///
+  /// In en, this message translates to:
+  /// **'Generation failed'**
+  String get generationFailedFallback;
+
+  /// No description provided for @generationSeedInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'The seed must be a whole number from 0 to 4294967295.'**
+  String get generationSeedInvalid;
+
+  /// No description provided for @generationDropToImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Drop to import settings'**
+  String get generationDropToImport;
+
+  /// No description provided for @generationCancelQueued.
+  ///
+  /// In en, this message translates to:
+  /// **'CANCEL QUEUED'**
+  String get generationCancelQueued;
+
+  /// No description provided for @generationResumeWatching.
+  ///
+  /// In en, this message translates to:
+  /// **'RESUME'**
+  String get generationResumeWatching;
+
+  /// No description provided for @generationWatchTimedOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Stopped waiting for the server. The images may still finish; resume to check again.'**
+  String get generationWatchTimedOut;
+
+  /// No description provided for @generationItemCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled before it started'**
+  String get generationItemCancelled;
+
+  /// No description provided for @generationReuseSeed.
+  ///
+  /// In en, this message translates to:
+  /// **'REUSE SEED'**
+  String get generationReuseSeed;
+
+  /// No description provided for @photoshootTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'PHOTOSHOOT'**
+  String get photoshootTitle;
+
+  /// No description provided for @photoshootCharacterNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Character not found'**
+  String get photoshootCharacterNotFound;
+
+  /// No description provided for @photoshootNoOutfit.
+  ///
+  /// In en, this message translates to:
+  /// **'(no outfit)'**
+  String get photoshootNoOutfit;
+
+  /// No description provided for @photoshootPreviewPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'YOUR SHOT APPEARS HERE'**
+  String get photoshootPreviewPlaceholder;
+
+  /// No description provided for @photoshootTapToView.
+  ///
+  /// In en, this message translates to:
+  /// **'TAP TO VIEW'**
+  String get photoshootTapToView;
+
+  /// No description provided for @photoshootTabDress.
+  ///
+  /// In en, this message translates to:
+  /// **'DRESS'**
+  String get photoshootTabDress;
+
+  /// No description provided for @photoshootTabScene.
+  ///
+  /// In en, this message translates to:
+  /// **'SCENE'**
+  String get photoshootTabScene;
+
+  /// No description provided for @photoshootTabPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'PROMPT'**
+  String get photoshootTabPrompt;
+
+  /// No description provided for @photoshootNoOutfitHint.
+  ///
+  /// In en, this message translates to:
+  /// **'No outfit to dress — add one from the character editor.'**
+  String get photoshootNoOutfitHint;
+
+  /// No description provided for @photoshootSaveState.
+  ///
+  /// In en, this message translates to:
+  /// **'SAVE STATE TO OUTFIT'**
+  String get photoshootSaveState;
+
+  /// No description provided for @photoshootOutfitStateSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'OUTFIT STATE SAVED'**
+  String get photoshootOutfitStateSaved;
+
+  /// No description provided for @photoshootSectionStyle.
+  ///
+  /// In en, this message translates to:
+  /// **'STYLE'**
+  String get photoshootSectionStyle;
+
+  /// No description provided for @photoshootSectionPose.
+  ///
+  /// In en, this message translates to:
+  /// **'POSE'**
+  String get photoshootSectionPose;
+
+  /// No description provided for @photoshootSectionEnvironment.
+  ///
+  /// In en, this message translates to:
+  /// **'ENVIRONMENT'**
+  String get photoshootSectionEnvironment;
+
+  /// No description provided for @photoshootCustomPoseHint.
+  ///
+  /// In en, this message translates to:
+  /// **'custom pose tags…'**
+  String get photoshootCustomPoseHint;
+
+  /// No description provided for @photoshootCustomEnvHint.
+  ///
+  /// In en, this message translates to:
+  /// **'custom environment tags…'**
+  String get photoshootCustomEnvHint;
+
+  /// No description provided for @photoshootSelectedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} selected'**
+  String photoshootSelectedCount(int count);
+
+  /// No description provided for @photoshootClear.
+  ///
+  /// In en, this message translates to:
+  /// **'CLEAR'**
+  String get photoshootClear;
+
+  /// No description provided for @photoshootNoPresets.
+  ///
+  /// In en, this message translates to:
+  /// **'No presets available'**
+  String get photoshootNoPresets;
+
+  /// No description provided for @photoshootAssembledPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'ASSEMBLED PROMPT'**
+  String get photoshootAssembledPrompt;
+
+  /// No description provided for @photoshootTagCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} tags'**
+  String photoshootTagCount(int count);
+
+  /// No description provided for @photoshootEmptyPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'(empty)'**
+  String get photoshootEmptyPrompt;
+
+  /// No description provided for @photoshootPromptBuiltFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'Built from: style → body → outfit → pose → environment. Adjust in the Dress and Scene tabs.'**
+  String get photoshootPromptBuiltFrom;
+
+  /// No description provided for @photoshootGenerate.
+  ///
+  /// In en, this message translates to:
+  /// **'GENERATE'**
+  String get photoshootGenerate;
+
+  /// No description provided for @photoshootGenerating.
+  ///
+  /// In en, this message translates to:
+  /// **'GENERATING…'**
+  String get photoshootGenerating;
+
+  /// No description provided for @photoshootSend.
+  ///
+  /// In en, this message translates to:
+  /// **'SEND'**
+  String get photoshootSend;
+
+  /// No description provided for @photoshootSentToMain.
+  ///
+  /// In en, this message translates to:
+  /// **'SENT TO MAIN PROMPT'**
+  String get photoshootSentToMain;
+
+  /// No description provided for @photoshootGenerated.
+  ///
+  /// In en, this message translates to:
+  /// **'GENERATED'**
+  String get photoshootGenerated;
+
+  /// No description provided for @photoshootGenerationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'GENERATION FAILED: {reason}'**
+  String photoshootGenerationFailed(String reason);
+
+  /// No description provided for @photoshootSelectOutfit.
+  ///
+  /// In en, this message translates to:
+  /// **'OUTFIT'**
+  String get photoshootSelectOutfit;
+
+  /// No description provided for @photoshootStyleCharacterDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Character default'**
+  String get photoshootStyleCharacterDefault;
+
+  /// No description provided for @photoshootStyleAnime.
+  ///
+  /// In en, this message translates to:
+  /// **'Anime'**
+  String get photoshootStyleAnime;
+
+  /// No description provided for @photoshootStylePainterly.
+  ///
+  /// In en, this message translates to:
+  /// **'Painterly'**
+  String get photoshootStylePainterly;
+
+  /// No description provided for @photoshootStylePhotoreal.
+  ///
+  /// In en, this message translates to:
+  /// **'Photoreal'**
+  String get photoshootStylePhotoreal;
+
+  /// No description provided for @photoshootStyleSketch.
+  ///
+  /// In en, this message translates to:
+  /// **'Sketch'**
+  String get photoshootStyleSketch;
+
+  /// No description provided for @photoshootStyleWatercolor.
+  ///
+  /// In en, this message translates to:
+  /// **'Watercolour'**
+  String get photoshootStyleWatercolor;
+
+  /// No description provided for @photoshootStyleInk.
+  ///
+  /// In en, this message translates to:
+  /// **'Ink'**
+  String get photoshootStyleInk;
+
+  /// No description provided for @cascadeHelpTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'CASCADE GUIDE'**
+  String get cascadeHelpTitle;
+
+  /// No description provided for @cascadeHelpOverviewHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'OVERVIEW'**
+  String get cascadeHelpOverviewHeader;
+
+  /// No description provided for @cascadeHelpOverviewBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Cascade generates multi-beat scene sequences with consistent characters. Each beat is one generation with its own environment, character poses, and settings. Character appearances are set once in the casting sheet and applied to all beats.'**
+  String get cascadeHelpOverviewBody;
+
+  /// No description provided for @cascadeHelpSetupHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'SETUP FLOW'**
+  String get cascadeHelpSetupHeader;
+
+  /// No description provided for @cascadeHelpStepCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'Create'**
+  String get cascadeHelpStepCreate;
+
+  /// No description provided for @cascadeHelpStepCreateDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Set name, character count (0-5), and positioning mode'**
+  String get cascadeHelpStepCreateDesc;
+
+  /// No description provided for @cascadeHelpStepEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Beats'**
+  String get cascadeHelpStepEdit;
+
+  /// No description provided for @cascadeHelpStepEditDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Set scene/action, environment, character prompts, actions, positions, styles, and settings per beat'**
+  String get cascadeHelpStepEditDesc;
+
+  /// No description provided for @cascadeHelpStepCast.
+  ///
+  /// In en, this message translates to:
+  /// **'Cast'**
+  String get cascadeHelpStepCast;
+
+  /// No description provided for @cascadeHelpStepCastDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Save and return to the main screen playback view'**
+  String get cascadeHelpStepCastDesc;
+
+  /// No description provided for @cascadeHelpStepGenerate.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate'**
+  String get cascadeHelpStepGenerate;
+
+  /// No description provided for @cascadeHelpStepGenerateDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter character appearances, optional global injection, then generate each beat'**
+  String get cascadeHelpStepGenerateDesc;
+
+  /// No description provided for @cascadeHelpBasePromptHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'BASE PROMPT'**
+  String get cascadeHelpBasePromptHeader;
+
+  /// No description provided for @cascadeHelpScene.
+  ///
+  /// In en, this message translates to:
+  /// **'Scene / Action'**
+  String get cascadeHelpScene;
+
+  /// No description provided for @cascadeHelpSceneDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Base-prompt tags for what is happening and how it is framed (e.g., \"2girls, hugging, wide shot, from above\"). Subject-count, action, and camera tags go here.'**
+  String get cascadeHelpSceneDesc;
+
+  /// No description provided for @cascadeHelpEnvironment.
+  ///
+  /// In en, this message translates to:
+  /// **'Environment'**
+  String get cascadeHelpEnvironment;
+
+  /// No description provided for @cascadeHelpEnvironmentDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Base-prompt tags for where the scene takes place (e.g., \"forest, night, indoors\").'**
+  String get cascadeHelpEnvironmentDesc;
+
+  /// No description provided for @cascadeHelpBasePromptNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Both are tags (not prose) and feed the same base prompt — Scene / Action leads, Environment follows.'**
+  String get cascadeHelpBasePromptNote;
+
+  /// No description provided for @cascadeHelpSlotsHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'CHARACTER SLOTS'**
+  String get cascadeHelpSlotsHeader;
+
+  /// No description provided for @cascadeHelpSlotPositive.
+  ///
+  /// In en, this message translates to:
+  /// **'Positive Prompt'**
+  String get cascadeHelpSlotPositive;
+
+  /// No description provided for @cascadeHelpSlotPositiveDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Per-beat character tags (e.g., \"happy, sitting\")'**
+  String get cascadeHelpSlotPositiveDesc;
+
+  /// No description provided for @cascadeHelpSlotNegative.
+  ///
+  /// In en, this message translates to:
+  /// **'Negative Prompt'**
+  String get cascadeHelpSlotNegative;
+
+  /// No description provided for @cascadeHelpSlotNegativeDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Per-beat undesired content for this character'**
+  String get cascadeHelpSlotNegativeDesc;
+
+  /// No description provided for @cascadeHelpSlotGrid.
+  ///
+  /// In en, this message translates to:
+  /// **'Position Grid'**
+  String get cascadeHelpSlotGrid;
+
+  /// No description provided for @cascadeHelpSlotGridDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'5x5 grid for precise placement (if manual positioning is on)'**
+  String get cascadeHelpSlotGridDesc;
+
+  /// No description provided for @cascadeHelpSlotActions.
+  ///
+  /// In en, this message translates to:
+  /// **'Action Tags'**
+  String get cascadeHelpSlotActions;
+
+  /// No description provided for @cascadeHelpSlotActionsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Define interactions between characters for this beat'**
+  String get cascadeHelpSlotActionsDesc;
+
+  /// No description provided for @cascadeHelpActionsHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'ACTION INTERACTIONS'**
+  String get cascadeHelpActionsHeader;
+
+  /// No description provided for @cascadeHelpActionsIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap the link icon between character slots to set an interaction for that beat.'**
+  String get cascadeHelpActionsIntro;
+
+  /// No description provided for @cascadeHelpSourceTarget.
+  ///
+  /// In en, this message translates to:
+  /// **'Source → Target'**
+  String get cascadeHelpSourceTarget;
+
+  /// No description provided for @cascadeHelpSourceTargetDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Directional action (e.g., A hugging B)'**
+  String get cascadeHelpSourceTargetDesc;
+
+  /// No description provided for @cascadeHelpMutual.
+  ///
+  /// In en, this message translates to:
+  /// **'Mutual ↔'**
+  String get cascadeHelpMutual;
+
+  /// No description provided for @cascadeHelpMutualDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Both characters participate equally (e.g., holding hands)'**
+  String get cascadeHelpMutualDesc;
+
+  /// No description provided for @cascadeHelpActionsNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Tags are embedded as source#action, target#action, or mutual#action in character prompts.'**
+  String get cascadeHelpActionsNote;
+
+  /// No description provided for @cascadeHelpCastingHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'CASTING SHEET'**
+  String get cascadeHelpCastingHeader;
+
+  /// No description provided for @cascadeHelpCastAppearance.
+  ///
+  /// In en, this message translates to:
+  /// **'Character Appearance'**
+  String get cascadeHelpCastAppearance;
+
+  /// No description provided for @cascadeHelpCastAppearanceDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Base look for each character (e.g., \"1girl, blue hair\") — shared across all beats'**
+  String get cascadeHelpCastAppearanceDesc;
+
+  /// No description provided for @cascadeHelpCastGlobalScene.
+  ///
+  /// In en, this message translates to:
+  /// **'Global Scene'**
+  String get cascadeHelpCastGlobalScene;
+
+  /// No description provided for @cascadeHelpCastGlobalSceneDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Scene/action tags applied to every beat (e.g., \"2girls, school uniform\") — leads each beat\'s own Scene / Action tags'**
+  String get cascadeHelpCastGlobalSceneDesc;
+
+  /// No description provided for @cascadeHelpCastInjection.
+  ///
+  /// In en, this message translates to:
+  /// **'Global Injection'**
+  String get cascadeHelpCastInjection;
+
+  /// No description provided for @cascadeHelpCastInjectionDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Additional prompt text or style applied to every beat'**
+  String get cascadeHelpCastInjectionDesc;
+
+  /// No description provided for @cascadeHelpCastThumbs.
+  ///
+  /// In en, this message translates to:
+  /// **'Beat Thumbnails'**
+  String get cascadeHelpCastThumbs;
+
+  /// No description provided for @cascadeHelpCastThumbsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to select; shows preview after generation'**
+  String get cascadeHelpCastThumbsDesc;
+
+  /// No description provided for @cascadeHelpCastCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'Narration Caption'**
+  String get cascadeHelpCastCaption;
+
+  /// No description provided for @cascadeHelpCastCaptionDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Free-text narration shown over the beat preview (display only) — prose, not tags. Toggle with the eye icon. Not saved with the cascade.'**
+  String get cascadeHelpCastCaptionDesc;
+
+  /// No description provided for @cascadeHelpCastExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Export'**
+  String get cascadeHelpCastExport;
+
+  /// No description provided for @cascadeHelpCastExportDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Burn captions into a single beat PNG, or assemble all generated beats into a vertical/horizontal storyboard strip (share icon)'**
+  String get cascadeHelpCastExportDesc;
+
+  /// No description provided for @cascadeHelpCastGenerate.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate'**
+  String get cascadeHelpCastGenerate;
+
+  /// No description provided for @cascadeHelpCastGenerateDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Generates selected beat, auto-advances to next'**
+  String get cascadeHelpCastGenerateDesc;
+
+  /// No description provided for @cascadeHelpPerBeatHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'PER-BEAT SETTINGS'**
+  String get cascadeHelpPerBeatHeader;
+
+  /// No description provided for @cascadeHelpPerBeatBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Each beat can have its own resolution, sampler, steps, scale, and styles. Styles are toggled per-beat from your style library.'**
+  String get cascadeHelpPerBeatBody;
+
+  /// No description provided for @cascadeHelpTipsHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'TIPS'**
+  String get cascadeHelpTipsHeader;
+
+  /// No description provided for @cascadeHelpTip1.
+  ///
+  /// In en, this message translates to:
+  /// **'Use environment tags for scene changes between beats'**
+  String get cascadeHelpTip1;
+
+  /// No description provided for @cascadeHelpTip2.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep character appearances consistent in the casting sheet'**
+  String get cascadeHelpTip2;
+
+  /// No description provided for @cascadeHelpTip3.
+  ///
+  /// In en, this message translates to:
+  /// **'Change action tags per-beat to show interactions evolving'**
+  String get cascadeHelpTip3;
+
+  /// No description provided for @cascadeHelpTip4.
+  ///
+  /// In en, this message translates to:
+  /// **'Clone beats to quickly iterate on similar scenes'**
+  String get cascadeHelpTip4;
+
+  /// No description provided for @cascadeHelpTip5.
+  ///
+  /// In en, this message translates to:
+  /// **'Each beat can use different styles for different moods'**
+  String get cascadeHelpTip5;
+
+  /// No description provided for @canvasHelpToolsHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'TOOLS'**
+  String get canvasHelpToolsHeader;
+
+  /// No description provided for @canvasHelpPaint.
+  ///
+  /// In en, this message translates to:
+  /// **'Paint — freehand brush'**
+  String get canvasHelpPaint;
+
+  /// No description provided for @canvasHelpErase.
+  ///
+  /// In en, this message translates to:
+  /// **'Erase — remove strokes'**
+  String get canvasHelpErase;
+
+  /// No description provided for @canvasHelpLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Line — straight line'**
+  String get canvasHelpLine;
+
+  /// No description provided for @canvasHelpRectangle.
+  ///
+  /// In en, this message translates to:
+  /// **'Rectangle — outline or filled'**
+  String get canvasHelpRectangle;
+
+  /// No description provided for @canvasHelpCircle.
+  ///
+  /// In en, this message translates to:
+  /// **'Circle / Ellipse'**
+  String get canvasHelpCircle;
+
+  /// No description provided for @canvasHelpFill.
+  ///
+  /// In en, this message translates to:
+  /// **'Fill — flood fill area'**
+  String get canvasHelpFill;
+
+  /// No description provided for @canvasHelpText.
+  ///
+  /// In en, this message translates to:
+  /// **'Text — add text to canvas'**
+  String get canvasHelpText;
+
+  /// No description provided for @canvasHelpEyedropper.
+  ///
+  /// In en, this message translates to:
+  /// **'Eyedropper — pick color'**
+  String get canvasHelpEyedropper;
+
+  /// No description provided for @canvasHelpTransform.
+  ///
+  /// In en, this message translates to:
+  /// **'Transform — move/scale layer'**
+  String get canvasHelpTransform;
+
+  /// No description provided for @canvasHelpSelect.
+  ///
+  /// In en, this message translates to:
+  /// **'Select — rectangular selection'**
+  String get canvasHelpSelect;
+
+  /// No description provided for @canvasHelpLasso.
+  ///
+  /// In en, this message translates to:
+  /// **'Lasso — freehand selection'**
+  String get canvasHelpLasso;
+
+  /// No description provided for @canvasHelpBlur.
+  ///
+  /// In en, this message translates to:
+  /// **'Blur — Gaussian blur brush'**
+  String get canvasHelpBlur;
+
+  /// No description provided for @canvasHelpClone.
+  ///
+  /// In en, this message translates to:
+  /// **'Clone Stamp — copy from source'**
+  String get canvasHelpClone;
+
+  /// No description provided for @canvasHelpNavigationHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'NAVIGATION'**
+  String get canvasHelpNavigationHeader;
+
+  /// No description provided for @canvasHelpKeySpaceDrag.
+  ///
+  /// In en, this message translates to:
+  /// **'Space + drag'**
+  String get canvasHelpKeySpaceDrag;
+
+  /// No description provided for @canvasHelpPan.
+  ///
+  /// In en, this message translates to:
+  /// **'Pan canvas'**
+  String get canvasHelpPan;
+
+  /// No description provided for @canvasHelpKeyScroll.
+  ///
+  /// In en, this message translates to:
+  /// **'Scroll'**
+  String get canvasHelpKeyScroll;
+
+  /// No description provided for @canvasHelpZoom.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom in / out'**
+  String get canvasHelpZoom;
+
+  /// No description provided for @canvasHelpKeyCtrlScroll.
+  ///
+  /// In en, this message translates to:
+  /// **'Ctrl + Scroll'**
+  String get canvasHelpKeyCtrlScroll;
+
+  /// No description provided for @canvasHelpBrushSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjust brush size'**
+  String get canvasHelpBrushSize;
+
+  /// No description provided for @canvasHelpBrushStep.
+  ///
+  /// In en, this message translates to:
+  /// **'Decrease / increase brush'**
+  String get canvasHelpBrushStep;
+
+  /// No description provided for @canvasHelpActionsHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'ACTIONS'**
+  String get canvasHelpActionsHeader;
+
+  /// No description provided for @canvasHelpKeyEscape.
+  ///
+  /// In en, this message translates to:
+  /// **'Escape'**
+  String get canvasHelpKeyEscape;
+
+  /// No description provided for @canvasHelpCancelSelection.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel selection'**
+  String get canvasHelpCancelSelection;
+
+  /// No description provided for @canvasHelpKeyAltClick.
+  ///
+  /// In en, this message translates to:
+  /// **'Alt + click'**
+  String get canvasHelpKeyAltClick;
+
+  /// No description provided for @canvasHelpSetCloneSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Set clone stamp source'**
+  String get canvasHelpSetCloneSource;
+
+  /// No description provided for @canvasHelpModesHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'MODES'**
+  String get canvasHelpModesHeader;
+
+  /// No description provided for @canvasHelpModeSelect.
+  ///
+  /// In en, this message translates to:
+  /// **'Select'**
+  String get canvasHelpModeSelect;
+
+  /// No description provided for @canvasHelpModeSelectDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Rectangular selection with corner handles for move, rotate, and scale.'**
+  String get canvasHelpModeSelectDesc;
+
+  /// No description provided for @canvasHelpModeLasso.
+  ///
+  /// In en, this message translates to:
+  /// **'Lasso'**
+  String get canvasHelpModeLasso;
+
+  /// No description provided for @canvasHelpModeLassoDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Freehand selection path with bounding box handles.'**
+  String get canvasHelpModeLassoDesc;
+
+  /// No description provided for @canvasHelpModeBlur.
+  ///
+  /// In en, this message translates to:
+  /// **'Blur'**
+  String get canvasHelpModeBlur;
+
+  /// No description provided for @canvasHelpModeBlurDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Applies Gaussian blur. Adjust sigma with the size slider.'**
+  String get canvasHelpModeBlurDesc;
+
+  /// No description provided for @canvasHelpModeClone.
+  ///
+  /// In en, this message translates to:
+  /// **'Clone Stamp'**
+  String get canvasHelpModeClone;
+
+  /// No description provided for @canvasHelpModeCloneDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Copies pixels from a source point. Alt+click to set source, then paint.'**
+  String get canvasHelpModeCloneDesc;
+
+  /// No description provided for @canvasHelpModeSmooth.
+  ///
+  /// In en, this message translates to:
+  /// **'Smooth'**
+  String get canvasHelpModeSmooth;
+
+  /// No description provided for @canvasHelpModeSmoothDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Toggle in toolbar for anti-aliased brush strokes.'**
+  String get canvasHelpModeSmoothDesc;
+
+  /// No description provided for @commonApply.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get commonApply;
+
+  /// No description provided for @commonDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Default'**
+  String get commonDefault;
+
+  /// No description provided for @pinUnlockButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock'**
+  String get pinUnlockButton;
+
+  /// No description provided for @pinLockoutMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many attempts. Try again in {seconds}s'**
+  String pinLockoutMessage(int seconds);
+
+  /// No description provided for @pinBiometricUnlock.
+  ///
+  /// In en, this message translates to:
+  /// **'Biometric unlock'**
+  String get pinBiometricUnlock;
+
+  /// No description provided for @pinUnlockReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock NAIWeaver'**
+  String get pinUnlockReason;
+
+  /// No description provided for @jukeboxPlayerVolume.
+  ///
+  /// In en, this message translates to:
+  /// **'PLAYER VOLUME'**
+  String get jukeboxPlayerVolume;
+
+  /// No description provided for @jukeboxCategoryCustom.
+  ///
+  /// In en, this message translates to:
+  /// **'CUSTOM'**
+  String get jukeboxCategoryCustom;
+
+  /// No description provided for @galleryShareFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Share failed: {error}'**
+  String galleryShareFailed(String error);
+
+  /// No description provided for @gallerySdCard.
+  ///
+  /// In en, this message translates to:
+  /// **'SD card'**
+  String get gallerySdCard;
+
+  /// No description provided for @canvasQuick.
+  ///
+  /// In en, this message translates to:
+  /// **'QUICK'**
+  String get canvasQuick;
+
+  /// No description provided for @canvasReset.
+  ///
+  /// In en, this message translates to:
+  /// **'RESET'**
+  String get canvasReset;
+
+  /// No description provided for @canvasPalette.
+  ///
+  /// In en, this message translates to:
+  /// **'PALETTE'**
+  String get canvasPalette;
+
+  /// No description provided for @canvasRecent.
+  ///
+  /// In en, this message translates to:
+  /// **'RECENT'**
+  String get canvasRecent;
+
+  /// No description provided for @canvasResizeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'RESIZE CANVAS'**
+  String get canvasResizeTitle;
+
+  /// No description provided for @canvasAnchor.
+  ///
+  /// In en, this message translates to:
+  /// **'ANCHOR'**
+  String get canvasAnchor;
+
+  /// No description provided for @helpShortcutKeyHoldTap.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold tap'**
+  String get helpShortcutKeyHoldTap;
+
+  /// No description provided for @helpShortcutKeyDragDrop.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag & drop PNG'**
+  String get helpShortcutKeyDragDrop;
+
+  /// No description provided for @charsDress.
+  ///
+  /// In en, this message translates to:
+  /// **'dress'**
+  String get charsDress;
+
+  /// No description provided for @tagSuggestHonorOutfitState.
+  ///
+  /// In en, this message translates to:
+  /// **'honor outfit state'**
+  String get tagSuggestHonorOutfitState;
+
+  /// No description provided for @charEditorSheetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'CHARACTER {n} EDITOR'**
+  String charEditorSheetTitle(int n);
+
+  /// No description provided for @charEditorNameOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'NAME (OPTIONAL)'**
+  String get charEditorNameOptional;
+
+  /// No description provided for @charEditorCharacterPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'CHARACTER PROMPT'**
+  String get charEditorCharacterPrompt;
+
+  /// No description provided for @charEditorEnterTags.
+  ///
+  /// In en, this message translates to:
+  /// **'ENTER TAGS'**
+  String get charEditorEnterTags;
+
+  /// No description provided for @charEditorCharacterUc.
+  ///
+  /// In en, this message translates to:
+  /// **'CHARACTER UC'**
+  String get charEditorCharacterUc;
+
+  /// No description provided for @charEditorPositionGrid.
+  ///
+  /// In en, this message translates to:
+  /// **'POSITION (5x5 GRID)'**
+  String get charEditorPositionGrid;
+
+  /// No description provided for @charEditorSaveCharacter.
+  ///
+  /// In en, this message translates to:
+  /// **'SAVE CHARACTER'**
+  String get charEditorSaveCharacter;
+
+  /// No description provided for @interactionEditorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'INTERACTION EDITOR'**
+  String get interactionEditorTitle;
+
+  /// No description provided for @interactionActionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'ACTION'**
+  String get interactionActionLabel;
+
+  /// No description provided for @interactionActionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'ENTER ACTION (e.g., hugging)'**
+  String get interactionActionHint;
+
+  /// No description provided for @interactionDirectionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'DIRECTION'**
+  String get interactionDirectionLabel;
+
+  /// No description provided for @interactionSave.
+  ///
+  /// In en, this message translates to:
+  /// **'SAVE INTERACTION'**
+  String get interactionSave;
+
+  /// No description provided for @tagLibPreviewSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'P: {prompt} | {width}X{height} | STEPS: {steps} | SCALE: {scale}'**
+  String tagLibPreviewSummary(
+    String prompt,
+    int width,
+    int height,
+    int steps,
+    String scale,
+  );
+
+  /// No description provided for @panelSectionError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error in {id}: {error}'**
+  String panelSectionError(String id, String error);
+
+  /// No description provided for @mlStageStarting.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting...'**
+  String get mlStageStarting;
+
+  /// No description provided for @mlStagePreprocessing.
+  ///
+  /// In en, this message translates to:
+  /// **'Preprocessing...'**
+  String get mlStagePreprocessing;
+
+  /// No description provided for @mlStageAnalyzing.
+  ///
+  /// In en, this message translates to:
+  /// **'Analyzing image...'**
+  String get mlStageAnalyzing;
+
+  /// No description provided for @mlStageLoadingModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading model...'**
+  String get mlStageLoadingModel;
+
+  /// No description provided for @mlStageLoadingEncoder.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading encoder...'**
+  String get mlStageLoadingEncoder;
+
+  /// No description provided for @mlStageEncodingImage.
+  ///
+  /// In en, this message translates to:
+  /// **'Encoding image...'**
+  String get mlStageEncodingImage;
+
+  /// No description provided for @mlStageRunningInference.
+  ///
+  /// In en, this message translates to:
+  /// **'Running inference...'**
+  String get mlStageRunningInference;
+
+  /// No description provided for @mlStageGeneratingMatte.
+  ///
+  /// In en, this message translates to:
+  /// **'Generating matte...'**
+  String get mlStageGeneratingMatte;
+
+  /// No description provided for @mlStageGeneratingMask.
+  ///
+  /// In en, this message translates to:
+  /// **'Generating mask...'**
+  String get mlStageGeneratingMask;
+
+  /// No description provided for @mlStageApplyingMask.
+  ///
+  /// In en, this message translates to:
+  /// **'Applying mask...'**
+  String get mlStageApplyingMask;
+
+  /// No description provided for @mlStageSplittingTiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Splitting into tiles...'**
+  String get mlStageSplittingTiles;
+
+  /// No description provided for @mlStageUpscalingTiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Upscaling tiles...'**
+  String get mlStageUpscalingTiles;
+
+  /// No description provided for @mlStageRecombiningAlpha.
+  ///
+  /// In en, this message translates to:
+  /// **'Recombining alpha...'**
+  String get mlStageRecombiningAlpha;
+
+  /// No description provided for @mlStageStitching.
+  ///
+  /// In en, this message translates to:
+  /// **'Stitching result...'**
+  String get mlStageStitching;
+
+  /// No description provided for @mlStageComplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete'**
+  String get mlStageComplete;
+
+  /// No description provided for @mlCpuOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'CPU only'**
+  String get mlCpuOnly;
+
+  /// No description provided for @mlSegmentEncodeFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to encode image — check that segmentation models are downloaded'**
+  String get mlSegmentEncodeFailed;
+
+  /// No description provided for @mlSegmentNotEncoded.
+  ///
+  /// In en, this message translates to:
+  /// **'Image not encoded — try re-opening the segment tool'**
+  String get mlSegmentNotEncoded;
+
+  /// No description provided for @mlSegmentFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Segmentation failed — try different points'**
+  String get mlSegmentFailed;
+
+  /// No description provided for @charsGenStepCreating.
+  ///
+  /// In en, this message translates to:
+  /// **'Creating character…'**
+  String get charsGenStepCreating;
+
+  /// No description provided for @charsGenStepWardrobe.
+  ///
+  /// In en, this message translates to:
+  /// **'Generating wardrobe…'**
+  String get charsGenStepWardrobe;
+
+  /// No description provided for @charsGenStepSaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving…'**
+  String get charsGenStepSaving;
+
+  /// No description provided for @charsGenStepDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get charsGenStepDone;
+
+  /// No description provided for @charsGenErrUnusable.
+  ///
+  /// In en, this message translates to:
+  /// **'The model didn\'t return usable character JSON. Try again, or pick a higher-tier account / larger output length.'**
+  String get charsGenErrUnusable;
+
+  /// No description provided for @canvasLayerNameN.
+  ///
+  /// In en, this message translates to:
+  /// **'Layer {n}'**
+  String canvasLayerNameN(int n);
+
+  /// No description provided for @canvasImageLayerNameN.
+  ///
+  /// In en, this message translates to:
+  /// **'Image {n}'**
+  String canvasImageLayerNameN(int n);
+
+  /// No description provided for @canvasLayerCopyName.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} copy'**
+  String canvasLayerCopyName(String name);
+
+  /// No description provided for @canvasSegmentedLayerName.
+  ///
+  /// In en, this message translates to:
+  /// **'Segmented'**
+  String get canvasSegmentedLayerName;
+
+  /// No description provided for @commonCopyName.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} (Copy)'**
+  String commonCopyName(String name);
+
+  /// No description provided for @packDefaultExportName.
+  ///
+  /// In en, this message translates to:
+  /// **'My Pack'**
+  String get packDefaultExportName;
+
+  /// No description provided for @slideshowDefaultName.
+  ///
+  /// In en, this message translates to:
+  /// **'Slideshow {n}'**
+  String slideshowDefaultName(int n);
+
+  /// No description provided for @mlModelDescIsnetAnime.
+  ///
+  /// In en, this message translates to:
+  /// **'Binary mask, anime-optimized'**
+  String get mlModelDescIsnetAnime;
+
+  /// No description provided for @mlModelDescRmbgQuantized.
+  ///
+  /// In en, this message translates to:
+  /// **'Alpha matte, quantized'**
+  String get mlModelDescRmbgQuantized;
+
+  /// No description provided for @mlModelDescRmbgBest.
+  ///
+  /// In en, this message translates to:
+  /// **'Alpha matte, best quality'**
+  String get mlModelDescRmbgBest;
+
+  /// No description provided for @mlModelDescUpscaleFast.
+  ///
+  /// In en, this message translates to:
+  /// **'2x upscaling, fast and tiny'**
+  String get mlModelDescUpscaleFast;
+
+  /// No description provided for @mlModelDescUpscaleMobile.
+  ///
+  /// In en, this message translates to:
+  /// **'2x upscaling, mobile fallback'**
+  String get mlModelDescUpscaleMobile;
+
+  /// No description provided for @mlModelDescUpscaleBest.
+  ///
+  /// In en, this message translates to:
+  /// **'2x upscaling, best quality'**
+  String get mlModelDescUpscaleBest;
+
+  /// No description provided for @mlModelDescSamEncoder.
+  ///
+  /// In en, this message translates to:
+  /// **'Image encoder for interactive segmentation'**
+  String get mlModelDescSamEncoder;
+
+  /// No description provided for @mlModelDescSamDecoder.
+  ///
+  /// In en, this message translates to:
+  /// **'Mask decoder for interactive segmentation'**
+  String get mlModelDescSamDecoder;
+
+  /// No description provided for @soundfontDescNes.
+  ///
+  /// In en, this message translates to:
+  /// **'8-bit retro NES sounds'**
+  String get soundfontDescNes;
+
+  /// No description provided for @soundfontDescGeneralUser.
+  ///
+  /// In en, this message translates to:
+  /// **'High quality General MIDI soundfont'**
+  String get soundfontDescGeneralUser;
+
+  /// No description provided for @soundfontDescCat.
+  ///
+  /// In en, this message translates to:
+  /// **'Every instrument is a meowing cat'**
+  String get soundfontDescCat;
+
+  /// No description provided for @soundfontDescSnes.
+  ///
+  /// In en, this message translates to:
+  /// **'16-bit Super Nintendo sounds'**
+  String get soundfontDescSnes;
+
+  /// No description provided for @soundfontDescGenesis.
+  ///
+  /// In en, this message translates to:
+  /// **'Sega Genesis YM2612 FM synth'**
+  String get soundfontDescGenesis;
+
+  /// No description provided for @soundfontDescN64Roxie.
+  ///
+  /// In en, this message translates to:
+  /// **'Nintendo 64 game samples'**
+  String get soundfontDescN64Roxie;
+
+  /// No description provided for @soundfontDescN64Sdk.
+  ///
+  /// In en, this message translates to:
+  /// **'Nintendo 64 SDK default samples'**
+  String get soundfontDescN64Sdk;
+
+  /// No description provided for @mlDownloadHashMismatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Hash verification failed'**
+  String get mlDownloadHashMismatch;
+
+  /// Title of the screen shown when app start-up fails.
+  ///
+  /// In en, this message translates to:
+  /// **'NAIWeaver could not start'**
+  String get startupFailedTitle;
+
+  /// No description provided for @mlStageUpscalingTile.
+  ///
+  /// In en, this message translates to:
+  /// **'Upscaling tile {current}/{total}...'**
+  String mlStageUpscalingTile(int current, int total);
 }
 
 class _AppLocalizationsDelegate

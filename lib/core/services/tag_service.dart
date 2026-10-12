@@ -299,7 +299,7 @@ class TagService {
   /// Resolves alias text in a prompt to English Danbooru tag names.
   ///
   /// Splits on `,` and `|`, preserves delimiters and whitespace,
-  /// strips weight brackets before lookup, re-wraps after.
+  /// looks tags up without their weight wrappers (`{}`, `[]`, `N::...::`).
   String resolveAliases(String prompt) {
     if (!_isLoaded || _aliasToTagIndex == null || prompt.isEmpty) return prompt;
 
@@ -344,28 +344,19 @@ class TagService {
     return pattern.firstMatch(sub);
   }
 
-  String _resolveSegment(String segment) {
-    // Preserve leading/trailing whitespace
-    final leading = segment.length - segment.trimLeft().length;
-    final trailing = segment.length - segment.trimRight().length;
-    final leadingWs = segment.substring(0, leading);
-    final trailingWs = trailing > 0 ? segment.substring(segment.length - trailing) : '';
-    final trimmed = segment.trim();
-    if (trimmed.isEmpty) return segment;
+  /// Splits a segment into wrapper / tag / wrapper. The wrapper keeps `{}` `[]`
+  /// brackets, a NovelAI `N::` weight opener, a closing `::` and any spaces
+  /// between them, so only the tag text in the middle is ever replaced.
+  static final RegExp _segmentPattern = RegExp(
+    r'^((?:[\[{]|\s)*(?:-?\d+(?:\.\d+)?::)?\s*)(.*?)(\s*(?:::)?(?:[\]}]|\s)*)$',
+    dotAll: true,
+  );
 
-    // Strip weight brackets from both ends
-    String core = trimmed;
-    String prefixBrackets = '';
-    String suffixBrackets = '';
-    while (core.isNotEmpty && (core[0] == '{' || core[0] == '[')) {
-      prefixBrackets += core[0];
-      core = core.substring(1);
-    }
-    while (core.isNotEmpty && (core[core.length - 1] == '}' || core[core.length - 1] == ']')) {
-      suffixBrackets = core[core.length - 1] + suffixBrackets;
-      core = core.substring(0, core.length - 1);
-    }
-    core = core.trim();
+  String _resolveSegment(String segment) {
+    final parts = _segmentPattern.firstMatch(segment)!;
+    final opening = parts.group(1)!;
+    final core = parts.group(2)!;
+    final closing = parts.group(3)!;
     if (core.isEmpty) return segment;
 
     final lowerCore = core.toLowerCase();
@@ -377,7 +368,7 @@ class TagService {
     final tagIndex = _aliasToTagIndex![lowerCore];
     if (tagIndex != null) {
       final englishTag = _tags[tagIndex].tag;
-      return '$leadingWs$prefixBrackets$englishTag$suffixBrackets$trailingWs';
+      return '$opening$englishTag$closing';
     }
 
     return segment;

@@ -14,6 +14,7 @@ import '../models/canvas_selection.dart';
 import '../models/paint_stroke.dart';
 import '../providers/canvas_notifier.dart';
 import '../services/selection_geometry.dart';
+import '../../../../core/theme/vision_metrics.dart';
 
 /// Build a [TextStyle] with an optional Google Fonts family.
 TextStyle _buildFontStyle({
@@ -122,10 +123,9 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
         });
       }
     }
-    _fillRegionCache.keys
-        .where((k) => !liveKeys.contains(k))
-        .toList()
-        .forEach((k) {
+    _fillRegionCache.keys.where((k) => !liveKeys.contains(k)).toList().forEach((
+      k,
+    ) {
       _fillRegionCache[k]?.dispose();
       _fillRegionCache.remove(k);
     });
@@ -140,11 +140,14 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
   void _updateLayerRasterCache(List<CanvasLayer> layers, String activeLayerId) {
     // Remove cache entries for layers that no longer exist
     final layerIds = layers.map((l) => l.id).toSet();
-    _layerRasterCache.keys.where((id) => !layerIds.contains(id)).toList().forEach((id) {
-      _layerRasterCache[id]?.dispose();
-      _layerRasterCache.remove(id);
-      _layerRasterKeys.remove(id);
-    });
+    _layerRasterCache.keys
+        .where((id) => !layerIds.contains(id))
+        .toList()
+        .forEach((id) {
+          _layerRasterCache[id]?.dispose();
+          _layerRasterCache.remove(id);
+          _layerRasterKeys.remove(id);
+        });
 
     // Invalidate entries where the cache key has changed
     for (final layer in layers) {
@@ -175,7 +178,14 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
     if (_imageRect.isEmpty) return;
 
     final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder, Offset.zero & Size(_imageRect.right + _imageRect.left, _imageRect.bottom + _imageRect.top));
+    final canvas = Canvas(
+      recorder,
+      Offset.zero &
+          Size(
+            _imageRect.right + _imageRect.left,
+            _imageRect.bottom + _imageRect.top,
+          ),
+    );
 
     // Draw image layer content
     if (layer.isImageLayer) {
@@ -337,10 +347,14 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
                   }
                 },
                 onPointerUp: (event) {
-                  if (_middleMouseHeld) setState(() => _middleMouseHeld = false);
+                  if (_middleMouseHeld) {
+                    setState(() => _middleMouseHeld = false);
+                  }
                 },
                 onPointerCancel: (event) {
-                  if (_middleMouseHeld) setState(() => _middleMouseHeld = false);
+                  if (_middleMouseHeld) {
+                    setState(() => _middleMouseHeld = false);
+                  }
                 },
                 onPointerSignal: (event) {
                   if (event is PointerScrollEvent) {
@@ -354,9 +368,10 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
                   // The brush preview lives inside the viewer's transformed,
                   // IgnorePointer-wrapped child and can't track the mouse
                   // itself; feed it hover positions in scene space from here.
-                  onHover: (event) => _cursorPreviewKey.currentState
-                      ?.updatePosition(
-                          _zoomController.toScene(event.localPosition)),
+                  onHover: (event) =>
+                      _cursorPreviewKey.currentState?.updatePosition(
+                        _zoomController.toScene(event.localPosition),
+                      ),
                   onExit: (_) =>
                       _cursorPreviewKey.currentState?.updatePosition(null),
                   child: InteractiveViewer(
@@ -440,11 +455,14 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
                             // Blinking text cursor
                             if (notifier.hasPendingText)
                               _BlinkingTextCursor(
-                                normalizedPosition: notifier.pendingTextPosition!,
+                                normalizedPosition:
+                                    notifier.pendingTextPosition!,
                                 currentText: notifier.pendingTextContent,
-                                fontSizeNormalized: notifier.pendingTextFontSize,
+                                fontSizeNormalized:
+                                    notifier.pendingTextFontSize,
                                 fontFamily: notifier.pendingTextFontFamily,
-                                letterSpacing: notifier.pendingTextLetterSpacing,
+                                letterSpacing:
+                                    notifier.pendingTextLetterSpacing,
                                 imageRect: _imageRect,
                                 color: notifier.brushColorAsColor,
                               ),
@@ -470,8 +488,7 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
 
               // Inline text editor — outside the canvas GestureDetector so
               // button taps are not stolen by the pan recognizer.
-              if (notifier.hasPendingText)
-                _buildInlineTextEditor(notifier),
+              if (notifier.hasPendingText) _buildInlineTextEditor(notifier),
 
               // Flood fill runs async (flatten + region computation)
               if (notifier.isApplyingFill)
@@ -503,9 +520,17 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
     // Clamp so the editor doesn't overflow outside the image rect
     final editorWidth = 220.0.clamp(0.0, _imageRect.width - 16);
     const editorHeight = 40.0;
-    final clampedX = screenX.clamp(_imageRect.left, _imageRect.right - editorWidth);
-    final keyboardTop = MediaQuery.of(context).size.height - MediaQuery.of(context).viewInsets.bottom;
-    final maxY = (keyboardTop - editorHeight - 8).clamp(_imageRect.top, _imageRect.bottom - editorHeight);
+    final clampedX = screenX.clamp(
+      _imageRect.left,
+      _imageRect.right - editorWidth,
+    );
+    final keyboardTop =
+        MediaQuery.of(context).size.height -
+        MediaQuery.of(context).viewInsets.bottom;
+    final maxY = (keyboardTop - editorHeight - 8).clamp(
+      _imageRect.top,
+      _imageRect.bottom - editorHeight,
+    );
     final clampedY = (screenY - editorHeight - 8).clamp(_imageRect.top, maxY);
 
     return Positioned(
@@ -513,13 +538,16 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
       top: clampedY,
       child: Material(
         elevation: 4,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(VisionMetrics.radius4),
         color: t.surfaceHigh,
         child: Container(
           width: editorWidth,
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          padding: const EdgeInsets.symmetric(
+            horizontal: VisionMetrics.space8,
+            vertical: 2,
+          ),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(VisionMetrics.radius4),
             border: Border.all(color: t.accentEdit, width: 1),
           ),
           child: Row(
@@ -528,7 +556,8 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
                 child: KeyboardListener(
                   focusNode: _textKeyboardFocusNode,
                   onKeyEvent: (event) {
-                    if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
+                    if (event is KeyDownEvent &&
+                        event.logicalKey == LogicalKeyboardKey.escape) {
                       notifier.cancelPendingText();
                       _textController.clear();
                     }
@@ -537,12 +566,20 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
                     controller: _textController,
                     focusNode: _textFocusNode,
                     autofocus: true,
-                    style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(9)),
+                    style: TextStyle(
+                      color: t.textPrimary,
+                      fontSize: t.fontSize(9),
+                    ),
                     decoration: InputDecoration(
                       hintText: l.canvasTextHint,
-                      hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9)),
+                      hintStyle: TextStyle(
+                        color: t.textMinimal,
+                        fontSize: t.fontSize(9),
+                      ),
                       isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 6),
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: VisionMetrics.space8,
+                      ),
                       border: InputBorder.none,
                     ),
                     onChanged: notifier.updatePendingText,
@@ -560,7 +597,7 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
                   _textController.clear();
                 },
                 child: Padding(
-                  padding: const EdgeInsets.all(4),
+                  padding: const EdgeInsets.all(VisionMetrics.space4),
                   child: Icon(Icons.check, size: 16, color: t.accentEdit),
                 ),
               ),
@@ -571,7 +608,7 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
                   _textController.clear();
                 },
                 child: Padding(
-                  padding: const EdgeInsets.all(4),
+                  padding: const EdgeInsets.all(VisionMetrics.space4),
                   child: Icon(Icons.close, size: 16, color: t.textDisabled),
                 ),
               ),
@@ -698,7 +735,10 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
     }
   }
 
-  void _onInteractionUpdate(ScaleUpdateDetails details, CanvasNotifier notifier) {
+  void _onInteractionUpdate(
+    ScaleUpdateDetails details,
+    CanvasNotifier notifier,
+  ) {
     if (_ignoreSyntheticInteraction) return;
     // A second finger landed mid-gesture → this became a pinch. Abandon the
     // partial gesture and let the viewer scale.
@@ -816,7 +856,6 @@ class _CanvasPaintSurfaceState extends State<CanvasPaintSurface> {
     final y = (scenePoint.dy - _imageRect.top) / _imageRect.height;
     return Offset(x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
   }
-
 }
 
 /// Paints smooth anti-aliased strokes per-layer with blend mode + opacity compositing.
@@ -876,7 +915,11 @@ class _CanvasPaintOverlayPainter extends CustomPainter {
           Paint()
             ..blendMode = layer.blendMode.toFlutterBlendMode()
             ..color = Color.fromARGB(
-                (layer.opacity * 255).round(), 255, 255, 255),
+              (layer.opacity * 255).round(),
+              255,
+              255,
+              255,
+            ),
         );
         canvas.drawImage(cachedRaster, Offset.zero, Paint());
         canvas.restore();
@@ -908,7 +951,11 @@ class _CanvasPaintOverlayPainter extends CustomPainter {
         Paint()
           ..blendMode = layer.blendMode.toFlutterBlendMode()
           ..color = Color.fromARGB(
-              (layer.opacity * 255).round(), 255, 255, 255),
+            (layer.opacity * 255).round(),
+            255,
+            255,
+            255,
+          ),
       );
 
       // Draw image layer content first (if present)
@@ -992,11 +1039,14 @@ class _CanvasPaintOverlayPainter extends CustomPainter {
         return;
       }
 
-      final path = stroke.smooth ? _buildSmoothPath(stroke) : _buildPath(stroke);
+      final path = stroke.smooth
+          ? _buildSmoothPath(stroke)
+          : _buildPath(stroke);
       canvas.drawPath(path, erasePaint);
     } else {
-      final strokeColor =
-          Color(stroke.colorValue).withValues(alpha: stroke.opacity);
+      final strokeColor = Color(
+        stroke.colorValue,
+      ).withValues(alpha: stroke.opacity);
       final paintBrush = Paint()
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
@@ -1019,15 +1069,20 @@ class _CanvasPaintOverlayPainter extends CustomPainter {
               );
               canvas.drawImageRect(
                 region,
-                Rect.fromLTWH(0, 0, region.width.toDouble(),
-                    region.height.toDouble()),
+                Rect.fromLTWH(
+                  0,
+                  0,
+                  region.width.toDouble(),
+                  region.height.toDouble(),
+                ),
                 imageRect.shift(shift),
                 Paint()
                   ..color = Color.fromARGB(
-                      (stroke.opacity * 255).round().clamp(0, 255),
-                      255,
-                      255,
-                      255)
+                    (stroke.opacity * 255).round().clamp(0, 255),
+                    255,
+                    255,
+                    255,
+                  )
                   ..filterQuality = FilterQuality.low,
               );
             }
@@ -1067,8 +1122,7 @@ class _CanvasPaintOverlayPainter extends CustomPainter {
         case StrokeType.text:
           if (stroke.text != null && stroke.points.isNotEmpty) {
             final pos = _toScreen(stroke.points.first);
-            final textFontSize =
-                (stroke.fontSize ?? 0.05) * imageRect.height;
+            final textFontSize = (stroke.fontSize ?? 0.05) * imageRect.height;
             final textLetterSpacing =
                 (stroke.letterSpacing ?? 0.0) * imageRect.height;
             final style = _buildFontStyle(
@@ -1086,7 +1140,9 @@ class _CanvasPaintOverlayPainter extends CustomPainter {
 
         case StrokeType.blur:
           // Render blur path as a semi-transparent highlight to show the blurred region
-          final blurPath = stroke.smooth ? _buildSmoothPath(stroke) : _buildPath(stroke);
+          final blurPath = stroke.smooth
+              ? _buildSmoothPath(stroke)
+              : _buildPath(stroke);
           final blurPaint = Paint()
             ..style = PaintingStyle.stroke
             ..strokeCap = StrokeCap.round
@@ -1102,7 +1158,9 @@ class _CanvasPaintOverlayPainter extends CustomPainter {
 
         case StrokeType.cloneStamp:
           // Render clone stamp path as a semi-transparent indicator
-          final clonePath = stroke.smooth ? _buildSmoothPath(stroke) : _buildPath(stroke);
+          final clonePath = stroke.smooth
+              ? _buildSmoothPath(stroke)
+              : _buildPath(stroke);
           final clonePaint = Paint()
             ..style = PaintingStyle.stroke
             ..strokeCap = StrokeCap.round
@@ -1113,7 +1171,9 @@ class _CanvasPaintOverlayPainter extends CustomPainter {
           canvas.drawPath(clonePath, clonePaint);
 
         case StrokeType.freehand:
-          final path = stroke.smooth ? _buildSmoothPath(stroke) : _buildPath(stroke);
+          final path = stroke.smooth
+              ? _buildSmoothPath(stroke)
+              : _buildPath(stroke);
           canvas.drawPath(path, paintBrush);
       }
     }
@@ -1283,8 +1343,12 @@ class _CanvasCursorPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (position == null) return;
 
-    if (tool == CanvasTool.eyedropper || tool == CanvasTool.fill || tool == CanvasTool.text ||
-        tool == CanvasTool.select || tool == CanvasTool.lasso || tool == CanvasTool.transform) {
+    if (tool == CanvasTool.eyedropper ||
+        tool == CanvasTool.fill ||
+        tool == CanvasTool.text ||
+        tool == CanvasTool.select ||
+        tool == CanvasTool.lasso ||
+        tool == CanvasTool.transform) {
       // Eyedropper / Fill / Text: crosshair only (no circle outline)
       final crossPaint = Paint()
         ..color = Colors.white
@@ -1416,10 +1480,12 @@ class _BlinkingTextCursorState extends State<_BlinkingTextCursor>
       textWidth = textPainter.width;
     }
 
-    final screenX = widget.imageRect.left +
+    final screenX =
+        widget.imageRect.left +
         widget.normalizedPosition.dx * widget.imageRect.width +
         textWidth;
-    final screenY = widget.imageRect.top +
+    final screenY =
+        widget.imageRect.top +
         widget.normalizedPosition.dy * widget.imageRect.height;
 
     final cursorHeight = fontSize.clamp(8.0, 200.0);
@@ -1463,8 +1529,10 @@ class _SelectionOverlayPainter extends CustomPainter {
 
     final r = selection.transformedRect;
     final screenRect = Rect.fromLTRB(
-      _toScreen(r.topLeft).dx, _toScreen(r.topLeft).dy,
-      _toScreen(r.bottomRight).dx, _toScreen(r.bottomRight).dy,
+      _toScreen(r.topLeft).dx,
+      _toScreen(r.topLeft).dy,
+      _toScreen(r.bottomRight).dx,
+      _toScreen(r.bottomRight).dy,
     );
 
     // Dashed border (marching ants effect)
@@ -1524,11 +1592,19 @@ class _SelectionOverlayPainter extends CustomPainter {
       screenRect.bottomRight,
     ]) {
       canvas.drawRect(
-        Rect.fromCenter(center: corner, width: handleSize * 2, height: handleSize * 2),
+        Rect.fromCenter(
+          center: corner,
+          width: handleSize * 2,
+          height: handleSize * 2,
+        ),
         handlePaint,
       );
       canvas.drawRect(
-        Rect.fromCenter(center: corner, width: handleSize * 2, height: handleSize * 2),
+        Rect.fromCenter(
+          center: corner,
+          width: handleSize * 2,
+          height: handleSize * 2,
+        ),
         handleBorder,
       );
     }
@@ -1541,12 +1617,13 @@ class _SelectionOverlayPainter extends CustomPainter {
     canvas.drawLine(
       Offset(screenRect.center.dx, screenRect.top),
       rotCenter,
-      Paint()..color = Colors.black..strokeWidth = 1.0,
+      Paint()
+        ..color = Colors.black
+        ..strokeWidth = 1.0,
     );
   }
 
   @override
   bool shouldRepaint(_SelectionOverlayPainter oldDelegate) =>
-      selection != oldDelegate.selection ||
-      imageRect != oldDelegate.imageRect;
+      selection != oldDelegate.selection || imageRect != oldDelegate.imageRect;
 }

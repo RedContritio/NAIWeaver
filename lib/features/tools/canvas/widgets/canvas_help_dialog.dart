@@ -3,11 +3,12 @@ import '../../../../core/theme/theme_extensions.dart';
 import '../../../../core/theme/vision_tokens.dart';
 import '../../../../core/l10n/l10n_extensions.dart';
 import '../../../../core/utils/responsive.dart';
+import '../../../../core/theme/vision_metrics.dart';
 
 void showCanvasHelpDialog(BuildContext context) {
   final t = context.tRead;
   final l = context.l;
-  final mobile = isMobile(context);
+  final mobile = isTouchSized(context);
 
   showDialog(
     context: context,
@@ -32,55 +33,100 @@ void showCanvasHelpDialog(BuildContext context) {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _sectionHeader(t, 'TOOLS', mobile),
-                const SizedBox(height: 8),
-                _shortcutRow(t, 'B', 'Paint — freehand brush', mobile),
-                _shortcutRow(t, 'E', 'Erase — remove strokes', mobile),
-                _shortcutRow(t, 'L', 'Line — straight line', mobile),
-                _shortcutRow(t, 'R', 'Rectangle — outline or filled', mobile),
-                _shortcutRow(t, 'O', 'Circle / Ellipse', mobile),
-                _shortcutRow(t, 'G', 'Fill — flood fill area', mobile),
-                _shortcutRow(t, 'T', 'Text — add text to canvas', mobile),
-                _shortcutRow(t, 'C', 'Eyedropper — pick color', mobile),
-                _shortcutRow(t, 'V', 'Transform — move/scale layer', mobile),
-                _shortcutRow(t, 'S', 'Select — rectangular selection', mobile),
-                _shortcutRow(t, 'A', 'Lasso — freehand selection', mobile),
-                _shortcutRow(t, '—', 'Blur — Gaussian blur brush', mobile),
-                _shortcutRow(t, '—', 'Clone Stamp — copy from source', mobile),
+                _sectionHeader(t, l.canvasHelpToolsHeader, mobile),
+                const SizedBox(height: VisionMetrics.space8),
+                _shortcutRow(t, 'B', l.canvasHelpPaint, mobile),
+                _shortcutRow(t, 'E', l.canvasHelpErase, mobile),
+                _shortcutRow(t, 'L', l.canvasHelpLine, mobile),
+                _shortcutRow(t, 'R', l.canvasHelpRectangle, mobile),
+                _shortcutRow(t, 'O', l.canvasHelpCircle, mobile),
+                _shortcutRow(t, 'G', l.canvasHelpFill, mobile),
+                _shortcutRow(t, 'T', l.canvasHelpText, mobile),
+                _shortcutRow(t, 'C', l.canvasHelpEyedropper, mobile),
+                _shortcutRow(t, 'V', l.canvasHelpTransform, mobile),
+                _shortcutRow(t, 'S', l.canvasHelpSelect, mobile),
+                _shortcutRow(t, 'A', l.canvasHelpLasso, mobile),
+                _shortcutRow(t, '—', l.canvasHelpBlur, mobile),
+                _shortcutRow(t, '—', l.canvasHelpClone, mobile),
 
-                const SizedBox(height: 16),
-                Divider(color: t.textDisabled.withValues(alpha: 0.3), height: 1),
-                const SizedBox(height: 16),
+                const SizedBox(height: VisionMetrics.space16),
+                Divider(
+                  color: t.textDisabled.withValues(
+                    alpha: VisionMetrics.opacityDisabled,
+                  ),
+                  height: 1,
+                ),
+                const SizedBox(height: VisionMetrics.space16),
 
-                _sectionHeader(t, 'NAVIGATION', mobile),
-                const SizedBox(height: 8),
-                _shortcutRow(t, 'Space + drag', 'Pan canvas', mobile),
-                _shortcutRow(t, 'Scroll', 'Zoom in / out', mobile),
-                _shortcutRow(t, 'Ctrl + Scroll', 'Adjust brush size', mobile),
-                _shortcutRow(t, '[ / ]', 'Decrease / increase brush', mobile),
+                _sectionHeader(t, l.canvasHelpNavigationHeader, mobile),
+                const SizedBox(height: VisionMetrics.space8),
+                _shortcutRow(t, l.canvasHelpKeySpaceDrag, l.canvasHelpPan, mobile),
+                _shortcutRow(t, l.canvasHelpKeyScroll, l.canvasHelpZoom, mobile),
+                _shortcutRow(t, l.canvasHelpKeyCtrlScroll, l.canvasHelpBrushSize, mobile),
+                _shortcutRow(t, '[ / ]', l.canvasHelpBrushStep, mobile),
 
-                const SizedBox(height: 16),
-                Divider(color: t.textDisabled.withValues(alpha: 0.3), height: 1),
-                const SizedBox(height: 16),
+                const SizedBox(height: VisionMetrics.space16),
+                Divider(
+                  color: t.textDisabled.withValues(
+                    alpha: VisionMetrics.opacityDisabled,
+                  ),
+                  height: 1,
+                ),
+                const SizedBox(height: VisionMetrics.space16),
 
-                _sectionHeader(t, 'ACTIONS', mobile),
-                const SizedBox(height: 8),
-                _shortcutRow(t, 'Ctrl + Z', 'Undo', mobile),
-                _shortcutRow(t, 'Ctrl + Y', 'Redo', mobile),
-                _shortcutRow(t, 'Escape', 'Cancel selection', mobile),
-                _shortcutRow(t, 'Alt + click', 'Set clone stamp source', mobile),
+                _sectionHeader(t, l.canvasHelpActionsHeader, mobile),
+                const SizedBox(height: VisionMetrics.space8),
+                _shortcutRow(t, 'Ctrl + Z', l.canvasUndo, mobile),
+                _shortcutRow(t, 'Ctrl + Y', l.canvasRedo, mobile),
+                _shortcutRow(t, l.canvasHelpKeyEscape, l.canvasHelpCancelSelection, mobile),
+                _shortcutRow(
+                  t,
+                  l.canvasHelpKeyAltClick,
+                  l.canvasHelpSetCloneSource,
+                  mobile,
+                ),
 
-                const SizedBox(height: 16),
-                Divider(color: t.textDisabled.withValues(alpha: 0.3), height: 1),
-                const SizedBox(height: 16),
+                const SizedBox(height: VisionMetrics.space16),
+                Divider(
+                  color: t.textDisabled.withValues(
+                    alpha: VisionMetrics.opacityDisabled,
+                  ),
+                  height: 1,
+                ),
+                const SizedBox(height: VisionMetrics.space16),
 
-                _sectionHeader(t, 'MODES', mobile),
-                const SizedBox(height: 8),
-                _modeRow(t, 'Select', 'Rectangular selection with corner handles for move, rotate, and scale.', mobile),
-                _modeRow(t, 'Lasso', 'Freehand selection path with bounding box handles.', mobile),
-                _modeRow(t, 'Blur', 'Applies Gaussian blur. Adjust sigma with the size slider.', mobile),
-                _modeRow(t, 'Clone Stamp', 'Copies pixels from a source point. Alt+click to set source, then paint.', mobile),
-                _modeRow(t, 'Smooth', 'Toggle in toolbar for anti-aliased brush strokes.', mobile),
+                _sectionHeader(t, l.canvasHelpModesHeader, mobile),
+                const SizedBox(height: VisionMetrics.space8),
+                _modeRow(
+                  t,
+                  l.canvasHelpModeSelect,
+                  l.canvasHelpModeSelectDesc,
+                  mobile,
+                ),
+                _modeRow(
+                  t,
+                  l.canvasHelpModeLasso,
+                  l.canvasHelpModeLassoDesc,
+                  mobile,
+                ),
+                _modeRow(
+                  t,
+                  l.canvasHelpModeBlur,
+                  l.canvasHelpModeBlurDesc,
+                  mobile,
+                ),
+                _modeRow(
+                  t,
+                  l.canvasHelpModeClone,
+                  l.canvasHelpModeCloneDesc,
+                  mobile,
+                ),
+                _modeRow(
+                  t,
+                  l.canvasHelpModeSmooth,
+                  l.canvasHelpModeSmoothDesc,
+                  mobile,
+                ),
               ],
             ),
           ),
@@ -116,9 +162,14 @@ Widget _sectionHeader(VisionTokens t, String label, bool mobile) {
   );
 }
 
-Widget _shortcutRow(VisionTokens t, String syntax, String description, bool mobile) {
+Widget _shortcutRow(
+  VisionTokens t,
+  String syntax,
+  String description,
+  bool mobile,
+) {
   return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
+    padding: const EdgeInsets.symmetric(vertical: VisionMetrics.space4),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -150,7 +201,7 @@ Widget _shortcutRow(VisionTokens t, String syntax, String description, bool mobi
 
 Widget _modeRow(VisionTokens t, String name, String description, bool mobile) {
   return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
+    padding: const EdgeInsets.symmetric(vertical: VisionMetrics.space4),
     child: RichText(
       text: TextSpan(
         children: [

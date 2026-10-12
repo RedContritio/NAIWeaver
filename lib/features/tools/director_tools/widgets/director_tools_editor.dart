@@ -1,18 +1,20 @@
-import 'dart:io';
-import '../../../../core/utils/file_picker_helper.dart';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/l10n/l10n_extensions.dart';
 import '../../../../core/theme/theme_extensions.dart';
+import '../../../../core/theme/vision_metrics.dart';
+import '../../../../core/widgets/section_title.dart';
+import '../../../../core/widgets/ui/app_panel.dart';
 import '../../../../core/widgets/vision_slider.dart';
-import '../../../../core/utils/app_snackbar.dart';
-import '../../../../core/utils/responsive.dart';
 import '../../../../core/utils/timestamp_utils.dart';
 import '../../../../core/widgets/comparison_slider.dart';
-import '../../../../l10n/app_localizations.dart';
-import '../../../gallery/providers/gallery_notifier.dart';
+import '../../../gallery/services/tool_result_saver.dart';
 import '../../../generation/providers/generation_notifier.dart';
 import '../../widgets/tool_config_bottom_sheet.dart';
+import '../../widgets/tool_source_picker.dart';
+import '../../widgets/tool_workspace.dart';
 import '../models/augment_tool.dart';
 import '../providers/director_tools_notifier.dart';
 import 'tool_selector.dart';
@@ -29,6 +31,10 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
   final TextEditingController _promptController = TextEditingController();
   final _promptKey = GlobalKey();
   final _promptFocus = FocusNode();
+
+  /// Result bytes last written by [_saveResult]; anything else is unsaved.
+  Uint8List? _savedResult;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -75,307 +81,48 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
   }
 
   Widget _buildPicker(BuildContext context, DirectorToolsNotifier notifier) {
-    final genNotifier = context.watch<GenerationNotifier>();
-    final galleryNotifier = context.watch<GalleryNotifier>();
-    final hasCurrentImage = genNotifier.state.generatedImage != null;
-    final t = context.t;
-
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.auto_fix_high, size: 48, color: t.textMinimal),
-            const SizedBox(height: 16),
-            Text(
-              context.l.directorToolsTitle,
-              style: TextStyle(
-                color: t.textDisabled,
-                fontSize: t.fontSize(12),
-                fontWeight: FontWeight.bold,
-                letterSpacing: 3,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              context.l.directorToolsDesc,
-              style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(10)),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-
-            if (hasCurrentImage) ...[
-              _PickerOption(
-                icon: Icons.flash_on,
-                label: context.l.directorToolsUseCurrent,
-                description: context.l.directorToolsUseCurrentDesc,
-                accentColor: t.accent,
-                onTap: () =>
-                    notifier.setSourceImage(genNotifier.state.generatedImage!),
-              ),
-              const SizedBox(height: 12),
-            ],
-
-            _PickerOption(
-              icon: Icons.photo_library_outlined,
-              label: context.l.img2imgUploadFromDevice,
-              description: context.l.img2imgUploadFromDeviceDesc,
-              accentColor: t.accentEdit,
-              onTap: () async {
-                final result = await pickImageFiles();
-                if (result != null && result.files.single.path != null) {
-                  final bytes = await File(
-                    result.files.single.path!,
-                  ).readAsBytes();
-                  notifier.setSourceImage(bytes);
-                }
-              },
-            ),
-            const SizedBox(height: 12),
-
-            if (!galleryNotifier.demoMode &&
-                galleryNotifier.items.isNotEmpty) ...[
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(
-                    context.l.directorToolsFromGallery,
-                    style: TextStyle(
-                      color: t.textDisabled,
-                      fontSize: t.fontSize(9),
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(
-                height: 280,
-                child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                    mainAxisSpacing: 4,
-                    crossAxisSpacing: 4,
-                    childAspectRatio: 0.75,
-                  ),
-                  itemCount: galleryNotifier.items.length,
-                  itemBuilder: (context, index) {
-                    final item = galleryNotifier.items[index];
-                    return GestureDetector(
-                      onTap: () async {
-                        final bytes = await item.file.readAsBytes();
-                        notifier.setSourceImage(bytes);
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: t.surfaceHigh,
-                          borderRadius: BorderRadius.circular(2),
-                          border: Border.all(color: t.borderSubtle),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(2),
-                          child: Image.file(
-                            item.file,
-                            fit: BoxFit.cover,
-                            filterQuality: FilterQuality.medium,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
+    final l = context.l;
+    return ToolSourcePicker(
+      icon: Icons.auto_fix_high,
+      title: l.directorToolsTitle,
+      description: l.directorToolsDesc,
+      useCurrentLabel: l.directorToolsUseCurrent,
+      useCurrentDescription: l.directorToolsUseCurrentDesc,
+      promptImport: ToolSourcePromptImport.none,
+      onSelected: (selection) => notifier.setSourceImage(selection.bytes),
     );
   }
 
   Widget _buildWorkspace(BuildContext context, DirectorToolsNotifier notifier) {
-    final mobile = isMobile(context);
-
-    Widget imageArea = _buildImageArea(context, notifier);
-
-    return Column(
-      children: [
-        _buildHeader(context, notifier),
-        Expanded(
-          child: mobile
-              ? imageArea
-              : Row(
-                  children: [
-                    Expanded(flex: 3, child: imageArea),
-                    SizedBox(
-                      width: 300,
-                      child: SingleChildScrollView(
-                        child: _buildConfigPanel(context, notifier),
-                      ),
-                    ),
-                  ],
-                ),
-        ),
-        if (mobile)
-          ToolSettingsDock(
-            tooltip: context.l.directorToolsSettingsTooltip,
-            onPressed: () => showToolConfigBottomSheet(
-              context: context,
-              listenable: notifier,
-              contentBuilder: (_) => _buildConfigPanel(context, notifier),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildHeader(BuildContext context, DirectorToolsNotifier notifier) {
-    final t = context.t;
     final l = context.l;
-    final mobile = isMobile(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: t.surfaceHigh,
-        border: Border(bottom: BorderSide(color: t.borderSubtle)),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: Icon(Icons.arrow_back, size: 16, color: t.textDisabled),
-            onPressed: () => notifier.clear(),
-            tooltip: l.img2imgBackToPicker,
-          ),
-          const Spacer(),
-          if (notifier.hasResult &&
-              !context.read<GenerationNotifier>().state.autoSaveImages) ...[
-            if (mobile)
-              SizedBox(
-                height: 36,
-                child: IconButton(
-                  onPressed: () => _saveResult(notifier),
-                  icon: const Icon(Icons.save_alt, size: 14),
-                  tooltip: l.commonSave,
-                  style: IconButton.styleFrom(
-                    backgroundColor: t.accentSuccess,
-                    foregroundColor: t.background,
-                  ),
-                ),
-              )
-            else
-              SizedBox(
-                height: 36,
-                child: ElevatedButton.icon(
-                  onPressed: () => _saveResult(notifier),
-                  icon: const Icon(Icons.save_alt, size: 14),
-                  label: Text(l.commonSave),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: t.accentSuccess,
-                    foregroundColor: t.background,
-                    textStyle: TextStyle(
-                      fontSize: t.fontSize(10),
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    elevation: 0,
-                  ),
-                ),
-              ),
-            const SizedBox(width: 8),
-          ],
-          if (mobile && notifier.hasResult)
-            SizedBox(
-              height: 36,
-              child: IconButton(
-                onPressed: notifier.isProcessing
-                    ? null
-                    : () async {
-                        final gen = context.read<GenerationNotifier>();
-                        notifier.setPrompt(_promptController.text);
-                        await notifier.process();
-                        if (notifier.hasResult && mounted) {
-                          if (gen.state.autoSaveImages) {
-                            _saveResult(notifier);
-                          }
-                        }
-                      },
-                icon: notifier.isProcessing
-                    ? SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: t.background,
-                        ),
-                      )
-                    : const Icon(Icons.auto_fix_high, size: 14),
-                style: IconButton.styleFrom(
-                  backgroundColor: t.accent,
-                  foregroundColor: t.background,
-                ),
-              ),
-            )
-          else
-            SizedBox(
-              height: 36,
-              child: ElevatedButton.icon(
-                onPressed: notifier.isProcessing
-                    ? null
-                    : () async {
-                        final gen = context.read<GenerationNotifier>();
-                        notifier.setPrompt(_promptController.text);
-                        await notifier.process();
-                        if (notifier.hasResult && mounted) {
-                          if (gen.state.autoSaveImages) {
-                            _saveResult(notifier);
-                          }
-                        }
-                      },
-                icon: notifier.isProcessing
-                    ? SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: t.background,
-                        ),
-                      )
-                    : const Icon(Icons.auto_fix_high, size: 14),
-                label: Text(
-                  notifier.isProcessing
-                      ? l.directorToolsProcessing
-                      : l.directorToolsProcess,
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: t.accent,
-                  foregroundColor: t.background,
-                  textStyle: TextStyle(
-                    fontSize: t.fontSize(10),
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  elevation: 0,
-                ),
-              ),
-            ),
-        ],
+    return ToolRunShortcut(
+      onRun: notifier.isProcessing ? null : () => _process(notifier),
+      child: ToolSettingsLayout(
+        header: ToolWorkspaceHeader(
+          onBack: () => _backToPicker(notifier),
+          processIcon: Icons.auto_fix_high,
+          processLabel: l.directorToolsProcess,
+          processingLabel: l.directorToolsProcessing,
+          isProcessing: notifier.isProcessing,
+          onProcess: () => _process(notifier),
+          hasResult: notifier.hasResult,
+          showSave: _hasUnsavedResult(notifier),
+          onSave: _saving ? null : () => _saveResult(notifier),
+        ),
+        body: _buildImageArea(context, notifier),
+        settingsTooltip: l.directorToolsSettingsTooltip,
+        settingsBuilder: (settingsContext) => _buildConfigPanel(
+          settingsContext,
+          settingsContext.watch<DirectorToolsNotifier>(),
+        ),
       ),
     );
   }
 
   Widget _buildImageArea(BuildContext context, DirectorToolsNotifier notifier) {
     final t = context.t;
-    final l = AppLocalizations.of(context);
+    final l = context.l;
+    final error = notifier.error;
 
     return Stack(
       children: [
@@ -400,31 +147,12 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
               ),
             ),
           ),
-        // Error overlay
-        if (notifier.error != null)
+        if (error != null)
           Positioned(
-            bottom: 8,
-            left: 8,
-            right: 8,
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: t.accentDanger.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(
-                  color: t.accentDanger.withValues(alpha: 0.4),
-                ),
-              ),
-              child: Text(
-                notifier.error!,
-                style: TextStyle(
-                  color: t.accentDanger,
-                  fontSize: t.fontSize(9),
-                ),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
+            bottom: VisionMetrics.space8,
+            left: VisionMetrics.space8,
+            right: VisionMetrics.space8,
+            child: ErrorBanner(message: toolErrorMessage(l, error)),
           ),
       ],
     );
@@ -436,51 +164,35 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
   ) {
     final t = context.t;
     final l = context.l;
-    final labelSize = responsiveFont(context, 9, 11);
+    const compact = SectionTitleVariant.compact;
+    final fieldBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+      borderSide: BorderSide(color: t.borderMedium),
+    );
 
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(VisionMetrics.space16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            l.directorToolsSelectTool,
-            style: TextStyle(
-              color: t.secondaryText,
-              fontSize: t.fontSize(labelSize),
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 8),
+          SectionTitle(l.directorToolsSelectTool, t: t, variant: compact),
           ToolSelector(
             selected: notifier.selectedTool,
             onSelected: notifier.selectTool,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: VisionMetrics.space16),
 
           // Info text about current tool
           Text(
             '${notifier.sourceWidth} x ${notifier.sourceHeight}',
-            style: TextStyle(
-              color: t.textMinimal,
-              fontSize: t.fontSize(labelSize),
-            ),
+            style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(10)),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: VisionMetrics.space12),
 
           // Defry slider
           if (notifier.selectedTool.hasDefry) ...[
-            Text(
-              l.directorToolsDefry,
-              style: TextStyle(
-                color: t.secondaryText,
-                fontSize: t.fontSize(labelSize),
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2,
-              ),
-            ),
+            SectionTitle(l.directorToolsDefry, t: t, variant: compact),
             Row(
               children: [
                 Expanded(
@@ -494,7 +206,7 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
                   ),
                 ),
                 SizedBox(
-                  width: 30,
+                  width: VisionMetrics.space24 + VisionMetrics.space8,
                   child: Text(
                     '${notifier.defry}',
                     style: TextStyle(
@@ -506,40 +218,22 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: VisionMetrics.space8),
           ],
 
           // Mood picker (emotion only)
           if (notifier.selectedTool == AugmentTool.emotion) ...[
-            Text(
-              l.directorToolsMood,
-              style: TextStyle(
-                color: t.secondaryText,
-                fontSize: t.fontSize(labelSize),
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2,
-              ),
-            ),
-            const SizedBox(height: 8),
+            SectionTitle(l.directorToolsMood, t: t, variant: compact),
             EmotionMoodPicker(
               selected: notifier.selectedMood,
               onSelected: notifier.setMood,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: VisionMetrics.space12),
           ],
 
           // Prompt field (colorize/emotion)
           if (notifier.selectedTool.hasPrompt) ...[
-            Text(
-              l.directorToolsPrompt,
-              style: TextStyle(
-                color: t.secondaryText,
-                fontSize: t.fontSize(labelSize),
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2,
-              ),
-            ),
-            const SizedBox(height: 8),
+            SectionTitle(l.directorToolsPrompt, t: t, variant: compact),
             TextField(
               key: _promptKey,
               focusNode: _promptFocus,
@@ -554,19 +248,13 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
                   fontSize: t.fontSize(9),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
+                  horizontal: VisionMetrics.space12,
+                  vertical: VisionMetrics.space8,
                 ),
                 filled: true,
                 fillColor: t.borderSubtle,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  borderSide: BorderSide(color: t.borderMedium),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  borderSide: BorderSide(color: t.borderMedium),
-                ),
+                border: fieldBorder,
+                enabledBorder: fieldBorder,
               ),
             ),
           ],
@@ -575,88 +263,42 @@ class _DirectorToolsEditorState extends State<DirectorToolsEditor> {
     );
   }
 
-  void _saveResult(DirectorToolsNotifier notifier) {
-    if (notifier.resultBytes == null) return;
-    final gallery = context.read<GalleryNotifier>();
-    final timestamp = generateTimestamp();
-    final toolName = notifier.selectedTool.apiValue.replaceAll('-', '');
-    gallery.saveMLResultWithMetadata(
-      notifier.resultBytes!,
-      'DT_${toolName}_$timestamp.png',
-      sourceBytes: notifier.sourceImageBytes,
-    );
-
-    if (mounted) {
-      showAppSnackBar(context, context.l.directorToolsSaved);
+  Future<void> _process(DirectorToolsNotifier notifier) async {
+    final gen = context.read<GenerationNotifier>();
+    notifier.setPrompt(_promptController.text);
+    await notifier.process();
+    if (mounted && notifier.hasResult && gen.state.autoSaveImages) {
+      await _saveResult(notifier);
     }
   }
-}
 
-class _PickerOption extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String description;
-  final Color accentColor;
-  final VoidCallback onTap;
+  bool _hasUnsavedResult(DirectorToolsNotifier notifier) =>
+      notifier.hasResult && !identical(notifier.resultBytes, _savedResult);
 
-  const _PickerOption({
-    required this.icon,
-    required this.label,
-    required this.description,
-    required this.accentColor,
-    required this.onTap,
-  });
+  Future<void> _backToPicker(DirectorToolsNotifier notifier) async {
+    if (_hasUnsavedResult(notifier) &&
+        !await confirmDiscardUnsavedResult(context)) {
+      return;
+    }
+    notifier.clear();
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(4),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: accentColor.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: accentColor.withValues(alpha: 0.2)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: accentColor),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      color: accentColor,
-                      fontSize: t.fontSize(10),
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    description,
-                    style: TextStyle(
-                      color: t.textDisabled,
-                      fontSize: t.fontSize(9),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.arrow_forward_ios,
-              size: 12,
-              color: accentColor.withValues(alpha: 0.5),
-            ),
-          ],
-        ),
-      ),
+  Future<void> _saveResult(DirectorToolsNotifier notifier) async {
+    final result = notifier.resultBytes;
+    if (result == null || _saving) return;
+    setState(() => _saving = true);
+    final toolName = notifier.selectedTool.apiValue.replaceAll('-', '');
+    final outcome = await saveToolResult(
+      context,
+      bytes: result,
+      fileName: 'DT_${toolName}_${generateTimestamp()}.png',
+      sourceBytes: notifier.sourceImageBytes,
+      savedMessage: context.l.directorToolsSaved,
     );
+    if (!mounted) return;
+    setState(() {
+      _saving = false;
+      if (outcome.succeeded) _savedResult = result;
+    });
   }
 }

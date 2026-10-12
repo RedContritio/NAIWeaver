@@ -5,12 +5,18 @@ import 'package:provider/provider.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/services/text_gen_service.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/vision_metrics.dart';
 import '../../../core/theme/vision_tokens.dart';
 import '../../../core/utils/app_snackbar.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/browser_native_selectable_text.dart';
+import '../../../core/widgets/confirm_dialog.dart';
+import '../../../core/widgets/section_title.dart';
+import '../../../core/widgets/ui/app_panel.dart';
 import '../../../core/widgets/vision_slider.dart';
+import '../../tools/widgets/tool_workspace.dart';
 import '../providers/text_gen_notifier.dart';
+import '../text_gen_error_message.dart';
 
 /// The Text Generation tool panel (NovelAI text models).
 ///
@@ -55,118 +61,114 @@ class _TextGenPanelState extends State<TextGenPanel> {
   Widget build(BuildContext context) {
     final n = context.watch<TextGenNotifier>();
     _syncFromNotifier(n);
-    final mobile = isMobile(context);
+    final touch = windowSizeClassOf(context).isTouchSized;
     final t = context.t;
 
     final inputArea = _buildInputColumn(context, n, t);
     final outputArea = _buildOutputColumn(context, n, t);
 
-    return Column(
-      children: [
-        _buildHeader(context, n, t),
-        Expanded(
-          child: mobile
-              ? ListView(
-                  padding: const EdgeInsets.all(12),
-                  children: [
-                    inputArea,
-                    const SizedBox(height: 16),
-                    SizedBox(height: 320, child: outputArea),
-                    const SizedBox(height: 16),
-                    _buildHistory(context, n, t),
-                  ],
-                )
-              : Row(
-                  children: [
-                    Expanded(
-                      flex: 1,
-                      child: ListView(
-                        padding: const EdgeInsets.all(16),
-                        children: [
-                          inputArea,
-                          const SizedBox(height: 16),
-                          _buildHistory(context, n, t),
-                        ],
+    return ToolRunShortcut(
+      onRun: n.isGenerating ? null : () => _onGenerate(n),
+      child: Column(
+        children: [
+          _buildHeader(context, n, t),
+          Expanded(
+            child: touch
+                ? ListView(
+                    padding: const EdgeInsets.all(VisionMetrics.space12),
+                    children: [
+                      inputArea,
+                      const SizedBox(height: VisionMetrics.space16),
+                      SizedBox(height: 320, child: outputArea),
+                      const SizedBox(height: VisionMetrics.space16),
+                      _buildHistory(context, n, t),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Expanded(
+                        flex: 1,
+                        child: ListView(
+                          padding: const EdgeInsets.all(VisionMetrics.space16),
+                          children: [
+                            inputArea,
+                            const SizedBox(height: VisionMetrics.space16),
+                            _buildHistory(context, n, t),
+                          ],
+                        ),
                       ),
-                    ),
-                    VerticalDivider(width: 1, color: t.borderSubtle),
-                    Expanded(flex: 1, child: outputArea),
-                  ],
-                ),
-        ),
-      ],
+                      VerticalDivider(width: 1, color: t.borderSubtle),
+                      Expanded(flex: 1, child: outputArea),
+                    ],
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
   // — Header: title + Generate/Cancel —
   Widget _buildHeader(BuildContext context, TextGenNotifier n, VisionTokens t) {
     final l = context.l;
+    final generating = n.isGenerating;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: VisionMetrics.space16,
+        vertical: VisionMetrics.space8,
+      ),
       decoration: BoxDecoration(
         color: t.surfaceHigh,
         border: Border(bottom: BorderSide(color: t.borderSubtle)),
       ),
       child: Row(
         children: [
-          Icon(Icons.notes, size: 16, color: t.textDisabled),
-          const SizedBox(width: 8),
-          Text(
-            l.textGenTitle.toUpperCase(),
-            style: TextStyle(
-              color: t.secondaryText,
-              fontSize: t.titleSize(11),
-              fontWeight: FontWeight.w900,
-              letterSpacing: 3,
+          Icon(
+            Icons.notes,
+            size: VisionMetrics.iconMedium,
+            color: t.textDisabled,
+          ),
+          const SizedBox(width: VisionMetrics.space8),
+          Expanded(
+            child: Text(
+              l.textGenTitle.toUpperCase(),
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: t.secondaryText,
+                fontSize: t.titleSize(11),
+                fontWeight: FontWeight.w900,
+                letterSpacing: 3,
+              ),
             ),
           ),
-          const Spacer(),
-          if (n.isGenerating)
-            SizedBox(
-              height: 32,
-              child: ElevatedButton.icon(
-                onPressed: () => n.cancel(),
-                icon: const Icon(Icons.stop, size: 14),
-                label: Text(l.textGenCancel),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: t.accentDanger,
-                  foregroundColor: t.background,
-                  textStyle: TextStyle(
-                    fontSize: t.fontSize(10),
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  elevation: 0,
-                ),
+          SizedBox(
+            height: context.hitSize,
+            child: ElevatedButton.icon(
+              onPressed: generating ? n.cancel : () => _onGenerate(n),
+              icon: Icon(
+                generating ? Icons.stop : Icons.auto_awesome,
+                size: VisionMetrics.iconSmall,
               ),
-            )
-          else
-            SizedBox(
-              height: 32,
-              child: ElevatedButton.icon(
-                onPressed: () => _onGenerate(n),
-                icon: const Icon(Icons.auto_awesome, size: 14),
-                label: Text(l.textGenGenerate),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: t.accent,
-                  foregroundColor: t.background,
-                  textStyle: TextStyle(
-                    fontSize: t.fontSize(10),
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  elevation: 0,
+              label: Text(generating ? l.textGenCancel : l.textGenGenerate),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: generating ? t.accentDanger : t.accent,
+                foregroundColor: t.background,
+                textStyle: TextStyle(
+                  fontSize: t.fontSize(10),
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
                 ),
+                padding: EdgeInsets.symmetric(
+                  horizontal: generating
+                      ? VisionMetrics.space16
+                      : VisionMetrics.space16 + VisionMetrics.space4,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+                ),
+                elevation: 0,
               ),
             ),
+          ),
         ],
       ),
     );
@@ -183,7 +185,7 @@ class _TextGenPanelState extends State<TextGenPanel> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _label(t, l.textGenInput),
-        const SizedBox(height: 8),
+        const SizedBox(height: VisionMetrics.space8),
         TextField(
           controller: _inputController,
           onChanged: n.setInput,
@@ -192,14 +194,14 @@ class _TextGenPanelState extends State<TextGenPanel> {
           style: TextStyle(fontSize: t.fontSize(11), color: t.textPrimary),
           decoration: _fieldDecoration(t, l.textGenInputHint),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: VisionMetrics.space8),
         Text(
           l.textGenInputNote,
           style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9)),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: VisionMetrics.space16),
         _label(t, l.textGenModel),
-        const SizedBox(height: 8),
+        const SizedBox(height: VisionMetrics.space8),
         Row(
           children: [
             Expanded(
@@ -237,7 +239,7 @@ class _TextGenPanelState extends State<TextGenPanel> {
               ),
             ),
             if (!_modelIsKnown) ...[
-              const SizedBox(width: 8),
+              const SizedBox(width: VisionMetrics.space8),
               Expanded(
                 flex: 2,
                 child: TextField(
@@ -253,7 +255,7 @@ class _TextGenPanelState extends State<TextGenPanel> {
             ],
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: VisionMetrics.space16),
         _buildParametersSection(context, n, t),
       ],
     );
@@ -271,7 +273,10 @@ class _TextGenPanelState extends State<TextGenPanel> {
         initiallyExpanded: _paramsExpanded,
         onExpansionChanged: (v) => setState(() => _paramsExpanded = v),
         tilePadding: EdgeInsets.zero,
-        childrenPadding: const EdgeInsets.only(top: 4, bottom: 8),
+        childrenPadding: const EdgeInsets.only(
+          top: VisionMetrics.space4,
+          bottom: VisionMetrics.space8,
+        ),
         title: Text(
           l.textGenParameters.toUpperCase(),
           style: TextStyle(
@@ -286,7 +291,7 @@ class _TextGenPanelState extends State<TextGenPanel> {
           Row(
             children: [
               _label(t, l.textGenPreset),
-              const SizedBox(width: 12),
+              const SizedBox(width: VisionMetrics.space12),
               Expanded(
                 child: DropdownButtonFormField<String>(
                   initialValue: n.activePresetName,
@@ -309,7 +314,7 @@ class _TextGenPanelState extends State<TextGenPanel> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: VisionMetrics.space12),
           _SliderRow(
             label: l.textGenTemperature,
             value: n.params.temperature,
@@ -356,11 +361,11 @@ class _TextGenPanelState extends State<TextGenPanel> {
             onChanged: n.setRepetitionPenalty,
             t: t,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: VisionMetrics.space8),
           Row(
             children: [
               _label(t, l.textGenPhraseRepPen),
-              const SizedBox(width: 12),
+              const SizedBox(width: VisionMetrics.space12),
               Expanded(
                 child: DropdownButtonFormField<String>(
                   initialValue: n.params.phraseRepPen,
@@ -381,7 +386,7 @@ class _TextGenPanelState extends State<TextGenPanel> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: VisionMetrics.space8),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             dense: true,
@@ -413,14 +418,14 @@ class _TextGenPanelState extends State<TextGenPanel> {
               onChanged: n.setEnableThinking,
             ),
           ],
-          const SizedBox(height: 8),
+          const SizedBox(height: VisionMetrics.space8),
           _label(t, l.textGenStopStrings),
-          const SizedBox(height: 6),
+          const SizedBox(height: VisionMetrics.space8),
           Text(
             l.textGenStopStringsNote,
             style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9)),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: VisionMetrics.space8),
           TextField(
             controller: _stopController,
             onChanged: n.setStopStrings,
@@ -443,7 +448,7 @@ class _TextGenPanelState extends State<TextGenPanel> {
     final l = context.l;
     return Container(
       color: t.background,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(VisionMetrics.space16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -451,7 +456,7 @@ class _TextGenPanelState extends State<TextGenPanel> {
             children: [
               _label(t, l.textGenOutput),
               if (n.isGenerating) ...[
-                const SizedBox(width: 8),
+                const SizedBox(width: VisionMetrics.space8),
                 SizedBox(
                   width: 10,
                   height: 10,
@@ -490,58 +495,38 @@ class _TextGenPanelState extends State<TextGenPanel> {
               IconButton(
                 tooltip: l.textGenClear,
                 icon: Icon(Icons.clear, size: 14, color: t.textDisabled),
-                onPressed: n.hasOutput ? () => n.clearOutput() : null,
+                onPressed: n.hasOutput ? () => _confirmClear(n) : null,
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: VisionMetrics.space8),
           if (n.hasReasoning) ...[
             _buildReasoningSection(context, n, t),
-            const SizedBox(height: 8),
+            const SizedBox(height: VisionMetrics.space8),
           ],
           Expanded(
-            child: Container(
+            child: SizedBox(
               width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: t.surfaceHigh,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: t.borderSubtle),
-              ),
-              child: SingleChildScrollView(
-                child: BrowserNativeSelectableText(
-                  text: n.hasOutput
-                      ? n.output
-                      : (n.isGenerating ? '…' : l.textGenOutputEmpty),
-                  style: TextStyle(
-                    fontSize: t.fontSize(12),
-                    height: 1.45,
-                    color: n.hasOutput ? t.textPrimary : t.textMinimal,
+              child: AppPanel(
+                variant: AppPanelVariant.raised,
+                child: SingleChildScrollView(
+                  child: BrowserNativeSelectableText(
+                    text: n.hasOutput
+                        ? n.output
+                        : (n.isGenerating ? '…' : l.textGenOutputEmpty),
+                    style: TextStyle(
+                      fontSize: t.fontSize(12),
+                      height: 1.45,
+                      color: n.hasOutput ? t.textPrimary : t.textMinimal,
+                    ),
                   ),
                 ),
               ),
             ),
           ),
           if (n.lastError != null) ...[
-            const SizedBox(height: 8),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: t.accentDanger.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(
-                  color: t.accentDanger.withValues(alpha: 0.4),
-                ),
-              ),
-              child: Text(
-                n.lastError!,
-                style: TextStyle(
-                  color: t.accentDanger,
-                  fontSize: t.fontSize(10),
-                ),
-              ),
-            ),
+            const SizedBox(height: VisionMetrics.space8),
+            ErrorBanner(message: textGenErrorMessage(l, n.lastError!)),
           ],
         ],
       ),
@@ -555,22 +540,21 @@ class _TextGenPanelState extends State<TextGenPanel> {
   ) {
     final l = context.l;
     final reasoning = n.reasoning;
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: t.surfaceMid,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: t.borderSubtle),
-      ),
+    return AppPanel(
+      variant: AppPanelVariant.inset,
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           InkWell(
             onTap: () =>
                 setState(() => _reasoningExpanded = !_reasoningExpanded),
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(VisionMetrics.radius4),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(
+                horizontal: VisionMetrics.space12,
+                vertical: VisionMetrics.space8,
+              ),
               child: Row(
                 children: [
                   Icon(
@@ -578,7 +562,7 @@ class _TextGenPanelState extends State<TextGenPanel> {
                     size: 14,
                     color: t.textMinimal,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: VisionMetrics.space8),
                   Text(
                     l.textGenReasoning.toUpperCase(),
                     style: TextStyle(
@@ -602,7 +586,12 @@ class _TextGenPanelState extends State<TextGenPanel> {
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 220),
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                padding: const EdgeInsets.fromLTRB(
+                  VisionMetrics.space12,
+                  0,
+                  VisionMetrics.space12,
+                  VisionMetrics.space12,
+                ),
                 child: SingleChildScrollView(
                   child: BrowserNativeSelectableText(
                     text: reasoning,
@@ -631,51 +620,55 @@ class _TextGenPanelState extends State<TextGenPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label(t, l.textGenHistory),
-        const SizedBox(height: 8),
+        SectionTitle(
+          l.textGenHistory.toUpperCase(),
+          t: t,
+          variant: SectionTitleVariant.compact,
+        ),
         ...n.history.take(10).map((e) {
           final preview = e.output.replaceAll('\n', ' ');
           final shown = preview.length > 80
               ? '${preview.substring(0, 80)}…'
               : preview;
-          return InkWell(
-            onTap: () {
-              n.restoreFromHistory(e);
-              _inputController.text = n.input;
-              _modelController.text = n.model;
-              _stopController.text = n.stopStringsRaw;
-              setState(() {});
-            },
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 6),
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: t.surfaceHigh,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: t.borderSubtle),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${e.model} · ${e.timestamp.hour.toString().padLeft(2, '0')}:${e.timestamp.minute.toString().padLeft(2, '0')}',
-                    style: TextStyle(
-                      color: t.textMinimal,
-                      fontSize: t.fontSize(8),
-                      letterSpacing: 1,
-                    ),
+          return Padding(
+            padding: const EdgeInsets.only(bottom: VisionMetrics.space8),
+            child: InkWell(
+              onTap: () {
+                n.restoreFromHistory(e);
+                _inputController.text = n.input;
+                _modelController.text = n.model;
+                _stopController.text = n.stopStringsRaw;
+                setState(() {});
+              },
+              borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+              child: AppPanel(
+                variant: AppPanelVariant.raised,
+                child: SizedBox(
+                  width: double.infinity,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${e.model} · ${e.timestamp.hour.toString().padLeft(2, '0')}:${e.timestamp.minute.toString().padLeft(2, '0')}',
+                        style: TextStyle(
+                          color: t.textMinimal,
+                          fontSize: t.fontSize(8),
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      const SizedBox(height: VisionMetrics.space4),
+                      Text(
+                        shown,
+                        style: TextStyle(
+                          color: t.textTertiary,
+                          fontSize: t.fontSize(10),
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    shown,
-                    style: TextStyle(
-                      color: t.textTertiary,
-                      fontSize: t.fontSize(10),
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                ),
               ),
             ),
           );
@@ -694,15 +687,30 @@ class _TextGenPanelState extends State<TextGenPanel> {
     n.setStopStrings(_stopController.text);
     await n.generate();
     if (mounted && n.lastError != null) {
-      showErrorSnackBar(context, n.lastError!);
+      showErrorSnackBar(context, textGenErrorMessage(context.l, n.lastError!));
     }
+  }
+
+  /// Clearing drops the generated text (and its reasoning), so ask first.
+  Future<void> _confirmClear(TextGenNotifier n) async {
+    final l = context.l;
+    final confirmed = await showConfirmDialog(
+      context,
+      title: l.textGenClearConfirmTitle,
+      message: l.textGenClearConfirmMessage,
+      confirmLabel: l.textGenClear,
+      cancelLabel: l.commonCancel,
+    );
+    if (confirmed == true) n.clearOutput();
   }
 
   Widget _label(VisionTokens t, String text) => Text(
     text.toUpperCase(),
     style: TextStyle(
       color: t.secondaryText,
-      fontSize: t.fontSize(responsiveFont(context, 9, 11)),
+      fontSize: t.fontSize(
+        windowSizeClassOf(context) == WindowSizeClass.compact ? 11 : 9,
+      ),
       fontWeight: FontWeight.bold,
       letterSpacing: 2,
     ),
@@ -712,19 +720,22 @@ class _TextGenPanelState extends State<TextGenPanel> {
       InputDecoration(
         hintText: hint.isEmpty ? null : hint,
         hintStyle: TextStyle(color: t.hintText, fontSize: t.fontSize(9)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: VisionMetrics.space12,
+          vertical: VisionMetrics.space8,
+        ),
         filled: true,
         fillColor: t.borderSubtle,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(VisionMetrics.radius4),
           borderSide: BorderSide(color: t.borderMedium),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(VisionMetrics.radius4),
           borderSide: BorderSide(color: t.borderMedium),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(VisionMetrics.radius4),
           borderSide: BorderSide(color: t.accent),
         ),
       );

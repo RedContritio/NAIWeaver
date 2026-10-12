@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/vision_metrics.dart';
 import 'browser_photo_swipe_viewer.dart';
 import 'image_viewer.dart';
 
@@ -79,13 +80,7 @@ class ResultSetViewer extends StatelessWidget {
         isLoading: false,
         isDragging: isDragging,
         pulseAnimation: pulseAnimation,
-        child: ImagePreviewViewer(
-          generatedImage: null,
-          isLoading: false,
-          isDragging: isDragging,
-          pulseAnimation: pulseAnimation,
-          framed: false,
-        ),
+        child: ImagePreviewViewer(generatedImage: null, isDragging: isDragging),
       );
     }
     final selected =
@@ -94,10 +89,7 @@ class ResultSetViewer extends StatelessWidget {
       generatedImage: null,
       imageProvider: selected.previewImage,
       imageIdentity: selected.id,
-      isLoading: selected.isLoading,
       isDragging: isDragging,
-      pulseAnimation: pulseAnimation,
-      framed: false,
     );
     final browserItems = items
         .where((item) => item.hasBrowserImage)
@@ -130,16 +122,21 @@ class ResultSetViewer extends StatelessWidget {
           Positioned.fill(
             child: ColoredBox(
               key: const ValueKey<String>('result-set-preview-status'),
-              color: Colors.black,
+              color: context.t.background,
               child: _ResultSetStatus(item: selected),
             ),
           ),
         if (previewOverlay != null) Positioned.fill(child: previewOverlay!),
-        if (topLeading != null) Positioned(top: 8, left: 8, child: topLeading!),
+        if (topLeading != null)
+          Positioned(
+            top: VisionMetrics.space8,
+            left: VisionMetrics.space8,
+            child: topLeading!,
+          ),
         if (selectedActionBuilder != null)
           Positioned(
-            top: 8,
-            right: 8,
+            top: VisionMetrics.space8,
+            right: VisionMetrics.space8,
             child: selectedActionBuilder!(context, selected),
           ),
       ],
@@ -168,7 +165,11 @@ class ResultSetViewer extends StatelessWidget {
           Expanded(child: preview),
           SizedBox(
             key: const ValueKey<String>('result-set-thumbnail-footer'),
-            height: mobile ? 90 : 98,
+            // The footer line of each thumbnail grows with the text scale.
+            height:
+                (mobile ? 90 : 98) +
+                _ResultSetFooter.height *
+                    (_ResultSetFooter.scaleOf(context) - 1),
             child: strip,
           ),
         ],
@@ -198,10 +199,15 @@ class _ResultSetFrame extends StatelessWidget {
         animation: pulseAnimation,
         builder: (context, child) => Container(
           key: const ValueKey<String>('result-set-frame'),
-          margin: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+          margin: const EdgeInsets.fromLTRB(
+            VisionMetrics.space12,
+            VisionMetrics.space4,
+            VisionMetrics.space12,
+            0,
+          ),
           decoration: BoxDecoration(
-            color: Colors.black,
-            borderRadius: BorderRadius.circular(4),
+            color: t.background,
+            borderRadius: BorderRadius.circular(VisionMetrics.radius4),
             border: Border.all(
               color: isLoading
                   ? t.textPrimary.withValues(alpha: pulseAnimation.value)
@@ -242,9 +248,14 @@ class _ResultSetThumbnailStrip extends StatelessWidget {
       ),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.fromLTRB(10, mobile ? 6 : 8, 10, mobile ? 8 : 10),
+        padding: EdgeInsets.fromLTRB(
+          VisionMetrics.space8,
+          mobile ? VisionMetrics.space4 : VisionMetrics.space8,
+          VisionMetrics.space8,
+          mobile ? VisionMetrics.space8 : VisionMetrics.space12,
+        ),
         itemCount: items.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        separatorBuilder: (_, _) => const SizedBox(width: VisionMetrics.space8),
         itemBuilder: (context, index) {
           final item = items[index];
           return SizedBox(
@@ -258,6 +269,17 @@ class _ResultSetThumbnailStrip extends StatelessWidget {
         },
       ),
     );
+  }
+}
+
+/// Metrics of the one-line caption under a thumbnail.
+abstract final class _ResultSetFooter {
+  static const double height = 26;
+
+  /// How much the caption text is enlarged by the user's text scale (>= 1).
+  static double scaleOf(BuildContext context) {
+    final scaled = MediaQuery.textScalerOf(context).scale(10) / 10;
+    return scaled < 1 ? 1 : (scaled > 2 ? 2 : scaled);
   }
 }
 
@@ -280,35 +302,43 @@ class ResultSetThumbnail extends StatelessWidget {
     final t = context.t;
     return Material(
       key: ValueKey<String>('result-set-thumbnail-${item.id}'),
-      color: t.surfaceHigh.withValues(alpha: selected ? 0.84 : 0.62),
-      borderRadius: BorderRadius.circular(6),
+      color: t.surfaceHigh.withValues(
+        alpha: selected
+            ? VisionMetrics.opacityOverlay
+            : VisionMetrics.opacityScrim,
+      ),
+      borderRadius: BorderRadius.circular(VisionMetrics.radius4),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(VisionMetrics.radius4),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(VisionMetrics.radius4),
             border: Border.all(
               color: selected ? t.accent : t.borderSubtle,
               width: selected ? 2 : 1,
             ),
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(5),
+            borderRadius: BorderRadius.circular(VisionMetrics.radius4),
             child: Column(
               children: [
                 Expanded(
                   child: ColoredBox(
-                    color: Colors.black,
+                    color: t.background,
                     child: SizedBox.expand(child: _thumbnailBody(context)),
                   ),
                 ),
                 if (showFooter)
                   Container(
-                    height: 26,
-                    padding: const EdgeInsets.symmetric(horizontal: 7),
+                    constraints: const BoxConstraints(
+                      minHeight: _ResultSetFooter.height,
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: VisionMetrics.space8,
+                    ),
                     alignment: Alignment.centerLeft,
-                    color: t.surfaceHigh.withValues(alpha: 0.92),
+                    color: t.surfaceHigh,
                     child: Text(
                       item.seed == null
                           ? '${item.position}/${item.count}'
@@ -364,13 +394,13 @@ class _ResultSetStatus extends StatelessWidget {
     final failed = forceFailed || item.failed;
     final statusIcon = item.isGenerating && !failed
         ? SizedBox(
-            width: 22,
-            height: 22,
+            width: VisionMetrics.iconLarge,
+            height: VisionMetrics.iconLarge,
             child: CircularProgressIndicator(strokeWidth: 2, color: t.accent),
           )
         : Icon(
             failed ? Icons.error_outline_rounded : Icons.schedule_rounded,
-            color: failed ? Colors.redAccent : t.textDisabled,
+            color: failed ? t.accentDanger : t.textDisabled,
           );
     return LayoutBuilder(
       builder: (context, constraints) => Center(
@@ -380,10 +410,11 @@ class _ResultSetStatus extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   statusIcon,
-                  const SizedBox(height: 8),
+                  const SizedBox(height: VisionMetrics.space8),
                   Text(
                     failed
-                        ? (item.errorMessage ?? 'Generation failed')
+                        ? (item.errorMessage ??
+                              context.l.generationFailedFallback)
                         : (item.isGenerating
                               ? context.l.mainResultGenerating
                               : context.l.mainResultPending),

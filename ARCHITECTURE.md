@@ -4,7 +4,11 @@
 
 ```text
 lib/
-├── main.dart                              # Entry point, MultiProvider setup, root layout
+├── main.dart                              # Entry point, root layout (generation page)
+├── app/
+│   ├── bootstrap.dart                     # Everything that must exist before the first frame (services, window rectangle)
+│   ├── providers.dart                     # The provider graph (MultiProvider list, proxy dependencies)
+│   └── app.dart                           # Providers + MaterialApp around the home page
 ├── core/
 │   ├── ml/
 │   │   ├── ml_inference_service.dart      # ONNX Runtime inference engine
@@ -54,12 +58,23 @@ lib/
 │   │   ├── vision_tokens.dart             # Semantic design tokens derived from config
 │   │   ├── theme_notifier.dart            # Theme state management (ChangeNotifier) with persistence
 │   │   ├── theme_extensions.dart          # BuildContext extension: `context.t` for token access
+│   │   ├── vision_metrics.dart            # Theme-independent metrics: spacing, radius, opacity steps, touch sizes, icon sizes
 │   │   └── built_in_themes.dart           # 8 built-in theme presets
 │   ├── l10n/
 │   │   ├── locale_notifier.dart           # Locale state management (ChangeNotifier) with persistence
 │   │   └── l10n_extensions.dart           # BuildContext extension: `context.l` for localized strings
+│   ├── gateway/
+│   │   ├── image_quote.dart               # Local port of the gateway's classify_and_quote (docs/GATEWAY_CONTRACT.md §3); display only, the server's quote is charged
+│   │   ├── backend_rules.dart             # Pricing and limit rules of GET /api/me (rules.image) and the paid tools' fixed prices
+│   │   ├── backend_exception.dart         # BackendException and the contract error codes
+│   │   ├── backend_error_messages.dart    # User-facing text for any failed call, mapped by contract code
+│   │   ├── backend_gateway.dart           # Gateway origin / base-href path joining and the NovelAI service paths
+│   │   ├── backend_base_href_stub.dart    # <base href> lookup (non-web)
+│   │   ├── backend_base_href_web.dart     # <base href> lookup (web)
+│   │   └── backend_permissions.dart       # Permission/quota checks, GenerationAccess, PaidImageAccess, tool cap labels
 │   ├── services/
 │   │   ├── novel_ai_service.dart          # NovelAI API client (Dio, ZIP decompression)
+│   │   ├── backend_client.dart            # The one Dio client for the gateway: BackendException mapping, GET-only retries, 401 reporting
 │   │   ├── text_gen_service.dart          # NovelAI text-model client (model-aware transport, SSE streaming)
 │   │   ├── saf_export_service.dart        # Android Storage Access Framework export (SD-card writes, stale-path detection)
 │   │   ├── preferences_service.dart       # SharedPreferences wrapper (core preferences)
@@ -80,9 +95,10 @@ lib/
 │   ├── utils/
 │   │   ├── image_utils.dart               # PNG metadata inject/extract (runs in Isolate)
 │   │   ├── nai_coordinate_utils.dart      # Character positioning math
-│   │   ├── responsive.dart                # Shared utilities: isMobile(), isDesktopPlatform(), responsiveFont(), touchTarget()
+│   │   ├── responsive.dart                # WindowSizeClass breakpoints (windowSizeClassOf), isTouchSized, isDesktopPlatform()
 │   │   ├── tag_suggestion_helper.dart     # Tag auto-complete logic shared across features
-│   │   ├── app_snackbar.dart              # Reusable snackbar helper
+│   │   ├── app_snackbar.dart              # showAppSnackBar / showErrorSnackBar (tone-based toast)
+│   │   ├── tag_category_color.dart        # Theme-token accent for a tag category (autocomplete, tag library)
 │   │   ├── file_picker_helper.dart        # Centralized cross-platform file picker (pickImageFiles, pickCustomFiles)
 │   │   └── timestamp_utils.dart           # EXIF date extraction and timestamp utilities
 │   └── widgets/
@@ -95,6 +111,19 @@ lib/
 │       ├── progress_dialog.dart           # Reusable progress dialog with cancel support
 │       ├── vision_slider.dart             # Themed slider widget
 │       ├── section_title.dart             # Reusable section title widget
+│       ├── text_input_dialog.dart         # showTextInputDialog: single-line text prompt
+│       ├── manager_shell.dart             # ManagerMasterDetailShell and ManagerHeader for manager screens
+│       ├── manager_list_tile.dart         # ManagerListTile row used by the manager lists
+│       ├── syntax_highlight_controller.dart # Prompt text controller; highlight colors are passed in from the tokens
+│       ├── update_prompt.dart             # Launch-time update snack bar and download dialog
+│       ├── ui/
+│       │   ├── app_panel.dart             # AppPanel(variant) panel / card block and ErrorBanner
+│       │   ├── app_pill.dart              # AppPill(tone, dense): badge / capsule
+│       │   ├── app_sheet.dart             # showAppSheet + AppPickerSheet: the one bottom-sheet shell
+│       │   ├── app_states.dart            # EmptyState / LoadingState / ErrorState
+│       │   ├── app_tabs.dart              # AppTabBar / AppSegmented (wrap instead of overflow)
+│       │   ├── app_tone.dart              # AppTone and its token colors
+│       │   └── overlay_action_button.dart # OverlayActionButton / OverlayActionFrame: icon actions over images
 │       ├── color_swatch_row.dart          # Color swatch row for theme editing
 │       └── help_dialog.dart               # Help/info dialog
 ├── l10n/
@@ -108,12 +137,18 @@ lib/
 └── features/
     ├── generation/                        # Main generation feature
     │   ├── models/
+    │   │   ├── generated_image_item.dart   # One result slot: bytes, frozen metadata, seed, saved flag, run id
     │   │   ├── nai_character.dart          # NaiCharacter, NaiInteraction (multi-participant), NaiCoordinate models
+    │   │   ├── generation_quote.dart       # The quote shown for a run (mode, points, expected points)
     │   │   └── character_preset.dart       # CharacterPreset model for save/load character configurations
     │   ├── providers/
-    │   │   └── generation_notifier.dart    # Central business logic (~1400 lines)
+    │   │   └── generation_notifier.dart    # Central business logic: runs, result set, form state
     │   ├── services/
-    │   │   ├── session_snapshot_service.dart   # Generation session state snapshots
+    │   │   ├── gateway_task_watcher.dart       # The one poller of a gateway submission (timeout, cancel, image fetch)
+    │   │   ├── generation_image_persistence.dart # Save / export / auto save / clipboard of one image's bytes + metadata
+    │   │   ├── seed_policy.dart               # Seed box validation (0..4294967295) and batch seeds
+    │   │   ├── session_snapshot_service.dart   # Generation session state snapshots (versioned)
+    │   │   ├── reference_access_monitor.dart   # Pauses references/vibes without paid access and announces access changes once
     │   │   ├── character_manager.dart         # Character lifecycle management
     │   │   ├── preset_service.dart            # Preset apply/save logic extracted from notifier
     │   │   └── metadata_import_service.dart   # PNG metadata import and field restoration
@@ -124,8 +159,14 @@ lib/
     │       ├── inline_character_editor.dart # Expanded inline character editor with presets, tag suggestions, position grid
     │       ├── character_editor_sheet.dart # Character editing bottom sheet
     │       ├── action_interaction_sheet.dart # Multi-participant interaction editor
-    │       ├── sidebar_ref_vibe_rail.dart  # Compact director/vibe reference rail for sidebar layout
-    │       └── vibe_transfer_shelf.dart    # Horizontal vibe transfer chip shelf
+    │       ├── vibe_transfer_shelf.dart    # Horizontal vibe transfer chip shelf
+    │       ├── chip_actions.dart           # Edit / delete menu shared by the reference, vibe and character chips
+    │       ├── prompt_composer.dart        # Main prompt and negative prompt fields with tag suggestions
+    │       ├── prompt_shortcuts.dart       # One keyboard vocabulary (chords -> intents) for every prompt editor, Flutter and DOM key events
+    │       ├── generation_app_bar.dart     # Generation page app bar (title, queue / quota badges, actions)
+    │       ├── generation_status.dart      # Quote and Anlas badges, active-inputs indicator, generate button
+    │       ├── quote_confirm_dialog.dart   # confirmQuoteChange: asks before a changed quote is charged
+    │       └── ...                         # Page layout, mobile sheet, results workspace, seed control, grid selector, ...
     ├── gallery/                           # Image vault / gallery
     │   ├── models/
     │   │   └── gallery_album.dart          # GalleryAlbum model (virtual folders in SharedPreferences)
@@ -133,8 +174,10 @@ lib/
     │   │   └── gallery_notifier.dart       # Gallery state, file management, sort modes
     │   ├── services/
     │   │   ├── album_service.dart          # Album CRUD operations
+    │   │   ├── tool_result_saver.dart      # Persists tool output (Enhance, Director Tools, NAI and local ML actions) to the gallery
     │   │   └── gallery_import_service.dart # File import with EXIF date preservation and OriginalDate chunk injection
     │   └── ui/
+    │       ├── novel_ai_image_action_flow.dart # Visibility rule and run flow of the NAI quick actions (upscale, ...)
     │       ├── gallery_screen.dart         # Full gallery view with search
     │       ├── comparison_view.dart        # Side-by-side image comparison with synced zoom
     │       └── image_detail_view.dart      # Full-screen detail view with swipe, zoom, metadata, and action bar
@@ -212,11 +255,13 @@ lib/
         │   ├── tag_library_manager.dart    # Tag browser with preview generation
         │   ├── theme_builder.dart          # Theme customization UI (colors, font, scale, preview)
         │   ├── pack_manager.dart           # Pack export/import management UI
+        │   ├── tool_source_picker.dart     # Where a tool's source image (and prompt) comes from
+        │   ├── tool_workspace.dart         # Shared tool workspace frame and the Ctrl/Cmd+Enter run shortcut
         │   └── app_settings.dart           # API key, auto-save, shelf visibility, quick actions, upscale backend, tooltips, locale
         ├── cascade/                       # Cascade sequential generation
         │   ├── models/
-        │   │   ├── prompt_cascade.dart     # PromptCascade, CascadeBeat models
-        │   │   └── cascade_character.dart  # Character slot definitions
+        │   │   ├── prompt_cascade.dart     # PromptCascade model
+        │   │   └── cascade_beat.dart       # CascadeBeat model
         │   ├── providers/
         │   │   └── cascade_notifier.dart   # Cascade state machine with unsaved-changes detection
         │   ├── services/
@@ -265,7 +310,8 @@ lib/
         │   ├── services/
         │   │   └── img2img_request_builder.dart  # Request payload construction
         │   └── widgets/
-        │       └── img2img_editor.dart     # Canvas with brush painting
+        │       ├── img2img_editor.dart     # Canvas with brush painting
+        │       └── img2img_header.dart     # Workspace header: back, tool buttons, generate
         ├── ml/                            # ML model manager UI
         │   └── widgets/
         │       ├── ml_models_manager.dart  # Model download/management interface
@@ -282,6 +328,37 @@ lib/
                 ├── slideshow_launcher.dart # Slideshow configuration and launch UI
                 └── slideshow_player.dart   # Full-screen slideshow playback
 ```
+
+## Gateway server modules
+
+The FastAPI gateway in `server/app/` is assembled by `main.py` (middleware,
+error handlers, lifespan, `include_router`; the entry point stays
+`app.main:app`). Everything else is split by domain:
+
+| Module | Role |
+|---|---|
+| `config.py` | Environment variables and constants. Read as `config.X` so tests can patch paths. |
+| `state.py` | All process-wide mutable state: HTTP client, image/text queue clocks and pending lists, upstream lane, tool response cache, background tasks. |
+| `db.py` | Connections, the final `SCHEMA` (`PRAGMA user_version`), the startup version check, `recompute_reserved_points`, bootstrap users. |
+| `db_upgrade.py` | One-off upgrade from the pre-fix production schema (version 0) to the final schema; `python -m app.cli db upgrade` (dry run by default). |
+| `users.py` | Role and permission helpers, user DTOs, quota/rules for a user. |
+| `auth.py` | `require_user` / `require_admin`, login/logout, `/api/me`, `/api/quota`, `only_auth` wiring. |
+| `audit.py` | Request audit rows, body files (written in threads), retention. |
+| `proxy.py` | NovelAI forwarding, text queue, paid tools, `/api/nai/...`. |
+| `generation.py` | Submission, queue, worker, restore on startup, settlement wiring, task status. |
+| `storage.py` | History image / thumbnail files and PNG helpers. |
+| `history.py`, `admin.py`, `feedback.py`, `web.py` | Routers for history, administration, client feedback, static files and the SPA fallback (included last). |
+
+`billing.py` (quotes, reservations, settlement), `upstream_lane.py` (the single
+upstream lane), `idempotency.py` (tool response cache), `errors.py` (contract
+error responses), `body_limit.py` (request body cap), `roles.py`,
+`only_webauth.py` (passkey login), `security.py` and `cli.py` stay standalone.
+`main.py` also turns off `/docs`, `/redoc` and `/openapi.json` when
+`NAIWEAVER_ENV=production`. Tests live in `server/tests/` (`unittest`, isolated
+temporary data directories, shared fixtures with the Flutter suite). Dependencies point downwards (config/state/db first, routers
+last); a billing transaction (`BEGIN IMMEDIATE`) never contains an `await`.
+Blocking file work (audit bodies, history images, thumbnails) runs through
+`asyncio.to_thread`.
 
 ## Provider Dependency Tree
 
@@ -331,6 +408,41 @@ Both Director Reference and Vibe Transfer share `ReferenceImageProcessor` which 
 ### Theme System
 All UI styling flows through `VisionTokens`, a semantic token layer derived from `AppThemeConfig`. Widgets access tokens via `context.t` (a `BuildContext` extension). `ThemeNotifier` manages theme state with persistence to SharedPreferences, supports 8 built-in themes and unlimited user-created themes, and provides live preview during editing. The `ThemeBuilder` widget in Tools Hub exposes all theme properties (17 colors including `bgRemoval` and `upscale`, font family, font scale, bright mode) with a color picker dialog and real-time preview card. Widescreen sidebar layout is available with three modes (auto/always/never), configurable width, and configurable prompt position.
 
+### UI Conventions
+
+Pages are built from tokens and shared components, never from ad-hoc styling.
+
+**Tokens**
+- Colors and fonts: `context.t` (`VisionTokens`) in `build()`, `context.tRead` in callbacks. Font sizes go through `t.fontSize(n)` / `t.titleSize(n)` / `t.buttonSize(n)`. Text comes from `context.l`.
+- Metrics: `VisionMetrics` (`lib/core/theme/vision_metrics.dart`), theme-independent constants.
+  - Spacing: `space4/8/12/16/24`.
+  - Radius: `radius2/4/8/12` (4 is the default; there is no 3, 5 or 6).
+  - Opacity steps: `opacityHover` 0.08, `opacityPressed` 0.15, `opacityDisabled` 0.4, `opacityScrim` 0.5, `opacityOverlay` 0.8.
+  - Touch size: `context.touchSize` is 48 below 840 px and 32 from 840 px up; `context.hitSize` is the same but never below `minHitTarget` (40).
+  - Icon sizes: `iconSmall` 14, `iconMedium` 18, `iconLarge` 24. Border width: `borderWidth` 1.
+- `ThemeData` (built in `ThemeNotifier._buildThemeData`) themes bottom sheets, snack bars, dialogs, tab bars, popup menus, tooltips, icon/text/elevated buttons, chips and sliders from the tokens, so a bare Material widget already looks right.
+
+**Breakpoints** (`lib/core/utils/responsive.dart`): `WindowSizeClass` is compact (<600), medium (600-839), expanded (840-1199), large (1200-1599), xlarge (>=1600). Use `windowSizeClassOf(context)`, or `windowSizeClassForWidth(constraints.maxWidth)` inside a `LayoutBuilder`. `isTouchSized` (compact/medium) selects touch controls and, on the generation page, the bottom-sheet layout; expanded uses the regular layout; large and up (`isSidebarCapable`) may use the sidebar.
+
+**Which component for which concept** (shared components live in `lib/core/widgets/` and `lib/core/widgets/ui/`)
+
+| Concept | Use |
+| --- | --- |
+| Bottom sheet | `showAppSheet` with `AppPickerSheet` content |
+| Panel / card block | `AppPanel(variant)` |
+| Inline error | `ErrorBanner` |
+| Badge / capsule | `AppPill(tone, dense)` |
+| Section label | `SectionTitle(variant, trailing)` |
+| Overlay icon on images | `OverlayActionButton` / `OverlayActionFrame` |
+| Empty / loading / error screen | `EmptyState` / `LoadingState` / `ErrorState` |
+| Toast | `showAppSnackBar(tone:)` / `showErrorSnackBar` |
+| Tabs / single choice | `AppTabBar` / `AppSegmented` (wrap instead of overflow) |
+| Confirmation | `showConfirmDialog` |
+| Text prompt | `showTextInputDialog` (`text_input_dialog.dart`) |
+| Manager screens | `ManagerMasterDetailShell`, `ManagerHeader`, `ManagerListTile` |
+
+**Do not**: use `Colors.*` or `Color(0x...)`; use numeric font sizes; read `Theme.of(context).colorScheme`; call `showModalBottomSheet` directly; construct a `SnackBar` directly; hand-pick spacing, radius or opacity values that are not in `VisionMetrics`.
+
 ### Localization System
 All UI strings flow through Flutter's `AppLocalizations` generated from `.arb` files. Widgets access strings via `context.l` (a `BuildContext` extension). `LocaleNotifier` manages the active locale and persists the selection to SharedPreferences. New languages are added by creating an `.arb` file and regenerating.
 
@@ -361,6 +473,8 @@ Context-aware floating action buttons rendered on the image viewer. Each button 
 7. `NovelAIService` builds V4.5 JSON payload, sends via Dio, decompresses ZIP response
 8. `ImageUtils.injectMetadata()` encodes settings into PNG Comment/Description chunks (in Isolate)
 9. Image saved to `output/` folder, `GalleryNotifier` picks it up
+
+One generation runs at a time (`GenerationState.isGenerating`); the settings, request and metadata are frozen when it is submitted, results are written back by item id and run id (late or foreign results are dropped), and everything that acts on an image (save, export, album) is given that image's item id.
 
 ### Img2Img / Inpainting
 1. Source image loaded into `Img2ImgNotifier` (from file, last generation, or canvas editor)
@@ -418,7 +532,7 @@ Context-aware floating action buttons rendered on the image viewer. Each button 
 ### Photoshoot
 1. User opens Photoshoot for a character + outfit; the outfit is copied into ephemeral working state
 2. Dress/Scene/Prompt drawer assembles a prompt from the rendered outfit + style + pose/environment presets
-3. GENERATE snapshots the main editor's prompt + negative, writes the assembled prompt (and character/outfit negatives) into the shared controllers, runs `GenerationNotifier.generate()`, then restores the snapshot; SEND instead pops back and appends to the main prompt
+3. GENERATE passes the assembled prompt (and character/outfit negatives) to `GenerationNotifier.generate(prompt:, negativePrompt:)`, so the main editor's boxes and batch size are never touched; SEND instead pops back and appends to the main prompt
 4. Saved closet is untouched unless the user taps "save state to outfit"
 
 ### Pack Export/Import

@@ -80,7 +80,7 @@ class MLInferenceService {
       platform: platform,
     );
 
-    debugPrint('ML: Device capabilities: ${_capabilities!.deviceInfoLabel}, providers: $providers');
+    debugPrint('ML: Device capabilities: ${_capabilities!.activeProvider}, providers: $providers');
     return _capabilities!;
   }
 

@@ -1,16 +1,29 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:provider/provider.dart';
 
+import '../../../core/gateway/backend_gateway.dart';
+import '../../../core/gateway/backend_permissions.dart';
+import '../../../core/l10n/l10n_extensions.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/vision_metrics.dart';
 import '../../../core/theme/vision_tokens.dart';
 import '../../../core/utils/app_snackbar.dart';
-import '../../../core/utils/tag_suggestion_helper.dart';
 import '../../../core/widgets/browser_native_selectable_text.dart';
+import '../../../core/widgets/section_title.dart';
+import '../../../core/widgets/ui/app_panel.dart';
+import '../../../core/widgets/ui/app_pill.dart';
+import '../../../core/widgets/ui/app_sheet.dart';
+import '../../../core/widgets/ui/app_states.dart';
+import '../../../core/widgets/ui/app_tabs.dart';
 import '../../gallery/providers/gallery_notifier.dart';
 import '../../gallery/ui/image_detail_view.dart';
+import '../../auth/backend_auth_notifier.dart';
 import '../../generation/providers/generation_notifier.dart';
+import '../../generation/widgets/quote_confirm_dialog.dart';
 import '../models/closet_outfit.dart';
 import '../models/saved_character.dart';
 import '../outfit/outfit_renderer.dart';
@@ -142,7 +155,7 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
     final lib = context.read<CharacterLibraryNotifier>();
     await lib.updateOutfit(widget.characterId, outfit);
     if (!mounted) return;
-    showAppSnackBar(context, 'OUTFIT STATE SAVED');
+    showAppSnackBar(context, context.l.photoshootOutfitStateSaved);
   }
 
   String _assembledPrompt(SavedCharacter character, ClosetOutfit? outfit) {
@@ -216,7 +229,7 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
     if (id == 'character') return character.artistTag.trim();
     final found = _kStyleBundles.firstWhere(
       (b) => b.id == id,
-      orElse: () => const _StyleBundle(id: '', label: '', tags: ''),
+      orElse: () => const _StyleBundle(id: '', tags: ''),
     );
     return found.tags;
   }
@@ -245,76 +258,60 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
 
   Future<void> _generate(String prompt) async {
     if (prompt.isEmpty) return;
+    if (!canGenerateImage(context)) {
+      showErrorSnackBar(context, context.l.gatewayErrPermissionDenied);
+      return;
+    }
     final gen = context.read<GenerationNotifier>();
-    // generate() reads the prompt + negative prompt from the shared
-    // controllers, so we must write both. Snapshot the user's main-screen
-    // values and restore them afterwards so a photoshoot GENERATE (which stays
-    // on this screen) doesn't silently wipe what they had typed on the main
-    // editor. SEND intentionally keeps them.
-    final savedMainPrompt = gen.promptController.text;
-    final savedMainNegative = gen.negativePromptController.text;
+    final auth = useBackendGateway ? context.read<BackendAuthNotifier>() : null;
+    // The photoshoot's own prompts go straight to the generation: the main
+    // editor's boxes (and what the user types there meanwhile) are not
+    // borrowed, so there is nothing to restore afterwards. Without character
+    // or outfit negatives the main negative prompt applies, as before. SEND
+    // intentionally copies the prompts to the main editor.
     final negatives = _assembledNegativePrompt();
-    gen.promptController.text = prompt;
-    if (negatives.isNotEmpty) gen.negativePromptController.text = negatives;
     // Drop focus + collapse the drawer so the freshly-generated image is visible.
     FocusScope.of(context).unfocus();
     setState(() => _drawerExpanded = false);
-    try {
-      await gen.generate();
-      if (!mounted) return;
-      // generate() never throws — it swallows errors and records them on its
-      // state. So check the state, not the (impossible) exception, to decide
-      // whether it actually succeeded.
-      final st = gen.state;
-      if (st.hasAuthError) {
-        showErrorSnackBar(context, 'AUTH ERROR — CHECK API KEY');
-      } else if (st.errorMessage != null && st.errorMessage!.isNotEmpty) {
-        showErrorSnackBar(context, 'GENERATION FAILED: ${st.errorMessage}');
-      } else {
-        showAppSnackBar(context, 'GENERATED');
-      }
-    } catch (e) {
-      // Belt-and-braces: if generate() ever does throw, still surface it.
-      if (!mounted) return;
-      showErrorSnackBar(context, 'GENERATION FAILED: $e');
-    } finally {
-      gen.promptController.text = savedMainPrompt;
-      gen.negativePromptController.text = savedMainNegative;
+    final outcome = await gen.generate(
+      prompt: prompt,
+      negativePrompt: negatives.isEmpty ? null : negatives,
+      confirmQuote: (confirmation) => confirmQuoteChange(context, confirmation),
+    );
+    unawaited(auth?.refreshSession());
+    if (!mounted || outcome.declined) return;
+    // Judge by what happened to the images, not by the call returning.
+    if (outcome.authFailed) {
+      showErrorSnackBar(context, context.l.mainAuthError);
+    } else if (outcome.succeeded) {
+      showAppSnackBar(context, context.l.photoshootGenerated);
+    } else {
+      showErrorSnackBar(
+        context,
+        context.l.photoshootGenerationFailed(
+          outcome.errorMessage ?? context.l.generationFailedFallback,
+        ),
+      );
     }
   }
 
   void _sendToMainPrompt(String prompt) {
     if (prompt.isEmpty) return;
     final gen = context.read<GenerationNotifier>();
-    // Capture the root messenger BEFORE popping — after pop, `context` belongs
-    // to the dead route and ScaffoldMessenger.of(context) would attach the
-    // snackbar to a disappearing messenger (it'd never show).
-    final messenger = ScaffoldMessenger.of(context);
-    final t = context.tRead;
-    gen.promptController.text = prompt;
-    // Carry the character/outfit negatives over too, appended (de-duplicated)
-    // to whatever the main editor already has — matches the autocomplete
-    // insert path so SEND doesn't drop the per-character negatives.
-    TagSuggestionHelper.appendNegatives(
-      gen.negativePromptController,
+    // SEND is an explicit "to the main prompt": it replaces the main prompt
+    // with the photoshoot's and carries the character/outfit negatives over,
+    // appended (de-duplicated) to the main negative prompt. It goes through
+    // the shared character insertion so the negatives follow the same rules
+    // as every other insert path.
+    gen.insertCharacterTags(
+      prompt,
       _assembledNegativePrompt(),
+      target: 'main',
+      replaceMainPrompt: true,
     );
+    // The messenger sits above the route, so the toast outlives the pop.
+    showAppSnackBar(context, context.l.photoshootSentToMain);
     Navigator.of(context).pop();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          'SENT TO MAIN PROMPT',
-          style: TextStyle(color: t.accentSuccess, fontSize: t.fontSize(11)),
-        ),
-        backgroundColor: const Color(0xFF0A1A0A),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 3),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(4),
-          side: BorderSide(color: t.accentSuccess.withValues(alpha: 0.3)),
-        ),
-      ),
-    );
   }
 
   void _openFullViewer(int index) {
@@ -330,8 +327,8 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
     final character = lib.characterById(widget.characterId);
     if (character == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Photoshoot')),
-        body: const Center(child: Text('Character not found')),
+        appBar: AppBar(title: Text(context.l.photoshootTitle)),
+        body: EmptyState(message: context.l.photoshootCharacterNotFound),
       );
     }
     final closet = lib.closetFor(widget.characterId);
@@ -382,7 +379,7 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'PHOTOSHOOT',
+              context.l.photoshootTitle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -406,11 +403,15 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
             onPressed: closet.isEmpty
                 ? null
                 : () => _pickOutfit(closet, outfit),
-            icon: Icon(Icons.checkroom, size: 15, color: t.accent),
+            icon: Icon(
+              Icons.checkroom,
+              size: VisionMetrics.iconMedium,
+              color: t.accent,
+            ),
             label: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 120),
               child: Text(
-                outfit?.name ?? '(no outfit)',
+                outfit?.name ?? context.l.photoshootNoOutfit,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: outfit == null ? t.textMinimal : t.textPrimary,
@@ -419,7 +420,7 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
               ),
             ),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: VisionMetrics.space4),
         ],
       ),
       body: SafeArea(
@@ -468,7 +469,12 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
     final recent = gallery.activeItems.take(12).toList();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      padding: const EdgeInsets.fromLTRB(
+        VisionMetrics.space12,
+        VisionMetrics.space8,
+        VisionMetrics.space12,
+        VisionMetrics.space8,
+      ),
       child: Column(
         children: [
           Expanded(
@@ -479,8 +485,8 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
               child: Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: t.surfaceMid.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(6),
+                  color: t.surfaceMid,
+                  borderRadius: BorderRadius.circular(VisionMetrics.radius4),
                   border: Border.all(
                     color: loading ? t.accent : t.borderSubtle,
                     width: loading ? 2 : 1,
@@ -500,69 +506,25 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
                         filterQuality: FilterQuality.medium,
                       )
                     else
-                      Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.camera_outlined,
-                              size: 44,
-                              color: t.textPrimary.withValues(alpha: 0.12),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'YOUR SHOT APPEARS HERE',
-                              style: TextStyle(
-                                color: t.textMinimal,
-                                fontSize: t.fontSize(9),
-                                letterSpacing: 1.5,
-                              ),
-                            ),
-                          ],
-                        ),
+                      EmptyState(
+                        icon: Icons.camera_outlined,
+                        message: context.l.photoshootPreviewPlaceholder,
                       ),
                     if (loading)
-                      Container(
-                        color: t.background.withValues(alpha: 0.35),
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: t.accent,
-                          ),
+                      ColoredBox(
+                        color: t.background.withValues(
+                          alpha: VisionMetrics.opacityScrim,
                         ),
+                        child: const LoadingState(),
                       ),
                     if (bytes != null && !loading)
                       Positioned(
-                        right: 8,
-                        bottom: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: t.background.withValues(alpha: 0.55),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.fullscreen,
-                                size: 12,
-                                color: t.textSecondary,
-                              ),
-                              const SizedBox(width: 3),
-                              Text(
-                                'TAP TO VIEW',
-                                style: TextStyle(
-                                  color: t.textSecondary,
-                                  fontSize: t.fontSize(8),
-                                  letterSpacing: 1,
-                                ),
-                              ),
-                            ],
-                          ),
+                        right: VisionMetrics.space8,
+                        bottom: VisionMetrics.space8,
+                        child: AppPill(
+                          icon: Icons.fullscreen,
+                          text: context.l.photoshootTapToView,
+                          dense: true,
                         ),
                       ),
                   ],
@@ -571,19 +533,22 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
             ),
           ),
           if (recent.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: VisionMetrics.space8),
             SizedBox(
               height: 56,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: recent.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 6),
+                separatorBuilder: (_, _) =>
+                    const SizedBox(width: VisionMetrics.space8),
                 itemBuilder: (_, i) {
                   final f = recent[i].file;
                   return GestureDetector(
                     onTap: () => _openFullViewer(i),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(
+                        VisionMetrics.radius4,
+                      ),
                       child: Image.file(
                         f,
                         width: 56,
@@ -596,7 +561,7 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
                           color: t.surfaceMid,
                           child: Icon(
                             Icons.broken_image,
-                            size: 16,
+                            size: VisionMetrics.iconMedium,
                             color: t.textMinimal,
                           ),
                         ),
@@ -627,11 +592,13 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
     return Container(
       decoration: BoxDecoration(
         color: t.surfaceHigh,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(VisionMetrics.radius12),
+        ),
         border: Border.all(color: t.borderStrong),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
+            color: t.background.withValues(alpha: VisionMetrics.opacityScrim),
             blurRadius: 16,
             offset: const Offset(0, -4),
           ),
@@ -663,7 +630,7 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
                   height: 4,
                   decoration: BoxDecoration(
                     color: t.textDisabled,
-                    borderRadius: BorderRadius.circular(2),
+                    borderRadius: BorderRadius.circular(VisionMetrics.radius2),
                   ),
                 ),
               ),
@@ -694,54 +661,21 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
   }
 
   Widget _tabBar(VisionTokens t) {
-    Widget label(String text, int count) => Tab(
-      height: 38,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: t.fontSize(10),
-              letterSpacing: 1.5,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          if (count > 0) ...[
-            const SizedBox(width: 5),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-              decoration: BoxDecoration(
-                color: t.accent.withValues(alpha: 0.22),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '$count',
-                style: TextStyle(
-                  fontSize: t.fontSize(8),
-                  color: t.accent,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-
+    final l = context.l;
+    String label(String text, int count) => count > 0 ? '$text ($count)' : text;
     final dressCount = (_workingOutfit != null) ? 1 : 0;
-    return TabBar(
-      controller: _tabController,
-      labelColor: t.accent,
-      unselectedLabelColor: t.textTertiary,
-      indicatorColor: t.accent,
-      indicatorSize: TabBarIndicatorSize.label,
-      dividerColor: t.borderSubtle,
-      tabs: [
-        label('DRESS', dressCount),
-        label('SCENE', _sceneCount),
-        label('PROMPT', 0),
-      ],
+    // The controller drives the pages; the tab bar only mirrors its index.
+    return AnimatedBuilder(
+      animation: _tabController,
+      builder: (context, _) => AppTabBar<int>(
+        options: [
+          AppOption(value: 0, label: label(l.photoshootTabDress, dressCount)),
+          AppOption(value: 1, label: label(l.photoshootTabScene, _sceneCount)),
+          AppOption(value: 2, label: l.photoshootTabPrompt),
+        ],
+        selected: _tabController.index,
+        onChanged: _tabController.animateTo,
+      ),
     );
   }
 
@@ -749,13 +683,15 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
 
   Widget _dressTab(VisionTokens t, ClosetOutfit? outfit) {
     if (outfit == null) {
-      return _emptyHint(
-        t,
-        'No outfit to dress — add one from the character editor.',
-      );
+      return EmptyState(message: context.l.photoshootNoOutfitHint);
     }
     return ListView(
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 16),
+      padding: const EdgeInsets.fromLTRB(
+        VisionMetrics.space16,
+        VisionMetrics.space12,
+        VisionMetrics.space16,
+        VisionMetrics.space16,
+      ),
       children: [
         OutfitStatePanel(
           key: ValueKey('photoshoot_state_${outfit.id}'),
@@ -767,14 +703,18 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
           // self-contained.
           onApplyToPrompt: (_, _) {},
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: VisionMetrics.space8),
         Align(
           alignment: Alignment.centerRight,
           child: TextButton.icon(
             onPressed: _saveStateToOutfit,
-            icon: Icon(Icons.save_outlined, size: 14, color: t.accent),
+            icon: Icon(
+              Icons.save_outlined,
+              size: VisionMetrics.iconSmall,
+              color: t.accent,
+            ),
             label: Text(
-              'SAVE STATE TO OUTFIT',
+              context.l.photoshootSaveState,
               style: TextStyle(
                 color: t.accent,
                 fontSize: t.fontSize(9),
@@ -793,26 +733,31 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
     return ListView(
       // Extra bottom room so the focused custom-tag field can scroll clear of
       // the action bar when the keyboard is up.
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
+      padding: const EdgeInsets.fromLTRB(
+        VisionMetrics.space16,
+        VisionMetrics.space12,
+        VisionMetrics.space16,
+        VisionMetrics.space24,
+      ),
       children: [
         _stylePicker(t, character),
-        const SizedBox(height: 16),
+        const SizedBox(height: VisionMetrics.space16),
         _presetSection(
           t,
-          title: 'POSE',
+          title: context.l.photoshootSectionPose,
           presets: _poses,
           selected: _selectedPoseIds,
           customCtrl: _customPoseCtrl,
-          hint: 'custom pose tags…',
+          hint: context.l.photoshootCustomPoseHint,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: VisionMetrics.space16),
         _presetSection(
           t,
-          title: 'ENVIRONMENT',
+          title: context.l.photoshootSectionEnvironment,
           presets: _environments,
           selected: _selectedEnvIds,
           customCtrl: _customEnvCtrl,
-          hint: 'custom environment tags…',
+          hint: context.l.photoshootCustomEnvHint,
         ),
       ],
     );
@@ -821,48 +766,42 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
   // -- Tab: Prompt -----------------------------------------------------------
 
   Widget _promptTab(VisionTokens t, String assembled) {
+    final l = context.l;
+    final tagCount = assembled.isEmpty ? 0 : assembled.split(',').length;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
+      padding: const EdgeInsets.fromLTRB(
+        VisionMetrics.space16,
+        VisionMetrics.space12,
+        VisionMetrics.space16,
+        VisionMetrics.space16,
+      ),
       children: [
-        Row(
-          children: [
-            Text(
-              'ASSEMBLED PROMPT',
+        SectionTitle(
+          l.photoshootAssembledPrompt,
+          t: t,
+          variant: SectionTitleVariant.compact,
+          trailing: Text(
+            l.photoshootTagCount(tagCount),
+            style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9)),
+          ),
+        ),
+        SizedBox(
+          width: double.infinity,
+          child: AppPanel(
+            variant: AppPanelVariant.raised,
+            child: BrowserNativeSelectableText(
+              text: assembled.isEmpty ? l.photoshootEmptyPrompt : assembled,
               style: TextStyle(
-                color: t.textTertiary,
-                fontSize: t.fontSize(9),
-                letterSpacing: 1.5,
-                fontWeight: FontWeight.bold,
+                color: t.textPrimary,
+                fontSize: t.fontSize(12),
+                height: 1.4,
               ),
             ),
-            const Spacer(),
-            Text(
-              '${assembled.isEmpty ? 0 : assembled.split(',').length} tags',
-              style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9)),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: t.surfaceMid,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: t.borderSubtle),
-          ),
-          child: BrowserNativeSelectableText(
-            text: assembled.isEmpty ? '(empty)' : assembled,
-            style: TextStyle(
-              color: t.textPrimary,
-              fontSize: t.fontSize(12),
-              height: 1.4,
-            ),
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: VisionMetrics.space12),
         Text(
-          'Built from: style → body → outfit → pose → environment. Adjust in the Dress and Scene tabs.',
+          l.photoshootPromptBuiltFrom,
           style: TextStyle(
             color: t.textMinimal,
             fontSize: t.fontSize(9),
@@ -885,7 +824,7 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
     final loading = gen.state.isLoading;
     return Container(
       height: height,
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      padding: const EdgeInsets.all(VisionMetrics.space12),
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: t.borderSubtle)),
       ),
@@ -899,33 +838,42 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
                   : null,
               icon: loading
                   ? SizedBox(
-                      width: 14,
-                      height: 14,
+                      width: VisionMetrics.iconSmall,
+                      height: VisionMetrics.iconSmall,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         color: t.accent,
                       ),
                     )
-                  : const Icon(Icons.auto_awesome, size: 16),
+                  : const Icon(
+                      Icons.auto_awesome,
+                      size: VisionMetrics.iconMedium,
+                    ),
               label: Text(
-                loading ? 'GENERATING…' : 'GENERATE',
+                loading
+                    ? context.l.photoshootGenerating
+                    : context.l.photoshootGenerate,
                 style: TextStyle(fontSize: t.fontSize(11), letterSpacing: 1),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: t.accent,
                 foregroundColor: t.surfaceHigh,
                 elevation: 0,
-                minimumSize: const Size.fromHeight(44),
+                minimumSize: Size.fromHeight(context.hitSize),
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: VisionMetrics.space8),
           Expanded(
             child: OutlinedButton.icon(
               onPressed: canGen ? () => _sendToMainPrompt(assembled) : null,
-              icon: Icon(Icons.exit_to_app, size: 14, color: t.accent),
+              icon: Icon(
+                Icons.exit_to_app,
+                size: VisionMetrics.iconSmall,
+                color: t.accent,
+              ),
               label: Text(
-                'SEND',
+                context.l.photoshootSend,
                 style: TextStyle(
                   color: t.accent,
                   fontSize: t.fontSize(10),
@@ -934,7 +882,7 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
               ),
               style: OutlinedButton.styleFrom(
                 side: BorderSide(color: t.accent),
-                minimumSize: const Size.fromHeight(44),
+                minimumSize: Size.fromHeight(context.hitSize),
               ),
             ),
           ),
@@ -949,63 +897,36 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
     List<ClosetOutfit> closet,
     ClosetOutfit? current,
   ) async {
-    final t = context.tRead;
-    final chosen = await showModalBottomSheet<ClosetOutfit>(
+    final chosen = await showAppSheet<ClosetOutfit>(
       context: context,
-      backgroundColor: t.surfaceHigh,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-      ),
       builder: (ctx) {
-        return SafeArea(
+        final t = ctx.t;
+        return AppPickerSheet(
+          title: ctx.l.photoshootSelectOutfit,
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-                child: Text(
-                  'OUTFIT',
-                  style: TextStyle(
-                    color: t.textTertiary,
-                    fontSize: t.fontSize(9),
-                    letterSpacing: 1.5,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
               for (final o in closet)
-                InkWell(
-                  onTap: () => Navigator.of(ctx).pop(o),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      border: Border(top: BorderSide(color: t.borderSubtle)),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            o.name,
-                            style: TextStyle(
-                              color: t.textPrimary,
-                              fontSize: t.fontSize(13),
-                              fontWeight: o.id == current?.id
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                        ),
-                        if (o.id == current?.id)
-                          Icon(Icons.check, size: 18, color: t.accent),
-                      ],
+                ListTile(
+                  title: Text(
+                    o.name,
+                    style: TextStyle(
+                      color: t.textPrimary,
+                      fontSize: t.fontSize(13),
+                      fontWeight: o.id == current?.id
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                     ),
                   ),
+                  trailing: o.id == current?.id
+                      ? Icon(
+                          Icons.check,
+                          size: VisionMetrics.iconMedium,
+                          color: t.accent,
+                        )
+                      : null,
+                  onTap: () => Navigator.of(ctx).pop(o),
                 ),
-              const SizedBox(height: 8),
             ],
           ),
         );
@@ -1016,47 +937,27 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
   }
 
   Widget _stylePicker(VisionTokens t, SavedCharacter character) {
+    final l = context.l;
     final hasCharacterArtist = character.artistTag.trim().isNotEmpty;
-    final bundles = <_StyleBundle>[
+    final options = <AppOption<String?>>[
+      AppOption(value: null, label: l.commonNone),
       if (hasCharacterArtist)
-        _StyleBundle(
-          id: 'character',
-          label: 'Character default',
-          tags: character.artistTag.trim(),
-        ),
-      ..._kStyleBundles,
+        AppOption(value: 'character', label: l.photoshootStyleCharacterDefault),
+      for (final b in _kStyleBundles)
+        AppOption(value: b.id, label: _styleLabel(l, b.id)),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'STYLE',
-          style: TextStyle(
-            color: t.textTertiary,
-            fontSize: t.fontSize(8),
-            letterSpacing: 1.5,
-            fontWeight: FontWeight.bold,
-          ),
+        SectionTitle(
+          l.photoshootSectionStyle,
+          t: t,
+          variant: SectionTitleVariant.compact,
         ),
-        const SizedBox(height: 6),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            _chip(
-              t,
-              'none',
-              selected: _selectedStyle == null,
-              onTap: () => setState(() => _selectedStyle = null),
-            ),
-            for (final b in bundles)
-              _chip(
-                t,
-                b.label,
-                selected: _selectedStyle == b.id,
-                onTap: () => setState(() => _selectedStyle = b.id),
-              ),
-          ],
+        AppSegmented<String?>(
+          options: options,
+          selected: _selectedStyle,
+          onChanged: (id) => setState(() => _selectedStyle = id),
         ),
       ],
     );
@@ -1070,77 +971,72 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
     required TextEditingController customCtrl,
     required String hint,
   }) {
+    final l = context.l;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                color: t.textTertiary,
-                fontSize: t.fontSize(8),
-                letterSpacing: 1.5,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(width: 8),
-            if (selected.isNotEmpty)
-              Text(
-                '${selected.length} selected',
-                style: TextStyle(color: t.accent, fontSize: t.fontSize(8)),
-              ),
-            const Spacer(),
-            if (!_presetsLoaded)
-              SizedBox(
-                width: 10,
-                height: 10,
-                child: CircularProgressIndicator(
-                  strokeWidth: 1.5,
-                  color: t.accent,
+        SectionTitle(
+          title,
+          t: t,
+          variant: SectionTitleVariant.compact,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (selected.isNotEmpty)
+                Text(
+                  l.photoshootSelectedCount(selected.length),
+                  style: TextStyle(color: t.accent, fontSize: t.fontSize(8)),
                 ),
-              )
-            else if (selected.isNotEmpty)
-              InkWell(
-                onTap: () => setState(selected.clear),
-                child: Text(
-                  'CLEAR',
-                  style: TextStyle(
-                    color: t.textMinimal,
-                    fontSize: t.fontSize(8),
-                    letterSpacing: 1,
+              if (!_presetsLoaded)
+                SizedBox(
+                  width: VisionMetrics.iconSmall,
+                  height: VisionMetrics.iconSmall,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: t.accent,
+                  ),
+                )
+              else if (selected.isNotEmpty)
+                TextButton(
+                  onPressed: () => setState(selected.clear),
+                  child: Text(
+                    l.photoshootClear,
+                    style: TextStyle(
+                      color: t.textMinimal,
+                      fontSize: t.fontSize(8),
+                      letterSpacing: 1,
+                    ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
-        const SizedBox(height: 6),
         if (presets.isEmpty && _presetsLoaded)
           Text(
-            'No presets available',
+            l.photoshootNoPresets,
             style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(9)),
           )
         else
           Wrap(
-            spacing: 6,
-            runSpacing: 6,
+            spacing: VisionMetrics.space8,
+            runSpacing: VisionMetrics.space8,
             children: [
               for (final p in presets)
-                _chip(
-                  t,
-                  p.label,
+                FilterChip(
+                  label: Text(p.label),
                   selected: selected.contains(p.id),
-                  onTap: () => setState(() {
-                    if (selected.contains(p.id)) {
-                      selected.remove(p.id);
-                    } else {
+                  showCheckmark: false,
+                  onSelected: (on) => setState(() {
+                    if (on) {
                       selected.add(p.id);
+                    } else {
+                      selected.remove(p.id);
                     }
                   }),
                 ),
             ],
           ),
-        const SizedBox(height: 8),
+        const SizedBox(height: VisionMetrics.space8),
         TextField(
           controller: customCtrl,
           style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(12)),
@@ -1152,16 +1048,16 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
             ),
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(
-              horizontal: 10,
-              vertical: 10,
+              horizontal: VisionMetrics.space12,
+              vertical: VisionMetrics.space12,
             ),
             enabledBorder: OutlineInputBorder(
               borderSide: BorderSide(color: t.borderSubtle),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(VisionMetrics.radius4),
             ),
             focusedBorder: OutlineInputBorder(
               borderSide: BorderSide(color: t.accent),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(VisionMetrics.radius4),
             ),
           ),
           onChanged: (_) => setState(() {}),
@@ -1170,50 +1066,15 @@ class _PhotoshootScreenState extends State<PhotoshootScreen>
     );
   }
 
-  Widget _chip(
-    VisionTokens t,
-    String label, {
-    required bool selected,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 32),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected ? t.accent.withValues(alpha: 0.25) : t.surfaceMid,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: selected ? t.accent : t.borderSubtle,
-            width: selected ? 1.5 : 1,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? t.accent : t.textSecondary,
-            fontSize: t.fontSize(10),
-            fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _emptyHint(VisionTokens t, String text) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(11)),
-        ),
-      ),
-    );
-  }
+  String _styleLabel(AppLocalizations l, String id) => switch (id) {
+    'anime' => l.photoshootStyleAnime,
+    'painterly' => l.photoshootStylePainterly,
+    'photoreal' => l.photoshootStylePhotoreal,
+    'sketch' => l.photoshootStyleSketch,
+    'watercolor' => l.photoshootStyleWatercolor,
+    'ink' => l.photoshootStyleInk,
+    _ => id,
+  };
 }
 
 class _PresetEntry {
@@ -1238,34 +1099,20 @@ class _PresetEntry {
 
 class _StyleBundle {
   final String id;
-  final String label;
   final String tags;
-  const _StyleBundle({
-    required this.id,
-    required this.label,
-    required this.tags,
-  });
+  const _StyleBundle({required this.id, required this.tags});
 }
 
 /// A small set of curated artist-tag bundles. Intentionally short; users pick
 /// or override per-character via the artistTag field.
 const List<_StyleBundle> _kStyleBundles = [
-  _StyleBundle(id: 'anime', label: 'Anime', tags: 'anime coloring'),
-  _StyleBundle(
-    id: 'painterly',
-    label: 'Painterly',
-    tags: 'painterly, soft brush',
-  ),
-  _StyleBundle(
-    id: 'photoreal',
-    label: 'Photoreal',
-    tags: 'realistic, photorealistic',
-  ),
-  _StyleBundle(id: 'sketch', label: 'Sketch', tags: 'sketch, pencil drawing'),
+  _StyleBundle(id: 'anime', tags: 'anime coloring'),
+  _StyleBundle(id: 'painterly', tags: 'painterly, soft brush'),
+  _StyleBundle(id: 'photoreal', tags: 'realistic, photorealistic'),
+  _StyleBundle(id: 'sketch', tags: 'sketch, pencil drawing'),
   _StyleBundle(
     id: 'watercolor',
-    label: 'Watercolour',
     tags: 'watercolor (medium), traditional media',
   ),
-  _StyleBundle(id: 'ink', label: 'Ink', tags: 'ink (medium), monochrome'),
+  _StyleBundle(id: 'ink', tags: 'ink (medium), monochrome'),
 ];

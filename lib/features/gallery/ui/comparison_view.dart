@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
 import '../../../core/utils/image_utils.dart';
 import '../../../core/utils/responsive.dart';
@@ -76,23 +77,28 @@ class _ComparisonViewState extends State<ComparisonView> {
   Widget build(BuildContext context) {
     final t = context.t;
     final l = AppLocalizations.of(context);
-    final mobile = isMobile(context);
+    final touch = windowSizeClassOf(context).isTouchSized;
 
     return Scaffold(
       backgroundColor: t.background,
       appBar: AppBar(
         backgroundColor: t.background,
         elevation: 0,
-        toolbarHeight: mobile ? 48 : 32,
+        toolbarHeight: touch ? 48 : 32,
         leading: IconButton(
-          icon: Icon(Icons.close, size: mobile ? 22 : 16, color: t.textSecondary),
+          icon: Icon(
+            Icons.close,
+            size: touch ? 22 : 16,
+            color: t.textSecondary,
+          ),
+          tooltip: l.commonClose,
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'COMPARE',
+          l.galleryCompare.toUpperCase(),
           style: TextStyle(
             letterSpacing: 4,
-            fontSize: t.fontSize(mobile ? 14 : 10),
+            fontSize: t.fontSize(touch ? 14 : 10),
             fontWeight: FontWeight.w900,
             color: t.textSecondary,
           ),
@@ -102,7 +108,7 @@ class _ComparisonViewState extends State<ComparisonView> {
           IconButton(
             icon: Icon(
               _sideBySide ? Icons.compare : Icons.view_column,
-              size: mobile ? 22 : 16,
+              size: touch ? 22 : 16,
               color: t.textDisabled,
             ),
             tooltip: _sideBySide
@@ -111,8 +117,12 @@ class _ComparisonViewState extends State<ComparisonView> {
             onPressed: () => setState(() => _sideBySide = !_sideBySide),
           ),
           IconButton(
-            icon: Icon(Icons.swap_horiz, size: mobile ? 22 : 16, color: t.textDisabled),
-            tooltip: 'Swap',
+            icon: Icon(
+              Icons.swap_horiz,
+              size: touch ? 22 : 16,
+              color: t.textDisabled,
+            ),
+            tooltip: l.comparisonSwap,
             onPressed: _swap,
           ),
         ],
@@ -123,69 +133,114 @@ class _ComparisonViewState extends State<ComparisonView> {
             child: _loading
                 ? Center(child: CircularProgressIndicator(color: t.accent))
                 : _sideBySide
-                    ? SideBySideComparison(
-                        beforeBytes: _leftBytes!,
-                        afterBytes: _rightBytes!,
-                        beforeLabel: l.comparisonBefore.toUpperCase(),
-                        afterLabel: l.comparisonAfter.toUpperCase(),
-                      )
-                    : ComparisonSlider(
-                        beforeBytes: _leftBytes!,
-                        afterBytes: _rightBytes!,
-                        beforeLabel: l.comparisonBefore.toUpperCase(),
-                        afterLabel: l.comparisonAfter.toUpperCase(),
-                      ),
+                ? SideBySideComparison(
+                    beforeBytes: _leftBytes!,
+                    afterBytes: _rightBytes!,
+                    beforeLabel: l.comparisonBefore.toUpperCase(),
+                    afterLabel: l.comparisonAfter.toUpperCase(),
+                  )
+                : ComparisonSlider(
+                    beforeBytes: _leftBytes!,
+                    afterBytes: _rightBytes!,
+                    beforeLabel: l.comparisonBefore.toUpperCase(),
+                    afterLabel: l.comparisonAfter.toUpperCase(),
+                  ),
           ),
-          if (!_loading) _buildMetadataBar(mobile),
+          if (!_loading) _buildMetadataBar(touch),
         ],
       ),
     );
   }
 
-  Widget _buildMetadataBar(bool mobile) {
+  Widget _buildMetadataBar(bool touch) {
     final t = context.t;
+    final l = context.l;
     return Container(
-      padding: EdgeInsets.all(mobile ? 12 : 8),
+      padding: EdgeInsets.all(touch ? 12 : 8),
       decoration: BoxDecoration(
         color: t.surfaceHigh,
         border: Border(top: BorderSide(color: t.borderSubtle)),
       ),
       child: SafeArea(
-        child: mobile
+        child: touch
             ? Column(
                 children: [
-                  _buildMetadataRow(_settingsLeft, 'BEFORE', mobile),
+                  _buildMetadataRow(
+                    _settingsLeft,
+                    l.comparisonBefore.toUpperCase(),
+                    touch,
+                  ),
                   const SizedBox(height: 8),
-                  _buildMetadataRow(_settingsRight, 'AFTER', mobile),
+                  _buildMetadataRow(
+                    _settingsRight,
+                    l.comparisonAfter.toUpperCase(),
+                    touch,
+                  ),
                 ],
               )
             : Row(
                 children: [
-                  Expanded(child: _buildMetadataRow(_settingsLeft, 'BEFORE', mobile)),
+                  Expanded(
+                    child: _buildMetadataRow(
+                      _settingsLeft,
+                      l.comparisonBefore.toUpperCase(),
+                      touch,
+                    ),
+                  ),
                   SizedBox(
                     height: 30,
                     child: VerticalDivider(width: 16, color: t.borderMedium),
                   ),
-                  Expanded(child: _buildMetadataRow(_settingsRight, 'AFTER', mobile)),
+                  Expanded(
+                    child: _buildMetadataRow(
+                      _settingsRight,
+                      l.comparisonAfter.toUpperCase(),
+                      touch,
+                    ),
+                  ),
                 ],
               ),
       ),
     );
   }
 
-  Widget _buildMetadataRow(Map<String, dynamic>? settings, String label, bool mobile) {
+  Widget _buildMetadataRow(
+    Map<String, dynamic>? settings,
+    String label,
+    bool touch,
+  ) {
     final t = context.t;
+    final l = context.l;
     if (settings == null) {
-      return Text('$label: NO METADATA', style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(mobile ? 10 : 8), letterSpacing: 1));
+      return Text(
+        '$label: ${context.l.galleryNoMetadata.toUpperCase()}',
+        style: TextStyle(
+          color: t.textDisabled,
+          fontSize: t.fontSize(touch ? 10 : 8),
+          letterSpacing: 1,
+        ),
+      );
     }
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _CompareChip(label: 'SEED', value: settings['seed']?.toString() ?? 'N/A'),
-          _CompareChip(label: 'SCALE', value: settings['scale']?.toString() ?? 'N/A'),
-          _CompareChip(label: 'STEPS', value: settings['steps']?.toString() ?? 'N/A'),
-          _CompareChip(label: 'SAMPLER', value: settings['sampler']?.toString() ?? 'N/A'),
+          _CompareChip(
+            label: l.gallerySeed.toUpperCase(),
+            value: settings['seed']?.toString() ?? 'N/A',
+          ),
+          _CompareChip(
+            label: l.galleryScale.toUpperCase(),
+            value: settings['scale']?.toString() ?? 'N/A',
+          ),
+          _CompareChip(
+            label: l.gallerySteps.toUpperCase(),
+            value: settings['steps']?.toString() ?? 'N/A',
+          ),
+          _CompareChip(
+            label: l.gallerySampler.toUpperCase(),
+            value: settings['sampler']?.toString() ?? 'N/A',
+          ),
         ],
       ),
     );
@@ -201,10 +256,13 @@ class _CompareChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final mobile = isMobile(context);
+    final touch = windowSizeClassOf(context).isTouchSized;
     return Container(
       margin: const EdgeInsets.only(right: 6),
-      padding: EdgeInsets.symmetric(horizontal: mobile ? 8 : 6, vertical: mobile ? 4 : 2),
+      padding: EdgeInsets.symmetric(
+        horizontal: touch ? 8 : 6,
+        vertical: touch ? 4 : 2,
+      ),
       decoration: BoxDecoration(
         color: t.borderSubtle,
         borderRadius: BorderRadius.circular(2),
@@ -212,8 +270,22 @@ class _CompareChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('$label ', style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(mobile ? 8 : 7), fontWeight: FontWeight.bold)),
-          Text(value, style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(mobile ? 9 : 8), fontWeight: FontWeight.w900)),
+          Text(
+            '$label ',
+            style: TextStyle(
+              color: t.textDisabled,
+              fontSize: t.fontSize(touch ? 8 : 7),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              color: t.textSecondary,
+              fontSize: t.fontSize(touch ? 9 : 8),
+              fontWeight: FontWeight.w900,
+            ),
+          ),
         ],
       ),
     );

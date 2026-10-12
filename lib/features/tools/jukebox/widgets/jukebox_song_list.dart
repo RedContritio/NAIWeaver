@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../../../core/jukebox/models/jukebox_song.dart';
+import '../../../../core/jukebox/models/song_category_l10n.dart';
 import '../../../../core/jukebox/jukebox_registry.dart';
 import '../../../../core/jukebox/providers/jukebox_notifier.dart';
+import '../../../../core/theme/vision_metrics.dart';
 import '../../../../core/theme/vision_tokens.dart';
+import '../../../../core/widgets/ui/app_pill.dart';
+import '../../../../core/widgets/ui/app_tone.dart';
 import '../../../../core/widgets/confirm_dialog.dart';
 import 'jukebox_now_playing.dart';
 import '../../../../core/l10n/l10n_extensions.dart';
@@ -23,15 +27,19 @@ class JukeboxCategoryChips extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: VisionMetrics.space12,
+        vertical: VisionMetrics.space8,
+      ),
       color: t.surfaceMid,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
             _chip(null, context.l.jukeboxCategoryAll),
-            ...SongCategory.values.map((cat) =>
-                _chip(cat, JukeboxRegistry.categoryDisplayName(cat))),
+            ...SongCategory.values.map(
+              (cat) => _chip(cat, cat.label(context.l)),
+            ),
           ],
         ),
       ),
@@ -41,26 +49,34 @@ class JukeboxCategoryChips extends StatelessWidget {
   Widget _chip(SongCategory? cat, String label) {
     final selected = selectedCategory == cat;
     return Padding(
-      padding: const EdgeInsets.only(right: 6),
+      padding: const EdgeInsets.only(right: VisionMetrics.space8),
       child: InkWell(
         onTap: () => onCategoryChanged(cat),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(VisionMetrics.radius4),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          padding: const EdgeInsets.symmetric(
+            horizontal: VisionMetrics.space12,
+            vertical: VisionMetrics.space8,
+          ),
           decoration: BoxDecoration(
-            color: selected ? t.accent.withValues(alpha: 0.15) : t.borderSubtle,
-            borderRadius: BorderRadius.circular(4),
+            color: selected
+                ? t.accent.withValues(alpha: VisionMetrics.opacityPressed)
+                : t.borderSubtle,
+            borderRadius: BorderRadius.circular(VisionMetrics.radius4),
             border: Border.all(
               color: selected ? t.accent : Colors.transparent,
               width: 1,
             ),
           ),
-          child: Text(label,
-              style: TextStyle(
-                  color: selected ? t.accent : t.textSecondary,
-                  fontSize: t.fontSize(8),
-                  letterSpacing: 1,
-                  fontWeight: selected ? FontWeight.bold : FontWeight.normal)),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? t.accent : t.textSecondary,
+              fontSize: t.fontSize(8),
+              letterSpacing: 1,
+              fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
         ),
       ),
     );
@@ -92,7 +108,10 @@ class JukeboxSongList extends StatelessWidget {
         return InkWell(
           onTap: () => jukebox.playSong(song),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(
+              horizontal: VisionMetrics.space12,
+              vertical: VisionMetrics.space12,
+            ),
             color: isCurrent ? t.borderSubtle : Colors.transparent,
             child: Row(
               children: [
@@ -100,7 +119,7 @@ class JukeboxSongList extends StatelessWidget {
                   Icon(Icons.equalizer, size: 14, color: t.accent)
                 else
                   Icon(Icons.music_note, size: 14, color: t.textMinimal),
-                const SizedBox(width: 10),
+                const SizedBox(width: VisionMetrics.space12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -113,7 +132,9 @@ class JukeboxSongList extends StatelessWidget {
                           color: isCurrent ? t.textPrimary : t.textSecondary,
                           fontSize: t.fontSize(9),
                           letterSpacing: 1,
-                          fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                          fontWeight: isCurrent
+                              ? FontWeight.bold
+                              : FontWeight.normal,
                         ),
                       ),
                       if (song.artist != null)
@@ -129,48 +150,59 @@ class JukeboxSongList extends StatelessWidget {
                   ),
                 ),
                 if (song.isRecommended)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    margin: const EdgeInsets.only(right: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFD700).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(2),
+                  Padding(
+                    padding: const EdgeInsets.only(right: VisionMetrics.space4),
+                    child: AppPill(
+                      text: context.l.jukeboxRecommendedBadge,
+                      tone: AppTone.warning,
+                      dense: true,
                     ),
-                    child: Text(context.l.jukeboxRecommendedBadge,
-                        style: TextStyle(
-                            color: const Color(0xFFFFD700),
-                            fontSize: t.fontSize(6),
-                            fontWeight: FontWeight.bold)),
                   ),
                 if (song.isKaraoke)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    margin: const EdgeInsets.only(right: 8),
-                    decoration: BoxDecoration(
-                      color: t.accent.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: VisionMetrics.space4,
+                      vertical: 2,
                     ),
-                    child: Text(context.l.jukeboxKaraokeBadge,
-                        style: TextStyle(
-                            color: t.accent,
-                            fontSize: t.fontSize(6),
-                            fontWeight: FontWeight.bold)),
+                    margin: const EdgeInsets.only(right: VisionMetrics.space8),
+                    decoration: BoxDecoration(
+                      color: t.accent.withValues(
+                        alpha: VisionMetrics.opacityPressed,
+                      ),
+                      borderRadius: BorderRadius.circular(
+                        VisionMetrics.radius2,
+                      ),
+                    ),
+                    child: Text(
+                      context.l.jukeboxKaraokeBadge,
+                      style: TextStyle(
+                        color: t.accent,
+                        fontSize: t.fontSize(6),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 if (song.durationSeconds != null)
                   Text(
-                    JukeboxNowPlaying.formatDuration(Duration(seconds: song.durationSeconds!)),
+                    JukeboxNowPlaying.formatDuration(
+                      Duration(seconds: song.durationSeconds!),
+                    ),
                     style: TextStyle(
                       color: t.textMinimal,
                       fontSize: t.fontSize(8),
                     ),
                   ),
-                const SizedBox(width: 4),
+                const SizedBox(width: VisionMetrics.space4),
                 if (isCustom)
                   IconButton(
-                    icon: Icon(Icons.delete_outline, size: 14, color: t.textMinimal),
+                    icon: Icon(
+                      Icons.delete_outline,
+                      size: 14,
+                      color: t.textMinimal,
+                    ),
                     onPressed: () => _confirmDeleteCustomSong(context, song),
                     constraints: const BoxConstraints(),
-                    padding: const EdgeInsets.all(4),
+                    padding: const EdgeInsets.all(VisionMetrics.space4),
                     tooltip: context.l.jukeboxDeleteCustomSongTooltip,
                   ),
                 IconButton(
@@ -179,7 +211,7 @@ class JukeboxSongList extends StatelessWidget {
                     jukebox.addToQueue(song);
                   },
                   constraints: const BoxConstraints(),
-                  padding: const EdgeInsets.all(4),
+                  padding: const EdgeInsets.all(VisionMetrics.space4),
                   tooltip: context.l.jukeboxAddToQueue,
                 ),
               ],
@@ -190,7 +222,10 @@ class JukeboxSongList extends StatelessWidget {
     );
   }
 
-  Future<void> _confirmDeleteCustomSong(BuildContext context, JukeboxSong song) async {
+  Future<void> _confirmDeleteCustomSong(
+    BuildContext context,
+    JukeboxSong song,
+  ) async {
     final confirm = await showConfirmDialog(
       context,
       title: context.l.jukeboxDeleteSong,
@@ -215,12 +250,15 @@ class JukeboxQueue extends StatelessWidget {
   Widget build(BuildContext context) {
     if (jukebox.queue.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(context.l.jukeboxQueueEmpty,
-            style: TextStyle(
-                color: t.textMinimal,
-                fontSize: t.fontSize(8),
-                letterSpacing: 1)),
+        padding: const EdgeInsets.all(VisionMetrics.space16),
+        child: Text(
+          context.l.jukeboxQueueEmpty,
+          style: TextStyle(
+            color: t.textMinimal,
+            fontSize: t.fontSize(8),
+            letterSpacing: 1,
+          ),
+        ),
       );
     }
 
@@ -232,7 +270,8 @@ class JukeboxQueue extends StatelessWidget {
         onReorder: jukebox.reorderQueue,
         itemBuilder: (context, index) {
           final song = jukebox.queue[index];
-          final isCurrent = jukebox.currentSong != null && song.id == jukebox.currentSong!.id;
+          final isCurrent =
+              jukebox.currentSong != null && song.id == jukebox.currentSong!.id;
           return ListTile(
             key: ValueKey('${song.id}_$index'),
             dense: true,
@@ -252,9 +291,10 @@ class JukeboxQueue extends StatelessWidget {
             ),
             trailing: IconButton(
               icon: Icon(Icons.close, size: 12, color: t.textMinimal),
+              tooltip: context.l.jukeboxRemoveFromQueue,
               onPressed: () => jukebox.removeFromQueue(index),
               constraints: const BoxConstraints(),
-              padding: const EdgeInsets.all(4),
+              padding: const EdgeInsets.all(VisionMetrics.space4),
             ),
           );
         },
@@ -264,7 +304,10 @@ class JukeboxQueue extends StatelessWidget {
 }
 
 /// Return the filtered song list based on the selected category.
-List<JukeboxSong> filteredSongs(JukeboxNotifier jukebox, SongCategory? selectedCategory) {
+List<JukeboxSong> filteredSongs(
+  JukeboxNotifier jukebox,
+  SongCategory? selectedCategory,
+) {
   if (selectedCategory != null) {
     if (selectedCategory == SongCategory.custom) {
       return jukebox.customSongs;

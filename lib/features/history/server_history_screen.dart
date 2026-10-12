@@ -6,14 +6,23 @@ import 'package:archive/archive.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/gateway/backend_error_messages.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/services/backend_auth_api.dart';
 import '../../core/services/backend_history_api.dart';
+import '../../core/services/client_diagnostics.dart';
 import '../../core/theme/theme_extensions.dart';
+import '../../core/theme/vision_metrics.dart';
 import '../../core/utils/app_snackbar.dart';
 import '../../core/utils/responsive.dart';
 import '../../core/utils/web_download.dart';
 import '../../core/widgets/confirm_dialog.dart';
+import '../../core/widgets/card_action_layout.dart';
+import '../../core/widgets/ui/app_panel.dart';
+import '../../core/widgets/ui/app_pill.dart';
+import '../../core/widgets/ui/app_states.dart';
+import '../../core/widgets/ui/overlay_action_button.dart';
+import '../../l10n/app_localizations.dart';
 import '../auth/backend_auth_notifier.dart';
 import '../generation/providers/generation_notifier.dart';
 import '../generation/services/metadata_import_service.dart';
@@ -35,21 +44,22 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
   late final BackendHistoryApi _api;
   final ScrollController _scrollController = ScrollController();
   List<ServerHistoryItem> _items = const [];
+  List<_HistoryEntry> _entries = const [];
   List<AuthUser> _users = const [];
+  bool _usersLoaded = false;
   int? _selectedUserId;
   bool _filterInitialized = false;
   int _loadGeneration = 0;
   int _pageIndex = 0;
   int _totalItems = 0;
   bool _loading = true;
-  String? _error;
+  Object? _error;
+  int _errorPageIndex = 0;
   Timer? _thumbnailPreloadTimer;
   int _gridColumns = 2;
   double _gridMainExtent = 260;
   int _lastPreloadStart = -1;
   int _lastPreloadEnd = -1;
-
-  List<_HistoryEntry> get _historyEntries => _HistoryEntry.fromItems(_items);
 
   @override
   void initState() {
@@ -66,6 +76,8 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
     super.dispose();
   }
 
+  /// Loads [pageIndex] (default: the current page). The page index only
+  /// advances once the page has arrived, and a failure keeps what is shown.
   Future<void> _load({int? pageIndex}) async {
     final auth = context.read<BackendAuthNotifier>();
     final isAdmin = auth.user?.isAdmin == true;
@@ -73,61 +85,82 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
       _selectedUserId = auth.user?.id;
       _filterInitialized = true;
     }
-    if (isAdmin &&
-        auth.user != null &&
-        !_users.any((user) => user.id == auth.user!.id)) {
-      _users = [auth.user!, ..._users];
-    }
-    final selectedUserId = _selectedUserId;
-    final nextPageIndex = math.max(0, pageIndex ?? _pageIndex);
+    final requestedPageIndex = math.max(0, pageIndex ?? _pageIndex);
     final loadGeneration = ++_loadGeneration;
     setState(() {
+      if (isAdmin && _users.isEmpty) _users = [auth.user!];
       _loading = true;
       _error = null;
-      _pageIndex = nextPageIndex;
     });
+    if (isAdmin && !_usersLoaded) unawaited(_loadUsers(auth.user!));
     try {
-      List<AuthUser>? users;
-      if (isAdmin) {
-        users = await _api.fetchUsers();
-      }
-      var page = await _api.fetchHistoryPage(
-        limit: _pageSize,
-        offset: nextPageIndex * _pageSize,
-        userId: selectedUserId,
-        allUsers: isAdmin && selectedUserId == null,
+      final page = await _fetchPage(
+        requestedPageIndex,
+        userId: _selectedUserId,
+        allUsers: isAdmin && _selectedUserId == null,
       );
-      if (page.items.isEmpty && page.total > 0 && nextPageIndex > 0) {
-        final fallbackPageIndex = math.max(0, (page.total - 1) ~/ _pageSize);
-        if (fallbackPageIndex != nextPageIndex) {
-          page = await _api.fetchHistoryPage(
-            limit: _pageSize,
-            offset: fallbackPageIndex * _pageSize,
-            userId: selectedUserId,
-            allUsers: isAdmin && selectedUserId == null,
-          );
-        }
-      }
       if (!mounted || loadGeneration != _loadGeneration) return;
-      if (users != null) _users = users;
-      _items = page.items;
-      _totalItems = page.total;
-      _pageIndex = page.pageIndex;
+      final pageChanged = page.pageIndex != _pageIndex;
+      setState(() {
+        _items = page.items;
+        _entries = _HistoryEntry.fromItems(page.items);
+        _totalItems = page.total;
+        _pageIndex = page.pageIndex;
+        _loading = false;
+      });
       _lastPreloadStart = -1;
       _lastPreloadEnd = -1;
-    } catch (e) {
-      if (loadGeneration != _loadGeneration) return;
-      _error = e.toString();
-    } finally {
-      if (mounted && loadGeneration == _loadGeneration) {
-        setState(() => _loading = false);
-        if (_scrollController.hasClients) {
-          _scrollController.jumpTo(0);
-        }
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _preloadVisibleThumbnails(force: true);
-        });
+      if (pageChanged && _scrollController.hasClients) {
+        _scrollController.jumpTo(0);
       }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _preloadVisibleThumbnails(force: true);
+      });
+    } catch (e) {
+      if (!mounted || loadGeneration != _loadGeneration) return;
+      setState(() {
+        _error = e;
+        _errorPageIndex = requestedPageIndex;
+        _loading = false;
+      });
+    }
+  }
+
+  /// A page past the end (rows were deleted since) falls back to the last
+  /// page that still has rows.
+  Future<ServerHistoryPage> _fetchPage(
+    int pageIndex, {
+    required int? userId,
+    required bool allUsers,
+  }) async {
+    Future<ServerHistoryPage> fetch(int index) => _api.fetchHistoryPage(
+      limit: _pageSize,
+      offset: index * _pageSize,
+      userId: userId,
+      allUsers: allUsers,
+    );
+    final page = await fetch(pageIndex);
+    if (page.items.isEmpty && page.total > 0 && pageIndex > 0) {
+      final lastPageIndex = (page.total - 1) ~/ _pageSize;
+      if (lastPageIndex != pageIndex) return fetch(lastPageIndex);
+    }
+    return page;
+  }
+
+  /// The user filter is a convenience: without the list the history itself
+  /// still loads.
+  Future<void> _loadUsers(AuthUser self) async {
+    try {
+      final users = await _api.fetchUsers();
+      if (!mounted) return;
+      setState(() {
+        _users = users;
+        _usersLoaded = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _users = [self]);
+      showErrorSnackBar(context, context.l.serverHistoryUsersUnavailable);
     }
   }
 
@@ -140,7 +173,7 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
   }
 
   void _preloadVisibleThumbnails({bool force = false}) {
-    final entries = _historyEntries;
+    final entries = _entries;
     if (!mounted || entries.isEmpty) return;
     final offset = _scrollController.hasClients
         ? _scrollController.offset
@@ -175,26 +208,27 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<BackendAuthNotifier>();
     final t = context.t;
-    final mobile = isMobile(context);
+    final touch = windowSizeClassOf(context).isTouchSized;
     return Scaffold(
       backgroundColor: t.background,
       appBar: AppBar(
         backgroundColor: t.background,
         elevation: 0,
-        toolbarHeight: mobile ? 48 : 32,
+        toolbarHeight: context.touchSize,
         leading: IconButton(
           icon: Icon(
             Icons.arrow_back,
-            size: mobile ? 20 : 14,
+            size: touch ? VisionMetrics.iconLarge : VisionMetrics.iconMedium,
             color: t.secondaryText,
           ),
+          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           context.l.serverHistoryTitle.toUpperCase(),
           style: TextStyle(
             color: t.headerText,
-            fontSize: t.titleSize(mobile ? 12 : 10),
+            fontSize: t.titleSize(touch ? 12 : 10),
             fontWeight: FontWeight.w900,
             letterSpacing: 3,
           ),
@@ -202,7 +236,7 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
         actions: [
           if (auth.user?.isAdmin == true)
             ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: mobile ? 150 : 220),
+              constraints: BoxConstraints(maxWidth: touch ? 150 : 220),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<int?>(
                   value: _selectedUserId,
@@ -225,10 +259,7 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
                     ),
                   ],
                   onChanged: (value) {
-                    setState(() {
-                      _selectedUserId = value;
-                      _pageIndex = 0;
-                    });
+                    setState(() => _selectedUserId = value);
                     _load(pageIndex: 0);
                   },
                 ),
@@ -237,7 +268,7 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
           IconButton(
             icon: Icon(
               Icons.refresh,
-              size: mobile ? 20 : 16,
+              size: touch ? VisionMetrics.iconLarge : VisionMetrics.iconMedium,
               color: t.secondaryText,
             ),
             tooltip: context.l.serverHistoryRefresh,
@@ -250,112 +281,22 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
   }
 
   Widget _buildBody(BuildContext context) {
-    final t = context.t;
     if (_loading && _items.isEmpty) {
-      return Center(
-        child: CircularProgressIndicator(strokeWidth: 2, color: t.accent),
-      );
+      return const LoadingState();
     }
-    if (_error != null && _items.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            _error!,
-            style: TextStyle(color: t.accentDanger, fontSize: t.fontSize(11)),
-          ),
-        ),
-      );
+    final error = _error;
+    if (error != null && _items.isEmpty && _totalItems == 0) {
+      return Column(children: [_buildErrorBanner(context, error)]);
     }
-    if (_items.isEmpty) {
-      return _buildEmptyBody(context);
-    }
-
     return Column(
       children: [
+        if (error != null) _buildErrorBanner(context, error),
         Expanded(
           child: RefreshIndicator(
             onRefresh: () => _load(),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final width = constraints.maxWidth;
-                _gridColumns = ResultSetGridSpec.columnCount(width);
-                _gridMainExtent = ResultSetGridSpec.rowExtent(width);
-                final entries = _historyEntries;
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  _preloadVisibleThumbnails();
-                });
-                return GridView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(ResultSetGridSpec.padding),
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  gridDelegate: ResultSetGridSpec.delegate,
-                  itemCount: entries.length,
-                  itemBuilder: (context, index) {
-                    final entry = entries[index];
-                    final singleItem = entry.isBatch
-                        ? null
-                        : entry.items.single;
-                    return _HistoryEntryCard(
-                      entry: entry,
-                      onOpen: () => _openEntry(entry),
-                      onImport: entry.isBatch
-                          ? () => _importBatch(entry.items)
-                          : () async {
-                              if (await _importItem(singleItem!) && mounted) {
-                                Navigator.of(this.context).pop();
-                              }
-                            },
-                      onDownload: entry.isBatch
-                          ? () => _downloadBatch(entry.items)
-                          : () => _downloadItem(singleItem!),
-                      onDelete: entry.isBatch
-                          ? () => _deleteBatch(entry.items)
-                          : () => _deleteItem(singleItem!),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ),
-        _HistoryPaginationBar(
-          pageIndex: _pageIndex,
-          pageSize: _pageSize,
-          totalItems: _totalItems,
-          loading: _loading,
-          onPrevious: _pageIndex <= 0
-              ? null
-              : () => _load(pageIndex: _pageIndex - 1),
-          onNext: ((_pageIndex + 1) * _pageSize >= _totalItems)
-              ? null
-              : () => _load(pageIndex: _pageIndex + 1),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEmptyBody(BuildContext context) {
-    final t = context.t;
-    return Column(
-      children: [
-        Expanded(
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            children: [
-              const SizedBox(height: 96),
-              Icon(Icons.history, size: 48, color: t.textDisabled),
-              const SizedBox(height: 16),
-              Center(
-                child: Text(
-                  context.l.serverHistoryEmpty,
-                  style: TextStyle(
-                    color: t.textTertiary,
-                    fontSize: t.fontSize(12),
-                  ),
-                ),
-              ),
-            ],
+            child: _entries.isEmpty
+                ? _buildEmptyList(context)
+                : _buildGrid(context),
           ),
         ),
         if (_totalItems > 0)
@@ -367,59 +308,138 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
             onPrevious: _pageIndex <= 0
                 ? null
                 : () => _load(pageIndex: _pageIndex - 1),
-            onNext: null,
+            onNext: (_pageIndex + 1) * _pageSize >= _totalItems
+                ? null
+                : () => _load(pageIndex: _pageIndex + 1),
           ),
       ],
     );
   }
 
-  int get _totalPages =>
-      _totalItems <= 0 ? 1 : ((_totalItems + _pageSize - 1) ~/ _pageSize);
+  Widget _buildErrorBanner(BuildContext context, Object error) {
+    return Padding(
+      padding: const EdgeInsets.all(VisionMetrics.space8),
+      child: ErrorBanner(
+        message: context.l.serverHistoryLoadFailed(
+          backendErrorMessage(context.l, error),
+        ),
+        retryLabel: context.l.serverHistoryRetry,
+        onRetry: _loading ? null : () => _load(pageIndex: _errorPageIndex),
+      ),
+    );
+  }
 
-  Future<bool> _deleteItem(ServerHistoryItem item) async {
-    final t = context.tRead;
+  Widget _buildGrid(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        _gridColumns = ResultSetGridSpec.columnCount(width);
+        _gridMainExtent = ResultSetGridSpec.rowExtent(width);
+        return GridView.builder(
+          controller: _scrollController,
+          padding: const EdgeInsets.all(ResultSetGridSpec.padding),
+          physics: const AlwaysScrollableScrollPhysics(),
+          gridDelegate: ResultSetGridSpec.delegate,
+          itemCount: _entries.length,
+          itemBuilder: (context, index) {
+            final entry = _entries[index];
+            return _HistoryEntryCard(
+              entry: entry,
+              onOpen: () => _openEntry(entry),
+              onImport: () async {
+                if (await _importEntry(entry) && mounted) {
+                  Navigator.of(this.context).pop(true);
+                }
+              },
+              onDownload: () => _downloadEntry(entry),
+              onDelete: () => _deleteEntry(entry),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptyList(BuildContext context) {
+    // A scrollable root keeps pull-to-refresh working on an empty page.
+    return LayoutBuilder(
+      builder: (context, constraints) => ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(
+            height: constraints.maxHeight,
+            child: EmptyState(
+              icon: Icons.history,
+              message: context.l.serverHistoryEmpty,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<bool> _deleteEntry(_HistoryEntry entry) =>
+      entry.isBatch ? _deleteBatch(entry.items) : _deleteItem(entry.lead);
+
+  Future<bool> _importEntry(_HistoryEntry entry) =>
+      entry.isBatch ? _importBatch(entry.items) : _importItem(entry.lead);
+
+  void _downloadEntry(_HistoryEntry entry) =>
+      entry.isBatch ? _downloadBatch(entry.items) : _downloadItem(entry.lead);
+
+  Future<bool> _deleteItem(ServerHistoryItem item) => _confirmAndDelete(
+    title: context.l.commonDelete,
+    message: context.l.serverHistoryDeleteConfirm,
+    delete: () => _api.deleteHistoryItem(item.id),
+  );
+
+  Future<bool> _deleteBatch(List<ServerHistoryItem> items) {
+    final batchId = items.first.batchId;
+    if (batchId == null || batchId.isEmpty) return Future.value(false);
+    return _confirmAndDelete(
+      title: context.l.serverHistoryBatchDelete,
+      message: context.l.serverHistoryBatchDeleteConfirm,
+      delete: () => _api.deleteHistoryBatch(batchId),
+    );
+  }
+
+  /// Deletes, then re-reads the current page: the server pages by offset, so
+  /// trimming the local list would skip a batch on the next page. A page the
+  /// delete emptied falls back to the previous one in [_fetchPage].
+  Future<bool> _confirmAndDelete({
+    required String title,
+    required String message,
+    required Future<void> Function() delete,
+  }) async {
     final confirm = await showConfirmDialog(
       context,
-      title: context.l.commonDelete,
-      message: context.l.serverHistoryDeleteConfirm,
+      title: title,
+      message: message,
       confirmLabel: context.l.commonDelete,
-      confirmColor: t.accentDanger,
+      cancelLabel: context.l.commonCancel,
     );
     if (!mounted || confirm != true) return false;
-
     try {
-      await _api.deleteHistoryItem(item.id);
-      if (!mounted) return false;
-      String entryKey(ServerHistoryItem candidate) {
-        final batchId = candidate.batchId?.trim();
-        return batchId == null || batchId.isEmpty ? candidate.id : batchId;
-      }
-
-      final batchKey = entryKey(item);
-      final removesBatch =
-          _items.where((candidate) => entryKey(candidate) == batchKey).length ==
-          1;
-      setState(() {
-        _items = _items.where((candidate) => candidate.id != item.id).toList();
-        if (removesBatch) _totalItems = math.max(0, _totalItems - 1);
-      });
-      if (_items.isEmpty && _pageIndex > 0) {
-        final fallbackPageIndex = math.min(_pageIndex - 1, _totalPages - 1);
-        unawaited(_load(pageIndex: fallbackPageIndex));
-      }
-      return true;
+      await delete();
     } catch (e) {
       if (mounted) {
-        showErrorSnackBar(context, context.l.galleryExportFailed(e.toString()));
+        showErrorSnackBar(
+          context,
+          context.l.serverHistoryDeleteFailed(
+            backendErrorMessage(context.l, e),
+          ),
+        );
       }
       return false;
     }
+    if (mounted) await _load();
+    return true;
   }
 
   void _openEntry(_HistoryEntry entry) {
     showGeneralDialog<void>(
       context: context,
-      barrierColor: Colors.black,
+      barrierColor: context.tRead.background,
       barrierDismissible: true,
       barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       transitionDuration: const Duration(milliseconds: 120),
@@ -429,11 +449,16 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
           final imported = await _importItem(item);
           if (!imported || !dialogContext.mounted || !mounted) return;
           Navigator.of(dialogContext).pop();
-          Navigator.of(context).pop();
+          Navigator.of(context).pop(true);
         },
         onDownloadItem: _downloadItem,
         onDeleteItem: _deleteItem,
-        onImportBatch: () => _importBatch(entry.items),
+        onImportBatch: () async {
+          final imported = await _importBatch(entry.items);
+          if (!imported || !dialogContext.mounted || !mounted) return;
+          Navigator.of(dialogContext).pop();
+          Navigator.of(context).pop(true);
+        },
         onDownloadBatch: () => _downloadBatch(entry.items),
         onDeleteBatch: () async {
           if (await _deleteBatch(entry.items) && dialogContext.mounted) {
@@ -444,21 +469,67 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
     );
   }
 
-  Future<bool> _importItem(ServerHistoryItem item) async {
-    if (!item.hasImage) return false;
+  Future<bool> _importItem(ServerHistoryItem item) =>
+      _importParameters(item, batch: false);
+
+  Future<bool> _importParameters(
+    ServerHistoryItem item, {
+    required bool batch,
+  }) async {
+    var stage = 'resolve_notifier';
+    final diagnostics = ClientDiagnostics.instance;
+    diagnostics.record('history_parameter_import_started', {
+      'batch': batch,
+      'record_id': item.id,
+      'record_prompt_length': item.prompt.length,
+      'request_present': item.request != null,
+    });
     try {
-      final bytes = await _api.fetchImageBytes(item.id);
-      if (!mounted) return false;
       final notifier = context.read<GenerationNotifier>();
-      final result = await notifier.parseImageMetadataBytes(bytes);
-      notifier.applyImportedMetadata(result, ImportCategory.values.toSet());
-      // The history row is authoritative for the selected image's seed. PNG
-      // metadata can be absent or incomplete after external processing.
-      notifier.seedController.text = item.seed.toString();
+      stage = 'parse_parameters';
+      final result = notifier.parseHistoryParameters(item);
+      diagnostics.record('history_parameter_import_parsed', {
+        'batch': batch,
+        'prompt_length': result.prompt.length,
+        'negative_length': result.negativePrompt.length,
+        'character_count': result.characters.length,
+      });
+      stage = 'apply_parameters';
+      final categories = ImportCategory.values.toSet();
+      if (batch) categories.remove(ImportCategory.seed);
+      notifier.applyImportedMetadata(result, categories);
+      if (!batch) notifier.seedController.text = item.seed.toString();
+      diagnostics.record('history_parameter_import_applied', {
+        'batch': batch,
+        'prompt_length': notifier.promptController.text.length,
+        'negative_length': notifier.negativePromptController.text.length,
+      });
       if (!mounted) return false;
-      showAppSnackBar(context, context.l.serverHistoryImportSuccess);
+      stage = 'show_success';
+      showAppSnackBar(
+        context,
+        batch
+            ? context.l.serverHistoryBatchImportSuccess
+            : context.l.serverHistoryImportSuccess,
+      );
       return true;
-    } catch (_) {
+    } catch (error, stack) {
+      diagnostics.record('history_parameter_import_failed', {
+        'batch': batch,
+        'stage': stage,
+        'error_type': error.runtimeType.toString(),
+        'error_category': switch (error) {
+          ProviderNotFoundException() => 'provider_not_found',
+          FormatException() => 'format',
+          TypeError() => 'type',
+          StateError() => 'state',
+          _ => 'other',
+        },
+        // Stack frames identify the failing code without recording parameters.
+        for (final (index, frame)
+            in stack.toString().split('\n').take(8).indexed)
+          'stack_frame_$index': frame,
+      });
       if (mounted) {
         showErrorSnackBar(context, context.l.importNothingAvailable);
       }
@@ -480,33 +551,21 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
       }
     } catch (e) {
       if (mounted) {
-        showErrorSnackBar(context, context.l.galleryExportFailed(e.toString()));
+        showErrorSnackBar(
+          context,
+          context.l.galleryExportFailed(backendErrorMessage(context.l, e)),
+        );
       }
     }
   }
 
-  Future<void> _importBatch(List<ServerHistoryItem> items) async {
-    final imageItem = items.where((item) => item.hasImage).firstOrNull;
-    if (imageItem == null) {
+  Future<bool> _importBatch(List<ServerHistoryItem> items) async {
+    final item = items.firstOrNull;
+    if (item == null) {
       showErrorSnackBar(context, context.l.importNothingAvailable);
-      return;
+      return false;
     }
-    try {
-      final bytes = await _api.fetchImageBytes(imageItem.id);
-      if (!mounted) return;
-      final notifier = context.read<GenerationNotifier>();
-      final result = await notifier.parseImageMetadataBytes(bytes);
-      final categories = ImportCategory.values.toSet()
-        ..remove(ImportCategory.seed);
-      notifier.applyImportedMetadata(result, categories);
-      if (!mounted) return;
-      showAppSnackBar(context, context.l.serverHistoryBatchImportSuccess);
-      Navigator.of(context).pop();
-    } catch (_) {
-      if (mounted) {
-        showErrorSnackBar(context, context.l.importNothingAvailable);
-      }
-    }
+    return _importParameters(item, batch: true);
   }
 
   Future<void> _downloadBatch(List<ServerHistoryItem> items) async {
@@ -534,42 +593,11 @@ class _ServerHistoryScreenState extends State<ServerHistoryScreen> {
       }
     } catch (e) {
       if (mounted) {
-        showErrorSnackBar(context, context.l.galleryExportFailed(e.toString()));
+        showErrorSnackBar(
+          context,
+          context.l.galleryExportFailed(backendErrorMessage(context.l, e)),
+        );
       }
-    }
-  }
-
-  Future<bool> _deleteBatch(List<ServerHistoryItem> items) async {
-    final batchId = items.first.batchId;
-    if (batchId == null || batchId.isEmpty) return false;
-    final t = context.tRead;
-    final confirm = await showConfirmDialog(
-      context,
-      title: context.l.serverHistoryBatchDelete,
-      message: context.l.serverHistoryBatchDeleteConfirm,
-      confirmLabel: context.l.commonDelete,
-      confirmColor: t.accentDanger,
-    );
-    if (!mounted || confirm != true) return false;
-
-    try {
-      await _api.deleteHistoryBatch(batchId);
-      if (!mounted) return false;
-      final ids = items.map((item) => item.id).toSet();
-      setState(() {
-        _items = _items.where((item) => !ids.contains(item.id)).toList();
-        _totalItems = math.max(0, _totalItems - 1);
-      });
-      if (_items.isEmpty && _pageIndex > 0) {
-        final fallbackPageIndex = math.min(_pageIndex - 1, _totalPages - 1);
-        unawaited(_load(pageIndex: fallbackPageIndex));
-      }
-      return true;
-    } catch (e) {
-      if (mounted) {
-        showErrorSnackBar(context, context.l.galleryExportFailed(e.toString()));
-      }
-      return false;
     }
   }
 }
@@ -613,7 +641,7 @@ class _HistoryPaginationBar extends StatelessWidget {
     return Material(
       color: t.background,
       child: Container(
-        height: 44,
+        height: context.hitSize + VisionMetrics.space4,
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           border: Border(top: BorderSide(color: t.borderSubtle)),
@@ -628,9 +656,9 @@ class _HistoryPaginationBar extends StatelessWidget {
                   icon: Icon(Icons.chevron_left, size: 18, color: t.headerText),
                   tooltip: localizations.previousPageTooltip,
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 32,
-                    minHeight: 32,
+                  constraints: BoxConstraints(
+                    minWidth: context.hitSize,
+                    minHeight: context.hitSize,
                   ),
                   onPressed: loading ? null : onPrevious,
                 ),
@@ -671,9 +699,9 @@ class _HistoryPaginationBar extends StatelessWidget {
                         ),
                         tooltip: localizations.nextPageTooltip,
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: 32,
-                          minHeight: 32,
+                        constraints: BoxConstraints(
+                          minWidth: context.hitSize,
+                          minHeight: context.hitSize,
                         ),
                         onPressed: onNext,
                       ),
@@ -692,9 +720,15 @@ class _HistoryEntry {
   final String key;
   final List<ServerHistoryItem> items;
 
-  bool get isBatch {
-    final batchId = lead.batchId?.trim();
-    return batchId != null && batchId.isNotEmpty;
+  bool get isBatch => lead.isBatch;
+
+  /// Items of one multi-image batch share an entry; a single image (a batch
+  /// of one) is its own.
+  static String keyOf(ServerHistoryItem item) {
+    final batchId = item.batchId?.trim();
+    return item.isBatch && batchId != null && batchId.isNotEmpty
+        ? 'batch:$batchId'
+        : 'item:${item.id}';
   }
 
   ServerHistoryItem get lead => items.first;
@@ -705,10 +739,7 @@ class _HistoryEntry {
     final grouped = <String, List<ServerHistoryItem>>{};
     final keys = <String>[];
     for (final item in source) {
-      final batchId = item.batchId?.trim();
-      final key = batchId == null || batchId.isEmpty
-          ? 'item:${item.id}'
-          : 'batch:$batchId';
+      final key = keyOf(item);
       if (!grouped.containsKey(key)) keys.add(key);
       grouped.putIfAbsent(key, () => []).add(item);
     }
@@ -729,7 +760,7 @@ class _HistoryEntry {
   }
 }
 
-class _HistoryEntryCard extends StatefulWidget {
+class _HistoryEntryCard extends StatelessWidget {
   const _HistoryEntryCard({
     required this.entry,
     required this.onOpen,
@@ -745,110 +776,32 @@ class _HistoryEntryCard extends StatefulWidget {
   final VoidCallback onDelete;
 
   @override
-  State<_HistoryEntryCard> createState() => _HistoryEntryCardState();
-}
-
-class _HistoryEntryCardState extends State<_HistoryEntryCard> {
-  bool _hovered = false;
-
-  @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final mobile = isMobile(context);
-    final auth = context.watch<BackendAuthNotifier>();
-    final admin = auth.user?.isAdmin == true;
-    final entry = widget.entry;
-    final lead = entry.lead;
-    final cover = entry.cover;
 
-    Widget card = Material(
+    return Material(
       key: ValueKey<String>('history-entry-${entry.key}'),
       color: t.surfaceMid,
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: BorderRadius.circular(VisionMetrics.radius8),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: widget.onOpen,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            _HistoryEntryThumbnail(entry: entry),
-            if (_hovered && !mobile)
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: ColoredBox(
-                    color: t.background.withValues(alpha: 0.75),
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (lead.prompt.isNotEmpty)
-                            Text(
-                              lead.prompt,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: t.textSecondary,
-                                fontSize: t.fontSize(9),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          const SizedBox(height: 4),
-                          Text(
-                            admin && lead.username.isNotEmpty
-                                ? '${lead.username} · ${cover.downloadFileName}'
-                                : cover.downloadFileName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: t.textDisabled,
-                              fontSize: t.fontSize(8),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            if (entry.isBatch)
-              Positioned(
-                left: 7,
-                bottom: 7,
-                child: _HistoryBatchBadge(count: entry.items.length),
-              ),
-            Positioned(
-              top: 5,
-              right: 5,
-              child: _HistoryMoreButtonFrame(
-                child: entry.isBatch
-                    ? _HistoryBatchMenu(
-                        hasImage: entry.items.any((item) => item.hasImage),
-                        onImport: widget.onImport,
-                        onDownload: widget.onDownload,
-                        onDelete: widget.onDelete,
-                      )
-                    : _HistoryCardMenu(
-                        item: lead,
-                        onImport: widget.onImport,
-                        onDownload: widget.onDownload,
-                        onDelete: widget.onDelete,
-                      ),
-              ),
-            ),
-          ],
+        onTap: onOpen,
+        child: CardActionLayout(
+          content: _HistoryEntryThumbnail(entry: entry),
+          badge: entry.isBatch
+              ? _HistoryBatchBadge(count: entry.items.length)
+              : null,
+          action: _HistoryMenu(
+            batch: entry.isBatch,
+            hasImage: entry.items.any((item) => item.hasImage),
+            deletable: !entry.items.any((item) => item.isActive),
+            onImport: onImport,
+            onDownload: onDownload,
+            onDelete: onDelete,
+          ),
         ),
       ),
     );
-    if (!mobile) {
-      card = MouseRegion(
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: card,
-      );
-    }
-    return card;
   }
 }
 
@@ -860,28 +813,30 @@ class _HistoryEntryThumbnail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = entry.items.where((item) => item.hasImage).take(4).toList();
-    if (items.isEmpty) return _PlaceholderIcon(status: entry.lead.status);
-    if (!entry.isBatch || items.length == 1) return _image(items.first);
+    if (items.isEmpty) return _PlaceholderIcon(item: entry.lead);
+    if (!entry.isBatch || items.length == 1) {
+      return _image(context, items.first);
+    }
     if (items.length == 2) {
       return Row(
         children: [
-          Expanded(child: _image(items[0])),
+          Expanded(child: _image(context, items[0])),
           const SizedBox(width: 1),
-          Expanded(child: _image(items[1])),
+          Expanded(child: _image(context, items[1])),
         ],
       );
     }
     if (items.length == 3) {
       return Row(
         children: [
-          Expanded(child: _image(items[0])),
+          Expanded(child: _image(context, items[0])),
           const SizedBox(width: 1),
           Expanded(
             child: Column(
               children: [
-                Expanded(child: _image(items[1])),
+                Expanded(child: _image(context, items[1])),
                 const SizedBox(height: 1),
-                Expanded(child: _image(items[2])),
+                Expanded(child: _image(context, items[2])),
               ],
             ),
           ),
@@ -893,9 +848,9 @@ class _HistoryEntryThumbnail extends StatelessWidget {
         Expanded(
           child: Row(
             children: [
-              Expanded(child: _image(items[0])),
+              Expanded(child: _image(context, items[0])),
               const SizedBox(width: 1),
-              Expanded(child: _image(items[1])),
+              Expanded(child: _image(context, items[1])),
             ],
           ),
         ),
@@ -903,9 +858,9 @@ class _HistoryEntryThumbnail extends StatelessWidget {
         Expanded(
           child: Row(
             children: [
-              Expanded(child: _image(items[2])),
+              Expanded(child: _image(context, items[2])),
               const SizedBox(width: 1),
-              Expanded(child: _image(items[3])),
+              Expanded(child: _image(context, items[3])),
             ],
           ),
         ),
@@ -913,17 +868,17 @@ class _HistoryEntryThumbnail extends StatelessWidget {
     );
   }
 
-  Widget _image(ServerHistoryItem item) {
+  Widget _image(BuildContext context, ServerHistoryItem item) {
     return ColoredBox(
       key: ValueKey<String>('history-collage-${entry.key}-${item.id}'),
-      color: Colors.black,
+      color: context.t.background,
       child: SizedBox.expand(
         child: Image.network(
           item.thumbnailUrl,
           fit: BoxFit.contain,
           gaplessPlayback: true,
           filterQuality: FilterQuality.medium,
-          errorBuilder: (_, _, _) => _PlaceholderIcon(status: item.status),
+          errorBuilder: (_, _, _) => _PlaceholderIcon(item: item),
         ),
       ),
     );
@@ -937,32 +892,7 @@ class _HistoryBatchBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.t;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: t.background.withValues(alpha: 0.84),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: t.borderSubtle),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.layers_outlined, size: 12, color: t.accent),
-            const SizedBox(width: 5),
-            Text(
-              '$count',
-              style: TextStyle(
-                color: t.headerText,
-                fontSize: t.fontSize(9),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    return AppPill(icon: Icons.layers_outlined, text: '$count', dense: true);
   }
 }
 
@@ -997,7 +927,8 @@ class _HistoryResultSetDialogState extends State<_HistoryResultSetDialog> {
   @override
   Widget build(BuildContext context) {
     if (_items.isEmpty) return const SizedBox.shrink();
-    final mobile = isMobile(context);
+    final t = context.t;
+    final compact = windowSizeClassOf(context) == WindowSizeClass.compact;
     final viewItems = <ResultSetViewItem>[
       for (var index = 0; index < _items.length; index += 1)
         ResultSetViewItem(
@@ -1019,40 +950,44 @@ class _HistoryResultSetDialogState extends State<_HistoryResultSetDialog> {
           isGenerating:
               _items[index].status == 'queued' ||
               _items[index].status == 'running',
-          errorMessage: _items[index].errorMessage,
+          errorMessage: _historyFailureMessage(context.l, _items[index]),
         ),
     ];
     final selectedItem = _items.singleWhere(
       (candidate) => candidate.id == _selectedId,
     );
     return Material(
-      color: Colors.black,
+      color: t.background,
       child: SafeArea(
         child: ResultSetWorkspace(
           items: viewItems,
           selectedId: _selectedId,
           onSelect: (id) => setState(() => _selectedId = id),
-          mobile: mobile,
+          mobile: compact,
           pulseAnimation: const AlwaysStoppedAnimation<double>(0),
           headerLeading: _HistoryViewerLeading(
             onClose: () => Navigator.of(context).pop(),
           ),
           headerTrailingBuilder: (context, mode) {
             if (mode == ResultSetWorkspaceMode.grid && widget.entry.isBatch) {
-              return _HistoryMoreButtonFrame(
-                child: _HistoryBatchMenu(
+              return CardActionFrame(
+                child: _HistoryMenu(
                   key: const ValueKey<String>('history-batch-actions'),
+                  batch: true,
                   hasImage: _items.any((item) => item.hasImage),
+                  deletable: !_items.any((item) => item.isActive),
                   onImport: widget.onImportBatch,
                   onDownload: widget.onDownloadBatch,
                   onDelete: widget.onDeleteBatch,
                 ),
               );
             }
-            return _HistoryMoreButtonFrame(
-              child: _HistoryCardMenu(
+            return CardActionFrame(
+              child: _HistoryMenu(
                 key: const ValueKey<String>('history-item-actions'),
-                item: selectedItem,
+                batch: false,
+                hasImage: selectedItem.hasImage,
+                deletable: !selectedItem.isActive,
                 onImport: () => widget.onImportItem(selectedItem),
                 onDownload: () => widget.onDownloadItem(selectedItem),
                 onDelete: () => _delete(selectedItem),
@@ -1063,14 +998,14 @@ class _HistoryResultSetDialogState extends State<_HistoryResultSetDialog> {
             final item = _items.singleWhere(
               (candidate) => candidate.id == viewItem.id,
             );
-            return _HistoryMoreButtonFrame(
-              child: _HistoryCardMenu(
-                key: ValueKey<String>('history-grid-item-actions-${item.id}'),
-                item: item,
-                onImport: () => widget.onImportItem(item),
-                onDownload: () => widget.onDownloadItem(item),
-                onDelete: () => _delete(item),
-              ),
+            return _HistoryMenu(
+              key: ValueKey<String>('history-grid-item-actions-${item.id}'),
+              batch: false,
+              hasImage: item.hasImage,
+              deletable: !item.isActive,
+              onImport: () => widget.onImportItem(item),
+              onDownload: () => widget.onDownloadItem(item),
+              onDelete: () => _delete(item),
             );
           },
         ),
@@ -1097,112 +1032,32 @@ class _HistoryViewerLeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _HistoryIconButton(
+    return OverlayActionButton(
       icon: Icons.close,
       tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+      label: MaterialLocalizations.of(context).closeButtonTooltip,
       onPressed: onClose,
     );
   }
 }
 
-class _HistoryMoreButtonFrame extends StatelessWidget {
-  const _HistoryMoreButtonFrame({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    return SizedBox(
-      width: 32,
-      height: 32,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: t.background.withValues(alpha: 0.78),
-          border: Border.all(color: t.borderSubtle),
-          borderRadius: BorderRadius.circular(5),
-        ),
-        child: child,
-      ),
-    );
-  }
-}
-
-class _HistoryCardMenu extends StatelessWidget {
-  const _HistoryCardMenu({
+/// The actions of one history card or viewer item; [batch] switches to the
+/// whole-batch wording. A queued or running item cannot be deleted (the
+/// gateway answers 409 `task_active`), so the entry says why it is disabled.
+class _HistoryMenu extends StatelessWidget {
+  const _HistoryMenu({
     super.key,
-    required this.item,
-    required this.onImport,
-    required this.onDownload,
-    required this.onDelete,
-  });
-
-  final ServerHistoryItem item;
-  final VoidCallback onImport;
-  final VoidCallback onDownload;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    return PopupMenuButton<String>(
-      tooltip: MaterialLocalizations.of(context).moreButtonTooltip,
-      color: t.surfaceHigh,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 148),
-      icon: Icon(Icons.more_horiz, size: 14, color: t.headerText),
-      iconSize: 14,
-      splashRadius: 14,
-      onSelected: (value) {
-        if (value == 'import') {
-          onImport();
-        } else if (value == 'download') {
-          onDownload();
-        } else if (value == 'delete') {
-          onDelete();
-        }
-      },
-      itemBuilder: (context) => [
-        if (item.hasImage) ...[
-          PopupMenuItem<String>(
-            value: 'import',
-            child: _HistoryMenuItem(
-              icon: Icons.upload_outlined,
-              label: context.l.serverHistoryImportParameters,
-            ),
-          ),
-          PopupMenuItem<String>(
-            value: 'download',
-            child: _HistoryMenuItem(
-              icon: Icons.download,
-              label: context.l.serverHistoryDownload,
-            ),
-          ),
-        ],
-        PopupMenuItem<String>(
-          value: 'delete',
-          child: _HistoryMenuItem(
-            icon: Icons.delete_outline,
-            label: context.l.commonDelete,
-            danger: true,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _HistoryBatchMenu extends StatelessWidget {
-  const _HistoryBatchMenu({
-    super.key,
+    required this.batch,
     required this.hasImage,
+    required this.deletable,
     required this.onImport,
     required this.onDownload,
     required this.onDelete,
   });
 
+  final bool batch;
   final bool hasImage;
+  final bool deletable;
   final VoidCallback onImport;
   final VoidCallback onDownload;
   final VoidCallback onDelete;
@@ -1210,16 +1065,25 @@ class _HistoryBatchMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
+    final l = context.l;
+    const iconSize = VisionMetrics.iconMedium;
     return PopupMenuButton<String>(
       tooltip: MaterialLocalizations.of(context).moreButtonTooltip,
       color: t.surfaceHigh,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(VisionMetrics.radius8),
+      ),
       padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 176),
-      icon: Icon(Icons.more_horiz, size: 16, color: t.headerText),
-      iconSize: 16,
-      splashRadius: 16,
+      constraints: BoxConstraints(minWidth: batch ? 176 : 148),
+      icon: Icon(Icons.more_horiz, size: iconSize, color: t.headerText),
+      iconSize: iconSize,
+      splashRadius: iconSize,
+      onCanceled: () =>
+          ClientDiagnostics.instance.record('history_menu_cancelled'),
       onSelected: (value) {
+        ClientDiagnostics.instance.record('history_menu_action', {
+          'action': value,
+        });
         if (value == 'import') {
           onImport();
         } else if (value == 'download') {
@@ -1229,29 +1093,41 @@ class _HistoryBatchMenu extends StatelessWidget {
         }
       },
       itemBuilder: (context) => [
-        if (hasImage) ...[
-          PopupMenuItem<String>(
-            value: 'import',
-            child: _HistoryMenuItem(
-              icon: Icons.upload_outlined,
-              label: context.l.serverHistoryBatchImportParameters,
-            ),
+        PopupMenuItem<String>(
+          value: 'import',
+          child: _HistoryMenuItem(
+            icon: Icons.upload_outlined,
+            label: batch
+                ? l.serverHistoryBatchImportParameters
+                : l.serverHistoryImportParameters,
           ),
+        ),
+        if (hasImage)
           PopupMenuItem<String>(
             value: 'download',
             child: _HistoryMenuItem(
               icon: Icons.download,
-              label: context.l.serverHistoryBatchDownload,
+              label: batch
+                  ? l.serverHistoryBatchDownload
+                  : l.serverHistoryDownload,
             ),
           ),
-        ],
         PopupMenuItem<String>(
           value: 'delete',
-          child: _HistoryMenuItem(
-            icon: Icons.delete_outline,
-            label: context.l.serverHistoryBatchDelete,
-            danger: true,
-          ),
+          enabled: deletable,
+          child: deletable
+              ? _HistoryMenuItem(
+                  icon: Icons.delete_outline,
+                  label: batch ? l.serverHistoryBatchDelete : l.commonDelete,
+                  danger: true,
+                )
+              : ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 220),
+                  child: _HistoryMenuItem(
+                    icon: Icons.hourglass_empty,
+                    label: l.serverHistoryDeleteActive,
+                  ),
+                ),
         ),
       ],
     );
@@ -1278,12 +1154,14 @@ class _HistoryMenuItem extends StatelessWidget {
       children: [
         Icon(icon, size: 16, color: color),
         const SizedBox(width: 10),
-        Text(
-          label,
-          style: TextStyle(
-            color: color,
-            fontSize: t.fontSize(11),
-            fontWeight: FontWeight.w600,
+        Flexible(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: t.fontSize(11),
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
@@ -1291,48 +1169,51 @@ class _HistoryMenuItem extends StatelessWidget {
   }
 }
 
-class _HistoryIconButton extends StatelessWidget {
-  const _HistoryIconButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-  });
+class _PlaceholderIcon extends StatelessWidget {
+  const _PlaceholderIcon({required this.item});
 
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onPressed;
+  final ServerHistoryItem item;
 
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    return Material(
-      color: t.background.withValues(alpha: 0.82),
-      borderRadius: BorderRadius.circular(4),
-      child: IconButton(
-        icon: Icon(icon, size: 13, color: t.headerText),
-        tooltip: tooltip,
-        padding: const EdgeInsets.all(4),
-        constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-        onPressed: onPressed,
+    final reason = _historyFailureMessage(context.l, item);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              reason != null ? Icons.error_outline : Icons.hourglass_empty,
+              color: reason != null ? t.accentDanger : t.textDisabled,
+              size: 28,
+            ),
+            if (reason != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                reason,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: t.textSecondary,
+                  fontSize: t.fontSize(9),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
 }
 
-class _PlaceholderIcon extends StatelessWidget {
-  const _PlaceholderIcon({required this.status});
-
-  final String status;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    return Center(
-      child: Icon(
-        status == 'failed' ? Icons.error_outline : Icons.hourglass_empty,
-        color: status == 'failed' ? t.accentDanger : t.textDisabled,
-        size: 28,
-      ),
-    );
+/// Why an item failed, localized from its contract `error_code`; null while
+/// it has not failed.
+String? _historyFailureMessage(AppLocalizations l, ServerHistoryItem item) {
+  if (item.status == 'cancelled' && item.errorCode == null) {
+    return l.serverHistoryItemCancelled;
   }
+  return taskItemFailureMessage(l, item.status, item.errorCode);
 }

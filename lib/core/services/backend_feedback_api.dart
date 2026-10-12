@@ -1,6 +1,5 @@
-import 'package:dio/dio.dart';
-
-import '../gateway/backend_gateway.dart';
+import '../gateway/backend_exception.dart';
+import 'backend_client.dart';
 
 class FeedbackSubmission {
   const FeedbackSubmission({required this.id, required this.createdAt});
@@ -18,12 +17,10 @@ abstract class FeedbackApi {
 }
 
 class BackendFeedbackApi implements FeedbackApi {
-  BackendFeedbackApi({Dio? dio}) : _dio = dio ?? Dio() {
-    _dio.options.connectTimeout = const Duration(seconds: 20);
-    _dio.options.receiveTimeout = const Duration(seconds: 30);
-  }
+  BackendFeedbackApi({BackendClient? client})
+    : _client = client ?? BackendClient.shared;
 
-  final Dio _dio;
+  final BackendClient _client;
 
   @override
   Future<FeedbackSubmission> submit({
@@ -31,39 +28,24 @@ class BackendFeedbackApi implements FeedbackApi {
     required Map<String, dynamic> clientContext,
     required List<Map<String, dynamic>> diagnostics,
   }) async {
-    try {
-      final response = await _dio.post<dynamic>(
-        backendUrl('/api/feedback'),
-        data: {
-          'description': description.trim(),
-          'client_context': clientContext,
-          'diagnostics': diagnostics,
-        },
-        options: Options(responseType: ResponseType.json),
-      );
-      final data = response.data;
-      if (data is! Map<String, dynamic>) {
-        throw const FeedbackApiException('Invalid server response');
-      }
-      return FeedbackSubmission(
-        id: data['id'] as String? ?? '',
-        createdAt: data['created_at'] as String? ?? '',
-      );
-    } on DioException catch (error) {
-      final data = error.response?.data;
-      final detail = data is Map ? data['detail'] : null;
-      throw FeedbackApiException(
-        detail?.toString() ?? error.message ?? 'Request failed',
+    final response = await _client.post<dynamic>(
+      '/api/feedback',
+      data: {
+        'description': description.trim(),
+        'client_context': clientContext,
+        'diagnostics': diagnostics,
+      },
+    );
+    final data = response.data;
+    if (data is! Map<String, dynamic>) {
+      throw const BackendException(
+        statusCode: null,
+        code: BackendErrorCode.invalidResponse,
       );
     }
+    return FeedbackSubmission(
+      id: data['id'] as String? ?? '',
+      createdAt: data['created_at'] as String? ?? '',
+    );
   }
-}
-
-class FeedbackApiException implements Exception {
-  const FeedbackApiException(this.message);
-
-  final String message;
-
-  @override
-  String toString() => message;
 }

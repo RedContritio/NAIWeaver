@@ -3,6 +3,7 @@ import 'ml_image_processing.dart';
 import 'ml_inference_service.dart';
 import 'ml_model_entry.dart';
 import 'ml_model_registry.dart';
+import 'ml_stage.dart';
 
 class MLUpscaleService {
   final MLInferenceService _inferenceService;
@@ -13,14 +14,15 @@ class MLUpscaleService {
   Future<Uint8List?> upscale(
     Uint8List imageBytes,
     String modelId, {
-    void Function(String stage, double progress)? onProgress,
+    void Function(MLStage stage, double progress)? onProgress,
+    void Function(int current, int total)? onTile,
     bool tileable = false,
   }) async {
     final config = MLModelRegistry.configFor(modelId);
     if (config == null) return null;
 
     // Check for alpha channel
-    onProgress?.call('Analyzing image...', 0.02);
+    onProgress?.call(MLStage.analyzing, 0.02);
     final alphaSplit = await compute(
       splitAlphaChannel,
       AlphaSplitParams(imageBytes: imageBytes),
@@ -32,6 +34,7 @@ class MLUpscaleService {
       modelId,
       config,
       tileable: tileable,
+      onTile: onTile,
       onProgress: (stage, progress) {
         // Scale progress to 0.05–0.85 range
         onProgress?.call(stage, 0.05 + progress * 0.80);
@@ -42,12 +45,12 @@ class MLUpscaleService {
 
     // If no alpha, we're done
     if (!alphaSplit.hasAlpha || alphaSplit.alphaBytes == null) {
-      onProgress?.call('Complete', 1.0);
+      onProgress?.call(MLStage.complete, 1.0);
       return rgbResult;
     }
 
     // Upscale alpha channel separately (bilinear resize, no model needed)
-    onProgress?.call('Recombining alpha...', 0.90);
+    onProgress?.call(MLStage.recombiningAlpha, 0.90);
     final upscaledW = alphaSplit.width * config.scaleFactor;
     final upscaledH = alphaSplit.height * config.scaleFactor;
 
@@ -61,7 +64,7 @@ class MLUpscaleService {
       ),
     );
 
-    onProgress?.call('Complete', 1.0);
+    onProgress?.call(MLStage.complete, 1.0);
     return finalResult;
   }
 
@@ -71,18 +74,19 @@ class MLUpscaleService {
     String modelId,
     MLModelConfig config, {
     bool tileable = false,
-    void Function(String stage, double progress)? onProgress,
+    void Function(MLStage stage, double progress)? onProgress,
+    void Function(int current, int total)? onTile,
   }) async {
     final tileSize = config.maxTileSize ?? 256;
     final overlap = config.tileOverlap;
 
     // Step 1: Load model
-    onProgress?.call('Loading model...', 0.05);
+    onProgress?.call(MLStage.loadingModel, 0.05);
     final loaded = await _inferenceService.loadModel(modelId, skipNnapi: true);
     if (!loaded) return null;
 
     // Step 2: Split into tiles (isolate)
-    onProgress?.call('Splitting into tiles...', 0.1);
+    onProgress?.call(MLStage.splittingTiles, 0.1);
     final TileResult tileResult;
     if (tileable) {
       tileResult = await compute(
@@ -115,7 +119,8 @@ class MLUpscaleService {
     for (int i = 0; i < totalTiles; i++) {
       final tile = tileResult.tiles[i];
       final progress = 0.1 + (0.8 * (i / totalTiles));
-      onProgress?.call('Upscaling tile ${i + 1}/$totalTiles...', progress);
+      onTile?.call(i + 1, totalTiles);
+      onProgress?.call(MLStage.upscalingTiles, progress);
 
       final result = await _inferenceService.runInference(
         modelId: modelId,
@@ -136,7 +141,7 @@ class MLUpscaleService {
     }
 
     // Step 4: Stitch tiles (isolate)
-    onProgress?.call('Stitching result...', 0.95);
+    onProgress?.call(MLStage.stitching, 0.95);
     final result = await compute(
       stitchTiles,
       StitchParams(
@@ -150,7 +155,7 @@ class MLUpscaleService {
       ),
     );
 
-    onProgress?.call('Complete', 1.0);
+    onProgress?.call(MLStage.complete, 1.0);
     return result;
   }
 }

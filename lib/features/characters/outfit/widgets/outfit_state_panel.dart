@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import '../../../../core/l10n/l10n_extensions.dart';
 import '../../../../core/theme/theme_extensions.dart';
+import '../../../../core/theme/vision_metrics.dart';
 import '../../../../core/theme/vision_tokens.dart';
 import '../../../../core/widgets/browser_native_selectable_text.dart';
+import '../../../../core/widgets/ui/app_panel.dart';
+import '../../../../core/widgets/ui/app_pill.dart';
+import '../../../../core/widgets/ui/app_sheet.dart';
+import '../../../../core/widgets/ui/app_tone.dart';
 import '../../models/closet_outfit.dart';
 import '../outfit_classifier.dart';
 import '../outfit_delta.dart';
@@ -159,11 +165,12 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
+    final l = context.l;
     if (_items.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(VisionMetrics.space12),
         child: Text(
-          'No classifiable garments in this outfit\'s tags.',
+          l.charsStateNoGarments,
           style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(11)),
         ),
       );
@@ -179,7 +186,7 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
         Row(
           children: [
             Text(
-              'OUTFIT STATE',
+              l.charsOutfitState.toUpperCase(),
               style: TextStyle(
                 color: t.textSecondary,
                 fontSize: t.fontSize(9),
@@ -187,31 +194,21 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: VisionMetrics.space8),
             if (rendered.isDishevelled)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: t.accentDanger.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(3),
-                  border: Border.all(
-                    color: t.accentDanger.withValues(alpha: 0.5),
-                  ),
-                ),
-                child: Text(
-                  'DISHEVELLED',
-                  style: TextStyle(
-                    color: t.accentDanger,
-                    fontSize: t.fontSize(8),
-                    letterSpacing: 1.5,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+              AppPill(
+                text: l.charsDishevelled.toUpperCase(),
+                tone: AppTone.error,
+                dense: true,
               ),
             const Spacer(),
             PopupMenuButton<String>(
-              tooltip: 'More',
-              icon: Icon(Icons.more_horiz, size: 18, color: t.textTertiary),
+              tooltip: MaterialLocalizations.of(context).moreButtonTooltip,
+              icon: Icon(
+                Icons.more_horiz,
+                size: VisionMetrics.iconMedium,
+                color: t.textTertiary,
+              ),
               padding: EdgeInsets.zero,
               onSelected: (v) {
                 if (v == 'reset') _resetIntact();
@@ -222,10 +219,14 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
                   value: 'reset',
                   child: Row(
                     children: [
-                      Icon(Icons.refresh, size: 14, color: t.textTertiary),
-                      const SizedBox(width: 8),
+                      Icon(
+                        Icons.refresh,
+                        size: VisionMetrics.iconSmall,
+                        color: t.textTertiary,
+                      ),
+                      const SizedBox(width: VisionMetrics.space8),
                       Text(
-                        'Reset to intact',
+                        l.charsResetIntact,
                         style: TextStyle(fontSize: t.fontSize(11)),
                       ),
                     ],
@@ -235,10 +236,14 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
                   value: 'reparse',
                   child: Row(
                     children: [
-                      Icon(Icons.find_replace, size: 14, color: t.textTertiary),
-                      const SizedBox(width: 8),
+                      Icon(
+                        Icons.find_replace,
+                        size: VisionMetrics.iconSmall,
+                        color: t.textTertiary,
+                      ),
+                      const SizedBox(width: VisionMetrics.space8),
                       Text(
-                        'Re-parse from tags',
+                        l.charsReparse,
                         style: TextStyle(fontSize: t.fontSize(11)),
                       ),
                     ],
@@ -259,63 +264,66 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
           return _garmentCard(t, slot, it, concealed: concealed);
         }),
         const SizedBox(height: 10),
-        Container(
+        SizedBox(
           width: double.infinity,
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: t.surfaceMid,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: t.borderSubtle),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '→ RENDERED TAGS',
-                style: TextStyle(
-                  color: t.textTertiary,
-                  fontSize: t.fontSize(8),
-                  letterSpacing: 1.5,
-                ),
-              ),
-              const SizedBox(height: 4),
-              BrowserNativeSelectableText(
-                text: rendered.tags.isEmpty ? '(empty)' : rendered.tags,
-                style: TextStyle(
-                  color: t.textPrimary,
-                  fontSize: t.fontSize(11),
-                ),
-              ),
-              if (rendered.isDishevelled)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    '+ nsfw',
-                    style: TextStyle(
-                      color: t.accentDanger,
-                      fontSize: t.fontSize(10),
-                    ),
+          child: AppPanel(
+            variant: AppPanelVariant.outlined,
+            padding: const EdgeInsets.all(VisionMetrics.space8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '→ ${l.charsRenderedTags.toUpperCase()}',
+                  style: TextStyle(
+                    color: t.textTertiary,
+                    fontSize: t.fontSize(8),
+                    letterSpacing: 1.5,
                   ),
                 ),
-            ],
+                const SizedBox(height: 4),
+                BrowserNativeSelectableText(
+                  text: rendered.tags.isEmpty
+                      ? l.charsEmptyValue
+                      : rendered.tags,
+                  style: TextStyle(
+                    color: t.textPrimary,
+                    fontSize: t.fontSize(11),
+                  ),
+                ),
+                if (rendered.isDishevelled)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      '+ nsfw', // l10n-ignore: prompt tag shown as rendered
+                      style: TextStyle(
+                        color: t.accentDanger,
+                        fontSize: t.fontSize(10),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: VisionMetrics.space8),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: () =>
                 widget.onApplyToPrompt(rendered.tags, rendered.isDishevelled),
-            icon: const Icon(Icons.add, size: 14),
+            icon: const Icon(Icons.add, size: VisionMetrics.iconSmall),
             label: Text(
-              widget.persistent ? 'APPLY TO PROMPT' : 'USE THESE TAGS',
+              (widget.persistent ? l.charsApplyToPrompt : l.charsUseTheseTags)
+                  .toUpperCase(),
               style: TextStyle(fontSize: t.fontSize(10), letterSpacing: 1),
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: t.accent.withValues(alpha: 0.2),
+              backgroundColor: t.accent.withValues(
+                alpha: VisionMetrics.opacityPressed,
+              ),
               foregroundColor: t.accent,
               elevation: 0,
-              minimumSize: const Size.fromHeight(40),
+              minimumSize: Size.fromHeight(context.hitSize),
             ),
           ),
         ),
@@ -340,7 +348,9 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
     return _cardShell(
       t,
       slotLabel: slot,
-      garmentLabel: concealed ? '$garment  (concealed)' : garment,
+      garmentLabel: concealed
+          ? '$garment  (${context.l.charsConcealed})'
+          : garment,
       concealed: concealed,
       trailing: _statePill(
         t,
@@ -370,61 +380,59 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
       ..sort(
         (a, b) => kOutfitStates.indexOf(a).compareTo(kOutfitStates.indexOf(b)),
       );
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 3),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: t.surfaceMid.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: t.borderSubtle),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'dress',
-            style: TextStyle(
-              color: t.textTertiary,
-              fontSize: t.fontSize(8),
-              letterSpacing: 1.5,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: VisionMetrics.radius2),
+      child: AppPanel(
+        variant: AppPanelVariant.inset,
+        padding: const EdgeInsets.all(VisionMetrics.space8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.l.charsDress,
+              style: TextStyle(
+                color: t.textTertiary,
+                fontSize: t.fontSize(8),
+                letterSpacing: 1.5,
+              ),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            garment,
-            style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(12)),
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: [
-              _labelledPill(
-                t,
-                prefix: '↑ TOP',
-                state: topState,
-                onTap: () => _pickState(
-                  slot: 'dress (top)',
-                  current: topState,
-                  valid: topValid,
-                  onChosen: (v) => _setDressState('top', v),
+            const SizedBox(height: 2),
+            Text(
+              garment,
+              style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(12)),
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                _labelledPill(
+                  t,
+                  prefix: '↑ ${context.l.charsTopPrefix.toUpperCase()}',
+                  state: topState,
+                  onTap: () => _pickState(
+                    slot: '${context.l.charsDress} (${context.l.charsTopPrefix})',
+                    current: topState,
+                    valid: topValid,
+                    onChosen: (v) => _setDressState('top', v),
+                  ),
                 ),
-              ),
-              _labelledPill(
-                t,
-                prefix: '↓ BOT',
-                state: botState,
-                onTap: () => _pickState(
-                  slot: 'dress (bottom)',
-                  current: botState,
-                  valid: botValid,
-                  onChosen: (v) => _setDressState('bottom', v),
+                _labelledPill(
+                  t,
+                  prefix: '↓ ${context.l.charsBottomPrefix.toUpperCase()}',
+                  state: botState,
+                  onTap: () => _pickState(
+                    slot: '${context.l.charsDress} (${context.l.charsBottomPrefix})',
+                    current: botState,
+                    valid: botValid,
+                    onChosen: (v) => _setDressState('bottom', v),
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -475,45 +483,45 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
     required Widget trailing,
     bool concealed = false,
   }) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 3),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: t.surfaceMid.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: t.borderSubtle),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  slotLabel,
-                  style: TextStyle(
-                    color: t.textTertiary,
-                    fontSize: t.fontSize(8),
-                    letterSpacing: 1.5,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: VisionMetrics.radius2),
+      child: AppPanel(
+        variant: AppPanelVariant.inset,
+        padding: const EdgeInsets.all(VisionMetrics.space8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    slotLabel,
+                    style: TextStyle(
+                      color: t.textTertiary,
+                      fontSize: t.fontSize(8),
+                      letterSpacing: 1.5,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  garmentLabel,
-                  style: TextStyle(
-                    color: concealed ? t.textMinimal : t.textPrimary,
-                    fontSize: t.fontSize(12),
-                    fontStyle: concealed ? FontStyle.italic : FontStyle.normal,
+                  const SizedBox(height: 2),
+                  Text(
+                    garmentLabel,
+                    style: TextStyle(
+                      color: concealed ? t.textMinimal : t.textPrimary,
+                      fontSize: t.fontSize(12),
+                      fontStyle: concealed
+                          ? FontStyle.italic
+                          : FontStyle.normal,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          trailing,
-        ],
+            const SizedBox(width: VisionMetrics.space8),
+            trailing,
+          ],
+        ),
       ),
     );
   }
@@ -524,42 +532,10 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
     required List<String> validStates,
     VoidCallback? onTap,
   }) {
-    final tone = kStateTone[state] ?? 'neutral';
-    final color = _toneColor(t, tone);
-    final label = kStateLabels[state] ?? state;
-    return InkWell(
+    return AppPill(
+      text: kStateLabels[state] ?? state,
+      tone: _tone(kStateTone[state] ?? 'neutral'),
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 32, minWidth: 88),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.18),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withValues(alpha: 0.5)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: t.fontSize(10),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            if (onTap != null) ...[
-              const SizedBox(width: 4),
-              Icon(
-                Icons.expand_more,
-                size: 14,
-                color: color.withValues(alpha: 0.7),
-              ),
-            ],
-          ],
-        ),
-      ),
     );
   }
 
@@ -569,51 +545,25 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
     required String state,
     required VoidCallback onTap,
   }) {
-    final tone = kStateTone[state] ?? 'neutral';
-    final color = _toneColor(t, tone);
-    final label = kStateLabels[state] ?? state;
-    return InkWell(
+    return AppPill(
+      text: '$prefix  ${kStateLabels[state] ?? state}',
+      tone: _tone(kStateTone[state] ?? 'neutral'),
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 32),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.18),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withValues(alpha: 0.5)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              prefix,
-              style: TextStyle(
-                color: color.withValues(alpha: 0.8),
-                fontSize: t.fontSize(9),
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: t.fontSize(10),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.expand_more,
-              size: 14,
-              color: color.withValues(alpha: 0.7),
-            ),
-          ],
-        ),
-      ),
     );
+  }
+
+  AppTone _tone(String tone) {
+    switch (tone) {
+      case 'minor':
+        return AppTone.info;
+      case 'moderate':
+        return AppTone.warning;
+      case 'strong':
+        return AppTone.error;
+      case 'neutral':
+      default:
+        return AppTone.neutral;
+    }
   }
 
   Color _toneColor(VisionTokens t, String tone) {
@@ -637,72 +587,46 @@ class _OutfitStatePanelState extends State<OutfitStatePanel> {
     required List<String> valid,
     required ValueChanged<String> onChosen,
   }) async {
-    final t = context.tRead;
-    final chosen = await showModalBottomSheet<String>(
+    final chosen = await showAppSheet<String>(
       context: context,
-      backgroundColor: t.surfaceHigh,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-      ),
       builder: (ctx) {
-        return SafeArea(
+        final t = ctx.t;
+        return AppPickerSheet(
+          title: slot,
           child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-                child: Text(
-                  slot.toUpperCase(),
-                  style: TextStyle(
-                    color: t.textTertiary,
-                    fontSize: t.fontSize(9),
-                    letterSpacing: 1.5,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
               for (final s in valid)
-                InkWell(
+                ListTile(
                   onTap: () => Navigator.of(ctx).pop(s),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
+                  leading: Container(
+                    width: 10,
+                    height: 10,
                     decoration: BoxDecoration(
-                      border: Border(top: BorderSide(color: t.borderSubtle)),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 10,
-                          height: 10,
-                          decoration: BoxDecoration(
-                            color: _toneColor(t, kStateTone[s] ?? 'neutral'),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            kStateLabels[s] ?? s,
-                            style: TextStyle(
-                              color: t.textPrimary,
-                              fontSize: t.fontSize(13),
-                              fontWeight: s == current
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                        ),
-                        if (s == current)
-                          Icon(Icons.check, size: 18, color: t.accent),
-                      ],
+                      color: _toneColor(t, kStateTone[s] ?? 'neutral'),
+                      borderRadius: BorderRadius.circular(
+                        VisionMetrics.radius2,
+                      ),
                     ),
                   ),
+                  title: Text(
+                    kStateLabels[s] ?? s,
+                    style: TextStyle(
+                      color: t.textPrimary,
+                      fontSize: t.fontSize(13),
+                      fontWeight: s == current
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                    ),
+                  ),
+                  trailing: s == current
+                      ? Icon(
+                          Icons.check,
+                          size: VisionMetrics.iconMedium,
+                          color: t.accent,
+                        )
+                      : null,
                 ),
-              const SizedBox(height: 8),
             ],
           ),
         );

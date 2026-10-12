@@ -148,27 +148,4 @@ class JukeboxRegistry {
     }
     return null;
   }
-
-  static String categoryDisplayName(SongCategory cat) {
-    switch (cat) {
-      case SongCategory.classical:
-        return 'CLASSICAL';
-      case SongCategory.anime:
-        return 'ANIME';
-      case SongCategory.game:
-        return 'GAME';
-      case SongCategory.jazz:
-        return 'JAZZ';
-      case SongCategory.ambient:
-        return 'AMBIENT';
-      case SongCategory.holiday:
-        return 'HOLIDAY';
-      case SongCategory.meme:
-        return 'MEME';
-      case SongCategory.rock:
-        return 'ROCK';
-      case SongCategory.custom:
-        return 'CUSTOM';
-    }
-  }
 }

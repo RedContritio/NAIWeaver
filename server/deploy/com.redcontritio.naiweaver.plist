@@ -6,7 +6,7 @@
   <string>com.redcontritio.naiweaver</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/Users/redcontritio/Projects/NAIWeaver/server/scripts/run-production.sh</string>
+    <string>/Users/redcontritio/Projects/NAIWeaver-release/server/scripts/run-production.sh</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict>
@@ -24,6 +24,6 @@
   <key>StandardErrorPath</key>
   <string>/Users/redcontritio/.config/naiweaver/stderr.log</string>
   <key>WorkingDirectory</key>
-  <string>/Users/redcontritio/Projects/NAIWeaver</string>
+  <string>/Users/redcontritio/Projects/NAIWeaver-release</string>
 </dict>
 </plist>

@@ -3,6 +3,7 @@ import 'ml_image_processing.dart';
 import 'ml_inference_service.dart';
 import 'ml_model_entry.dart';
 import 'ml_model_registry.dart';
+import 'ml_stage.dart';
 
 class BGRemovalResult {
   final Uint8List rawMask;
@@ -28,7 +29,7 @@ class MLBackgroundRemovalService {
   Future<BGRemovalResult?> removeBackground(
     Uint8List imageBytes,
     String modelId, {
-    void Function(String stage, double progress)? onProgress,
+    void Function(MLStage stage, double progress)? onProgress,
   }) async {
     final config = MLModelRegistry.configFor(modelId);
     if (config == null) return null;
@@ -37,7 +38,7 @@ class MLBackgroundRemovalService {
     final inputH = config.inputHeight ?? 320;
 
     // Step 1: Preprocess (isolate)
-    onProgress?.call('Preprocessing...', 0.1);
+    onProgress?.call(MLStage.preprocessing, 0.1);
     final preprocessed = await compute(
       preprocessImage,
       PreprocessParams(
@@ -50,13 +51,13 @@ class MLBackgroundRemovalService {
     );
 
     // Step 2: Load model (free memory first; skip NNAPI — causes native crashes on Android)
-    onProgress?.call('Loading model...', 0.2);
+    onProgress?.call(MLStage.loadingModel, 0.2);
     await _inferenceService.unloadAll();
     final loaded = await _inferenceService.loadModel(modelId, skipNnapi: true);
     if (!loaded) return null;
 
     // Step 3: Run inference (main thread, async native)
-    onProgress?.call('Running inference...', 0.4);
+    onProgress?.call(MLStage.runningInference, 0.4);
     final result = await _inferenceService.runInference(
       modelId: modelId,
       inputData: preprocessed.data,
@@ -66,7 +67,7 @@ class MLBackgroundRemovalService {
 
     // Step 4: Generate mask or matte (isolate)
     final isMatte = config.outputType == MLOutputType.alphaMatte;
-    onProgress?.call(isMatte ? 'Generating matte...' : 'Generating mask...', 0.7);
+    onProgress?.call(isMatte ? MLStage.generatingMatte : MLStage.generatingMask, 0.7);
     final Uint8List rawMask;
     if (isMatte) {
       rawMask = await compute(
@@ -91,7 +92,7 @@ class MLBackgroundRemovalService {
     }
 
     // Step 5: Apply mask/matte with default settings (isolate)
-    onProgress?.call('Applying mask...', 0.9);
+    onProgress?.call(MLStage.applyingMask, 0.9);
     final Uint8List resultImage;
     if (isMatte) {
       resultImage = await compute(
@@ -113,7 +114,7 @@ class MLBackgroundRemovalService {
       );
     }
 
-    onProgress?.call('Complete', 1.0);
+    onProgress?.call(MLStage.complete, 1.0);
 
     return BGRemovalResult(
       rawMask: rawMask,

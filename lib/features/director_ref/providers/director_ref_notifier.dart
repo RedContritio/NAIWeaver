@@ -1,12 +1,15 @@
 import 'package:flutter/foundation.dart';
+import '../../../core/gateway/backend_permissions.dart';
 import '../../../core/services/preferences_service.dart';
+import '../../../core/services/reference_library_service.dart';
 import '../models/director_reference.dart';
 import '../services/reference_image_processor.dart';
+import 'reference_id_allocator.dart';
 
 class DirectorRefNotifier extends ChangeNotifier {
   List<DirectorReference> _references = [];
   bool _isProcessing = false;
-  int _idCounter = 0;
+  final _ids = ReferenceIdAllocator('ref_');
 
   /// Defaults for newly added references — initially 1.0 / 0.8 but updated
   /// whenever the user adjusts a reference, so subsequent additions inherit
@@ -14,37 +17,96 @@ class DirectorRefNotifier extends ChangeNotifier {
   double _defaultStrength = 1.0;
   double _defaultFidelity = 0.8;
   PreferencesService? _prefs;
+  PaidImageAccess _access = PaidImageAccess.allowed;
 
   List<DirectorReference> get references => _references;
   bool get isProcessing => _isProcessing;
   double get defaultStrength => _defaultStrength;
   double get defaultFidelity => _defaultFidelity;
 
+  /// Whether the account can currently send references. Without access the
+  /// references stay in the list, marked paused, and are not sent.
+  PaidImageAccess get access => _access;
+
+  /// Enabled by the user and sent: the user's own switch combined with the
+  /// account's current access.
+  bool isSent(DirectorReference ref) =>
+      ref.enabled && _access == PaidImageAccess.allowed;
+
+  /// Enabled by the user but held back for lack of access.
+  bool isPaused(DirectorReference ref) =>
+      ref.enabled && _access != PaidImageAccess.allowed;
+
+  /// References the user enabled that are held back for lack of access.
+  int get pausedCount => _access == PaidImageAccess.allowed
+      ? 0
+      : _references.where((r) => r.enabled).length;
+
+  int get sentCount => _references.where(isSent).length;
+
+  void updateAccess(PaidImageAccess access) {
+    if (_access == access) return;
+    _access = access;
+    notifyListeners();
+  }
+
   /// Initialize last-applied defaults (typically called from PreferencesService
   /// at app startup).
-  void setDefaults({double? strength, double? fidelity, PreferencesService? prefs}) {
+  void setDefaults({
+    double? strength,
+    double? fidelity,
+    PreferencesService? prefs,
+  }) {
     if (strength != null) _defaultStrength = strength;
     if (fidelity != null) _defaultFidelity = fidelity;
     if (prefs != null) _prefs = prefs;
   }
 
-  Future<void> addReference(Uint8List imageBytes) async {
+  /// Adds a picked image with the last-applied strength and fidelity.
+  /// Returns the new reference's id, or null when the image could not be
+  /// processed (nothing is added then).
+  Future<String?> addReference(Uint8List imageBytes) => _add(imageBytes);
+
+  /// Adds a library entry as a new reference with the entry's own type,
+  /// strength and fidelity. The saved values apply to this reference only:
+  /// the defaults for later additions are left untouched. Returns the new
+  /// id, or null (and leaves the list unchanged) when processing fails.
+  Future<String?> addFromSaved(SavedDirectorRef saved) {
+    final ref = saved.reference;
+    return _add(
+      ref.originalImageBytes,
+      type: ref.type,
+      strength: ref.strength,
+      fidelity: ref.fidelity,
+    );
+  }
+
+  Future<String?> _add(
+    Uint8List imageBytes, {
+    DirectorReferenceType type = DirectorReferenceType.character,
+    double? strength,
+    double? fidelity,
+  }) async {
     _isProcessing = true;
     notifyListeners();
 
     try {
-      final (processedBytes, base64) =
-          await ReferenceImageProcessor.processImage(imageBytes);
+      final (_, base64) = await ReferenceImageProcessor.processImage(
+        imageBytes,
+      );
       final ref = DirectorReference(
-        id: 'ref_${_idCounter++}',
+        id: _ids.next(),
         originalImageBytes: imageBytes,
         processedBase64: base64,
-        strength: _defaultStrength,
-        fidelity: _defaultFidelity,
+        type: type,
+        strength: strength ?? _defaultStrength,
+        fidelity: fidelity ?? _defaultFidelity,
       );
-      _references = List.from(_references)..add(ref);
+      _references = [..._references, ref];
+      return ref.id;
     } catch (e) {
       debugPrint('DirectorRefNotifier: Failed to process image: $e');
+      return null;
     } finally {
       _isProcessing = false;
       notifyListeners();
@@ -106,13 +168,17 @@ class DirectorRefNotifier extends ChangeNotifier {
         if (ref.processedBase64.isNotEmpty) {
           processed.add(ref);
         } else {
-          final (_, base64) =
-              await ReferenceImageProcessor.processImage(ref.originalImageBytes);
+          final (_, base64) = await ReferenceImageProcessor.processImage(
+            ref.originalImageBytes,
+          );
           processed.add(ref.copyWith(processedBase64: base64));
         }
       }
-      _references = processed;
-      _idCounter = processed.length;
+      _references = _ids.adopt(
+        processed,
+        idOf: (r) => r.id,
+        withId: (r, id) => r.copyWith(id: id),
+      );
     } catch (e) {
       debugPrint('DirectorRefNotifier: Failed to set references: $e');
     } finally {
@@ -126,10 +192,10 @@ class DirectorRefNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Assembles the 5 parallel arrays for API injection.
-  /// Returns null if no references are set.
+  /// Assembles the 5 parallel arrays for API injection from the references
+  /// that are [isSent]. Returns null if there are none.
   DirectorRefPayload? buildPayload() {
-    final active = _references.where((r) => r.enabled).toList();
+    final active = _references.where(isSent).toList();
     if (active.isEmpty) return null;
 
     final images = <String>[];
@@ -141,10 +207,7 @@ class DirectorRefNotifier extends ChangeNotifier {
     for (final ref in active) {
       images.add(ref.processedBase64);
       descriptions.add({
-        'caption': {
-          'base_caption': ref.type.apiCaption,
-          'char_captions': [],
-        },
+        'caption': {'base_caption': ref.type.apiCaption, 'char_captions': []},
         'legacy_uc': false,
       });
       strengths.add(ref.strength);

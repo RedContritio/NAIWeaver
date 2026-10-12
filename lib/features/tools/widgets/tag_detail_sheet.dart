@@ -7,9 +7,16 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/services/tag_service.dart';
 import '../../../core/services/wiki_service.dart';
+import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/vision_metrics.dart';
 import '../../../core/theme/vision_tokens.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/widgets/manager_list_tile.dart';
+import '../../../core/widgets/ui/app_sheet.dart';
+import '../../../core/widgets/ui/app_states.dart';
+import '../../../l10n/app_localizations.dart';
+import '../../../core/utils/tag_category_color.dart';
 
 /// Detail sheet for a single tag — shows the Danbooru wiki description,
 /// other_names chips, and tappable [[wiki_link]] spans that re-open the
@@ -24,11 +31,14 @@ class TagDetailSheet extends StatefulWidget {
 
   /// Show as a modal bottom sheet (mobile) or right-side panel (desktop).
   static Future<void> show(BuildContext context, DanbooruTag tag) {
-    return showModalBottomSheet(
+    final compact = windowSizeClassOf(context) == WindowSizeClass.compact;
+    return showAppSheet<void>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
+      draggable: true,
+      // Open higher on compact windows — there's less vertical room to spare.
+      initialSize: compact ? 0.85 : 0.7,
+      minSize: 0.4,
+      maxSize: 0.95,
       builder: (_) => TagDetailSheet(tag: tag),
     );
   }
@@ -50,21 +60,6 @@ class _TagDetailSheetState extends State<TagDetailSheet> {
     final wiki = context.read<WikiService>();
     await wiki.ensureLoaded();
     return wiki.lookup(widget.tag.tag);
-  }
-
-  Color _categoryColor(String? category) {
-    switch ((category ?? '').toLowerCase()) {
-      case 'copyright':
-        return const Color(0xFFD880FF);
-      case 'character':
-        return const Color(0xFF00AD00);
-      case 'artist':
-        return const Color(0xFFFF5858);
-      case 'meta':
-        return const Color(0xFFFF9229);
-      default:
-        return Colors.white;
-    }
   }
 
   Future<void> _openLinkedTag(String tagName) async {
@@ -110,91 +105,66 @@ class _TagDetailSheetState extends State<TagDetailSheet> {
   Widget build(BuildContext context) {
     final t = context.t;
     final tag = widget.tag;
-    final color = _categoryColor(tag.typeName);
-    final mobile = isMobile(context);
+    final color = tagCategoryColor(t, tag.typeName);
+    final mobile = windowSizeClassOf(context) == WindowSizeClass.compact;
+    final l = context.l;
 
-    return DraggableScrollableSheet(
-      // Open higher on mobile — there's less vertical room to spare.
-      initialChildSize: mobile ? 0.85 : 0.7,
-      minChildSize: 0.4,
-      maxChildSize: 0.95,
-      expand: false,
-      builder: (context, scrollController) {
-        return Container(
-          decoration: BoxDecoration(
-            color: t.surfaceHigh,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-          ),
-          child: Column(
-            children: [
-              _grabber(t),
-              _header(t, tag, color, mobile),
-              Divider(height: 1, color: t.textMinimal),
-              Expanded(
-                child: FutureBuilder<WikiEntry?>(
-                  future: _entryFuture,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState != ConnectionState.done) {
-                      return Center(
-                        child: SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: color,
-                          ),
-                        ),
-                      );
-                    }
-                    final entry = snapshot.data;
-                    return SingleChildScrollView(
-                      controller: scrollController,
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (entry?.otherNames.isNotEmpty ?? false) ...[
-                            _otherNamesChips(entry!.otherNames, t, color, mobile),
-                            const SizedBox(height: 16),
-                          ],
-                          if (entry == null || entry.description.isEmpty)
-                            _emptyState(t)
-                          else
-                            _markdown(entry.description, t, color, mobile),
-                          const SizedBox(height: 24),
-                          _footer(t),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _header(t, tag, color, mobile),
+        Divider(height: 1, color: t.textMinimal),
+        FutureBuilder<WikiEntry?>(
+          future: _entryFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Padding(
+                padding: EdgeInsets.all(VisionMetrics.space24),
+                child: LoadingState(),
+              );
+            }
+            final entry = snapshot.data;
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(
+                VisionMetrics.space16,
+                VisionMetrics.space12,
+                VisionMetrics.space16,
+                VisionMetrics.space24,
               ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _grabber(VisionTokens t) {
-    return Center(
-      child: Container(
-        width: 36,
-        height: 4,
-        margin: const EdgeInsets.only(top: 8, bottom: 4),
-        decoration: BoxDecoration(
-          color: t.textDisabled,
-          borderRadius: BorderRadius.circular(2),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (entry?.otherNames.isNotEmpty ?? false) ...[
+                    _otherNamesChips(entry!.otherNames, t, color, mobile),
+                    const SizedBox(height: VisionMetrics.space16),
+                  ],
+                  if (entry == null || entry.description.isEmpty)
+                    _emptyState(t, l)
+                  else
+                    _markdown(entry.description, t, color, mobile),
+                  const SizedBox(height: VisionMetrics.space24),
+                  _footer(t, l),
+                ],
+              ),
+            );
+          },
         ),
-      ),
+      ],
     );
   }
 
   Widget _header(VisionTokens t, DanbooruTag tag, Color color, bool mobile) {
+    final l = context.l;
     // On mobile, slightly smaller title font + wrap up to 2 lines for long
     // copyright/character tags; on desktop keep the larger one-line look.
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 8, 12),
+      padding: const EdgeInsets.fromLTRB(
+        VisionMetrics.space16,
+        VisionMetrics.space8,
+        VisionMetrics.space8,
+        VisionMetrics.space12,
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -214,27 +184,15 @@ class _TagDetailSheetState extends State<TagDetailSheet> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: VisionMetrics.space4),
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                      child: Text(
-                        tag.typeName.toUpperCase(),
-                        style: TextStyle(
-                          color: color,
-                          fontSize: t.fontSize(8),
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                        ),
-                      ),
+                    _CategoryBadge(
+                      label: tag.typeName.toUpperCase(),
+                      color: color,
                     ),
                     if (tag.count > 0) ...[
-                      const SizedBox(width: 8),
+                      const SizedBox(width: VisionMetrics.space8),
                       Text(
                         NumberFormat.compact().format(tag.count),
                         style: TextStyle(
@@ -248,13 +206,14 @@ class _TagDetailSheetState extends State<TagDetailSheet> {
               ],
             ),
           ),
-          IconButton(
-            icon: Icon(Icons.open_in_new, size: mobile ? 22 : 18, color: t.textDisabled),
-            tooltip: 'View on Danbooru',
+          ManagerIconButton(
+            icon: Icons.open_in_new,
+            tooltip: l.tagDetailViewOnDanbooru,
             onPressed: _openOnDanbooru,
           ),
-          IconButton(
-            icon: Icon(Icons.close, size: mobile ? 22 : 18, color: t.textDisabled),
+          ManagerIconButton(
+            icon: Icons.close,
+            tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
             onPressed: () => Navigator.of(context).pop(),
           ),
         ],
@@ -262,20 +221,30 @@ class _TagDetailSheetState extends State<TagDetailSheet> {
     );
   }
 
-  Widget _otherNamesChips(List<String> names, VisionTokens t, Color color, bool mobile) {
+  Widget _otherNamesChips(
+    List<String> names,
+    VisionTokens t,
+    Color color,
+    bool mobile,
+  ) {
     return Wrap(
-      spacing: 6,
-      runSpacing: 6,
+      spacing: VisionMetrics.space4,
+      runSpacing: VisionMetrics.space4,
       children: names.map((n) {
         return ConstrainedBox(
           // Cap chip width so a freakishly long alias can't blow out the row.
           constraints: const BoxConstraints(maxWidth: 240),
           child: Container(
-            padding: EdgeInsets.symmetric(horizontal: 8, vertical: mobile ? 6 : 4),
+            padding: EdgeInsets.symmetric(
+              horizontal: VisionMetrics.space8,
+              vertical: mobile ? VisionMetrics.space8 : VisionMetrics.space4,
+            ),
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.08),
-              border: Border.all(color: color.withValues(alpha: 0.25), width: 0.5),
-              borderRadius: BorderRadius.circular(10),
+              color: color.withValues(alpha: VisionMetrics.opacityHover),
+              border: Border.all(
+                color: color.withValues(alpha: VisionMetrics.opacityScrim),
+              ),
+              borderRadius: BorderRadius.circular(VisionMetrics.radius8),
             ),
             child: Text(
               n,
@@ -292,27 +261,15 @@ class _TagDetailSheetState extends State<TagDetailSheet> {
     );
   }
 
-  Widget _emptyState(VisionTokens t) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 32),
-      child: Center(
-        child: Column(
-          children: [
-            Icon(Icons.description_outlined, size: 32, color: t.textDisabled),
-            const SizedBox(height: 8),
-            Text(
-              'No wiki description for this tag.',
-              style: TextStyle(color: t.textSecondary, fontSize: t.fontSize(11)),
-            ),
-            const SizedBox(height: 4),
-            TextButton(
-              onPressed: _openOnDanbooru,
-              child: Text(
-                'Check on Danbooru',
-                style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(10)),
-              ),
-            ),
-          ],
+  Widget _emptyState(VisionTokens t, AppLocalizations l) {
+    return EmptyState(
+      icon: Icons.description_outlined,
+      message: l.tagDetailNoWiki,
+      action: TextButton(
+        onPressed: _openOnDanbooru,
+        child: Text(
+          l.tagDetailCheckDanbooru,
+          style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(10)),
         ),
       ),
     );
@@ -334,33 +291,76 @@ class _TagDetailSheetState extends State<TagDetailSheet> {
         [_WikiLinkSyntax(), ...md.ExtensionSet.gitHubFlavored.inlineSyntaxes],
       ),
       builders: {
-        'wikilink': _WikiLinkBuilder(color: color, onTap: _openLinkedTag, mobile: mobile),
+        'wikilink': _WikiLinkBuilder(
+          color: color,
+          onTap: _openLinkedTag,
+          mobile: mobile,
+        ),
       },
       styleSheet: MarkdownStyleSheet(
-        p: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11), height: 1.5),
-        h1: TextStyle(color: t.textPrimary, fontSize: t.headerSize(15), fontWeight: FontWeight.bold),
-        h2: TextStyle(color: t.textPrimary, fontSize: t.headerSize(14), fontWeight: FontWeight.bold),
-        h3: TextStyle(color: t.textPrimary, fontSize: t.headerSize(13), fontWeight: FontWeight.bold),
-        h4: TextStyle(color: t.textPrimary, fontSize: t.headerSize(12), fontWeight: FontWeight.bold),
-        h5: TextStyle(color: t.textSecondary, fontSize: t.headerSize(11), fontWeight: FontWeight.bold),
-        h6: TextStyle(color: t.textSecondary, fontSize: t.headerSize(10), fontWeight: FontWeight.bold),
+        p: TextStyle(
+          color: t.textPrimary,
+          fontSize: t.fontSize(11),
+          height: 1.5,
+        ),
+        h1: TextStyle(
+          color: t.textPrimary,
+          fontSize: t.headerSize(15),
+          fontWeight: FontWeight.bold,
+        ),
+        h2: TextStyle(
+          color: t.textPrimary,
+          fontSize: t.headerSize(14),
+          fontWeight: FontWeight.bold,
+        ),
+        h3: TextStyle(
+          color: t.textPrimary,
+          fontSize: t.headerSize(13),
+          fontWeight: FontWeight.bold,
+        ),
+        h4: TextStyle(
+          color: t.textPrimary,
+          fontSize: t.headerSize(12),
+          fontWeight: FontWeight.bold,
+        ),
+        h5: TextStyle(
+          color: t.textSecondary,
+          fontSize: t.headerSize(11),
+          fontWeight: FontWeight.bold,
+        ),
+        h6: TextStyle(
+          color: t.textSecondary,
+          fontSize: t.headerSize(10),
+          fontWeight: FontWeight.bold,
+        ),
         em: TextStyle(color: t.textSecondary, fontStyle: FontStyle.italic),
         strong: TextStyle(color: t.textPrimary, fontWeight: FontWeight.bold),
         code: TextStyle(
           color: color,
           fontFamily: 'monospace',
           fontSize: t.fontSize(10),
-          backgroundColor: color.withValues(alpha: 0.08),
+          backgroundColor: color.withValues(alpha: VisionMetrics.opacityHover),
         ),
         codeblockDecoration: BoxDecoration(
-          color: color.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(4),
+          color: color.withValues(alpha: VisionMetrics.opacityHover),
+          borderRadius: BorderRadius.circular(VisionMetrics.radius4),
         ),
-        blockquote: TextStyle(color: t.textSecondary, fontStyle: FontStyle.italic),
+        blockquote: TextStyle(
+          color: t.textSecondary,
+          fontStyle: FontStyle.italic,
+        ),
         blockquoteDecoration: BoxDecoration(
-          border: Border(left: BorderSide(color: color.withValues(alpha: 0.4), width: 3)),
+          border: Border(
+            left: BorderSide(
+              color: color.withValues(alpha: VisionMetrics.opacityDisabled),
+              width: 3,
+            ),
+          ),
         ),
-        listBullet: TextStyle(color: color.withValues(alpha: 0.6), fontSize: t.fontSize(11)),
+        listBullet: TextStyle(
+          color: color.withValues(alpha: VisionMetrics.opacityScrim),
+          fontSize: t.fontSize(11),
+        ),
         a: TextStyle(color: color, decoration: TextDecoration.underline),
         horizontalRuleDecoration: BoxDecoration(
           border: Border(top: BorderSide(color: t.textMinimal, width: 1)),
@@ -369,12 +369,45 @@ class _TagDetailSheetState extends State<TagDetailSheet> {
     );
   }
 
-  Widget _footer(VisionTokens t) {
+  Widget _footer(VisionTokens t, AppLocalizations l) {
     return Padding(
-      padding: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.only(top: VisionMetrics.space8),
       child: Text(
-        'Tag descriptions © Danbooru contributors, CC-BY-SA-4.0',
+        l.tagDetailLicense,
         style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(8)),
+      ),
+    );
+  }
+}
+
+class _CategoryBadge extends StatelessWidget {
+  const _CategoryBadge({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: VisionMetrics.opacityPressed),
+        borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: VisionMetrics.space4,
+          vertical: VisionMetrics.radius2,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: t.fontSize(8),
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1,
+          ),
+        ),
       ),
     );
   }
@@ -402,7 +435,11 @@ class _WikiLinkBuilder extends MarkdownElementBuilder {
   final void Function(String) onTap;
   final bool mobile;
 
-  _WikiLinkBuilder({required this.color, required this.onTap, required this.mobile});
+  _WikiLinkBuilder({
+    required this.color,
+    required this.onTap,
+    required this.mobile,
+  });
 
   @override
   Widget? visitElementAfterWithContext(
@@ -418,7 +455,7 @@ class _WikiLinkBuilder extends MarkdownElementBuilder {
       style: (preferredStyle ?? const TextStyle()).copyWith(
         color: color,
         decoration: TextDecoration.underline,
-        decorationColor: color.withValues(alpha: 0.5),
+        decorationColor: color.withValues(alpha: VisionMetrics.opacityScrim),
       ),
     );
     // On mobile, pad the hit area vertically so single-line links get a
@@ -429,7 +466,9 @@ class _WikiLinkBuilder extends MarkdownElementBuilder {
       onTap: () => onTap(target),
       child: mobile
           ? Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.symmetric(
+                vertical: VisionMetrics.space4,
+              ),
               child: child,
             )
           : child,

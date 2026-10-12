@@ -1,22 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
-import '../../../core/widgets/editable_slider_value.dart';
+import '../../../core/theme/vision_metrics.dart';
 import '../../../core/widgets/enabled_toggle.dart';
-import '../../../core/widgets/vision_slider.dart';
+import '../../../core/widgets/manager_list_tile.dart';
 import '../models/director_reference.dart';
-
-String _localizedRefType(BuildContext context, DirectorReferenceType type) {
-  final l = context.l;
-  switch (type) {
-    case DirectorReferenceType.character:
-      return l.refTypeCharacter;
-    case DirectorReferenceType.style:
-      return l.refTypeStyle;
-    case DirectorReferenceType.characterAndStyle:
-      return l.refTypeCharAndStyle;
-  }
-}
+import 'reference_fields.dart';
 
 class DirectorRefEditorSheet extends StatefulWidget {
   final DirectorReference reference;
@@ -55,28 +44,17 @@ class _DirectorRefEditorSheetState extends State<DirectorRefEditorSheet> {
     _enabled = widget.reference.enabled;
   }
 
-  Color _colorForType(BuildContext context, DirectorReferenceType type) {
-    final t = context.t;
-    switch (type) {
-      case DirectorReferenceType.character:
-        return t.accentRefCharacter;
-      case DirectorReferenceType.style:
-        return t.accentRefStyle;
-      case DirectorReferenceType.characterAndStyle:
-        return t.accentRefCharStyle;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    return Container(
-      color: t.surfaceMid,
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-        left: 24,
-        right: 24,
-        top: 16,
+    final l = context.l;
+    final accent = refTypeColor(t, _type);
+    // showAppSheet supplies the background, keyboard inset and scrolling.
+    return Padding(
+      padding: const EdgeInsets.only(
+        left: VisionMetrics.space24,
+        right: VisionMetrics.space24,
+        top: VisionMetrics.space8,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -84,39 +62,37 @@ class _DirectorRefEditorSheetState extends State<DirectorRefEditorSheet> {
         children: [
           // Header
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                context.l.refEditorTitle,
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: t.fontSize(12),
-                  letterSpacing: 4,
-                  color: t.textPrimary,
+              Expanded(
+                child: Text(
+                  l.refEditorTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: t.fontSize(12),
+                    letterSpacing: 4,
+                    color: t.textPrimary,
+                  ),
                 ),
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  EnabledToggle(
-                    enabled: _enabled,
-                    accent: _colorForType(context, _type),
-                    onTap: () {
-                      setState(() => _enabled = !_enabled);
-                      widget.onToggleEnabled();
-                    },
-                  ),
-                  const SizedBox(width: 12),
-                  IconButton(
-                    onPressed: () {
-                      widget.onRemove();
-                      Navigator.pop(context);
-                    },
-                    icon: Icon(Icons.delete_outline, color: t.accentDanger, size: 18),
-                    constraints: const BoxConstraints(),
-                    padding: EdgeInsets.zero,
-                  ),
-                ],
+              EnabledToggle(
+                enabled: _enabled,
+                accent: accent,
+                onTap: () {
+                  setState(() => _enabled = !_enabled);
+                  widget.onToggleEnabled();
+                },
+              ),
+              const SizedBox(width: 4),
+              ManagerIconButton(
+                icon: Icons.delete_outline,
+                tooltip: l.refRemove,
+                color: t.accentDanger,
+                onPressed: () {
+                  widget.onRemove();
+                  Navigator.pop(context);
+                },
               ),
             ],
           ),
@@ -129,7 +105,7 @@ class _DirectorRefEditorSheetState extends State<DirectorRefEditorSheet> {
               width: 160,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: _colorForType(context, _type), width: 1.5),
+                border: Border.all(color: accent, width: 1.5),
                 image: DecorationImage(
                   image: MemoryImage(widget.reference.originalImageBytes),
                   fit: BoxFit.cover,
@@ -141,7 +117,7 @@ class _DirectorRefEditorSheetState extends State<DirectorRefEditorSheet> {
 
           // Type selector
           Text(
-            context.l.refTypeLabel,
+            l.refTypeLabel,
             style: TextStyle(
               fontWeight: FontWeight.w900,
               fontSize: t.fontSize(9),
@@ -150,51 +126,19 @@ class _DirectorRefEditorSheetState extends State<DirectorRefEditorSheet> {
             ),
           ),
           const SizedBox(height: 8),
-          Row(
-            children: DirectorReferenceType.values.map((refType) {
-              final isSelected = _type == refType;
-              final color = _colorForType(context, refType);
-              return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() => _type = refType);
-                      widget.onTypeChanged(refType);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isSelected ? color.withValues(alpha: 0.15) : t.borderSubtle,
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: isSelected ? color : t.textMinimal,
-                          width: isSelected ? 1.5 : 0.5,
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          _localizedRefType(context, refType),
-                          style: TextStyle(
-                            fontSize: t.fontSize(8),
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1,
-                            color: isSelected ? color : t.textTertiary,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
+          DirectorRefTypeSelector(
+            type: _type,
+            onChanged: (type) {
+              setState(() => _type = type);
+              widget.onTypeChanged(type);
+            },
           ),
           const SizedBox(height: 20),
 
-          // Strength slider
-          _buildSlider(
-            label: context.l.refStrength,
+          ReferenceSliderField(
+            label: l.refStrength,
             value: _strength,
+            accent: accent,
             onChanged: (v) {
               setState(() => _strength = v);
               widget.onStrengthChanged(v);
@@ -202,10 +146,10 @@ class _DirectorRefEditorSheetState extends State<DirectorRefEditorSheet> {
           ),
           const SizedBox(height: 16),
 
-          // Fidelity slider
-          _buildSlider(
-            label: context.l.refFidelity,
+          ReferenceSliderField(
+            label: l.refFidelity,
             value: _fidelity,
+            accent: accent,
             onChanged: (v) {
               setState(() => _fidelity = v);
               widget.onFidelityChanged(v);
@@ -214,53 +158,6 @@ class _DirectorRefEditorSheetState extends State<DirectorRefEditorSheet> {
           const SizedBox(height: 24),
         ],
       ),
-    );
-  }
-
-  Widget _buildSlider({
-    required String label,
-    required double value,
-    required ValueChanged<double> onChanged,
-  }) {
-    final t = context.t;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: t.fontSize(9),
-                letterSpacing: 2,
-                color: t.textDisabled,
-              ),
-            ),
-            EditableSliderValue(
-              value: value,
-              softMin: 0.0,
-              softMax: 1.0,
-              decimals: 2,
-              onChanged: onChanged,
-              style: TextStyle(
-                fontSize: t.fontSize(10),
-                color: t.textTertiary,
-                fontFamily: 'JetBrains Mono',
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        VisionSlider.subtle(
-          value: value.clamp(0.0, 1.0),
-          onChanged: onChanged,
-          t: t,
-          min: 0.0,
-          max: 1.0,
-        ),
-      ],
     );
   }
 }

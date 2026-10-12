@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 
 import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
-import '../../../core/utils/responsive.dart';
+import '../../../core/theme/vision_metrics.dart';
+import '../../../core/widgets/section_title.dart';
+import '../services/seed_policy.dart';
 
 enum GenerationSeedControlVariant { compact, full }
 
@@ -29,8 +31,23 @@ class GenerationSeedControl extends StatelessWidget {
   final ValueChanged<bool> onRandomizeChanged;
   final GenerationSeedControlVariant variant;
 
+  /// Whether the seed box holds something other than a seed in
+  /// `0..4294967295`. Random mode ignores the box, so it is never invalid.
+  static bool isInvalidSeed(String text, {required bool randomize}) =>
+      !randomize && parseSeedInput(text) == null;
+
   @override
   Widget build(BuildContext context) {
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: controller,
+      builder: (context, value, _) => _buildControl(
+        context,
+        invalid: isInvalidSeed(value.text, randomize: randomize),
+      ),
+    );
+  }
+
+  Widget _buildControl(BuildContext context, {required bool invalid}) {
     final compact = variant == GenerationSeedControlVariant.compact;
     final t = context.t;
     final field = TextField(
@@ -52,29 +69,40 @@ class GenerationSeedControl extends StatelessWidget {
         isDense: compact,
         hintText: context.l.panelSeed.toUpperCase(),
         hintStyle: TextStyle(fontSize: t.fontSize(9), color: t.textMinimal),
+        errorText: invalid ? context.l.generationSeedInvalid : null,
+        errorMaxLines: 2,
+        errorStyle: TextStyle(fontSize: t.fontSize(9), color: t.accentDanger),
         fillColor: compact
             ? t.background.withValues(alpha: 0.8)
             : t.borderSubtle,
         filled: true,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: VisionMetrics.borderRadius4,
           borderSide: compact
               ? BorderSide(color: t.borderSubtle)
               : BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: VisionMetrics.borderRadius4,
           borderSide: compact
               ? BorderSide(color: t.borderSubtle)
               : BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: VisionMetrics.borderRadius4,
           borderSide: BorderSide(color: t.accent),
         ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: VisionMetrics.borderRadius4,
+          borderSide: BorderSide(color: t.accentDanger),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: VisionMetrics.borderRadius4,
+          borderSide: BorderSide(color: t.accentDanger),
+        ),
         contentPadding: EdgeInsets.symmetric(
-          horizontal: compact ? 8 : 12,
-          vertical: compact ? 4 : 10,
+          horizontal: compact ? VisionMetrics.space8 : VisionMetrics.space12,
+          vertical: compact ? VisionMetrics.space4 : 10,
         ),
         suffixIconConstraints: BoxConstraints(
           minWidth: compact ? 28 : 48,
@@ -86,10 +114,11 @@ class GenerationSeedControl extends StatelessWidget {
                 ? 'generation-seed-toggle-compact'
                 : 'generation-seed-toggle-full',
           ),
+          tooltip: context.l.panelSeed,
           onPressed: () => onRandomizeChanged(!randomize),
           icon: Icon(
             randomize ? Icons.shuffle : Icons.tag,
-            size: 14,
+            size: VisionMetrics.iconSmall,
             color: randomize ? t.textSecondary : t.textDisabled,
           ),
           constraints: const BoxConstraints(minWidth: 32, minHeight: 24),
@@ -104,11 +133,16 @@ class GenerationSeedControl extends StatelessWidget {
         children: [
           Icon(
             Icons.casino,
-            size: 12,
+            size: VisionMetrics.iconSmall,
             color: randomize ? t.accent : t.textDisabled,
           ),
-          const SizedBox(width: 6),
-          Expanded(child: SizedBox(height: 28, child: field)),
+          const SizedBox(width: VisionMetrics.space8),
+          Expanded(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 28),
+              child: field,
+            ),
+          ),
         ],
       );
     }
@@ -117,16 +151,7 @@ class GenerationSeedControl extends StatelessWidget {
       key: fullKey,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          context.l.panelSeed.toUpperCase(),
-          style: TextStyle(
-            fontWeight: FontWeight.w900,
-            fontSize: t.fontSize(isMobile(context) ? 11 : 9),
-            letterSpacing: 1.5,
-            color: t.secondaryText,
-          ),
-        ),
-        const SizedBox(height: 12),
+        SectionTitle(context.l.panelSeed.toUpperCase(), t: t),
         field,
       ],
     );

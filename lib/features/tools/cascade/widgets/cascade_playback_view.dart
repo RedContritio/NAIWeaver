@@ -17,7 +17,11 @@ import '../services/cascade_stitching_service.dart';
 import 'caption_overlay.dart';
 import 'cascade_help_dialog.dart';
 import '../../../generation/providers/generation_notifier.dart';
+import '../../../generation/widgets/quote_confirm_dialog.dart';
 import '../../../../core/services/tag_service.dart';
+import '../../../../core/widgets/ui/app_pill.dart';
+import '../../../../core/widgets/ui/app_tone.dart';
+import '../../../../core/theme/vision_metrics.dart';
 
 class CascadePlaybackView extends StatefulWidget {
   const CascadePlaybackView({super.key});
@@ -71,7 +75,10 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
       _globalController.text = state.globalInjection;
     }
     for (int i = 0; i < state.characterAppearances.length; i++) {
-      final controller = _appearanceControllers.putIfAbsent(i, () => TextEditingController());
+      final controller = _appearanceControllers.putIfAbsent(
+        i,
+        () => TextEditingController(),
+      );
       if (controller.text != state.characterAppearances[i]) {
         controller.text = state.characterAppearances[i];
       }
@@ -97,24 +104,32 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
         // out of reach. Cap the height to the space actually available above the
         // bottom anchor and let the content scroll instead.
         final mq = MediaQuery.of(context);
-        final maxPanelHeight = mq.size.height - mq.viewInsets.bottom - mq.viewPadding.top - 24;
+        final maxPanelHeight =
+            mq.size.height - mq.viewInsets.bottom - mq.viewPadding.top - 24;
 
         return Container(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          padding: const EdgeInsets.fromLTRB(
+            VisionMetrics.space16,
+            0,
+            VisionMetrics.space16,
+            VisionMetrics.space12,
+          ),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
                 Colors.transparent,
-                t.background.withValues(alpha: 0.8),
+                t.background.withValues(alpha: VisionMetrics.opacityOverlay),
                 t.background,
               ],
               stops: const [0.0, 0.3, 1.0],
             ),
           ),
           child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: maxPanelHeight > 0 ? maxPanelHeight : double.infinity),
+            constraints: BoxConstraints(
+              maxHeight: maxPanelHeight > 0 ? maxPanelHeight : double.infinity,
+            ),
             child: SingleChildScrollView(
               // Anchor scrolling to the bottom so the playback controls (the
               // primary action) stay visible and the appearance row scrolls
@@ -124,9 +139,9 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _buildHeader(cascadeNotifier),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: VisionMetrics.space12),
                   _buildCastingSheet(cascadeNotifier, genNotifier.tagService),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: VisionMetrics.space12),
                   _buildPlaybackController(cascadeNotifier, genNotifier),
                 ],
               ),
@@ -144,37 +159,61 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
     return Center(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 32),
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(VisionMetrics.space24),
         decoration: BoxDecoration(
-          color: t.background.withValues(alpha: 0.9),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: t.accentCascade.withValues(alpha: 0.2)),
+          color: t.background.withValues(alpha: VisionMetrics.opacityOverlay),
+          borderRadius: BorderRadius.circular(VisionMetrics.radius8),
+          border: Border.all(
+            color: t.accentCascade.withValues(
+              alpha: VisionMetrics.opacityPressed,
+            ),
+          ),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               l.cascadeSelect,
-              style: TextStyle(color: t.accentCascade, fontSize: t.fontSize(10), fontWeight: FontWeight.w900, letterSpacing: 4),
+              style: TextStyle(
+                color: t.accentCascade,
+                fontSize: t.fontSize(10),
+                fontWeight: FontWeight.w900,
+                letterSpacing: 4,
+              ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: VisionMetrics.space24),
             if (notifier.state.savedCascades.isEmpty)
-              Text(l.cascadeNoSaved, style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9)))
+              Text(
+                l.cascadeNoSaved,
+                style: TextStyle(
+                  color: t.textDisabled,
+                  fontSize: t.fontSize(9),
+                ),
+              )
             else
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: notifier.state.savedCascades.map((c) => ActionChip(
-                  backgroundColor: t.accentCascade.withValues(alpha: 0.1),
-                  side: BorderSide(color: t.accentCascade.withValues(alpha: 0.2)),
-                  label: Text(c.name, style: TextStyle(color: t.accentCascade, fontSize: t.fontSize(10))),
-                  onPressed: () => notifier.setActiveCascade(c),
-                )).toList(),
+                children: notifier.state.savedCascades
+                    .map(
+                      (c) => AppPill(
+                        text: c.name,
+                        tone: AppTone.info,
+                        onTap: () => notifier.setActiveCascade(c),
+                      ),
+                    )
+                    .toList(),
               ),
-            const SizedBox(height: 24),
+            const SizedBox(height: VisionMetrics.space24),
             TextButton(
               onPressed: () => notifier.setActiveCascade(null),
-              child: Text(l.commonCancel, style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(9))),
+              child: Text(
+                l.commonCancel,
+                style: TextStyle(
+                  color: t.textDisabled,
+                  fontSize: t.fontSize(9),
+                ),
+              ),
             ),
           ],
         ),
@@ -185,7 +224,7 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
   Widget _buildHeader(CascadeNotifier notifier) {
     final t = context.t;
     final l = context.l;
-    final mobile = isMobile(context);
+    final mobile = isTouchSized(context);
 
     return Row(
       children: [
@@ -195,26 +234,47 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
             children: [
               Text(
                 notifier.state.activeCascade!.name.toUpperCase(),
-                style: TextStyle(color: t.accentCascade, fontSize: t.fontSize(10), fontWeight: FontWeight.w900, letterSpacing: 2),
+                style: TextStyle(
+                  color: t.accentCascade,
+                  fontSize: t.fontSize(10),
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2,
+                ),
                 overflow: TextOverflow.ellipsis,
               ),
               Text(
-                l.cascadeCharactersAndBeats(notifier.state.activeCascade!.characterCount, notifier.state.activeCascade!.beats.length),
-                style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(8), fontWeight: FontWeight.bold),
+                l.cascadeCharactersAndBeats(
+                  notifier.state.activeCascade!.characterCount,
+                  notifier.state.activeCascade!.beats.length,
+                ),
+                style: TextStyle(
+                  color: t.textDisabled,
+                  fontSize: t.fontSize(8),
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
         ),
         IconButton(
-          icon: Icon(Icons.help_outline, size: mobile ? 16 : 14, color: t.textDisabled),
+          icon: Icon(
+            Icons.help_outline,
+            size: mobile ? 16 : 14,
+            color: t.textDisabled,
+          ),
+          tooltip: context.l.commonHelp,
           onPressed: () => showCascadeHelpDialog(context),
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: VisionMetrics.space8),
         TextButton.icon(
           onPressed: () => notifier.exitCascadeMode(),
-          icon: Icon(Icons.close, size: mobile ? 16 : 14, color: t.textDisabled),
+          icon: Icon(
+            Icons.close,
+            size: mobile ? 16 : 14,
+            color: t.textDisabled,
+          ),
           label: Text(
             l.cascadeExitCascade.toUpperCase(),
             style: TextStyle(
@@ -225,9 +285,14 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
             ),
           ),
           style: TextButton.styleFrom(
-            padding: EdgeInsets.symmetric(horizontal: mobile ? 12 : 8, vertical: mobile ? 8 : 4),
+            padding: EdgeInsets.symmetric(
+              horizontal: mobile ? 12 : 8,
+              vertical: mobile ? 8 : 4,
+            ),
             side: BorderSide(color: t.borderMedium),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+            ),
           ),
         ),
       ],
@@ -246,49 +311,93 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
             scrollDirection: Axis.horizontal,
             itemCount: notifier.state.characterAppearances.length,
             itemBuilder: (context, index) {
-              final focusNode = _appearanceFocusNodes.putIfAbsent(index, () => FocusNode());
+              final focusNode = _appearanceFocusNodes.putIfAbsent(
+                index,
+                () => FocusNode(),
+              );
               return Container(
                 width: 150,
-                margin: const EdgeInsets.only(right: 8),
+                margin: const EdgeInsets.only(right: VisionMetrics.space8),
                 child: RawAutocomplete<DanbooruTag>(
                   textEditingController: _appearanceControllers[index],
                   focusNode: focusNode,
                   optionsBuilder: (TextEditingValue textEditingValue) {
-                    if (textEditingValue.text.isEmpty) return const Iterable<DanbooruTag>.empty();
-                    final lastPart = textEditingValue.text.split(',').last.trim();
-                    final minLength = TagService.containsNonAscii(lastPart) ? 1 : 2;
-                    if (lastPart.length < minLength) return const Iterable<DanbooruTag>.empty();
+                    if (textEditingValue.text.isEmpty) {
+                      return const Iterable<DanbooruTag>.empty();
+                    }
+                    final lastPart = textEditingValue.text
+                        .split(',')
+                        .last
+                        .trim();
+                    final minLength = TagService.containsNonAscii(lastPart)
+                        ? 1
+                        : 2;
+                    if (lastPart.length < minLength) {
+                      return const Iterable<DanbooruTag>.empty();
+                    }
                     return tagService.getSuggestions(lastPart);
                   },
                   displayStringForOption: (DanbooruTag option) =>
-                      option.matchedAlias != null ? '${option.matchedAlias} → ${option.tag}' : option.tag,
-                  fieldViewBuilder: (context, controller, autocompFocusNode, onFieldSubmitted) {
-                    final t = context.t;
-                    return TextField(
-                      controller: controller,
-                      focusNode: autocompFocusNode,
-                      onChanged: (val) => notifier.updateAppearance(index, val),
-                      style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(10)),
-                      decoration: InputDecoration(
-                        hintText: l.cascadeCharTags(index + 1),
-                        // Brighter fill + a visible accent border so the
-                        // appearance boxes read as interactive fields against the
-                        // black background (the old 5% fill was nearly invisible).
-                        hintStyle: TextStyle(color: t.textDisabled, fontSize: t.fontSize(8)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                        filled: true,
-                        fillColor: t.accentCascade.withValues(alpha: 0.12),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
-                          borderSide: BorderSide(color: t.accentCascade.withValues(alpha: 0.3)),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
-                          borderSide: BorderSide(color: t.accentCascade.withValues(alpha: 0.3)),
-                        ),
-                      ),
-                    );
-                  },
+                      option.matchedAlias != null
+                      ? '${option.matchedAlias} → ${option.tag}'
+                      : option.tag,
+                  fieldViewBuilder:
+                      (
+                        context,
+                        controller,
+                        autocompFocusNode,
+                        onFieldSubmitted,
+                      ) {
+                        final t = context.t;
+                        return TextField(
+                          controller: controller,
+                          focusNode: autocompFocusNode,
+                          onChanged: (val) =>
+                              notifier.updateAppearance(index, val),
+                          style: TextStyle(
+                            color: t.textPrimary,
+                            fontSize: t.fontSize(10),
+                          ),
+                          decoration: InputDecoration(
+                            hintText: l.cascadeCharTags(index + 1),
+                            // Brighter fill + a visible accent border so the
+                            // appearance boxes read as interactive fields against the
+                            // black background (the old 5% fill was nearly invisible).
+                            hintStyle: TextStyle(
+                              color: t.textDisabled,
+                              fontSize: t.fontSize(8),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: VisionMetrics.space8,
+                              vertical: 0,
+                            ),
+                            filled: true,
+                            fillColor: t.accentCascade.withValues(
+                              alpha: VisionMetrics.opacityPressed,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                VisionMetrics.radius4,
+                              ),
+                              borderSide: BorderSide(
+                                color: t.accentCascade.withValues(
+                                  alpha: VisionMetrics.opacityDisabled,
+                                ),
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                VisionMetrics.radius4,
+                              ),
+                              borderSide: BorderSide(
+                                color: t.accentCascade.withValues(
+                                  alpha: VisionMetrics.opacityDisabled,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                   optionsViewBuilder: (context, onSelected, options) {
                     return _buildOptionsView(context, (option) {
                       final insertText = option.matchedAlias ?? option.tag;
@@ -305,7 +414,7 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
             },
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: VisionMetrics.space8),
         _buildGlobalTagBox(
           controller: _globalSceneController,
           focusNode: _globalSceneFocusNode,
@@ -313,7 +422,7 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
           tagService: tagService,
           onChanged: notifier.updateGlobalSceneTags,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: VisionMetrics.space8),
         _buildGlobalTagBox(
           controller: _globalController,
           focusNode: _globalFocusNode,
@@ -339,31 +448,47 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
       textEditingController: controller,
       focusNode: focusNode,
       optionsBuilder: (TextEditingValue textEditingValue) {
-        if (textEditingValue.text.isEmpty) return const Iterable<DanbooruTag>.empty();
+        if (textEditingValue.text.isEmpty) {
+          return const Iterable<DanbooruTag>.empty();
+        }
         final lastPart = textEditingValue.text.split(',').last.trim();
         final minLength = TagService.containsNonAscii(lastPart) ? 1 : 2;
-        if (lastPart.length < minLength) return const Iterable<DanbooruTag>.empty();
+        if (lastPart.length < minLength) {
+          return const Iterable<DanbooruTag>.empty();
+        }
         return tagService.getSuggestions(lastPart);
       },
       displayStringForOption: (DanbooruTag option) =>
-          option.matchedAlias != null ? '${option.matchedAlias} → ${option.tag}' : option.tag,
-      fieldViewBuilder: (context, fieldController, fieldFocusNode, onFieldSubmitted) {
-        final t = context.t;
-        return TextField(
-          controller: fieldController,
-          focusNode: fieldFocusNode,
-          onChanged: onChanged,
-          style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(10)),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(8)),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            filled: true,
-            fillColor: t.borderSubtle,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.borderSubtle)),
-          ),
-        );
-      },
+          option.matchedAlias != null
+          ? '${option.matchedAlias} → ${option.tag}'
+          : option.tag,
+      fieldViewBuilder:
+          (context, fieldController, fieldFocusNode, onFieldSubmitted) {
+            final t = context.t;
+            return TextField(
+              controller: fieldController,
+              focusNode: fieldFocusNode,
+              onChanged: onChanged,
+              style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(10)),
+              decoration: InputDecoration(
+                hintText: hint,
+                hintStyle: TextStyle(
+                  color: t.textMinimal,
+                  fontSize: t.fontSize(8),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: VisionMetrics.space12,
+                  vertical: VisionMetrics.space8,
+                ),
+                filled: true,
+                fillColor: t.borderSubtle,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+                  borderSide: BorderSide(color: t.borderSubtle),
+                ),
+              ),
+            );
+          },
       optionsViewBuilder: (context, onSelected, options) {
         return _buildOptionsView(context, (option) {
           final insertText = option.matchedAlias ?? option.tag;
@@ -378,19 +503,30 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
     );
   }
 
-  Widget _buildOptionsView(BuildContext context, AutocompleteOnSelected<DanbooruTag> onSelected, Iterable<DanbooruTag> options) {
+  Widget _buildOptionsView(
+    BuildContext context,
+    AutocompleteOnSelected<DanbooruTag> onSelected,
+    Iterable<DanbooruTag> options,
+  ) {
     final t = context.t;
     return Align(
       alignment: Alignment.topLeft,
       child: Material(
         color: Colors.transparent,
         child: Container(
-          margin: const EdgeInsets.only(top: 4),
+          margin: const EdgeInsets.only(top: VisionMetrics.space4),
           decoration: BoxDecoration(
             color: t.surfaceHigh,
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(VisionMetrics.radius4),
             border: Border.all(color: t.borderMedium),
-            boxShadow: [BoxShadow(color: t.background.withValues(alpha: 0.5), blurRadius: 10)],
+            boxShadow: [
+              BoxShadow(
+                color: t.background.withValues(
+                  alpha: VisionMetrics.opacityScrim,
+                ),
+                blurRadius: 10,
+              ),
+            ],
           ),
           constraints: const BoxConstraints(maxHeight: 150),
           child: ListView.builder(
@@ -399,16 +535,24 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
             itemCount: options.length,
             itemBuilder: (context, index) {
               final option = options.elementAt(index);
-              final color = TagSuggestionOverlay.tagColor(option);
+              final color = TagSuggestionOverlay.tagColor(context.t, option);
               return InkWell(
                 onTap: () => onSelected(option),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: VisionMetrics.space8,
+                    vertical: VisionMetrics.space8,
+                  ),
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
+                    color: color.withValues(alpha: VisionMetrics.opacityHover),
                     border: Border(
                       bottom: BorderSide(color: t.borderSubtle),
-                      left: BorderSide(color: color.withValues(alpha: 0.4), width: 2),
+                      left: BorderSide(
+                        color: color.withValues(
+                          alpha: VisionMetrics.opacityDisabled,
+                        ),
+                        width: 2,
+                      ),
                     ),
                   ),
                   child: Row(
@@ -416,21 +560,57 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
                       Expanded(
                         child: option.matchedAlias != null
                             ? Text.rich(
-                                TextSpan(children: [
-                                  TextSpan(text: option.matchedAlias, style: TextStyle(color: color, fontSize: t.fontSize(9), fontWeight: FontWeight.bold)),
-                                  TextSpan(text: ' → ', style: TextStyle(color: color.withValues(alpha: 0.5), fontSize: t.fontSize(8))),
-                                  TextSpan(text: option.tag, style: TextStyle(color: color.withValues(alpha: 0.6), fontSize: t.fontSize(8))),
-                                ]),
+                                TextSpan(
+                                  children: [
+                                    TextSpan(
+                                      text: option.matchedAlias,
+                                      style: TextStyle(
+                                        color: color,
+                                        fontSize: t.fontSize(9),
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    TextSpan(
+                                      text: ' → ',
+                                      style: TextStyle(
+                                        color: color.withValues(
+                                          alpha: VisionMetrics.opacityScrim,
+                                        ),
+                                        fontSize: t.fontSize(8),
+                                      ),
+                                    ),
+                                    TextSpan(
+                                      text: option.tag,
+                                      style: TextStyle(
+                                        color: color.withValues(
+                                          alpha: VisionMetrics.opacityScrim,
+                                        ),
+                                        fontSize: t.fontSize(8),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                                 overflow: TextOverflow.ellipsis,
                               )
-                            : Text(option.tag,
-                                style: TextStyle(color: color, fontSize: t.fontSize(9), fontWeight: FontWeight.bold),
+                            : Text(
+                                option.tag,
+                                style: TextStyle(
+                                  color: color,
+                                  fontSize: t.fontSize(9),
+                                  fontWeight: FontWeight.bold,
+                                ),
                                 overflow: TextOverflow.ellipsis,
                               ),
                       ),
-                      const SizedBox(width: 4),
-                      Text(NumberFormat.compact().format(option.count),
-                        style: TextStyle(color: color.withValues(alpha: 0.4), fontSize: t.fontSize(7)),
+                      const SizedBox(width: VisionMetrics.space4),
+                      Text(
+                        NumberFormat.compact().format(option.count),
+                        style: TextStyle(
+                          color: color.withValues(
+                            alpha: VisionMetrics.opacityDisabled,
+                          ),
+                          fontSize: t.fontSize(7),
+                        ),
                       ),
                     ],
                   ),
@@ -470,17 +650,23 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Caption preview over the current beat image (scrim technique).
-        if (preview != null && caption.trim().isNotEmpty && state.captionsVisible)
+        if (preview != null &&
+            caption.trim().isNotEmpty &&
+            state.captionsVisible)
           Padding(
-            padding: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.only(bottom: VisionMetrics.space12),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(VisionMetrics.radius4),
               child: AspectRatio(
                 aspectRatio: previewAspect,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.memory(preview, fit: BoxFit.contain, filterQuality: FilterQuality.low),
+                    Image.memory(
+                      preview,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.low,
+                    ),
                     CaptionOverlay(text: caption),
                   ],
                 ),
@@ -494,27 +680,48 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
               child: TextField(
                 controller: controller,
                 onChanged: (val) => notifier.setBeatCaption(currentIndex, val),
-                style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(10)),
+                style: TextStyle(
+                  color: t.textPrimary,
+                  fontSize: t.fontSize(10),
+                ),
                 minLines: 1,
                 maxLines: 2,
                 decoration: InputDecoration(
                   hintText: l.cascadeCaptionHint,
-                  hintStyle: TextStyle(color: t.textMinimal, fontSize: t.fontSize(8)),
-                  prefixIcon: Icon(Icons.subtitles_outlined, size: 16, color: t.textDisabled),
-                  prefixIconConstraints: const BoxConstraints(minWidth: 34, minHeight: 0),
+                  hintStyle: TextStyle(
+                    color: t.textMinimal,
+                    fontSize: t.fontSize(8),
+                  ),
+                  prefixIcon: Icon(
+                    Icons.subtitles_outlined,
+                    size: 16,
+                    color: t.textDisabled,
+                  ),
+                  prefixIconConstraints: const BoxConstraints(
+                    minWidth: 34,
+                    minHeight: 0,
+                  ),
                   isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: VisionMetrics.space4,
+                    vertical: VisionMetrics.space8,
+                  ),
                   filled: true,
                   fillColor: t.borderSubtle,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: t.borderSubtle)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+                    borderSide: BorderSide(color: t.borderSubtle),
+                  ),
                 ),
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: VisionMetrics.space8),
             IconButton(
               focusNode: _toggleFocusNode,
               icon: Icon(
-                state.captionsVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                state.captionsVisible
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
                 size: 18,
                 color: state.captionsVisible ? t.accentCascade : t.textDisabled,
               ),
@@ -526,7 +733,7 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
             _buildExportMenu(notifier, currentIndex),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: VisionMetrics.space12),
       ],
     );
   }
@@ -540,7 +747,9 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
     final l = context.l;
     final state = notifier.state;
     final hasCurrentPreview = state.beatPreviews[currentIndex] != null;
-    final generatedCount = state.beatPreviews.values.where((b) => b != null).length;
+    final generatedCount = state.beatPreviews.values
+        .where((b) => b != null)
+        .length;
 
     return PopupMenuButton<String>(
       enabled: hasCurrentPreview || generatedCount > 0,
@@ -554,23 +763,36 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
         PopupMenuItem(
           value: 'beat',
           enabled: hasCurrentPreview,
-          child: Text(l.cascadeExportBeat, style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11))),
+          child: Text(
+            l.cascadeExportBeat,
+            style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11)),
+          ),
         ),
         PopupMenuItem(
           value: 'strip_v',
           enabled: generatedCount > 0,
-          child: Text(l.cascadeExportStripVertical, style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11))),
+          child: Text(
+            l.cascadeExportStripVertical,
+            style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11)),
+          ),
         ),
         PopupMenuItem(
           value: 'strip_h',
           enabled: generatedCount > 0,
-          child: Text(l.cascadeExportStripHorizontal, style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11))),
+          child: Text(
+            l.cascadeExportStripHorizontal,
+            style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11)),
+          ),
         ),
       ],
     );
   }
 
-  Future<void> _handleExport(CascadeNotifier notifier, int currentIndex, String action) async {
+  Future<void> _handleExport(
+    CascadeNotifier notifier,
+    int currentIndex,
+    String action,
+  ) async {
     final l = context.l;
     final state = notifier.state;
     final cascadeName = state.activeCascade?.name ?? 'cascade';
@@ -582,10 +804,12 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
       if (action == 'beat') {
         final preview = state.beatPreviews[currentIndex];
         if (preview == null) return;
-        bytes = await CaptionBurnService.burnFrame(CaptionFrame(
-          imageBytes: preview,
-          caption: state.beatCaptions[currentIndex] ?? '',
-        ));
+        bytes = await CaptionBurnService.burnFrame(
+          CaptionFrame(
+            imageBytes: preview,
+            caption: state.beatCaptions[currentIndex] ?? '',
+          ),
+        );
         fileName = '${_safeName(cascadeName)}_beat${currentIndex + 1}';
       } else {
         // Build a strip from every generated beat, in beat order.
@@ -594,10 +818,12 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
         for (int i = 0; i < beats.length; i++) {
           final preview = state.beatPreviews[i];
           if (preview != null) {
-            frames.add(CaptionFrame(
-              imageBytes: preview,
-              caption: state.beatCaptions[i] ?? '',
-            ));
+            frames.add(
+              CaptionFrame(
+                imageBytes: preview,
+                caption: state.beatCaptions[i] ?? '',
+              ),
+            );
           }
         }
         if (frames.isEmpty) return;
@@ -610,7 +836,11 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
         bytes = result.bytes;
         fileName = '${_safeName(cascadeName)}_storyboard';
         if (result.downscaled && mounted) {
-          showAppSnackBar(context, l.cascadeStripDownscaled, color: const Color(0xFFFFB74D));
+          showAppSnackBar(
+            context,
+            l.cascadeStripDownscaled,
+            tone: AppTone.warning,
+          );
         }
       }
 
@@ -618,7 +848,11 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
       await _saveOrShareBytes(bytes, fileName);
     } catch (e) {
       if (mounted) {
-        showAppSnackBar(context, '${l.cascadeExportFailed}: $e', color: const Color(0xFFF44336));
+        showAppSnackBar(
+          context,
+          '${l.cascadeExportFailed}: $e',
+          tone: AppTone.error,
+        );
       }
     }
   }
@@ -632,14 +866,14 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
 
     if (kIsWeb) {
       downloadBytes(bytes, fullName);
-      if (mounted) showAppSnackBar(context, l.cascadeExportSaved, color: const Color(0xFF4CAF50));
+      if (mounted) showAppSnackBar(context, l.cascadeExportSaved);
       return;
     }
 
     if (Platform.isAndroid || Platform.isIOS) {
-      await Share.shareXFiles(
-        [XFile.fromData(bytes, mimeType: 'image/png', name: fullName)],
-      );
+      await Share.shareXFiles([
+        XFile.fromData(bytes, mimeType: 'image/png', name: fullName),
+      ]);
       return;
     }
 
@@ -651,7 +885,7 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
     );
     if (result == null) return;
     await File(result).writeAsBytes(bytes);
-    if (mounted) showAppSnackBar(context, l.cascadeExportSaved, color: const Color(0xFF4CAF50));
+    if (mounted) showAppSnackBar(context, l.cascadeExportSaved);
   }
 
   String _safeName(String name) {
@@ -659,7 +893,10 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
     return cleaned.isEmpty ? 'cascade' : cleaned;
   }
 
-  Widget _buildPlaybackController(CascadeNotifier cascadeNotifier, GenerationNotifier genNotifier) {
+  Widget _buildPlaybackController(
+    CascadeNotifier cascadeNotifier,
+    GenerationNotifier genNotifier,
+  ) {
     final t = context.t;
     final l = context.l;
     final state = cascadeNotifier.state;
@@ -682,7 +919,9 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
             itemBuilder: (context, index) {
               final isSelected = index == currentIndex;
               final preview = state.beatPreviews[index];
-              final hasCaption = (state.beatCaptions[index] ?? '').trim().isNotEmpty;
+              final hasCaption = (state.beatCaptions[index] ?? '')
+                  .trim()
+                  .isNotEmpty;
               return InkWell(
                 // One InkWell per beat is mounted at once, so a shared FocusNode
                 // can't be used; these decorative cells never need focus anyway.
@@ -696,22 +935,45 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
                 },
                 child: Container(
                   width: 40,
-                  margin: const EdgeInsets.only(right: 6),
+                  margin: const EdgeInsets.only(right: VisionMetrics.space8),
                   decoration: BoxDecoration(
-                    color: isSelected ? t.accentCascade.withValues(alpha: 0.2) : t.borderSubtle,
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: isSelected ? t.accentCascade : t.borderMedium),
-                    image: preview != null ? DecorationImage(image: MemoryImage(preview), fit: BoxFit.cover) : null,
+                    color: isSelected
+                        ? t.accentCascade.withValues(
+                            alpha: VisionMetrics.opacityPressed,
+                          )
+                        : t.borderSubtle,
+                    borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+                    border: Border.all(
+                      color: isSelected ? t.accentCascade : t.borderMedium,
+                    ),
+                    image: preview != null
+                        ? DecorationImage(
+                            image: MemoryImage(preview),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
                   ),
                   child: Stack(
                     children: [
                       if (preview == null)
-                        Center(child: Text('${index + 1}', style: TextStyle(color: t.textDisabled, fontSize: t.fontSize(10)))),
+                        Center(
+                          child: Text(
+                            '${index + 1}',
+                            style: TextStyle(
+                              color: t.textDisabled,
+                              fontSize: t.fontSize(10),
+                            ),
+                          ),
+                        ),
                       if (hasCaption)
                         Positioned(
                           right: 2,
                           bottom: 2,
-                          child: Icon(Icons.subtitles, size: 10, color: t.accentCascade),
+                          child: Icon(
+                            Icons.subtitles,
+                            size: 10,
+                            color: t.accentCascade,
+                          ),
                         ),
                     ],
                   ),
@@ -720,7 +982,7 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
             },
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: VisionMetrics.space12),
         _buildCaptionSection(cascadeNotifier, currentIndex),
         Row(
           children: [
@@ -747,11 +1009,18 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
                           );
                         } catch (e) {
                           if (context.mounted) {
-                            showErrorSnackBar(context, l.cascadeBeatRenderError);
+                            showErrorSnackBar(
+                              context,
+                              l.cascadeBeatRenderError,
+                            );
                           }
                           return;
                         }
-                        final result = await genNotifier.generateCascadeBeat(request);
+                        final result = await genNotifier.generateCascadeBeat(
+                          request,
+                          confirmQuote: (confirmation) =>
+                              confirmQuoteChange(context, confirmation),
+                        );
                         if (result != null) {
                           cascadeNotifier.setBeatPreview(currentIndex, result);
                           if (currentIndex < totalBeats - 1) {
@@ -762,20 +1031,38 @@ class _CascadePlaybackViewState extends State<CascadePlaybackView> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: t.accent,
                   foregroundColor: t.background,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: VisionMetrics.space16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+                  ),
                 ),
                 child: genNotifier.state.isLoading
-                    ? SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: t.background))
+                    ? SizedBox(
+                        height: 16,
+                        width: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: t.background,
+                        ),
+                      )
                     : Text(
-                        hasPreview ? l.cascadeRegenerateBeat(currentIndex + 1) : l.cascadeGenerateBeat(currentIndex + 1),
-                        style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1),
+                        hasPreview
+                            ? l.cascadeRegenerateBeat(currentIndex + 1)
+                            : l.cascadeGenerateBeat(currentIndex + 1),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1,
+                        ),
                       ),
               ),
             ),
-            if (hasPreview && !genNotifier.state.isLoading && currentIndex < totalBeats - 1)
+            if (hasPreview &&
+                !genNotifier.state.isLoading &&
+                currentIndex < totalBeats - 1)
               Padding(
-                padding: const EdgeInsets.only(left: 8),
+                padding: const EdgeInsets.only(left: VisionMetrics.space8),
                 child: IconButton(
                   focusNode: _skipFocusNode,
                   icon: Icon(Icons.skip_next, color: t.textSecondary),

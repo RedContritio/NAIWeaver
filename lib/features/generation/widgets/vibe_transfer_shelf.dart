@@ -1,51 +1,27 @@
-import '../../../core/utils/file_picker_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/gateway/backend_permissions.dart';
+import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
-import '../../../core/utils/app_snackbar.dart';
-import '../../../core/utils/responsive.dart';
-import '../../../core/services/novel_ai_service.dart';
+import '../../../core/theme/vision_metrics.dart';
+import '../../../core/widgets/ui/app_sheet.dart';
+import '../../director_ref/widgets/reference_add_actions.dart';
 import '../../vibe_transfer/providers/vibe_transfer_notifier.dart';
 import '../../vibe_transfer/widgets/vibe_transfer_chip.dart';
 import '../../vibe_transfer/widgets/vibe_transfer_editor_sheet.dart';
+import 'billing_text.dart';
+import 'chip_actions.dart';
 
 class VibeTransferShelf extends StatelessWidget {
   const VibeTransferShelf({super.key});
-
-  Future<void> _pickAndAdd(BuildContext context) async {
-    final result = await pickImageFiles(allowMultiple: true);
-    if (result != null && context.mounted) {
-      final notifier = context.read<VibeTransferNotifier>();
-      for (final file in result.files) {
-        final bytes = await readPickedFileBytes(file);
-        if (bytes == null) continue;
-        if (!context.mounted) return;
-        try {
-          await notifier.addVibe(bytes);
-        } on UnauthorizedException {
-          if (context.mounted) {
-            showErrorSnackBar(context, 'API key missing or invalid');
-          }
-          return;
-        } catch (e) {
-          if (context.mounted) {
-            showErrorSnackBar(context, 'Failed to encode vibe image');
-          }
-          return;
-        }
-      }
-    }
-  }
 
   void _openEditor(
     BuildContext context,
     VibeTransferNotifier notifier,
     vibeTransfer,
   ) {
-    showModalBottomSheet(
+    showAppSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) => VibeTransferEditorSheet(
         vibe: vibeTransfer,
         onStrengthChanged: (v) => notifier.updateStrength(vibeTransfer.id, v),
@@ -62,13 +38,18 @@ class VibeTransferShelf extends StatelessWidget {
     return Consumer<VibeTransferNotifier>(
       builder: (context, notifier, _) {
         final vibes = notifier.vibes;
-        final mobile = isMobile(context);
+        // Encoding a new vibe is a paid tool; existing ones can still be
+        // opened and removed.
+        final canEncode = hasBackendPermission(
+          context,
+          BackendPermission.imageEncodeVibe,
+        );
 
         return AnimatedSize(
           duration: const Duration(milliseconds: 200),
           child: Container(
-            height: mobile ? 52 : 44,
-            margin: const EdgeInsets.only(top: 2, bottom: 2),
+            height: context.hitSize + VisionMetrics.space8,
+            margin: const EdgeInsets.symmetric(vertical: VisionMetrics.radius2),
             child: ListView(
               scrollDirection: Axis.horizontal,
               shrinkWrap: true,
@@ -77,12 +58,23 @@ class VibeTransferShelf extends StatelessWidget {
                   (vibe) => VibeTransferChip(
                     vibe: vibe,
                     onTap: () => _openEditor(context, notifier, vibe),
-                    onLongPress: () => notifier.removeVibe(vibe.id),
+                    onLongPress: () => showChipActions(
+                      context,
+                      title: context.l.refVibeLabel,
+                      onDelete: () => notifier.removeVibe(vibe.id),
+                      deleteMessage: context.l.refVibeRemoveConfirm,
+                    ),
+                    pausedReason: notifier.isPaused(vibe)
+                        ? pausedReasonText(context.l, notifier.access)
+                        : null,
                   ),
                 ),
                 _AddVibeButton(
                   isProcessing: notifier.isProcessing,
-                  onTap: () => _pickAndAdd(context),
+                  disabledReason: canEncode
+                      ? null
+                      : context.l.refVibeNoPermission,
+                  onTap: () => pickAndAddVibes(context),
                 ),
               ],
             ),
@@ -97,31 +89,51 @@ class _AddVibeButton extends StatelessWidget {
   final VoidCallback onTap;
   final bool isProcessing;
 
-  const _AddVibeButton({required this.onTap, this.isProcessing = false});
+  /// Why a new vibe cannot be encoded; null when it can.
+  final String? disabledReason;
+
+  const _AddVibeButton({
+    required this.onTap,
+    this.isProcessing = false,
+    this.disabledReason,
+  });
 
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final mobile = isMobile(context);
+    final reason = disabledReason;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 3),
-      child: GestureDetector(
-        onTap: isProcessing ? null : onTap,
-        child: Container(
-          height: mobile ? 44 : 36,
-          width: mobile ? 52 : 42,
-          decoration: BoxDecoration(
-            color: t.accentVibeTransfer.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            'VIBE',
-            style: TextStyle(
-              fontSize: t.fontSize(mobile ? 9 : 7),
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1,
-              color: t.accentVibeTransfer,
+      padding: const EdgeInsets.symmetric(horizontal: VisionMetrics.space4),
+      child: Tooltip(
+        message: reason ?? paidToolCapLabel(context, PaidTool.encodeVibe) ?? '',
+        child: GestureDetector(
+          onTap: isProcessing || reason != null ? null : onTap,
+          child: Opacity(
+            opacity: reason == null ? 1 : VisionMetrics.opacityDisabled,
+            child: Container(
+              constraints: BoxConstraints(
+                minHeight: context.hitSize,
+                minWidth: context.hitSize + VisionMetrics.space8,
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: VisionMetrics.space8,
+              ),
+              decoration: BoxDecoration(
+                color: t.accentVibeTransfer.withValues(
+                  alpha: VisionMetrics.opacityPressed,
+                ),
+                borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                context.l.refVibeLabel,
+                style: TextStyle(
+                  fontSize: t.fontSize(9),
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1,
+                  color: t.accentVibeTransfer,
+                ),
+              ),
             ),
           ),
         ),

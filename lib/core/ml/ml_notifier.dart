@@ -12,6 +12,8 @@ import 'ml_storage_service.dart';
 import 'ml_background_removal_service.dart';
 import 'ml_upscale_service.dart';
 import 'ml_segmentation_service.dart';
+import 'ml_stage.dart';
+import '../../l10n/app_localizations.dart';
 
 class MLNotifier extends ChangeNotifier with WidgetsBindingObserver {
   final String mlModelsDir;
@@ -35,7 +37,9 @@ class MLNotifier extends ChangeNotifier with WidgetsBindingObserver {
   // — Processing state —
   bool _isProcessing = false;
   double _processingProgress = 0.0;
-  String _processingStage = '';
+  MLStage _processingStage = MLStage.starting;
+  // Tile counter of the running upscale, shown with [MLStage.upscalingTiles].
+  ({int current, int total})? _processingTile;
   String? _processingError;
   BGRemovalResult? _lastBgResult;
 
@@ -146,7 +150,17 @@ class MLNotifier extends ChangeNotifier with WidgetsBindingObserver {
 
   bool get isProcessing => _isProcessing;
   double get processingProgress => _processingProgress;
-  String get processingStage => _processingStage;
+  MLStage get processingStage => _processingStage;
+
+  /// The localized progress text, with the tile counter while upscaling.
+  String processingLabel(AppLocalizations l) {
+    final tile = _processingTile;
+    if (_processingStage == MLStage.upscalingTiles && tile != null) {
+      return l.mlStageUpscalingTile(tile.current, tile.total);
+    }
+    return _processingStage.label(l);
+  }
+
   String? get processingError => _processingError;
   BGRemovalResult? get lastBgResult => _lastBgResult;
 
@@ -172,7 +186,7 @@ class MLNotifier extends ChangeNotifier with WidgetsBindingObserver {
     _isProcessing = true;
     _processingError = null;
     _processingProgress = 0.0;
-    _processingStage = 'Starting...';
+    _processingStage = MLStage.starting;
     notifyListeners();
 
     try {
@@ -187,7 +201,7 @@ class MLNotifier extends ChangeNotifier with WidgetsBindingObserver {
       );
 
       if (result == null) {
-        _processingError = 'Background removal failed';
+        _processingError = 'background_removal_failed';
         return null;
       }
 
@@ -210,13 +224,17 @@ class MLNotifier extends ChangeNotifier with WidgetsBindingObserver {
     _isProcessing = true;
     _processingError = null;
     _processingProgress = 0.0;
-    _processingStage = 'Starting...';
+    _processingTile = null;
+    _processingStage = MLStage.starting;
     notifyListeners();
 
     try {
       final result = await _upscaleService.upscale(
         imageBytes,
         modelId,
+        onTile: (current, total) {
+          _processingTile = (current: current, total: total);
+        },
         onProgress: (stage, progress) {
           _processingStage = stage;
           _processingProgress = progress;
@@ -225,7 +243,7 @@ class MLNotifier extends ChangeNotifier with WidgetsBindingObserver {
       );
 
       if (result == null) {
-        _processingError = 'Upscaling failed';
+        _processingError = 'upscale_failed';
       }
 
       return result;
@@ -292,7 +310,7 @@ class MLNotifier extends ChangeNotifier with WidgetsBindingObserver {
     _isProcessing = true;
     _processingError = null;
     _processingProgress = 0.0;
-    _processingStage = 'Encoding image...';
+    _processingStage = MLStage.encodingImage;
     notifyListeners();
 
     try {

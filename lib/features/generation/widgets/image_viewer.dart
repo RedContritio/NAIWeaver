@@ -3,26 +3,22 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
 
+import '../../../core/l10n/l10n_extensions.dart';
 import '../../../core/theme/theme_extensions.dart';
+import '../../../core/theme/vision_metrics.dart';
 
 class ImagePreviewViewer extends StatelessWidget {
   final Uint8List? generatedImage;
   final ImageProvider? imageProvider;
-  final bool isLoading;
   final bool isDragging;
-  final Animation<double> pulseAnimation;
   final Object? imageIdentity;
-  final bool framed;
 
   const ImagePreviewViewer({
     super.key,
     required this.generatedImage,
     this.imageProvider,
-    required this.isLoading,
     required this.isDragging,
-    required this.pulseAnimation,
     this.imageIdentity,
-    this.framed = true,
   });
 
   @override
@@ -50,8 +46,8 @@ class ImagePreviewViewer extends StatelessWidget {
               gaplessPlayback: true,
               errorBuilder: (context, error, stackTrace) => Icon(
                 Icons.broken_image_outlined,
-                size: 48,
-                color: t.textPrimary.withValues(alpha: 0.2),
+                size: VisionMetrics.iconLarge * 2,
+                color: t.textMinimal,
               ),
             ),
           )
@@ -59,21 +55,27 @@ class ImagePreviewViewer extends StatelessWidget {
           Center(
             child: Icon(
               Icons.blur_on,
-              size: 40,
-              color: t.textPrimary.withValues(alpha: 0.03),
+              size: VisionMetrics.iconLarge * 2,
+              color: t.textMinimal.withValues(
+                alpha: VisionMetrics.opacityHover,
+              ),
             ),
           ),
         if (isDragging)
           Container(
-            color: t.background.withValues(alpha: 0.7),
+            color: t.background.withValues(alpha: VisionMetrics.opacityOverlay),
             child: Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.file_download, size: 48, color: t.textPrimary),
-                  const SizedBox(height: 16),
+                  Icon(
+                    Icons.file_download,
+                    size: VisionMetrics.iconLarge * 2,
+                    color: t.textPrimary,
+                  ),
+                  const SizedBox(height: VisionMetrics.space16),
                   Text(
-                    "DROP TO IMPORT SETTINGS",
+                    context.l.generationDropToImport.toUpperCase(),
                     style: TextStyle(
                       color: t.textPrimary,
                       fontSize: t.fontSize(12),
@@ -87,32 +89,6 @@ class ImagePreviewViewer extends StatelessWidget {
           ),
       ],
     );
-    if (!framed) return RepaintBoundary(child: content);
-
-    return RepaintBoundary(
-      child: AnimatedBuilder(
-        animation: pulseAnimation,
-        builder: (context, child) {
-          return Container(
-            margin: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-            decoration: BoxDecoration(
-              color: t.textPrimary.withValues(alpha: 0.01),
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(
-                color: isLoading
-                    ? t.textPrimary.withValues(alpha: pulseAnimation.value)
-                    : (isDragging ? t.accent : t.borderSubtle),
-                width: (isLoading || isDragging) ? 2 : 1,
-              ),
-            ),
-            child: child,
-          );
-        },
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: content,
-        ),
-      ),
-    );
+    return RepaintBoundary(child: content);
   }
 }

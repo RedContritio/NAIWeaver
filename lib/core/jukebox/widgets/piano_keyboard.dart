@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../models/note_block.dart';
 import '../../theme/vision_tokens.dart';
 import 'piano_layout.dart';
+import '../../theme/vision_metrics.dart';
 
 /// Scrollable multi-octave piano keyboard with dark theme and finger-glide.
 ///
@@ -76,7 +77,18 @@ class _PianoKeyboardState extends State<PianoKeyboard> {
   final Set<LogicalKeyboardKey> _heldKeys = {};
 
   static const _isBlackKey = [
-    false, true, false, true, false, false, true, false, true, false, true, false
+    false,
+    true,
+    false,
+    true,
+    false,
+    false,
+    true,
+    false,
+    true,
+    false,
+    true,
+    false,
   ];
 
   // Pre-computed key rects for hit-testing
@@ -315,12 +327,18 @@ class _PianoKeyboardState extends State<PianoKeyboard> {
 
     for (final note in _blackKeys) {
       final lowerWhite = note - 1;
-      final lowerWhiteNote =
-          _isBlackKey[lowerWhite % 12] ? lowerWhite - 1 : lowerWhite;
+      final lowerWhiteNote = _isBlackKey[lowerWhite % 12]
+          ? lowerWhite - 1
+          : lowerWhite;
       final idx = whiteKeyIndex[lowerWhiteNote];
       if (idx == null) continue;
       final xPos = (idx + 1) * _whiteKeyWidth - _blackKeyWidth / 2;
-      _blackKeyRects[note] = Rect.fromLTWH(xPos, 0, _blackKeyWidth, _blackKeyHeight);
+      _blackKeyRects[note] = Rect.fromLTWH(
+        xPos,
+        0,
+        _blackKeyWidth,
+        _blackKeyHeight,
+      );
     }
   }
 
@@ -336,47 +354,46 @@ class _PianoKeyboardState extends State<PianoKeyboard> {
         onTap: () => _focusNode.requestFocus(),
         child: SizedBox(
           height: widget.height ?? 160.0,
-          child: LayoutBuilder(builder: (context, constraints) {
-            _computeLayout(constraints.maxWidth);
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              _computeLayout(constraints.maxWidth);
 
-            final keyboardStack = Stack(
-              children: [
-                ..._buildWhiteKeys(t),
-                ..._buildBlackKeys(t),
-              ],
-            );
+              final keyboardStack = Stack(
+                children: [..._buildWhiteKeys(t), ..._buildBlackKeys(t)],
+              );
 
-            final content = SizedBox(
-              width: _totalWidth,
-              height: _keyboardHeight,
-              child: Listener(
-                onPointerDown: _handlePointerDown,
-                onPointerMove: _handlePointerMove,
-                onPointerUp: _handlePointerUp,
-                onPointerCancel: _handlePointerCancel,
-                behavior: HitTestBehavior.opaque,
-                child: keyboardStack,
-              ),
-            );
+              final content = SizedBox(
+                width: _totalWidth,
+                height: _keyboardHeight,
+                child: Listener(
+                  onPointerDown: _handlePointerDown,
+                  onPointerMove: _handlePointerMove,
+                  onPointerUp: _handlePointerUp,
+                  onPointerCancel: _handlePointerCancel,
+                  behavior: HitTestBehavior.opaque,
+                  child: keyboardStack,
+                ),
+              );
 
-            if (widget.gameMode) {
-              // No scrolling in game mode — center the keys
-              if (_totalWidth <= constraints.maxWidth) {
-                return Center(child: content);
+              if (widget.gameMode) {
+                // No scrolling in game mode — center the keys
+                if (_totalWidth <= constraints.maxWidth) {
+                  return Center(child: content);
+                }
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const ClampingScrollPhysics(),
+                  child: content,
+                );
               }
+
               return SingleChildScrollView(
+                controller: _scrollController,
                 scrollDirection: Axis.horizontal,
-                physics: const ClampingScrollPhysics(),
                 child: content,
               );
-            }
-
-            return SingleChildScrollView(
-              controller: _scrollController,
-              scrollDirection: Axis.horizontal,
-              child: content,
-            );
-          }),
+            },
+          ),
         ),
       ),
     );
@@ -392,10 +409,12 @@ class _PianoKeyboardState extends State<PianoKeyboard> {
       if (isActive) {
         keyColor = t.accentEdit;
       } else if (isHighlighted) {
-        keyColor = NoteBlock.pitchClassColors[note % 12].withValues(alpha: 0.35);
+        keyColor = NoteBlock.pitchClassColors[note % 12].withValues(
+          alpha: VisionMetrics.opacityDisabled,
+        );
       } else {
         // Dark theme: faint accent-tinted wash
-        keyColor = t.accent.withValues(alpha: 0.07);
+        keyColor = t.accent.withValues(alpha: VisionMetrics.opacityHover);
       }
 
       return Positioned(
@@ -407,22 +426,22 @@ class _PianoKeyboardState extends State<PianoKeyboard> {
           decoration: BoxDecoration(
             color: keyColor,
             border: Border.all(
-              color: t.accent.withValues(alpha: 0.15),
+              color: t.accent.withValues(alpha: VisionMetrics.opacityPressed),
               width: 0.5,
             ),
             borderRadius: const BorderRadius.only(
-              bottomLeft: Radius.circular(4),
-              bottomRight: Radius.circular(4),
+              bottomLeft: Radius.circular(VisionMetrics.radius4),
+              bottomRight: Radius.circular(VisionMetrics.radius4),
             ),
           ),
           alignment: Alignment.bottomCenter,
-          padding: const EdgeInsets.only(bottom: 6),
+          padding: const EdgeInsets.only(bottom: VisionMetrics.space8),
           child: note % 12 == 0
               ? Text(
                   'C${note ~/ 12}',
                   style: TextStyle(
-                    color: isActive ? Colors.white : t.textMinimal,
-                    fontSize: 9,
+                    color: isActive ? t.textPrimary : t.textMinimal,
+                    fontSize: t.fontSize(9),
                     fontWeight: FontWeight.bold,
                   ),
                 )
@@ -446,15 +465,18 @@ class _PianoKeyboardState extends State<PianoKeyboard> {
       if (isActive) {
         keyColor = t.accentEdit;
       } else if (isHighlighted) {
-        keyColor = NoteBlock.pitchClassColors[note % 12].withValues(alpha: 0.35);
+        keyColor = NoteBlock.pitchClassColors[note % 12].withValues(
+          alpha: VisionMetrics.opacityDisabled,
+        );
       } else {
         // Dark theme: barely visible, darker than naturals
-        keyColor = t.accent.withValues(alpha: 0.03);
+        keyColor = t.accent.withValues(alpha: VisionMetrics.opacityHover);
       }
 
       final lowerWhite = note - 1;
-      final lowerWhiteNote =
-          _isBlackKey[lowerWhite % 12] ? lowerWhite - 1 : lowerWhite;
+      final lowerWhiteNote = _isBlackKey[lowerWhite % 12]
+          ? lowerWhite - 1
+          : lowerWhite;
       final idx = whiteKeyIndex[lowerWhiteNote];
       if (idx == null) return const SizedBox.shrink();
 
@@ -469,16 +491,18 @@ class _PianoKeyboardState extends State<PianoKeyboard> {
           decoration: BoxDecoration(
             color: keyColor,
             border: Border.all(
-              color: t.accent.withValues(alpha: 0.15),
+              color: t.accent.withValues(alpha: VisionMetrics.opacityPressed),
               width: 0.5,
             ),
             borderRadius: const BorderRadius.only(
-              bottomLeft: Radius.circular(4),
-              bottomRight: Radius.circular(4),
+              bottomLeft: Radius.circular(VisionMetrics.radius4),
+              bottomRight: Radius.circular(VisionMetrics.radius4),
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.4),
+                color: t.background.withValues(
+                  alpha: VisionMetrics.opacityDisabled,
+                ),
                 blurRadius: 3,
                 offset: const Offset(0, 2),
               ),

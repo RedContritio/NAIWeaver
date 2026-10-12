@@ -1,9 +1,34 @@
 import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
+import '../../../core/utils/file_picker_helper.dart';
 import '../../../core/utils/image_utils.dart';
 import '../providers/gallery_notifier.dart';
+
+/// One file to import. Content is read lazily, one file at a time, so a large
+/// multi-select is never held in memory at once.
+class GalleryImportSource {
+  const GalleryImportSource({
+    required this.name,
+    required this.readBytes,
+    required this.readModified,
+  });
+
+  GalleryImportSource.picked(PlatformFile file)
+    : this(
+        name: file.name,
+        readBytes: () => readPickedFileBytes(file),
+        readModified: () => readPickedFileModified(file),
+      );
+
+  final String name;
+  final Future<Uint8List?> Function() readBytes;
+
+  /// Fallback date for images without an EXIF date; null when unknown.
+  final Future<DateTime?> Function() readModified;
+}
 
 class GalleryImportService {
   /// Import files into the gallery output directory.
@@ -12,7 +37,7 @@ class GalleryImportService {
   /// destination [File] and its source modification date, allowing the caller
   /// to register the file in the gallery.
   Future<ImportResult> importFiles(
-    List<String> filePaths, {
+    List<GalleryImportSource> sources, {
     required String outputDir,
     required void Function(File file, DateTime date) onFileImported,
     void Function(int current, int total)? onProgress,
@@ -21,11 +46,11 @@ class GalleryImportService {
       // Filesystem-based import is not available on web. Callers should
       // disable the import UI on web; this guard is defensive.
       return ImportResult(
-        total: filePaths.length,
+        total: sources.length,
         succeeded: 0,
         withMetadata: 0,
         converted: 0,
-        errors: filePaths.map(p.basename).toList(),
+        errors: sources.map((source) => source.name).toList(),
         filesWithMetadata: const [],
       );
     }
@@ -36,11 +61,15 @@ class GalleryImportService {
     final errors = <String>[];
     final filesWithMetadata = <File>[];
 
-    for (int i = 0; i < filePaths.length; i++) {
-      onProgress?.call(i + 1, filePaths.length);
+    for (int i = 0; i < sources.length; i++) {
+      final source = sources[i];
+      onProgress?.call(i + 1, sources.length);
       try {
-        final srcFile = File(filePaths[i]);
-        final bytes = await srcFile.readAsBytes();
+        final bytes = await source.readBytes();
+        if (bytes == null) {
+          errors.add(source.name);
+          continue;
+        }
         Uint8List pngBytes;
 
         if (isPng(bytes)) {
@@ -53,7 +82,7 @@ class GalleryImportService {
             'originalBytes': bytes,
           });
           if (result == null) {
-            errors.add(p.basename(filePaths[i]));
+            errors.add(source.name);
             continue;
           }
           pngBytes = result;
@@ -61,10 +90,10 @@ class GalleryImportService {
         }
 
         // Extract original date from EXIF metadata, falling back to file stat
-        final srcStat = await srcFile.stat();
+        final modified = await source.readModified() ?? DateTime.now();
         final extractedDateStr = await compute(extractOriginalDate, {
           'bytes': bytes,
-          'statModified': srcStat.modified.toIso8601String(),
+          'statModified': modified.toIso8601String(),
         });
         final sourceDate = DateTime.parse(extractedDateStr);
 
@@ -92,12 +121,12 @@ class GalleryImportService {
 
         succeeded++;
       } catch (e) {
-        errors.add(p.basename(filePaths[i]));
+        errors.add(source.name);
       }
     }
 
     return ImportResult(
-      total: filePaths.length,
+      total: sources.length,
       succeeded: succeeded,
       withMetadata: withMetadata,
       converted: converted,

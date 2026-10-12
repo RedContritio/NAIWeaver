@@ -9,6 +9,7 @@ import 'cascade_library_view.dart';
 import 'beat_timeline.dart';
 import 'cascade_help_dialog.dart';
 import 'director_view.dart';
+import '../../../../core/theme/vision_metrics.dart';
 
 class CascadeEditor extends StatefulWidget {
   const CascadeEditor({super.key});
@@ -18,7 +19,6 @@ class CascadeEditor extends StatefulWidget {
 }
 
 class _CascadeEditorState extends State<CascadeEditor> {
-
   Future<bool> _handleBack(CascadeNotifier notifier) async {
     if (!notifier.hasUnsavedChanges) {
       notifier.setActiveCascade(null);
@@ -42,10 +42,7 @@ class _CascadeEditorState extends State<CascadeEditor> {
         ),
         content: Text(
           l.cascadeUnsavedMessage,
-          style: TextStyle(
-            color: t.textPrimary,
-            fontSize: t.fontSize(11),
-          ),
+          style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11)),
         ),
         actions: [
           TextButton(
@@ -107,20 +104,25 @@ class _CascadeEditorState extends State<CascadeEditor> {
       children: [
         _buildEditorHeader(context, cascade, notifier),
         const BeatTimeline(),
-        const Expanded(
-          child: DirectorView(),
-        ),
+        const Expanded(child: DirectorView()),
       ],
     );
   }
 
-  Widget _buildEditorHeader(BuildContext context, dynamic cascade, CascadeNotifier notifier) {
+  Widget _buildEditorHeader(
+    BuildContext context,
+    dynamic cascade,
+    CascadeNotifier notifier,
+  ) {
     final t = context.t;
     final l = context.l;
-    final mobile = isMobile(context);
+    final mobile = isTouchSized(context);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(
+        horizontal: VisionMetrics.space16,
+        vertical: VisionMetrics.space12,
+      ),
       decoration: BoxDecoration(
         color: t.surfaceHigh,
         border: Border(bottom: BorderSide(color: t.borderSubtle)),
@@ -130,7 +132,11 @@ class _CascadeEditorState extends State<CascadeEditor> {
           // Back to Library button with label
           TextButton.icon(
             onPressed: () => _handleBack(notifier),
-            icon: Icon(Icons.arrow_back, size: mobile ? 16 : 14, color: t.textDisabled),
+            icon: Icon(
+              Icons.arrow_back,
+              size: mobile ? 16 : 14,
+              color: t.textDisabled,
+            ),
             label: Text(
               l.cascadeBackToLibrary.toUpperCase(),
               style: TextStyle(
@@ -144,7 +150,7 @@ class _CascadeEditorState extends State<CascadeEditor> {
               padding: EdgeInsets.symmetric(horizontal: mobile ? 10 : 8),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: VisionMetrics.space8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -172,33 +178,51 @@ class _CascadeEditorState extends State<CascadeEditor> {
             ),
           ),
           IconButton(
-            icon: Icon(Icons.help_outline, size: mobile ? 18 : 14, color: t.textDisabled),
+            icon: Icon(
+              Icons.help_outline,
+              size: mobile ? 18 : 14,
+              color: t.textDisabled,
+            ),
+            tooltip: context.l.commonHelp,
             onPressed: () => showCascadeHelpDialog(context),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: VisionMetrics.space8),
           // Save button
           ElevatedButton.icon(
             onPressed: () {
               notifier.saveActiveToLibrary();
-              showAppSnackBar(context, l.cascadeSavedToLibrary, color: t.accentCascade);
+              showAppSnackBar(
+                context,
+                l.cascadeSavedToLibrary,
+                color: t.accentCascade,
+              );
             },
             icon: const Icon(Icons.save, size: 14),
             label: Text(l.commonSave),
             style: ElevatedButton.styleFrom(
               backgroundColor: t.textMinimal,
               foregroundColor: t.textPrimary,
-              textStyle: TextStyle(fontSize: t.fontSize(10), fontWeight: FontWeight.bold),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              textStyle: TextStyle(
+                fontSize: t.fontSize(10),
+                fontWeight: FontWeight.bold,
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: VisionMetrics.space16,
+              ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: VisionMetrics.space8),
           // Cast button
           ElevatedButton.icon(
             onPressed: () {
               notifier.saveActiveToLibrary();
-              showAppSnackBar(context, l.cascadeSavedToLibrary, color: t.accentCascade);
+              showAppSnackBar(
+                context,
+                l.cascadeSavedToLibrary,
+                color: t.accentCascade,
+              );
               Navigator.pop(context);
             },
             icon: Icon(Icons.play_arrow, size: mobile ? 18 : 14),

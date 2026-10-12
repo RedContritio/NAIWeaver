@@ -28,11 +28,19 @@ import '../../../core/utils/migration_planner.dart';
 import '../../../core/utils/nai_filename.dart';
 import '../../../core/utils/removable_storage.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/widgets/manager_list_tile.dart';
 import '../../../core/widgets/pin_lock_gate.dart';
+import '../../../core/widgets/section_title.dart';
+import '../../../core/widgets/ui/app_panel.dart';
+import '../../../core/widgets/ui/app_tabs.dart';
 import '../../gallery/providers/gallery_notifier.dart';
 import '../../generation/providers/generation_notifier.dart';
 import '../tools_hub_screen.dart';
 import 'demo_image_picker.dart';
+import 'shelf_toggle.dart';
+import 'synced_text_field.dart';
+import '../../../core/theme/vision_metrics.dart';
+import '../../../l10n/app_localizations.dart';
 
 class AppSettings extends StatefulWidget {
   const AppSettings({super.key});
@@ -106,56 +114,60 @@ class _AppSettingsState extends State<AppSettings> {
     final t = context.t;
     final l = context.l;
     final paidImageFeaturesAllowed = canUsePaidImageFeatures(context);
+    // The web gateway has no local gallery, no folder picker and no direct
+    // Anlas lookup, so the settings that depend on them are not offered.
+    final gateway = useBackendGateway;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(VisionMetrics.space24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildHeader(l.settingsApiSettings.toUpperCase(), t),
-          const SizedBox(height: 16),
           _buildApiKeyField(notifier, t),
-          const SizedBox(height: 32),
+          const SizedBox(height: VisionMetrics.space24),
           _buildHeader(l.settingsGeneralSettings.toUpperCase(), t),
-          const SizedBox(height: 16),
-          _buildAutoSaveToggle(notifier, state.autoSaveImages, t),
+          if (!gateway) _buildAutoSaveToggle(notifier, state.autoSaveImages, t),
           if (isDesktopPlatform()) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: VisionMetrics.space12),
             _buildOutputFolderRow(t),
           ],
           if (!kIsWeb) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: VisionMetrics.space12),
             _buildFilenamePatternSection(t),
           ],
-          const SizedBox(height: 12),
+          const SizedBox(height: VisionMetrics.space12),
           _buildSmartStyleImportToggle(t),
-          const SizedBox(height: 12),
+          const SizedBox(height: VisionMetrics.space12),
           _buildCharInsertTargetToggle(t),
-          const SizedBox(height: 12),
+          const SizedBox(height: VisionMetrics.space12),
           _buildRememberSessionToggle(t),
-          const SizedBox(height: 12),
+          const SizedBox(height: VisionMetrics.space12),
           _buildImg2ImgImportPromptToggle(t),
-          const SizedBox(height: 12),
-          _buildDefaultSaveAlbumDropdown(t),
-          const SizedBox(height: 12),
+          const SizedBox(height: VisionMetrics.space12),
+          if (!gateway) ...[
+            _buildDefaultSaveAlbumDropdown(t),
+            const SizedBox(height: VisionMetrics.space12),
+          ],
           _buildLanguageDropdown(t),
-          const SizedBox(height: 32),
+          const SizedBox(height: VisionMetrics.space24),
           _buildHeader(l.settingsUiSettings.toUpperCase(), t),
-          const SizedBox(height: 16),
           _buildLayoutModeSelector(t),
           _buildPromptPositionSelector(t),
           _buildSidebarWidthSelector(t),
-          const SizedBox(height: 12),
+          const SizedBox(height: VisionMetrics.space12),
           _buildFontScaleSlider(t),
-          const SizedBox(height: 12),
-          _buildAnlasTrackerToggle(t),
-          const SizedBox(height: 12),
+          const SizedBox(height: VisionMetrics.space12),
+          if (!gateway) ...[
+            _buildAnlasTrackerToggle(t),
+            const SizedBox(height: VisionMetrics.space12),
+          ],
           _buildSeedControlToggle(t),
-          const SizedBox(height: 12),
+          const SizedBox(height: VisionMetrics.space12),
           _buildShowTooltipsToggle(t),
-          const SizedBox(height: 12),
+          const SizedBox(height: VisionMetrics.space12),
           _buildHideTagValuesToggle(t),
-          const SizedBox(height: 12),
+          const SizedBox(height: VisionMetrics.space12),
           _buildShelfToggle(
             label: l.settingsEditButton.toUpperCase(),
             description: l.settingsEditButtonDesc,
@@ -163,7 +175,7 @@ class _AppSettingsState extends State<AppSettings> {
             onChanged: (_) => notifier.toggleShowEditButton(),
             t: t,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: VisionMetrics.space12),
           _buildShelfToggle(
             label: l.settingsBgRemovalButton.toUpperCase(),
             description: l.settingsBgRemovalButtonDesc,
@@ -171,7 +183,7 @@ class _AppSettingsState extends State<AppSettings> {
             onChanged: (_) => notifier.toggleShowBgRemovalButton(),
             t: t,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: VisionMetrics.space12),
           _buildShelfToggle(
             label: l.settingsUpscaleButton.toUpperCase(),
             description: l.settingsUpscaleButtonDesc,
@@ -179,7 +191,7 @@ class _AppSettingsState extends State<AppSettings> {
             onChanged: (_) => notifier.toggleShowUpscaleButton(),
             t: t,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: VisionMetrics.space12),
           _buildShelfToggle(
             label: l.settingsEnhanceButton.toUpperCase(),
             description: l.settingsEnhanceButtonDesc,
@@ -187,7 +199,7 @@ class _AppSettingsState extends State<AppSettings> {
             onChanged: (_) => notifier.toggleShowEnhanceButton(),
             t: t,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: VisionMetrics.space12),
           _buildShelfToggle(
             label: l.settingsDirectorToolsButton.toUpperCase(),
             description: l.settingsDirectorToolsButtonDesc,
@@ -196,10 +208,10 @@ class _AppSettingsState extends State<AppSettings> {
             t: t,
           ),
           if (!kIsWeb) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: VisionMetrics.space12),
             _buildShelfToggle(
-              label: 'COPY TO CLIPBOARD',
-              description: 'Show copy button on generated images',
+              label: l.settingsCopyButton.toUpperCase(),
+              description: l.settingsCopyButtonDesc,
               value: prefs.showCopyButton,
               onChanged: (_) async {
                 await prefs.setShowCopyButton(!prefs.showCopyButton);
@@ -209,7 +221,7 @@ class _AppSettingsState extends State<AppSettings> {
             ),
           ],
           if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: VisionMetrics.space12),
             _buildShelfToggle(
               label: l.settingsExportButton.toUpperCase(),
               description: l.settingsExportButtonDesc,
@@ -220,7 +232,7 @@ class _AppSettingsState extends State<AppSettings> {
               },
               t: t,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: VisionMetrics.space12),
             _buildShelfToggle(
               label: l.settingsAutoExport.toUpperCase(),
               description: l.settingsAutoExportDesc,
@@ -231,7 +243,7 @@ class _AppSettingsState extends State<AppSettings> {
               },
               t: t,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: VisionMetrics.space12),
             _buildTextFieldSetting(
               label: l.settingsExportAlbum.toUpperCase(),
               description: l.settingsExportAlbumDesc,
@@ -240,9 +252,11 @@ class _AppSettingsState extends State<AppSettings> {
               t: t,
             ),
           ],
-          const SizedBox(height: 12),
-          _buildExportFolderPicker(t),
-          const SizedBox(height: 12),
+          const SizedBox(height: VisionMetrics.space12),
+          if (!gateway) ...[
+            _buildExportFolderPicker(t),
+            const SizedBox(height: VisionMetrics.space12),
+          ],
           if (paidImageFeaturesAllowed) ...[
             _buildShelfToggle(
               label: l.settingsDirectorRefShelf.toUpperCase(),
@@ -251,7 +265,7 @@ class _AppSettingsState extends State<AppSettings> {
               onChanged: (_) => notifier.toggleDirectorRefShelf(),
               t: t,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: VisionMetrics.space12),
           ],
           if (paidImageFeaturesAllowed &&
               hasBackendPermission(
@@ -265,80 +279,68 @@ class _AppSettingsState extends State<AppSettings> {
               onChanged: (_) => notifier.toggleVibeTransferShelf(),
               t: t,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: VisionMetrics.space12),
           ],
           _buildCharEditorModeToggle(notifier, state, t),
-          const SizedBox(height: 12),
+          const SizedBox(height: VisionMetrics.space12),
           _buildThemeBuilderButton(t),
-          const SizedBox(height: 32),
+          const SizedBox(height: VisionMetrics.space24),
           _buildHeader(l.settingsExport.toUpperCase(), t),
-          const SizedBox(height: 16),
           _buildStripMetadataToggle(t),
-          const SizedBox(height: 32),
+          const SizedBox(height: VisionMetrics.space24),
           _buildHeader(l.settingsSecurity.toUpperCase(), t),
-          const SizedBox(height: 16),
           _buildPinLockSection(t),
-          const SizedBox(height: 32),
-          _buildHeader(l.settingsDemoMode.toUpperCase(), t),
-          const SizedBox(height: 16),
-          _buildDemoModeSection(t),
-          const SizedBox(height: 32),
+          const SizedBox(height: VisionMetrics.space24),
+          if (!gateway) ...[
+            _buildHeader(l.settingsDemoMode.toUpperCase(), t),
+            _buildDemoModeSection(t),
+            const SizedBox(height: VisionMetrics.space24),
+          ],
           _buildHeader(l.settingsLinks.toUpperCase(), t),
-          const SizedBox(height: 16),
           _buildGithubButton(t),
           if (!kIsWeb) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: VisionMetrics.space12),
             _buildUpdateCheckButton(t),
           ],
-          const SizedBox(height: 32),
+          const SizedBox(height: VisionMetrics.space24),
           _buildHeader(l.settingsCredits.toUpperCase(), t),
-          const SizedBox(height: 16),
           _buildCreditsSection(t),
         ],
       ),
     );
   }
 
-  Widget _buildHeader(String title, VisionTokens t) {
-    return Text(
-      title,
-      style: TextStyle(
-        color: t.secondaryText,
-        fontSize: t.fontSize(10),
-        letterSpacing: 2,
-        fontWeight: FontWeight.bold,
-      ),
-    );
-  }
+  Widget _buildHeader(String title, VisionTokens t) =>
+      SectionTitle(title, t: t);
 
   Widget _buildApiKeyField(GenerationNotifier notifier, VisionTokens t) {
     final l = context.l;
     if (useBackendGateway) {
-      return Container(
+      return SizedBox(
         width: double.infinity,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: t.borderSubtle,
-          border: Border.all(color: t.borderMedium),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              l.settingsApiManaged.toUpperCase(),
-              style: TextStyle(
-                color: t.headerText,
-                fontSize: t.fontSize(11),
-                fontWeight: FontWeight.bold,
+        child: AppPanel(
+          variant: AppPanelVariant.raised,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l.settingsApiManaged.toUpperCase(),
+                style: TextStyle(
+                  color: t.headerText,
+                  fontSize: t.fontSize(11),
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              l.settingsApiManagedDesc,
-              style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
-            ),
-          ],
+              const SizedBox(height: VisionMetrics.space8),
+              Text(
+                l.settingsApiManagedDesc,
+                style: TextStyle(
+                  color: t.textTertiary,
+                  fontSize: t.fontSize(9),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -353,7 +355,7 @@ class _AppSettingsState extends State<AppSettings> {
             letterSpacing: 1,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: VisionMetrics.space8),
         TextField(
           controller: _apiKeyController,
           obscureText: _isObscured,
@@ -367,20 +369,17 @@ class _AppSettingsState extends State<AppSettings> {
             fillColor: t.borderSubtle,
             hintText: l.settingsApiKeyHint,
             hintStyle: TextStyle(color: t.textDisabled),
-            suffixIcon: IconButton(
-              icon: Icon(
-                _isObscured ? Icons.visibility_off : Icons.visibility,
-                size: 16,
-                color: t.textDisabled,
-              ),
+            suffixIcon: ManagerIconButton(
+              icon: _isObscured ? Icons.visibility_off : Icons.visibility,
+              tooltip: l.settingsApiKeyVisibility,
               onPressed: () => setState(() => _isObscured = !_isObscured),
             ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(VisionMetrics.radius4),
               borderSide: BorderSide(color: t.borderMedium),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(VisionMetrics.radius4),
               borderSide: BorderSide(color: t.borderMedium),
             ),
           ),
@@ -396,40 +395,12 @@ class _AppSettingsState extends State<AppSettings> {
     VisionTokens t,
   ) {
     final l = context.l;
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                l.settingsAutoSave.toUpperCase(),
-                style: TextStyle(
-                  color: t.headerText,
-                  fontSize: t.fontSize(11),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                l.settingsAutoSaveDesc,
-                style: TextStyle(
-                  color: t.textTertiary,
-                  fontSize: t.fontSize(9),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Switch(
-          value: value,
-          onChanged: (val) => notifier.toggleAutoSave(val),
-          activeThumbColor: t.accent,
-          activeTrackColor: t.borderStrong,
-          inactiveThumbColor: t.textDisabled,
-          inactiveTrackColor: t.borderSubtle,
-        ),
-      ],
+    return _buildShelfToggle(
+      label: l.settingsAutoSave.toUpperCase(),
+      description: l.settingsAutoSaveDesc,
+      value: value,
+      onChanged: (val) => notifier.toggleAutoSave(val),
+      t: t,
     );
   }
 
@@ -448,8 +419,8 @@ class _AppSettingsState extends State<AppSettings> {
   Widget _buildFilenamePatternSection(VisionTokens t) {
     final prefs = context.read<PreferencesService>();
     final l = context.l;
-    return StatefulBuilder(
-      builder: (context, setLocalState) {
+    return Builder(
+      builder: (context) {
         // Sample values mirror the example from the issue thread.
         final sample = FilenamePatternContext(
           prompt: '1girl, black hair, smile',
@@ -491,17 +462,17 @@ class _AppSettingsState extends State<AppSettings> {
                   color: t.textDisabled,
                 ),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(VisionMetrics.radius4),
                   borderSide: BorderSide.none,
                 ),
                 contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
+                  horizontal: VisionMetrics.space12,
+                  vertical: VisionMetrics.space8,
                 ),
               ),
               onChanged: (value) {
                 save(value.trim());
-                setLocalState(() {}); // refresh the live preview
+                setState(() {}); // refresh the live preview
               },
               onTapOutside: (_) => FocusScope.of(context).unfocus(),
             ),
@@ -519,12 +490,12 @@ class _AppSettingsState extends State<AppSettings> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: VisionMetrics.space4),
             Text(
               desc,
               style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: VisionMetrics.space8),
           ],
         );
 
@@ -540,7 +511,7 @@ class _AppSettingsState extends State<AppSettings> {
               kDefaultFilenamePattern,
               prefs.setFilenamePattern,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: VisionMetrics.space12),
             header(
               l.settingsSavePathPattern.toUpperCase(),
               l.settingsSavePathPatternDesc,
@@ -550,7 +521,7 @@ class _AppSettingsState extends State<AppSettings> {
               '<year>/<month>/<day>',
               prefs.setSavePathPattern,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: VisionMetrics.space8),
             Text(
               '${l.settingsPatternPreview.toUpperCase()}: $preview',
               style: TextStyle(
@@ -568,8 +539,8 @@ class _AppSettingsState extends State<AppSettings> {
   Widget _buildOutputFolderRow(VisionTokens t) {
     final prefs = context.read<PreferencesService>();
     final l = context.l;
-    return StatefulBuilder(
-      builder: (context, setLocalState) {
+    return Builder(
+      builder: (context) {
         final customDir = prefs.customOutputDir;
         final hasCustom = customDir.isNotEmpty;
         return Column(
@@ -583,94 +554,56 @@ class _AppSettingsState extends State<AppSettings> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: VisionMetrics.space4),
             Text(
               l.settingsOutputFolderDesc,
               style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
             ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: t.borderMedium),
-                      borderRadius: BorderRadius.circular(4),
-                      color: t.borderSubtle,
-                    ),
-                    child: Text(
-                      hasCustom ? customDir : l.settingsOutputFolderDefault,
-                      style: TextStyle(
-                        color: hasCustom ? t.headerText : t.textDisabled,
-                        fontSize: t.fontSize(10),
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
+            const SizedBox(height: VisionMetrics.space8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                horizontal: VisionMetrics.space12,
+                vertical: VisionMetrics.space8,
+              ),
+              decoration: BoxDecoration(
+                border: Border.all(color: t.borderMedium),
+                borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+                color: t.borderSubtle,
+              ),
+              child: Text(
+                hasCustom ? customDir : l.settingsOutputFolderDefault,
+                style: TextStyle(
+                  color: hasCustom ? t.headerText : t.textDisabled,
+                  fontSize: t.fontSize(10),
                 ),
-                const SizedBox(width: 8),
-                InkWell(
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(height: VisionMetrics.space8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _SettingsActionButton(
+                  label: l.settingsOutputFolderBrowse,
                   onTap: () async {
                     final dir = await FilePicker.platform.getDirectoryPath();
                     if (dir != null && context.mounted) {
                       await _applyOutputDir(dir);
-                      setLocalState(() {});
+                      setState(() {});
                     }
                   },
-                  borderRadius: BorderRadius.circular(4),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: t.borderMedium),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      l.settingsOutputFolderBrowse.toUpperCase(),
-                      style: TextStyle(
-                        color: t.secondaryText,
-                        fontSize: t.fontSize(9),
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ),
                 ),
-                if (_removableVolumes.isNotEmpty) ...[
-                  const SizedBox(width: 4),
-                  InkWell(
-                    onTap: () => _onUseSdCard(setLocalState),
-                    borderRadius: BorderRadius.circular(4),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: t.borderMedium),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        l.settingsUseSdCard.toUpperCase(),
-                        style: TextStyle(
-                          color: t.secondaryText,
-                          fontSize: t.fontSize(9),
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    ),
+                if (_removableVolumes.isNotEmpty)
+                  _SettingsActionButton(
+                    label: l.settingsUseSdCard,
+                    onTap: _onUseSdCard,
                   ),
-                ],
-                if (hasCustom) ...[
-                  const SizedBox(width: 4),
-                  InkWell(
+                if (hasCustom)
+                  _SettingsActionButton(
+                    icon: Icons.close,
+                    label: l.settingsFolderUseDefault,
                     onTap: () async {
                       await prefs.setCustomOutputDir('');
                       if (!context.mounted) return;
@@ -681,22 +614,9 @@ class _AppSettingsState extends State<AppSettings> {
                       context.read<GenerationNotifier>().setOutputDir(
                         defaultDir,
                       );
-                      setLocalState(() {});
+                      setState(() {});
                     },
-                    borderRadius: BorderRadius.circular(4),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: t.borderMedium),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Icon(Icons.close, size: 14, color: t.textDisabled),
-                    ),
                   ),
-                ],
               ],
             ),
           ],
@@ -719,7 +639,7 @@ class _AppSettingsState extends State<AppSettings> {
     context.read<GenerationNotifier>().setOutputDir(dir);
   }
 
-  Future<void> _onUseSdCard(StateSetter setLocalState) async {
+  Future<void> _onUseSdCard() async {
     final prefs = context.read<PreferencesService>();
     final paths = context.read<PathService>();
     final l = context.l;
@@ -787,7 +707,7 @@ class _AppSettingsState extends State<AppSettings> {
           sourceDir: pendingSource,
           destDir: destNow,
           plan: plan,
-          setLocalState: setLocalState,
+          setLocalState: setState,
         );
         return;
       }
@@ -819,18 +739,24 @@ class _AppSettingsState extends State<AppSettings> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(VisionMetrics.space8),
               decoration: BoxDecoration(
                 border: Border.all(
-                  color: t.accentDanger.withValues(alpha: 0.5),
+                  color: t.accentDanger.withValues(
+                    alpha: VisionMetrics.opacityScrim,
+                  ),
                 ),
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(VisionMetrics.radius4),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.warning_amber, size: 16, color: t.accentDanger),
-                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.warning_amber,
+                    size: VisionMetrics.iconMedium,
+                    color: t.accentDanger,
+                  ),
+                  const SizedBox(width: VisionMetrics.space8),
                   Expanded(
                     child: Text(
                       l.settingsSdUninstallWarning,
@@ -844,7 +770,7 @@ class _AppSettingsState extends State<AppSettings> {
               ),
             ),
             if (sourceFiles.isNotEmpty) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: VisionMetrics.space12),
               Text(
                 l.settingsSdExistingInfo(
                   sourceFiles.length,
@@ -888,7 +814,7 @@ class _AppSettingsState extends State<AppSettings> {
 
     if (choice == _SdChoice.fresh) {
       await _applyOutputDir(target);
-      setLocalState(() {});
+      setState(() {});
       return;
     }
 
@@ -917,13 +843,13 @@ class _AppSettingsState extends State<AppSettings> {
     // card immediately instead of being stranded in the old dir mid-move.
     await _applyOutputDir(target);
     await prefs.setSdMigrationSource(current);
-    setLocalState(() {});
+    setState(() {});
     if (!mounted) return;
     await _executeSdMove(
       sourceDir: current,
       destDir: target,
       plan: plan,
-      setLocalState: setLocalState,
+      setLocalState: setState,
     );
   }
 
@@ -968,13 +894,13 @@ class _AppSettingsState extends State<AppSettings> {
                     fontSize: t.fontSize(10),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: VisionMetrics.space12),
                 LinearProgressIndicator(
                   value: p.$2 == 0 ? null : p.$1 / p.$2,
                   color: t.accent,
                   backgroundColor: t.borderSubtle,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: VisionMetrics.space8),
                 Text(
                   '${p.$1} / ${p.$2}',
                   style: TextStyle(
@@ -1039,97 +965,55 @@ class _AppSettingsState extends State<AppSettings> {
     }
     if (!mounted) return;
     context.read<GalleryNotifier>().refresh();
-    setLocalState(() {});
+    setState(() {});
   }
 
   Widget _buildStripMetadataToggle(VisionTokens t) {
     final prefs = context.read<PreferencesService>();
     final l = context.l;
-    return StatefulBuilder(
-      builder: (context, setLocalState) {
-        return Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l.settingsStripMetadata.toUpperCase(),
-                    style: TextStyle(
-                      color: t.headerText,
-                      fontSize: t.fontSize(11),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    l.settingsStripMetadataDesc,
-                    style: TextStyle(
-                      color: t.textTertiary,
-                      fontSize: t.fontSize(9),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Switch(
-              value: prefs.stripMetadataOnExport,
-              onChanged: (val) async {
-                await prefs.setStripMetadataOnExport(val);
-                setLocalState(() {});
-              },
-              activeThumbColor: t.accent,
-              activeTrackColor: t.borderStrong,
-              inactiveThumbColor: t.textDisabled,
-              inactiveTrackColor: t.borderSubtle,
-            ),
-          ],
-        );
-      },
+    return _buildPrefToggle(
+      label: l.settingsStripMetadata.toUpperCase(),
+      description: l.settingsStripMetadataDesc,
+      value: prefs.stripMetadataOnExport,
+      save: prefs.setStripMetadataOnExport,
+      t: t,
     );
   }
 
+  /// One labelled switch row; every settings toggle goes through here.
   Widget _buildShelfToggle({
     required String label,
     required String description,
     required bool value,
-    required Function(bool) onChanged,
+    required ValueChanged<bool>? onChanged,
     required VisionTokens t,
   }) {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  color: t.headerText,
-                  fontSize: t.fontSize(11),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                description,
-                style: TextStyle(
-                  color: t.textTertiary,
-                  fontSize: t.fontSize(9),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Switch(
-          value: value,
-          onChanged: onChanged,
-          activeThumbColor: t.accent,
-          activeTrackColor: t.borderStrong,
-          inactiveThumbColor: t.textDisabled,
-          inactiveTrackColor: t.borderSubtle,
-        ),
-      ],
+    return ShelfToggle(
+      label: label,
+      description: description,
+      value: value,
+      onChanged: onChanged,
+    );
+  }
+
+  /// A toggle backed by a preference: [save] persists the new value, then the
+  /// page rebuilds so the switch reads it back.
+  Widget _buildPrefToggle({
+    required String label,
+    required String description,
+    required bool value,
+    required Future<void> Function(bool) save,
+    required VisionTokens t,
+  }) {
+    return _buildShelfToggle(
+      label: label,
+      description: description,
+      value: value,
+      onChanged: (v) async {
+        await save(v);
+        if (mounted) setState(() {});
+      },
+      t: t,
     );
   }
 
@@ -1151,32 +1035,29 @@ class _AppSettingsState extends State<AppSettings> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: VisionMetrics.space4),
         Text(
           description,
           style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
         ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 36,
-          child: TextField(
-            controller: TextEditingController(text: value),
-            style: TextStyle(fontSize: t.fontSize(11), color: t.textSecondary),
-            decoration: InputDecoration(
-              fillColor: t.borderSubtle,
-              filled: true,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-                borderSide: BorderSide.none,
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
+        const SizedBox(height: VisionMetrics.space8),
+        SyncedTextField(
+          value: value,
+          style: TextStyle(fontSize: t.fontSize(11), color: t.textSecondary),
+          decoration: InputDecoration(
+            fillColor: t.borderSubtle,
+            filled: true,
+            isDense: true,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+              borderSide: BorderSide.none,
             ),
-            onSubmitted: onChanged,
-            onTapOutside: (_) => FocusScope.of(context).unfocus(),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: VisionMetrics.space12,
+              vertical: VisionMetrics.space12,
+            ),
           ),
+          onChanged: onChanged,
         ),
       ],
     );
@@ -1185,66 +1066,31 @@ class _AppSettingsState extends State<AppSettings> {
   Widget _buildAnlasTrackerToggle(VisionTokens t) {
     final prefs = context.read<PreferencesService>();
     final l = context.l;
-    return StatefulBuilder(
-      builder: (context, setLocalState) {
-        return Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l.settingsAnlasTracker.toUpperCase(),
-                    style: TextStyle(
-                      color: t.headerText,
-                      fontSize: t.fontSize(11),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    l.settingsAnlasTrackerDesc,
-                    style: TextStyle(
-                      color: t.textTertiary,
-                      fontSize: t.fontSize(9),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Switch(
-              value: prefs.showAnlasTracker,
-              onChanged: (val) async {
-                await prefs.setShowAnlasTracker(val);
-                setLocalState(() {});
-              },
-              activeThumbColor: t.accent,
-              activeTrackColor: t.borderStrong,
-              inactiveThumbColor: t.textDisabled,
-              inactiveTrackColor: t.borderSubtle,
-            ),
-          ],
-        );
-      },
+    return _buildPrefToggle(
+      label: l.settingsAnlasTracker.toUpperCase(),
+      description: l.settingsAnlasTrackerDesc,
+      value: prefs.showAnlasTracker,
+      save: prefs.setShowAnlasTracker,
+      t: t,
     );
   }
 
   /// Human-readable label for the stored export folder. SAF tree URIs are
   /// ugly (`content://…/tree/XXXX-XXXX%3ANAIWeaver`), so show the decoded
   /// trailing folder segment; plain filesystem paths are shown as-is.
-  String _exportFolderLabel(String path) {
+  String _exportFolderLabel(String path, AppLocalizations l) {
     if (!SafExportService.isSafUri(path)) return path;
     final decoded = Uri.decodeComponent(path);
     final lastColon = decoded.lastIndexOf(':');
     final tail = lastColon >= 0 ? decoded.substring(lastColon + 1) : decoded;
-    return tail.isEmpty ? 'SD CARD' : 'SD: $tail';
+    return tail.isEmpty ? l.gallerySdCard.toUpperCase() : '${l.gallerySdCard.toUpperCase()}: $tail';
   }
 
   Widget _buildExportFolderPicker(VisionTokens t) {
     final prefs = context.read<PreferencesService>();
     final l = context.l;
-    return StatefulBuilder(
-      builder: (context, setLocalState) {
+    return Builder(
+      builder: (context) {
         final currentPath = prefs.exportFolderPath;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1257,28 +1103,30 @@ class _AppSettingsState extends State<AppSettings> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: VisionMetrics.space4),
             Text(
               l.settingsExportFolderDesc,
               style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: VisionMetrics.space8),
             Row(
               children: [
                 Expanded(
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+                      horizontal: VisionMetrics.space12,
+                      vertical: VisionMetrics.space8,
                     ),
                     decoration: BoxDecoration(
                       color: t.borderSubtle,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(
+                        VisionMetrics.radius4,
+                      ),
                     ),
                     child: Text(
                       currentPath.isEmpty
                           ? l.settingsExportFolderDefault
-                          : _exportFolderLabel(currentPath),
+                          : _exportFolderLabel(currentPath, l),
                       style: TextStyle(
                         fontSize: t.fontSize(9),
                         color: currentPath.isEmpty
@@ -1289,9 +1137,12 @@ class _AppSettingsState extends State<AppSettings> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                InkWell(
-                  onTap: () async {
+                const SizedBox(width: VisionMetrics.space8),
+                ManagerIconButton(
+                  icon: Icons.folder_open,
+                  color: t.accent,
+                  tooltip: l.settingsOutputFolderBrowse,
+                  onPressed: () async {
                     // On Android, pick via SAF so the chosen folder can live on
                     // a removable SD card (plain filesystem writes can't reach
                     // it under scoped storage — issue #13).
@@ -1300,7 +1151,7 @@ class _AppSettingsState extends State<AppSettings> {
                           .pickFolder();
                       if (folder != null) {
                         await prefs.setExportFolderPath(folder.uri);
-                        setLocalState(() {});
+                        setState(() {});
                       }
                       return;
                     }
@@ -1309,29 +1160,19 @@ class _AppSettingsState extends State<AppSettings> {
                     );
                     if (dir != null) {
                       await prefs.setExportFolderPath(dir);
-                      setLocalState(() {});
+                      setState(() {});
                     }
                   },
-                  borderRadius: BorderRadius.circular(4),
-                  child: Padding(
-                    padding: const EdgeInsets.all(6),
-                    child: Icon(Icons.folder_open, size: 16, color: t.accent),
-                  ),
                 ),
-                if (currentPath.isNotEmpty) ...[
-                  const SizedBox(width: 4),
-                  InkWell(
-                    onTap: () async {
+                if (currentPath.isNotEmpty)
+                  ManagerIconButton(
+                    icon: Icons.close,
+                    tooltip: l.settingsFolderUseDefault,
+                    onPressed: () async {
                       await prefs.setExportFolderPath('');
-                      setLocalState(() {});
+                      setState(() {});
                     },
-                    borderRadius: BorderRadius.circular(4),
-                    child: Padding(
-                      padding: const EdgeInsets.all(6),
-                      child: Icon(Icons.close, size: 14, color: t.textDisabled),
-                    ),
                   ),
-                ],
               ],
             ),
           ],
@@ -1343,19 +1184,12 @@ class _AppSettingsState extends State<AppSettings> {
   Widget _buildSeedControlToggle(VisionTokens t) {
     final prefs = context.read<PreferencesService>();
     final l = context.l;
-    return StatefulBuilder(
-      builder: (context, setLocalState) {
-        return _buildShelfToggle(
-          label: l.settingsSeedControl.toUpperCase(),
-          description: l.settingsSeedControlDesc,
-          value: prefs.showSeedControl,
-          onChanged: (_) async {
-            await prefs.setShowSeedControl(!prefs.showSeedControl);
-            setLocalState(() {});
-          },
-          t: t,
-        );
-      },
+    return _buildPrefToggle(
+      label: l.settingsSeedControl.toUpperCase(),
+      description: l.settingsSeedControlDesc,
+      value: prefs.showSeedControl,
+      save: prefs.setShowSeedControl,
+      t: t,
     );
   }
 
@@ -1369,28 +1203,30 @@ class _AppSettingsState extends State<AppSettings> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'FONT SIZE',
+                context.l.settingsFontSize.toUpperCase(),
                 style: TextStyle(
                   color: t.headerText,
                   fontSize: t.fontSize(11),
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: VisionMetrics.space4),
               Text(
-                'Scales all UI text. Default 100%.',
+                context.l.settingsFontSizeDesc,
                 style: TextStyle(
                   color: t.textTertiary,
                   fontSize: t.fontSize(9),
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: VisionMetrics.space4),
               SliderTheme(
                 data: SliderTheme.of(context).copyWith(
                   activeTrackColor: t.accent,
                   inactiveTrackColor: t.borderSubtle,
                   thumbColor: t.accent,
-                  overlayColor: t.accent.withValues(alpha: 0.12),
+                  overlayColor: t.accent.withValues(
+                    alpha: VisionMetrics.opacityPressed,
+                  ),
                   trackHeight: 2,
                 ),
                 child: Slider(
@@ -1404,7 +1240,7 @@ class _AppSettingsState extends State<AppSettings> {
             ],
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: VisionMetrics.space12),
         SizedBox(
           width: 56,
           child: Text(
@@ -1424,65 +1260,24 @@ class _AppSettingsState extends State<AppSettings> {
   Widget _buildShowTooltipsToggle(VisionTokens t) {
     final prefs = context.read<PreferencesService>();
     final l = context.l;
-    return StatefulBuilder(
-      builder: (context, setLocalState) {
-        return Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l.settingsShowTooltips.toUpperCase(),
-                    style: TextStyle(
-                      color: t.headerText,
-                      fontSize: t.fontSize(11),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    l.settingsShowTooltipsDesc,
-                    style: TextStyle(
-                      color: t.textTertiary,
-                      fontSize: t.fontSize(9),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Switch(
-              value: prefs.showTooltips,
-              onChanged: (val) async {
-                await prefs.setShowTooltips(val);
-                setLocalState(() {});
-              },
-              activeThumbColor: t.accent,
-              activeTrackColor: t.borderStrong,
-              inactiveThumbColor: t.textDisabled,
-              inactiveTrackColor: t.borderSubtle,
-            ),
-          ],
-        );
-      },
+    return _buildPrefToggle(
+      label: l.settingsShowTooltips.toUpperCase(),
+      description: l.settingsShowTooltipsDesc,
+      value: prefs.showTooltips,
+      save: prefs.setShowTooltips,
+      t: t,
     );
   }
 
   Widget _buildHideTagValuesToggle(VisionTokens t) {
     final prefs = context.read<PreferencesService>();
-    return StatefulBuilder(
-      builder: (context, setLocalState) {
-        return _buildShelfToggle(
-          label: 'HIDE TAG VALUES',
-          description: 'Hide tag count values in autocomplete suggestions',
-          value: prefs.hideTagValues,
-          onChanged: (_) async {
-            await prefs.setHideTagValues(!prefs.hideTagValues);
-            setLocalState(() {});
-          },
-          t: t,
-        );
-      },
+    final l = context.l;
+    return _buildPrefToggle(
+      label: l.settingsHideTagValues.toUpperCase(),
+      description: l.settingsHideTagValuesDesc,
+      value: prefs.hideTagValues,
+      save: prefs.setHideTagValues,
+      t: t,
     );
   }
 
@@ -1521,38 +1316,20 @@ class _AppSettingsState extends State<AppSettings> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: VisionMetrics.space4),
         Text(
           l.settingsLayoutModeDesc,
           style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
         ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            _layoutChip(
-              l.settingsLayoutAuto.toUpperCase(),
-              'auto',
-              current,
-              (v) => themeNotifier.setSidebarLayoutMode(v),
-              t,
-            ),
-            const SizedBox(width: 8),
-            _layoutChip(
-              l.settingsLayoutSidebar.toUpperCase(),
-              'always',
-              current,
-              (v) => themeNotifier.setSidebarLayoutMode(v),
-              t,
-            ),
-            const SizedBox(width: 8),
-            _layoutChip(
-              l.settingsLayoutClassic.toUpperCase(),
-              'never',
-              current,
-              (v) => themeNotifier.setSidebarLayoutMode(v),
-              t,
-            ),
+        const SizedBox(height: VisionMetrics.space8),
+        AppSegmented<String>(
+          options: [
+            AppOption(value: 'auto', label: l.settingsLayoutAuto),
+            AppOption(value: 'always', label: l.settingsLayoutSidebar),
+            AppOption(value: 'never', label: l.settingsLayoutClassic),
           ],
+          selected: current,
+          onChanged: themeNotifier.setSidebarLayoutMode,
         ),
       ],
     );
@@ -1565,7 +1342,7 @@ class _AppSettingsState extends State<AppSettings> {
     final layoutMode = themeNotifier.sidebarLayoutMode;
     if (layoutMode == 'never') return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.only(top: VisionMetrics.space12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1577,30 +1354,19 @@ class _AppSettingsState extends State<AppSettings> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: VisionMetrics.space4),
           Text(
             l.settingsSidebarWidthDesc,
             style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              _layoutChip(
-                l.settingsSidebarCompact.toUpperCase(),
-                'compact',
-                current,
-                (v) => themeNotifier.setSidebarWidthMode(v),
-                t,
-              ),
-              const SizedBox(width: 8),
-              _layoutChip(
-                l.settingsSidebarNormal.toUpperCase(),
-                'normal',
-                current,
-                (v) => themeNotifier.setSidebarWidthMode(v),
-                t,
-              ),
+          const SizedBox(height: VisionMetrics.space8),
+          AppSegmented<String>(
+            options: [
+              AppOption(value: 'compact', label: l.settingsSidebarCompact),
+              AppOption(value: 'normal', label: l.settingsSidebarNormal),
             ],
+            selected: current,
+            onChanged: themeNotifier.setSidebarWidthMode,
           ),
         ],
       ),
@@ -1615,7 +1381,7 @@ class _AppSettingsState extends State<AppSettings> {
     // Only show when sidebar mode is possible
     if (layoutMode == 'never') return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.only(top: VisionMetrics.space12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1627,65 +1393,21 @@ class _AppSettingsState extends State<AppSettings> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: VisionMetrics.space4),
           Text(
             l.settingsPromptPositionDesc,
             style: TextStyle(color: t.textTertiary, fontSize: t.fontSize(9)),
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              _layoutChip(
-                l.settingsPromptLeft.toUpperCase(),
-                'left',
-                current,
-                (v) => themeNotifier.setSidebarPromptPosition(v),
-                t,
-              ),
-              const SizedBox(width: 8),
-              _layoutChip(
-                l.settingsPromptRight.toUpperCase(),
-                'right',
-                current,
-                (v) => themeNotifier.setSidebarPromptPosition(v),
-                t,
-              ),
+          const SizedBox(height: VisionMetrics.space8),
+          AppSegmented<String>(
+            options: [
+              AppOption(value: 'left', label: l.settingsPromptLeft),
+              AppOption(value: 'right', label: l.settingsPromptRight),
             ],
+            selected: current,
+            onChanged: themeNotifier.setSidebarPromptPosition,
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _layoutChip(
-    String label,
-    String value,
-    String current,
-    Function(String) onSelect,
-    VisionTokens t,
-  ) {
-    final selected = value == current;
-    return InkWell(
-      onTap: () => onSelect(value),
-      borderRadius: BorderRadius.circular(4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: selected ? t.accent : t.borderMedium),
-          color: selected
-              ? t.accent.withValues(alpha: 0.15)
-              : Colors.transparent,
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? t.accent : t.textTertiary,
-            fontSize: t.fontSize(9),
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1,
-          ),
-        ),
       ),
     );
   }
@@ -1693,192 +1415,52 @@ class _AppSettingsState extends State<AppSettings> {
   Widget _buildSmartStyleImportToggle(VisionTokens t) {
     final prefs = context.read<PreferencesService>();
     final l = context.l;
-    return StatefulBuilder(
-      builder: (context, setLocalState) {
-        return Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l.settingsSmartStyleImport.toUpperCase(),
-                    style: TextStyle(
-                      color: t.headerText,
-                      fontSize: t.fontSize(11),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    l.settingsSmartStyleImportDesc,
-                    style: TextStyle(
-                      color: t.textTertiary,
-                      fontSize: t.fontSize(9),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Switch(
-              value: prefs.smartStyleImport,
-              onChanged: (val) async {
-                await prefs.setSmartStyleImport(val);
-                setLocalState(() {});
-              },
-              activeThumbColor: t.accent,
-              activeTrackColor: t.borderStrong,
-              inactiveThumbColor: t.textDisabled,
-              inactiveTrackColor: t.borderSubtle,
-            ),
-          ],
-        );
-      },
+    return _buildPrefToggle(
+      label: l.settingsSmartStyleImport.toUpperCase(),
+      description: l.settingsSmartStyleImportDesc,
+      value: prefs.smartStyleImport,
+      save: prefs.setSmartStyleImport,
+      t: t,
     );
   }
 
   Widget _buildCharInsertTargetToggle(VisionTokens t) {
     final prefs = context.read<PreferencesService>();
     final l = context.l;
-    return StatefulBuilder(
-      builder: (context, setLocalState) {
-        return Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l.settingsCharInsertTarget.toUpperCase(),
-                    style: TextStyle(
-                      color: t.headerText,
-                      fontSize: t.fontSize(11),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    l.settingsCharInsertTargetDesc,
-                    style: TextStyle(
-                      color: t.textTertiary,
-                      fontSize: t.fontSize(9),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Switch(
-              value: prefs.charInsertTarget == 'editor',
-              onChanged: (val) async {
-                await prefs.setCharInsertTarget(val ? 'editor' : 'main');
-                setLocalState(() {});
-              },
-              activeThumbColor: t.accent,
-              activeTrackColor: t.borderStrong,
-              inactiveThumbColor: t.textDisabled,
-              inactiveTrackColor: t.borderSubtle,
-            ),
-          ],
-        );
-      },
+    return _buildPrefToggle(
+      label: l.settingsCharInsertTarget.toUpperCase(),
+      description: l.settingsCharInsertTargetDesc,
+      value: prefs.charInsertTarget == 'editor',
+      save: (val) => prefs.setCharInsertTarget(val ? 'editor' : 'main'),
+      t: t,
     );
   }
 
   Widget _buildRememberSessionToggle(VisionTokens t) {
     final prefs = context.read<PreferencesService>();
     final l = context.l;
-    return StatefulBuilder(
-      builder: (context, setLocalState) {
-        return Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l.settingsRememberSession.toUpperCase(),
-                    style: TextStyle(
-                      color: t.headerText,
-                      fontSize: t.fontSize(11),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    l.settingsRememberSessionDesc,
-                    style: TextStyle(
-                      color: t.textTertiary,
-                      fontSize: t.fontSize(9),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Switch(
-              value: prefs.rememberSession,
-              onChanged: (val) async {
-                final gen = context.read<GenerationNotifier>();
-                await prefs.setRememberSession(val);
-                if (!val) {
-                  gen.deleteSessionSnapshot();
-                }
-                setLocalState(() {});
-              },
-              activeThumbColor: t.accent,
-              activeTrackColor: t.borderStrong,
-              inactiveThumbColor: t.textDisabled,
-              inactiveTrackColor: t.borderSubtle,
-            ),
-          ],
-        );
+    return _buildPrefToggle(
+      label: l.settingsRememberSession.toUpperCase(),
+      description: l.settingsRememberSessionDesc,
+      value: prefs.rememberSession,
+      save: (val) async {
+        final gen = context.read<GenerationNotifier>();
+        await prefs.setRememberSession(val);
+        if (!val) gen.deleteSessionSnapshot();
       },
+      t: t,
     );
   }
 
   Widget _buildImg2ImgImportPromptToggle(VisionTokens t) {
     final prefs = context.read<PreferencesService>();
     final l = context.l;
-    return StatefulBuilder(
-      builder: (context, setLocalState) {
-        return Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l.settingsImg2ImgImportPrompt.toUpperCase(),
-                    style: TextStyle(
-                      color: t.headerText,
-                      fontSize: t.fontSize(11),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    l.settingsImg2ImgImportPromptDesc,
-                    style: TextStyle(
-                      color: t.textTertiary,
-                      fontSize: t.fontSize(9),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Switch(
-              value: prefs.img2imgImportPrompt,
-              onChanged: (val) async {
-                await prefs.setImg2ImgImportPrompt(val);
-                setLocalState(() {});
-              },
-              activeThumbColor: t.accent,
-              activeTrackColor: t.borderStrong,
-              inactiveThumbColor: t.textDisabled,
-              inactiveTrackColor: t.borderSubtle,
-            ),
-          ],
-        );
-      },
+    return _buildPrefToggle(
+      label: l.settingsImg2ImgImportPrompt.toUpperCase(),
+      description: l.settingsImg2ImgImportPromptDesc,
+      value: prefs.img2imgImportPrompt,
+      save: prefs.setImg2ImgImportPrompt,
+      t: t,
     );
   }
 
@@ -1886,8 +1468,8 @@ class _AppSettingsState extends State<AppSettings> {
     final prefs = context.read<PreferencesService>();
     final gallery = context.watch<GalleryNotifier>();
     final l = context.l;
-    return StatefulBuilder(
-      builder: (context, setLocalState) {
+    return Builder(
+      builder: (context) {
         final currentId = prefs.defaultSaveAlbumId;
         final albums = gallery.albums;
         return Row(
@@ -1904,7 +1486,7 @@ class _AppSettingsState extends State<AppSettings> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: VisionMetrics.space4),
                   Text(
                     l.settingsSaveToAlbumDesc,
                     style: TextStyle(
@@ -1955,7 +1537,7 @@ class _AppSettingsState extends State<AppSettings> {
               ],
               onChanged: (val) async {
                 await prefs.setDefaultSaveAlbumId(val);
-                setLocalState(() {});
+                setState(() {});
               },
             ),
           ],
@@ -1994,9 +1576,9 @@ class _AppSettingsState extends State<AppSettings> {
             letterSpacing: 1,
           ),
           items: const [
-            DropdownMenuItem(value: Locale('en'), child: Text('ENGLISH')),
-            DropdownMenuItem(value: Locale('ja'), child: Text('日本語')),
-            DropdownMenuItem(value: Locale('zh'), child: Text('中文 (简体)')),
+            DropdownMenuItem(value: Locale('en'), child: Text('ENGLISH')), // l10n-ignore: language picker shows each language's own name
+            DropdownMenuItem(value: Locale('ja'), child: Text('日本語')), // l10n-ignore: language picker
+            DropdownMenuItem(value: Locale('zh'), child: Text('中文 (简体)')), // l10n-ignore: language picker
           ],
           onChanged: (locale) {
             if (locale != null) {
@@ -2010,7 +1592,9 @@ class _AppSettingsState extends State<AppSettings> {
 
   Widget _buildThemeBuilderButton(VisionTokens t) {
     final l = context.l;
-    return InkWell(
+    return _SettingsActionButton(
+      icon: Icons.palette,
+      label: l.settingsThemeBuilder,
       onTap: () {
         Navigator.pushReplacement(
           context,
@@ -2019,38 +1603,14 @@ class _AppSettingsState extends State<AppSettings> {
           ),
         );
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          border: Border.all(color: t.borderMedium),
-          borderRadius: BorderRadius.circular(4),
-          color: t.borderSubtle,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.palette, color: t.secondaryText, size: 16),
-            const SizedBox(width: 12),
-            Text(
-              l.settingsThemeBuilder.toUpperCase(),
-              style: TextStyle(
-                color: t.secondaryText,
-                fontSize: t.fontSize(10),
-                letterSpacing: 1,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
   Widget _buildPinLockSection(VisionTokens t) {
     final prefs = context.read<PreferencesService>();
     final l = context.l;
-    return StatefulBuilder(
-      builder: (context, setSectionState) {
+    return Builder(
+      builder: (context) {
         final pinEnabled = prefs.pinEnabled;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2066,7 +1626,7 @@ class _AppSettingsState extends State<AppSettings> {
                     builder: (ctx) => _SetPinDialog(t: t),
                   );
                   if (result == true) {
-                    setSectionState(() {});
+                    setState(() {});
                   }
                 } else {
                   final result = await showDialog<bool>(
@@ -2079,25 +1639,25 @@ class _AppSettingsState extends State<AppSettings> {
                     await prefs.setPinSalt('');
                     await prefs.setPinLockOnResume(false);
                     await prefs.setPinBiometricEnabled(false);
-                    setSectionState(() {});
+                    setState(() {});
                   }
                 }
               },
               t: t,
             ),
             if (pinEnabled) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: VisionMetrics.space12),
               _buildShelfToggle(
                 label: l.settingsLockOnResume.toUpperCase(),
                 description: l.settingsLockOnResumeDesc,
                 value: prefs.pinLockOnResume,
                 onChanged: (_) async {
                   await prefs.setPinLockOnResume(!prefs.pinLockOnResume);
-                  setSectionState(() {});
+                  setState(() {});
                 },
                 t: t,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: VisionMetrics.space12),
               _buildShelfToggle(
                 label: l.settingsBiometricUnlock.toUpperCase(),
                 description: l.settingsBiometricUnlockDesc,
@@ -2132,7 +1692,7 @@ class _AppSettingsState extends State<AppSettings> {
                   await prefs.setPinBiometricEnabled(
                     !prefs.pinBiometricEnabled,
                   );
-                  setSectionState(() {});
+                  setState(() {});
                 },
                 t: t,
               ),
@@ -2163,58 +1723,26 @@ class _AppSettingsState extends State<AppSettings> {
                 t: t,
               ),
             ),
-            IconButton(
-              icon: Icon(Icons.settings, size: 18, color: t.textDisabled),
+            ManagerIconButton(
+              icon: Icons.settings,
               onPressed: () => _showDemoPrefixSettings(prefs, t),
               tooltip: l.settingsEditPositivePrefix,
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              padding: EdgeInsets.zero,
-              splashRadius: 18,
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        InkWell(
+        const SizedBox(height: VisionMetrics.space12),
+        _SettingsActionButton(
+          icon: Icons.photo_library,
+          label: l.settingsSelectDemoImages,
+          trailing: '(${gallery.demoSafeCount})',
           onTap: () {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const DemoImagePicker()),
             );
           },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              border: Border.all(color: t.borderMedium),
-              borderRadius: BorderRadius.circular(4),
-              color: t.borderSubtle,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.photo_library, color: t.secondaryText, size: 16),
-                const SizedBox(width: 12),
-                Text(
-                  l.settingsSelectDemoImages.toUpperCase(),
-                  style: TextStyle(
-                    color: t.secondaryText,
-                    fontSize: t.fontSize(10),
-                    letterSpacing: 1,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '(${gallery.demoSafeCount})',
-                  style: TextStyle(
-                    color: t.textDisabled,
-                    fontSize: t.fontSize(9),
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: VisionMetrics.space16),
         Text(
           l.settingsTagSuggestionsHidden,
           style: TextStyle(
@@ -2259,7 +1787,7 @@ class _AppSettingsState extends State<AppSettings> {
                 letterSpacing: 1,
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: VisionMetrics.space8),
             TextField(
               controller: posCtrl,
               autofocus: true,
@@ -2269,16 +1797,16 @@ class _AppSettingsState extends State<AppSettings> {
                 fillColor: t.borderSubtle,
                 hintStyle: TextStyle(color: t.textDisabled),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(VisionMetrics.radius4),
                   borderSide: BorderSide(color: t.borderMedium),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(VisionMetrics.radius4),
                   borderSide: BorderSide(color: t.borderMedium),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: VisionMetrics.space16),
             Text(
               l.settingsNegativePrefix.toUpperCase(),
               style: TextStyle(
@@ -2287,7 +1815,7 @@ class _AppSettingsState extends State<AppSettings> {
                 letterSpacing: 1,
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: VisionMetrics.space8),
             TextField(
               controller: negCtrl,
               style: TextStyle(color: t.headerText, fontSize: t.fontSize(11)),
@@ -2296,11 +1824,11 @@ class _AppSettingsState extends State<AppSettings> {
                 fillColor: t.borderSubtle,
                 hintStyle: TextStyle(color: t.textDisabled),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(VisionMetrics.radius4),
                   borderSide: BorderSide(color: t.borderMedium),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(VisionMetrics.radius4),
                   borderSide: BorderSide(color: t.borderMedium),
                 ),
               ),
@@ -2347,92 +1875,62 @@ class _AppSettingsState extends State<AppSettings> {
       'andreiagmu',
     ];
     const linkedNames = {'andreiagmu': 'https://github.com/andreiagmu'};
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        border: Border.all(color: t.borderMedium),
-        borderRadius: BorderRadius.circular(4),
-        color: t.borderSubtle,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l.settingsSpecialThanks.toUpperCase(),
-            style: TextStyle(
-              color: t.secondaryText,
-              fontSize: t.fontSize(10),
-              letterSpacing: 2,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          for (final name in names)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: linkedNames.containsKey(name)
-                  ? InkWell(
-                      onTap: () =>
-                          _confirmOpenExternalLink(t, linkedNames[name]!),
-                      child: Text(
-                        name,
-                        style: TextStyle(
-                          color: t.accent,
-                          fontSize: t.fontSize(11),
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    )
-                  : Text(
-                      name,
-                      style: TextStyle(
-                        color: t.headerText,
-                        fontSize: t.fontSize(11),
-                      ),
-                    ),
-            ),
-          const SizedBox(height: 8),
-          Text(
-            l.settingsAnonTesters,
-            style: TextStyle(
-              color: t.textTertiary,
-              fontSize: t.fontSize(10),
-              fontStyle: FontStyle.italic,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGithubButton(VisionTokens t) {
-    final l = context.l;
-    return InkWell(
-      onTap: () {
-        launchUrl(
-          Uri.parse('https://github.com/ststoryweaver/NAIWeaver'),
-          mode: LaunchMode.externalApplication,
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          border: Border.all(color: t.borderMedium),
-          borderRadius: BorderRadius.circular(4),
-          color: t.borderSubtle,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+    return SizedBox(
+      width: double.infinity,
+      child: AppPanel(
+        variant: AppPanelVariant.raised,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.code, color: t.secondaryText, size: 16),
-            const SizedBox(width: 12),
             Text(
-              l.settingsGithubRepository.toUpperCase(),
+              l.settingsSpecialThanks.toUpperCase(),
               style: TextStyle(
                 color: t.secondaryText,
                 fontSize: t.fontSize(10),
-                letterSpacing: 1,
+                letterSpacing: 2,
                 fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: VisionMetrics.space8),
+            for (final name in names)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: linkedNames.containsKey(name)
+                    ? InkWell(
+                        onTap: () =>
+                            _confirmOpenExternalLink(t, linkedNames[name]!),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: context.hitSize,
+                          ),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              name,
+                              style: TextStyle(
+                                color: t.accent,
+                                fontSize: t.fontSize(11),
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                    : Text(
+                        name,
+                        style: TextStyle(
+                          color: t.headerText,
+                          fontSize: t.fontSize(11),
+                        ),
+                      ),
+              ),
+            const SizedBox(height: VisionMetrics.space8),
+            Text(
+              l.settingsAnonTesters,
+              style: TextStyle(
+                color: t.textTertiary,
+                fontSize: t.fontSize(10),
+                fontStyle: FontStyle.italic,
               ),
             ),
           ],
@@ -2441,9 +1939,26 @@ class _AppSettingsState extends State<AppSettings> {
     );
   }
 
+  Widget _buildGithubButton(VisionTokens t) {
+    final l = context.l;
+    return _SettingsActionButton(
+      icon: Icons.code,
+      label: l.settingsGithubRepository,
+      onTap: () {
+        launchUrl(
+          Uri.parse('https://github.com/ststoryweaver/NAIWeaver'),
+          mode: LaunchMode.externalApplication,
+        );
+      },
+    );
+  }
+
   Widget _buildUpdateCheckButton(VisionTokens t) {
     final l = context.l;
-    return InkWell(
+    return _SettingsActionButton(
+      icon: Icons.system_update,
+      busy: _isCheckingUpdate,
+      label: l.settingsCheckForUpdates,
       onTap: _isCheckingUpdate
           ? null
           : () async {
@@ -2467,40 +1982,6 @@ class _AppSettingsState extends State<AppSettings> {
                 if (mounted) setState(() => _isCheckingUpdate = false);
               }
             },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          border: Border.all(color: t.borderMedium),
-          borderRadius: BorderRadius.circular(4),
-          color: t.borderSubtle,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (_isCheckingUpdate)
-              SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: t.secondaryText,
-                ),
-              )
-            else
-              Icon(Icons.system_update, color: t.secondaryText, size: 16),
-            const SizedBox(width: 12),
-            Text(
-              l.settingsCheckForUpdates.toUpperCase(),
-              style: TextStyle(
-                color: t.secondaryText,
-                fontSize: t.fontSize(10),
-                letterSpacing: 1,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -2511,7 +1992,7 @@ class _AppSettingsState extends State<AppSettings> {
       builder: (ctx) => AlertDialog(
         backgroundColor: t.surfaceHigh,
         title: Text(
-          'OPEN EXTERNAL LINK',
+          l.settingsOpenLinkTitle.toUpperCase(),
           style: TextStyle(
             fontSize: t.fontSize(10),
             letterSpacing: 2,
@@ -2523,10 +2004,10 @@ class _AppSettingsState extends State<AppSettings> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'You are about to leave NAIWeaver and open a new window:',
+              l.settingsOpenLinkBody,
               style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(11)),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: VisionMetrics.space8),
             Text(
               url,
               style: TextStyle(color: t.accent, fontSize: t.fontSize(11)),
@@ -2547,7 +2028,7 @@ class _AppSettingsState extends State<AppSettings> {
               launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
             },
             child: Text(
-              'OPEN LINK',
+              l.settingsOpenLinkConfirm.toUpperCase(),
               style: TextStyle(color: t.accent, fontSize: t.fontSize(9)),
             ),
           ),
@@ -2663,7 +2144,7 @@ class _SetPinDialogState extends State<_SetPinDialog> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: VisionMetrics.space16),
           TextField(
             controller: _confirmController,
             obscureText: true,
@@ -2689,7 +2170,7 @@ class _SetPinDialogState extends State<_SetPinDialog> {
             ),
           ),
           if (_error != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: VisionMetrics.space12),
             Text(
               _error!,
               style: TextStyle(color: t.accentDanger, fontSize: t.fontSize(9)),
@@ -2799,7 +2280,7 @@ class _VerifyPinDialogState extends State<_VerifyPinDialog> {
             ),
           ),
           if (_error != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: VisionMetrics.space12),
             Text(
               _error!,
               style: TextStyle(color: t.accentDanger, fontSize: t.fontSize(9)),
@@ -2843,3 +2324,90 @@ class _VerifyPinDialogState extends State<_VerifyPinDialog> {
 
 /// Outcome of the USE SD CARD choice dialog.
 enum _SdChoice { move, fresh }
+
+/// Outlined action row used for links and one-off actions in the settings
+/// list. A null [onTap] renders the disabled look.
+class _SettingsActionButton extends StatelessWidget {
+  const _SettingsActionButton({
+    required this.label,
+    required this.onTap,
+    this.icon,
+    this.trailing,
+    this.busy = false,
+  });
+
+  final String label;
+  final VoidCallback? onTap;
+  final IconData? icon;
+  final String? trailing;
+
+  /// Shows a spinner in place of [icon] and dims the button.
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    final enabled = onTap != null && !busy;
+    return Opacity(
+      opacity: enabled || busy ? 1 : VisionMetrics.opacityDisabled,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+        child: Container(
+          constraints: BoxConstraints(minHeight: context.hitSize),
+          padding: const EdgeInsets.symmetric(
+            horizontal: VisionMetrics.space16,
+          ),
+          decoration: BoxDecoration(
+            border: Border.all(color: t.borderMedium),
+            borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+            color: t.borderSubtle,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (busy)
+                SizedBox(
+                  width: VisionMetrics.iconMedium,
+                  height: VisionMetrics.iconMedium,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: t.secondaryText,
+                  ),
+                )
+              else if (icon != null)
+                Icon(
+                  icon,
+                  color: t.secondaryText,
+                  size: VisionMetrics.iconMedium,
+                ),
+              if (busy || icon != null)
+                const SizedBox(width: VisionMetrics.space12),
+              Flexible(
+                child: Text(
+                  label.toUpperCase(),
+                  style: TextStyle(
+                    color: t.secondaryText,
+                    fontSize: t.fontSize(10),
+                    letterSpacing: 1,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              if (trailing != null) ...[
+                const SizedBox(width: VisionMetrics.space8),
+                Text(
+                  trailing!,
+                  style: TextStyle(
+                    color: t.textDisabled,
+                    fontSize: t.fontSize(9),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

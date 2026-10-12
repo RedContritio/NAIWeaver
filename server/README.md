@@ -5,23 +5,23 @@ NovelAI requests. The browser never receives the NovelAI token.
 
 ## Run
 
+Local development has no login screen: `NAIWEAVER_DEV_USER` signs every
+request from the loopback address (`127.0.0.1` or `::1`) in as that user.
+
 ```bash
 cd server
 uv sync
-NOVELAI_TOKEN_FILE="$HOME/.config/naiweaver/novelai_token.txt" \
-NAIWEAVER_ADMIN_PASSWORD='local-test-admin' \
-NAIWEAVER_ALLOWED_CLIENT_CIDRS='127.0.0.1/32,::1/128,192.168.31.0/24' \
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
-
-For local tests without NovelAI:
-
-```bash
+NAIWEAVER_DEV_USER=admin \
 NAIWEAVER_FAKE_NOVELAI=1 \
-NAIWEAVER_ADMIN_PASSWORD='local-test-admin' \
-NAIWEAVER_ALLOWED_CLIENT_CIDRS='127.0.0.1/32,::1/128,192.168.31.0/24' \
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-proxy-headers
 ```
+
+Keep `--no-proxy-headers`: the dev user trusts the loopback `request.client.host`,
+and uvicorn's default (trusting `X-Forwarded-For` from 127.0.0.1) would let a
+forwarded header rewrite that address.
+
+Use `NOVELAI_TOKEN_FILE="$HOME/.config/naiweaver/novelai_token.txt"` instead of
+`NAIWEAVER_FAKE_NOVELAI=1` to talk to the real NovelAI.
 
 ## Build Web
 
@@ -29,27 +29,47 @@ uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 flutter build web --release --output server/static/web
 ```
 
-Open `http://127.0.0.1:8000/` or the Mac mini LAN address.
+Open `http://127.0.0.1:8000/`.
 
-## Local Test Accounts
+## Local Development Users
 
-In development mode the backend bootstraps these local accounts when they do not
-exist. Production disables password login and test account bootstrap by default.
+In development mode the backend bootstraps three local users when they do not
+exist: `admin`, `free_user` and `paid_user`, each with its role's defaults (see
+below) and no password. Pick one with `NAIWEAVER_DEV_USER=admin` (or
+`free_user`, `paid_user`, or any existing user name).
 
-- `admin / local-test-admin`
-- `free_user / free-test-pass`
-- `paid_user / paid-test-pass`
+`NAIWEAVER_DEV_USER` only takes effect when all of these hold:
+
+- `NAIWEAVER_ENV` is not `production`;
+- only WebAuth is not configured (no `NAIWEAVER_AUTH_ISSUER`);
+- the request comes from `127.0.0.1` or `::1`.
+
+Otherwise requests get 401 `not_authenticated`. Production refuses to start
+when `NAIWEAVER_DEV_USER` is set: behind frp every request appears to come from
+`127.0.0.1`, so the loopback check is meaningless there. Because of that, do not
+expose a development gateway through a reverse proxy either.
 
 ## Production Auth
 
-Production login is WebAuthn-only. Create or update a user from the backend
-virtualenv, then issue a one-time enrollment link:
+Production login uses only WebAuth through OIDC Authorization Code + PKCE.
+Passkeys are managed by the identity provider; this service no longer exposes
+its own WebAuthn endpoints. Existing users, history, quotas and local permissions
+remain in NAIWeaver.
 
 ```bash
-cd server
-.venv/bin/python -m app.cli user create admin --role admin --update
-.venv/bin/python -m app.cli webauthn bind admin --ttl 30m --base-url https://nai.recoco.xyz
+NAIWEAVER_PUBLIC_BASE_URL=https://nai.example.com
+NAIWEAVER_AUTH_ISSUER=https://auth.example.com
+NAIWEAVER_AUTH_CLIENT_ID=naiweaver
+NAIWEAVER_AUTH_CLIENT_SECRET_FILE=/path/to/client.secret
+NAIWEAVER_AUTH_SUBJECT_MAP='{"immutable-provider-user-id":1}'
+NAIWEAVER_AUTH_KEY_CACHE_MINUTES=10080
 ```
+
+`NAIWEAVER_SECRET_KEY`, `NAIWEAVER_COOKIE_SECURE`,
+`NAIWEAVER_ALLOW_PASSWORD_LOGIN` and `NAIWEAVER_ADMIN_PASSWORD` are no longer
+used and can be removed from the env file. Password login and JWT sessions no
+longer exist; the unused `sessions` table and `users.password_hash` column stay
+in the schema until the next schema version.
 
 ### User and point administration
 
@@ -70,9 +90,18 @@ Create a user, or apply one of the predefined roles to an existing user:
 .venv/bin/python -m app.cli user create agent_test --role free --green-points 10000
 ```
 
-`--update` changes the role permissions and its default total point limits. It
-does not erase points that have already been consumed. Use it deliberately.
-`--green-points` overrides the selected role's permanent green-point total.
+`--update` changes only what is passed. `--role` re-applies that role's
+permissions and green discount but never its point totals, so earlier grants
+and consumed points are kept; `--green-points` sets the permanent green-point
+total. Without `--update`, an existing user is an error. A new user is created
+with all of the role's defaults, including point totals, and `--green-points`
+overrides the green total.
+
+The admin API (`POST /api/admin/users`) takes the same `role`; fields left out
+take the role's values and explicit fields override them. Administrators always
+get a `100%` green discount, on creation and when promoted by `PATCH`.
+`role: "admin"` together with `is_admin: false` is a contradiction and is
+rejected with 400 `invalid_parameters` (`field: "is_admin"`).
 
 `agent_test` is the canonical account for live browser, smoke, and end-to-end
 tests against the deployed service. Keep credentials and WebAuthn enrollment
@@ -113,15 +142,23 @@ discount, and `100` means no green points are consumed. `green_point_limit`
 and all red-point fields are permanent: they do not reset by day, month, or
 time period.
 
-For WebAuthn management:
+Register the exact callback `https://nai.example.com/auth/callback` with only
+WebAuth and grant the appropriate group access to the client. Map immutable
+provider user IDs to existing local numeric user IDs using
+`NAIWEAVER_AUTH_SUBJECT_MAP`; no username-based matching or account creation
+happens at login. Unmapped users retain their data but cannot sign in.
 
-```bash
-# Print a one-time enrollment URL.
-.venv/bin/python -m app.cli webauthn bind alice --ttl 30m --base-url https://nai.recoco.xyz
-
-# Disable all registered passkeys for a user.
-.venv/bin/python -m app.cli webauthn reset alice
-```
+Browser cookies contain only a random session ID. Sessions, with their refresh
+tokens (encrypted with a key derived from the client secret, so rotating the
+secret signs everyone out; the database file is created with mode 0600), are stored in the gateway's SQLite database under a SHA-256 digest of
+that ID, so they survive restarts. Access tokens are verified on receipt and
+normal requests check their validity locally. Refreshes are serialized per
+session; an identity provider outage keeps the session (`auth_unavailable`),
+while a rejected refresh or an unmapped subject ends it. Unauthenticated page
+loads are redirected to `/auth/login?return_to=...` so login returns to the
+original page. Authentication and the one-second return screen are hosted
+by only WebAuth. Local logout revokes the refresh token but does not end the
+identity provider's session.
 
 The browser stores no NovelAI token. The real token and production env file
 should stay outside the repository:
@@ -131,21 +168,117 @@ should stay outside the repository:
 
 Deployment helpers are in `server/deploy/` and `server/scripts/`.
 
+### Database schema and the one-off upgrade
+
+`app/db.py` holds one final `SCHEMA` and `PRAGMA user_version` (currently `1`).
+The gateway never migrates on startup:
+
+- a new, empty database is created with the final schema;
+- `user_version` equal to the code's version starts normally;
+- anything else, including the production database from before this release
+  (`user_version` 0), makes the service and every `app.cli` command stop with an
+  error that points here.
+
+Upgrading the production database from `user_version` 0 is a one-off step done
+with `python -m app.cli db upgrade`. It only needs SQLite (no NovelAI, no
+identity provider). It first checks the column structure of every table and
+exits without touching anything if it differs from the expected version-0
+structure. The upgrade runs in a single transaction (foreign keys off while
+tables are rebuilt; `PRAGMA foreign_key_check` and a comparison with the final
+schema before commit), so a failure leaves the database as it was. It
+
+- adds `request_audit_logs.request_body_expired_at` and creates
+  `only_webauth_sessions`, `generation_item_errors`, `billing_anomalies` and
+  `tool_reservations`;
+- rebuilds `generation_tasks` and `generation_submission_tasks` without their
+  retired columns (`cost`, `anlas_before/after`, `paid_points_charged`, the
+  red/green `reserved_`/`released_` columns, and all point columns on
+  submissions), copying every row and keeping ids, idempotency keys and
+  indexes; `consumed_red_points` is filled from `paid_points_charged` where an
+  older paid row only had the latter;
+- drops `daily_quotas`, `quota_usage`, `admin_config`, `schema_migrations`,
+  `legacy_quota_snapshots` and the three `webauthn_*` tables (the dry run lists
+  how many rows each holds);
+- rebuilds `users.green_points_reserved` / `red_points_reserved` the way
+  `recompute_reserved_points` does at startup.
+
+Steps (run from `server/` with the production environment loaded; `--db PATH`
+selects another file than the configured one):
+
+1. Stop the service so nothing writes to the database:
+   `launchctl bootout gui/$(id -u)/com.redcontritio.naiweaver`
+2. Back up. Either let the tool do it in step 5 (`--backup-to`), or make and
+   check your own copy, for example `sqlite3 "$DB" ".backup '$DB.pre-v1'"`
+   and `sqlite3 "$DB.pre-v1" "PRAGMA integrity_check"`.
+3. Dry run (the default). The database file is opened read-only and the whole
+   upgrade is rehearsed on an in-memory copy:
+   `.venv/bin/python -m app.cli db upgrade`
+4. Check the output: rows copied per rebuilt table, the dropped columns and
+   tables with their row counts, which users' reserved counters change, and
+   the final "checks passed" line. A structure mismatch is an error here.
+5. Apply. Exactly one backup option is required:
+   `.venv/bin/python -m app.cli db upgrade --apply --backup-to ~/backups/gateway-v0.sqlite3`
+   writes a backup with the SQLite backup API, checks the copy
+   (`integrity_check`, row counts) and then upgrades; or
+   `.venv/bin/python -m app.cli db upgrade --apply --backup-verified` confirms
+   that you made and checked a backup in step 2.
+6. Start the new version:
+   `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.redcontritio.naiweaver.plist`
+   (or `kickstart`), check `stderr.log`, then smoke-test with `agent_test`.
+7. If the upgrade fails, it rolled back and nothing changed: fix the cause or
+   keep running the old release. If the new version misbehaves, stop it and put
+   the backup back: delete `$DB-wal` and `$DB-shm` (so no stale write-ahead
+   log is replayed over the restored file), then
+   `cp ~/backups/gateway-v0.sqlite3 "$DB"` and start the previous release.
+
+Once production is at version 1, `app/db_upgrade.py`, its CLI command and
+`tests/test_db_upgrade.py` can be deleted.
+
 ### macOS Production Service
 
 The production service is installed as a user LaunchAgent:
 
 - plist: `~/Library/LaunchAgents/com.redcontritio.naiweaver.plist`
-- runner: `server/scripts/run-production.sh`
+- release checkout: `/Users/redcontritio/Projects/NAIWeaver-release`, a
+  `git worktree` whose local branch `production` is the deployed commit. Production never runs from the
+  development tree, so merging or switching branches there cannot change what
+  a restart loads.
+- runner: `<release>/server/scripts/run-production.sh` (requires
+  `NAIWEAVER_PROJECT_DIR` and `NAIWEAVER_DATA_DIR` in the env file)
 - env: `~/.config/naiweaver/env.production`
+- data: `NAIWEAVER_DATA_DIR` (currently the development tree's `server/data`)
+- web build: `NAIWEAVER_WEB_BUILD_DIR` (`<release>/server/static/web`)
 - logs: `~/.config/naiweaver/stdout.log` and `~/.config/naiweaver/stderr.log`
 - local listen: `127.0.0.1:62279`
 
-Restart it after changing env or backend code:
+Release a new commit. The running gateway serves `static/web` straight from
+disk, so the bundle is built next to it and swapped in only right before the
+restart; building in place would hand browsers the new client while the old
+gateway is still running.
 
 ```bash
-launchctl kickstart -k gui/$(id -u)/com.redcontritio.naiweaver
+R=/Users/redcontritio/Projects/NAIWeaver-release
+git -C $R checkout -B production <commit>
+(cd $R/server && uv sync --frozen)
+(cd $R && flutter pub get && rm -rf server/static/web.next && \
+  flutter build web --release --output server/static/web.next && \
+  server/scripts/compress-web.sh server/static/web.next)
+mv $R/server/static/web $R/server/static/web.previous.$(date +%Y%m%d-%H%M%S) && \
+  mv $R/server/static/web.next $R/server/static/web && \
+  launchctl kickstart -k gui/$(id -u)/com.redcontritio.naiweaver
 ```
+
+Roll back the web bundle by moving the newest `web.previous.*` back to `web`
+(and the checkout to the previous commit) before another kickstart.
+
+`compress-web.sh` needs `brotli` (`brew install brotli`) and must be re-run
+after every `flutter build web`; the gateway ignores siblings older than the
+source file, so a forgotten run falls back to the uncompressed bundle. It writes `.br`/`.gz` siblings; the gateway serves them to
+browsers that accept the encoding and answers unchanged files with 304, so the
+~10 MB `main.dart.js` costs ~2 MB on a first visit and nothing afterwards.
+
+If the commit changes the database schema, stop the service and run the
+one-off upgrade above before starting it again.
 
 The public route uses frp `https2http`:
 
@@ -168,6 +301,43 @@ mode, NovelAI endpoints are mapped to backend routes:
 - text host: `/api/nai/text/...`
 
 The backend strips any browser `Authorization` value and injects the local
-NovelAI token. Image generation is queued globally, forced to `n_samples = 1`,
-and each user may hold up to 20 unfinished image tasks by default. Configure
-that capacity with `NAIWEAVER_MAX_QUEUED_IMAGE_TASKS_PER_USER`.
+NovelAI token. Image generation is submitted only through
+`/api/generation-tasks`, queued globally, forced to `n_samples = 1`, and each
+user may hold up to 20 unfinished image tasks by default. Configure that
+capacity with `NAIWEAVER_MAX_QUEUED_IMAGE_TASKS_PER_USER`.
+
+Pricing, submission, errors and history payloads follow
+`docs/GATEWAY_CONTRACT.md`. Every NovelAI image call (queued generations and
+paid tools) runs through one serialized upstream lane, red-point work first.
+Paid tools are quoted at a configurable cap, reserved before the call and
+settled at the measured Anlas cost:
+
+```bash
+NAIWEAVER_TOOL_CAP_UPSCALE=10
+NAIWEAVER_TOOL_CAP_AUGMENT=80
+NAIWEAVER_TOOL_CAP_ENCODE_VIBE=2
+# How long free-eligible work is priced in red points after NovelAI charged
+# Anlas for a free image (see the free allowance in the contract).
+NAIWEAVER_FREE_ALLOWANCE_COOLDOWN_SECONDS=1800
+```
+
+Settlements that disagree with their quote are recorded in the
+`billing_anomalies` table.
+
+## Audit retention
+
+Every proxied request and generation submission is audited. The request body
+of an accepted request is stored under `NAIWEAVER_AUDIT_DIR`; a rejected
+generation submission records metadata only, never the body.
+
+Body files older than `NAIWEAVER_AUDIT_RETENTION_DAYS` (default `0` = keep
+forever; set a number of days to enable cleanup) are deleted at startup and once a day. The audit rows stay
+in the database, lose their body path and are marked
+`request_body_expired_at`; `GET /api/admin/audit/{id}/body` then answers 404
+with an "expired" message, and `GET /api/admin/audit` reports
+`request_body_expired: true`.
+
+## Module layout
+
+`app.main:app` only assembles the application (middleware, error handlers,
+lifespan, routers). See "Gateway server modules" in `ARCHITECTURE.md`.

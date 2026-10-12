@@ -28,14 +28,8 @@ class SideBySideComparison extends StatelessWidget {
       builder: (context, constraints) {
         final isWide = constraints.maxWidth > constraints.maxHeight;
 
-        final beforePanel = _ImagePanel(
-          bytes: beforeBytes,
-          label: beforeLabel,
-        );
-        final afterPanel = _ImagePanel(
-          bytes: afterBytes,
-          label: afterLabel,
-        );
+        final beforePanel = _ImagePanel(bytes: beforeBytes, label: beforeLabel);
+        final afterPanel = _ImagePanel(bytes: afterBytes, label: afterLabel);
 
         if (isWide) {
           return Row(
@@ -75,14 +69,14 @@ class _ImagePanel extends StatelessWidget {
         InteractiveViewer(
           maxScale: 16.0,
           minScale: 0.1,
-          child: Center(
-            child: Image.memory(bytes),
-          ),
+          child: Center(child: Image.memory(bytes)),
         ),
         if (label != null)
           Positioned(
             left: 8,
             bottom: 8,
+            // Black/white label chip drawn over the image: must stay legible on
+            // any picture, so it is not themed.
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(

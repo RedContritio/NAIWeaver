@@ -1,19 +1,27 @@
-import 'dart:io';
-import '../../../../core/utils/file_picker_helper.dart';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/l10n/l10n_extensions.dart';
 import '../../../../core/theme/theme_extensions.dart';
-import '../../../../core/utils/app_snackbar.dart';
-import '../../../../core/utils/responsive.dart';
+import '../../../../core/theme/vision_metrics.dart';
+import '../../../../core/theme/vision_tokens.dart';
 import '../../../../core/utils/timestamp_utils.dart';
 import '../../../../core/widgets/comparison_slider.dart';
+import '../../../../core/widgets/section_title.dart';
+import '../../../../core/widgets/ui/app_panel.dart';
+import '../../../../core/widgets/ui/app_tabs.dart';
 import '../../../../core/widgets/vision_slider.dart';
-import '../../../../l10n/app_localizations.dart';
-import '../../../gallery/providers/gallery_notifier.dart';
+import '../../../gallery/services/tool_result_saver.dart';
 import '../../../generation/providers/generation_notifier.dart';
+import '../../../generation/widgets/quote_confirm_dialog.dart';
 import '../../widgets/tool_config_bottom_sheet.dart';
+import '../../widgets/tool_source_picker.dart';
+import '../../widgets/tool_workspace.dart';
 import '../providers/enhance_notifier.dart';
+
+/// Resolution scales the enhance request supports.
+const _scales = [1.0, 1.5];
 
 class EnhanceEditor extends StatefulWidget {
   const EnhanceEditor({super.key});
@@ -27,6 +35,10 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
   final TextEditingController _negativePromptController =
       TextEditingController();
   bool _initialized = false;
+
+  /// Result bytes last written by [_saveResult]; anything else is unsaved.
+  Uint8List? _savedResult;
+  bool _saving = false;
 
   @override
   void dispose() {
@@ -69,327 +81,55 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
   }
 
   Widget _buildPicker(BuildContext context, EnhanceNotifier notifier) {
-    final genNotifier = context.watch<GenerationNotifier>();
-    final galleryNotifier = context.watch<GalleryNotifier>();
-    final hasCurrentImage = genNotifier.state.generatedImage != null;
-    final t = context.t;
     final l = context.l;
-
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.hd, size: 48, color: t.textMinimal),
-            const SizedBox(height: 16),
-            Text(
-              l.enhanceTitle,
-              style: TextStyle(
-                color: t.textDisabled,
-                fontSize: t.fontSize(12),
-                fontWeight: FontWeight.bold,
-                letterSpacing: 3,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              l.enhanceDesc,
-              style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(10)),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-
-            if (hasCurrentImage) ...[
-              _PickerOption(
-                icon: Icons.flash_on,
-                label: l.enhanceUseCurrent,
-                description: l.enhanceUseCurrentDesc,
-                accentColor: t.accent,
-                onTap: () {
-                  notifier.setSourceImage(genNotifier.state.generatedImage!);
-                  _promptController.text = genNotifier.promptController.text;
-                  _negativePromptController.text = notifier.negativePrompt;
-                  _initialized = true;
-                },
-              ),
-              const SizedBox(height: 12),
-            ],
-
-            _PickerOption(
-              icon: Icons.photo_library_outlined,
-              label: l.img2imgUploadFromDevice,
-              description: l.img2imgUploadFromDeviceDesc,
-              accentColor: t.accentEdit,
-              onTap: () async {
-                final result = await pickImageFiles();
-                if (result != null && result.files.single.path != null) {
-                  final bytes = await File(
-                    result.files.single.path!,
-                  ).readAsBytes();
-                  notifier.setSourceImage(bytes);
-                  _negativePromptController.text = notifier.negativePrompt;
-                  _initialized = true;
-                }
-              },
-            ),
-            const SizedBox(height: 12),
-
-            if (!galleryNotifier.demoMode &&
-                galleryNotifier.items.isNotEmpty) ...[
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(
-                    'FROM GALLERY',
-                    style: TextStyle(
-                      color: t.textDisabled,
-                      fontSize: t.fontSize(9),
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(
-                height: 280,
-                child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                    mainAxisSpacing: 4,
-                    crossAxisSpacing: 4,
-                    childAspectRatio: 0.75,
-                  ),
-                  itemCount: galleryNotifier.items.length,
-                  itemBuilder: (context, index) {
-                    final item = galleryNotifier.items[index];
-                    return GestureDetector(
-                      onTap: () async {
-                        final bytes = await item.file.readAsBytes();
-                        notifier.setSourceImage(bytes);
-                        _negativePromptController.text =
-                            notifier.negativePrompt;
-                        _initialized = true;
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: t.surfaceHigh,
-                          borderRadius: BorderRadius.circular(2),
-                          border: Border.all(color: t.borderSubtle),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(2),
-                          child: Image.file(
-                            item.file,
-                            fit: BoxFit.cover,
-                            filterQuality: FilterQuality.medium,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
+    return ToolSourcePicker(
+      icon: Icons.hd,
+      title: l.enhanceTitle,
+      description: l.enhanceDesc,
+      useCurrentLabel: l.enhanceUseCurrent,
+      useCurrentDescription: l.enhanceUseCurrentDesc,
+      promptImport: ToolSourcePromptImport.mainPromptForCurrentGeneration,
+      onSelected: (selection) {
+        notifier.setSourceImage(selection.bytes);
+        if (selection.prompt != null) {
+          _promptController.text = selection.prompt!;
+        }
+        _negativePromptController.text = notifier.negativePrompt;
+        _initialized = true;
+      },
     );
   }
 
   Widget _buildWorkspace(BuildContext context, EnhanceNotifier notifier) {
-    final mobile = isMobile(context);
-
-    Widget imageArea = _buildImageArea(context, notifier);
-
-    return Column(
-      children: [
-        _buildHeader(context, notifier),
-        Expanded(
-          child: mobile
-              ? imageArea
-              : Row(
-                  children: [
-                    Expanded(flex: 3, child: imageArea),
-                    SizedBox(
-                      width: 300,
-                      child: SingleChildScrollView(
-                        child: _buildConfigPanel(context, notifier),
-                      ),
-                    ),
-                  ],
-                ),
-        ),
-        if (mobile)
-          ToolSettingsDock(
-            tooltip: context.l.enhanceSettingsTooltip,
-            onPressed: () => showToolConfigBottomSheet(
-              context: context,
-              listenable: notifier,
-              contentBuilder: (_) => _buildConfigPanel(context, notifier),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildHeader(BuildContext context, EnhanceNotifier notifier) {
-    final t = context.t;
     final l = context.l;
-    final mobile = isMobile(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: t.surfaceHigh,
-        border: Border(bottom: BorderSide(color: t.borderSubtle)),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: Icon(Icons.arrow_back, size: 16, color: t.textDisabled),
-            onPressed: () => notifier.clear(),
-            tooltip: l.img2imgBackToPicker,
-          ),
-          const Spacer(),
-          if (notifier.hasResult &&
-              !context.read<GenerationNotifier>().state.autoSaveImages) ...[
-            if (mobile)
-              SizedBox(
-                height: 36,
-                child: IconButton(
-                  onPressed: () => _saveResult(notifier),
-                  icon: const Icon(Icons.save_alt, size: 14),
-                  tooltip: l.commonSave,
-                  style: IconButton.styleFrom(
-                    backgroundColor: t.accentSuccess,
-                    foregroundColor: t.background,
-                  ),
-                ),
-              )
-            else
-              SizedBox(
-                height: 36,
-                child: ElevatedButton.icon(
-                  onPressed: () => _saveResult(notifier),
-                  icon: const Icon(Icons.save_alt, size: 14),
-                  label: Text(l.commonSave),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: t.accentSuccess,
-                    foregroundColor: t.background,
-                    textStyle: TextStyle(
-                      fontSize: t.fontSize(10),
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    elevation: 0,
-                  ),
-                ),
-              ),
-            const SizedBox(width: 8),
-          ],
-          if (mobile && notifier.hasResult)
-            SizedBox(
-              height: 36,
-              child: IconButton(
-                onPressed: notifier.isProcessing
-                    ? null
-                    : () async {
-                        final gen = context.read<GenerationNotifier>();
-                        notifier.setPrompt(_promptController.text);
-                        notifier.setNegativePrompt(
-                          _negativePromptController.text,
-                        );
-                        _syncStylesAndCharacters(notifier, gen);
-                        await notifier.enhance();
-                        if (notifier.hasResult && mounted) {
-                          if (gen.state.autoSaveImages) {
-                            _saveResult(notifier);
-                          }
-                        }
-                      },
-                icon: notifier.isProcessing
-                    ? SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: t.background,
-                        ),
-                      )
-                    : const Icon(Icons.auto_awesome, size: 14),
-                style: IconButton.styleFrom(
-                  backgroundColor: t.accent,
-                  foregroundColor: t.background,
-                ),
-              ),
-            )
-          else
-            SizedBox(
-              height: 36,
-              child: ElevatedButton.icon(
-                onPressed: notifier.isProcessing
-                    ? null
-                    : () async {
-                        final gen = context.read<GenerationNotifier>();
-                        notifier.setPrompt(_promptController.text);
-                        notifier.setNegativePrompt(
-                          _negativePromptController.text,
-                        );
-                        _syncStylesAndCharacters(notifier, gen);
-                        await notifier.enhance();
-                        if (notifier.hasResult && mounted) {
-                          if (gen.state.autoSaveImages) {
-                            _saveResult(notifier);
-                          }
-                        }
-                      },
-                icon: notifier.isProcessing
-                    ? SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: t.background,
-                        ),
-                      )
-                    : const Icon(Icons.auto_awesome, size: 14),
-                label: Text(
-                  notifier.isProcessing
-                      ? (notifier.status.isNotEmpty
-                            ? notifier.status.toUpperCase()
-                            : l.enhanceProcessing)
-                      : l.enhanceProcess,
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: t.accent,
-                  foregroundColor: t.background,
-                  textStyle: TextStyle(
-                    fontSize: t.fontSize(10),
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  elevation: 0,
-                ),
-              ),
-            ),
-        ],
+    return ToolRunShortcut(
+      onRun: notifier.isProcessing ? null : () => _process(notifier),
+      child: ToolSettingsLayout(
+        header: ToolWorkspaceHeader(
+          onBack: () => _backToPicker(notifier),
+          processIcon: Icons.auto_awesome,
+          processLabel: l.enhanceProcess,
+          processingLabel: l.enhanceProcessing,
+          isProcessing: notifier.isProcessing,
+          onProcess: () => _process(notifier),
+          hasResult: notifier.hasResult,
+          showSave: _hasUnsavedResult(notifier),
+          onSave: _saving ? null : () => _saveResult(notifier),
+        ),
+        body: _buildImageArea(context, notifier),
+        settingsTooltip: l.enhanceSettingsTooltip,
+        settingsBuilder: (settingsContext) => _buildConfigPanel(
+          settingsContext,
+          settingsContext.watch<EnhanceNotifier>(),
+        ),
       ),
     );
   }
 
   Widget _buildImageArea(BuildContext context, EnhanceNotifier notifier) {
     final t = context.t;
-    final loc = AppLocalizations.of(context);
+    final l = context.l;
+    final error = notifier.error;
 
     return Stack(
       children: [
@@ -397,8 +137,8 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
           ComparisonSlider(
             beforeBytes: notifier.sourceImageBytes!,
             afterBytes: notifier.resultBytes!,
-            beforeLabel: loc.comparisonBefore.toUpperCase(),
-            afterLabel: loc.comparisonAfter.toUpperCase(),
+            beforeLabel: l.comparisonBefore.toUpperCase(),
+            afterLabel: l.comparisonAfter.toUpperCase(),
           )
         else
           Container(
@@ -414,200 +154,109 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
               ),
             ),
           ),
-        if (notifier.error != null)
+        if (error != null)
           Positioned(
-            bottom: 8,
-            left: 8,
-            right: 8,
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: t.accentDanger.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(
-                  color: t.accentDanger.withValues(alpha: 0.4),
-                ),
-              ),
-              child: Text(
-                notifier.error!,
-                style: TextStyle(
-                  color: t.accentDanger,
-                  fontSize: t.fontSize(9),
-                ),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
+            bottom: VisionMetrics.space8,
+            left: VisionMetrics.space8,
+            right: VisionMetrics.space8,
+            child: ErrorBanner(message: toolErrorMessage(l, error)),
           ),
       ],
+    );
+  }
+
+  Widget _promptField({
+    required VisionTokens t,
+    required TextEditingController controller,
+    required String hint,
+  }) {
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(VisionMetrics.radius4),
+      borderSide: BorderSide(color: t.borderMedium),
+    );
+    return TextField(
+      controller: controller,
+      maxLines: 2,
+      style: TextStyle(fontSize: t.fontSize(10), color: t.textPrimary),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(color: t.hintText, fontSize: t.fontSize(9)),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: VisionMetrics.space12,
+          vertical: VisionMetrics.space8,
+        ),
+        filled: true,
+        fillColor: t.borderSubtle,
+        border: border,
+        enabledBorder: border,
+      ),
     );
   }
 
   Widget _buildConfigPanel(BuildContext context, EnhanceNotifier notifier) {
     final t = context.t;
     final l = context.l;
-    final labelSize = responsiveFont(context, 9, 11);
+    const compact = SectionTitleVariant.compact;
+    final config = notifier.config;
+    final scaledWidth =
+        ((notifier.sourceWidth * config.scale) / 64).round() * 64;
+    final scaledHeight =
+        ((notifier.sourceHeight * config.scale) / 64).round() * 64;
 
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(VisionMetrics.space16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Prompt
-          Text(
-            l.enhancePrompt,
-            style: TextStyle(
-              color: t.secondaryText,
-              fontSize: t.fontSize(labelSize),
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
+          SectionTitle(l.enhancePrompt, t: t, variant: compact),
+          _promptField(
+            t: t,
             controller: _promptController,
-            maxLines: 2,
-            style: TextStyle(fontSize: t.fontSize(10), color: t.textPrimary),
-            decoration: InputDecoration(
-              hintText: l.img2imgPromptHint,
-              hintStyle: TextStyle(color: t.hintText, fontSize: t.fontSize(9)),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
-              filled: true,
-              fillColor: t.borderSubtle,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-                borderSide: BorderSide(color: t.borderMedium),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-                borderSide: BorderSide(color: t.borderMedium),
-              ),
-            ),
+            hint: l.img2imgPromptHint,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: VisionMetrics.space12),
 
-          // Negative prompt
-          Text(
-            l.enhanceNegative,
-            style: TextStyle(
-              color: t.secondaryText,
-              fontSize: t.fontSize(labelSize),
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
+          SectionTitle(l.enhanceNegative, t: t, variant: compact),
+          _promptField(
+            t: t,
             controller: _negativePromptController,
-            maxLines: 2,
-            style: TextStyle(fontSize: t.fontSize(10), color: t.textPrimary),
-            decoration: InputDecoration(
-              hintText: l.img2imgNegativeHint,
-              hintStyle: TextStyle(color: t.hintText, fontSize: t.fontSize(9)),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
-              filled: true,
-              fillColor: t.borderSubtle,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-                borderSide: BorderSide(color: t.borderMedium),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-                borderSide: BorderSide(color: t.borderMedium),
-              ),
-            ),
+            hint: l.img2imgNegativeHint,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: VisionMetrics.space16),
 
-          // Resolution scale
-          Text(
-            'RESOLUTION SCALE',
-            style: TextStyle(
-              color: t.secondaryText,
-              fontSize: t.fontSize(labelSize),
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              for (final scale in [1.0, 1.5])
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(
-                      '${scale}x',
-                      style: TextStyle(
-                        fontSize: t.fontSize(9),
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                    selected: notifier.config.scale == scale,
-                    onSelected: (_) => notifier.setScale(scale),
-                    backgroundColor: t.borderSubtle,
-                    selectedColor: t.accent,
-                    checkmarkColor: t.background,
-                    labelStyle: TextStyle(
-                      color: notifier.config.scale == scale
-                          ? t.background
-                          : t.textTertiary,
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 2,
-                    ),
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                    side: BorderSide(
-                      color: notifier.config.scale == scale
-                          ? t.accent
-                          : t.textMinimal,
-                      width: 0.5,
-                    ),
-                  ),
-                ),
+          SectionTitle(l.enhanceResolutionScale, t: t, variant: compact),
+          AppSegmented<double>(
+            options: [
+              for (final scale in _scales)
+                AppOption(value: scale, label: '${scale}x'),
             ],
+            selected: config.scale,
+            onChanged: notifier.setScale,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: VisionMetrics.space16),
 
-          // Strength slider
           _SliderRow(
             label: l.enhanceStrength,
-            value: notifier.config.strength,
+            value: config.strength,
             onChanged: notifier.setStrength,
             t: t,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: VisionMetrics.space8),
 
-          // Noise slider
           _SliderRow(
             label: l.enhanceNoise,
-            value: notifier.config.noise,
+            value: config.noise,
             onChanged: notifier.setNoise,
             t: t,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: VisionMetrics.space16),
 
-          // Resolution display
           Text(
-            notifier.config.scale > 1.0
-                ? '${notifier.sourceWidth}x${notifier.sourceHeight} → ${((notifier.sourceWidth * notifier.config.scale) / 64).round() * 64}x${((notifier.sourceHeight * notifier.config.scale) / 64).round() * 64}'
+            config.scale > 1.0
+                ? '${notifier.sourceWidth}x${notifier.sourceHeight} → ${scaledWidth}x$scaledHeight'
                 : '${notifier.sourceWidth}x${notifier.sourceHeight}',
-            style: TextStyle(
-              color: t.textMinimal,
-              fontSize: t.fontSize(labelSize),
-            ),
+            style: TextStyle(color: t.textMinimal, fontSize: t.fontSize(10)),
           ),
         ],
       ),
@@ -639,19 +288,46 @@ class _EnhanceEditorState extends State<EnhanceEditor> {
     );
   }
 
-  void _saveResult(EnhanceNotifier notifier) {
-    if (notifier.resultBytes == null) return;
-    final gallery = context.read<GalleryNotifier>();
-    final timestamp = generateTimestamp();
-    gallery.saveMLResultWithMetadata(
-      notifier.resultBytes!,
-      'ENH_$timestamp.png',
-      sourceBytes: notifier.sourceImageBytes,
+  Future<void> _process(EnhanceNotifier notifier) async {
+    final gen = context.read<GenerationNotifier>();
+    notifier.setPrompt(_promptController.text);
+    notifier.setNegativePrompt(_negativePromptController.text);
+    _syncStylesAndCharacters(notifier, gen);
+    await notifier.enhance(
+      confirmQuote: (confirmation) => confirmQuoteChange(context, confirmation),
     );
-
-    if (mounted) {
-      showAppSnackBar(context, context.l.enhanceSaved);
+    if (mounted && notifier.hasResult && gen.state.autoSaveImages) {
+      await _saveResult(notifier);
     }
+  }
+
+  bool _hasUnsavedResult(EnhanceNotifier notifier) =>
+      notifier.hasResult && !identical(notifier.resultBytes, _savedResult);
+
+  Future<void> _backToPicker(EnhanceNotifier notifier) async {
+    if (_hasUnsavedResult(notifier) &&
+        !await confirmDiscardUnsavedResult(context)) {
+      return;
+    }
+    notifier.clear();
+  }
+
+  Future<void> _saveResult(EnhanceNotifier notifier) async {
+    final result = notifier.resultBytes;
+    if (result == null || _saving) return;
+    setState(() => _saving = true);
+    final outcome = await saveToolResult(
+      context,
+      bytes: result,
+      fileName: 'ENH_${generateTimestamp()}.png',
+      sourceBytes: notifier.sourceImageBytes,
+      savedMessage: context.l.enhanceSaved,
+    );
+    if (!mounted) return;
+    setState(() {
+      _saving = false;
+      if (outcome.succeeded) _savedResult = result;
+    });
   }
 }
 
@@ -659,7 +335,7 @@ class _SliderRow extends StatelessWidget {
   final String label;
   final double value;
   final ValueChanged<double> onChanged;
-  final dynamic t;
+  final VisionTokens t;
 
   const _SliderRow({
     required this.label,
@@ -673,23 +349,14 @@ class _SliderRow extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                color: t.secondaryText,
-                fontSize: t.fontSize(responsiveFont(context, 9, 11)),
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2,
-              ),
-            ),
-            Text(
-              value.toStringAsFixed(2),
-              style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(10)),
-            ),
-          ],
+        SectionTitle(
+          label,
+          t: t,
+          variant: SectionTitleVariant.compact,
+          trailing: Text(
+            value.toStringAsFixed(2),
+            style: TextStyle(color: t.textPrimary, fontSize: t.fontSize(10)),
+          ),
         ),
         VisionSlider.subtle(
           value: value,
@@ -700,75 +367,6 @@ class _SliderRow extends StatelessWidget {
           divisions: 20,
         ),
       ],
-    );
-  }
-}
-
-class _PickerOption extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String description;
-  final Color accentColor;
-  final VoidCallback onTap;
-
-  const _PickerOption({
-    required this.icon,
-    required this.label,
-    required this.description,
-    required this.accentColor,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(4),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: accentColor.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: accentColor.withValues(alpha: 0.2)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: accentColor),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      color: accentColor,
-                      fontSize: t.fontSize(10),
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    description,
-                    style: TextStyle(
-                      color: t.textDisabled,
-                      fontSize: t.fontSize(9),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.arrow_forward_ios,
-              size: 12,
-              color: accentColor.withValues(alpha: 0.5),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

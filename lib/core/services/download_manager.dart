@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import '../../l10n/app_localizations.dart';
 
 /// Generic download status shared across ML models, soundfonts, etc.
 enum DownloadStatus { idle, downloading, completed, error }
@@ -8,15 +9,25 @@ enum DownloadStatus { idle, downloading, completed, error }
 enum DownloadResult { success, cancelled, hashMismatch, error }
 
 /// Immutable state for a single download.
+/// Why a download ended in [DownloadStatus.error]; localized by the UI.
+enum DownloadIssue { hashMismatch, failed }
+
+extension DownloadIssueL10n on DownloadIssue {
+  String label(AppLocalizations l) => switch (this) {
+        DownloadIssue.hashMismatch => l.mlDownloadHashMismatch,
+        DownloadIssue.failed => l.mlDownloadFailed,
+      };
+}
+
 class DownloadState {
   final DownloadStatus status;
   final double progress;
-  final String? errorMessage;
+  final DownloadIssue? issue;
 
   const DownloadState({
     this.status = DownloadStatus.idle,
     this.progress = 0.0,
-    this.errorMessage,
+    this.issue,
   });
 }
 
@@ -93,12 +104,12 @@ class DownloadManager {
       case DownloadResult.hashMismatch:
         _states[id] = const DownloadState(
           status: DownloadStatus.error,
-          errorMessage: 'Hash verification failed',
+          issue: DownloadIssue.hashMismatch,
         );
       case DownloadResult.error:
         _states[id] = const DownloadState(
           status: DownloadStatus.error,
-          errorMessage: 'Download failed',
+          issue: DownloadIssue.failed,
         );
     }
     onNotify();

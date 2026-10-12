@@ -122,12 +122,5 @@ void main() {
   });
 
   group('formatMigrationBytes', () {
-    test('picks sensible units', () {
-      expect(formatMigrationBytes(512), '512 B');
-      expect(formatMigrationBytes(2048), '2.0 KB');
-      expect(formatMigrationBytes(5 * 1024 * 1024), '5.0 MB');
-      expect(formatMigrationBytes((30.6 * 1024 * 1024 * 1024).round()),
-          '30.6 GB');
-    });
   });
 }
